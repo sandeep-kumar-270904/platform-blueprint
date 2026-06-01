@@ -26,8 +26,9 @@ import { NotificationsPanel } from "@/components/dashboard/NotificationsPanel";
 import { LiveActivity } from "@/components/dashboard/LiveActivity";
 import { ProfileManager } from "@/components/dashboard/ProfileManager";
 import { JoinRequestsManager } from "@/components/dashboard/JoinRequestsManager";
+import { LearningProgress } from "@/components/dashboard/LearningProgress";
 
-type Section = "overview" | "ideas" | "collaborations" | "requests" | "teams" | "notifications" | "live" | "profile" | "links";
+type Section = "overview" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "live" | "profile" | "links";
 
 const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -35,6 +36,7 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "collaborations", label: "Collaborations", icon: Handshake },
   { id: "requests", label: "Join Requests", icon: UserPlus },
   { id: "teams", label: "My Teams", icon: Users },
+  { id: "progress", label: "Learning Progress", icon: TrendingUp },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "live", label: "Live Activity", icon: Radio },
   { id: "profile", label: "Profile", icon: User },
@@ -172,6 +174,9 @@ const Dashboard = () => {
                 <NotificationsPanel userId={user.id} />
               </ScrollReveal>
             </div>
+            <ScrollReveal delay={0.35}>
+              <LearningProgress />
+            </ScrollReveal>
           </div>
         );
       case "ideas":
@@ -182,6 +187,8 @@ const Dashboard = () => {
         return <JoinRequestsManager userId={user.id} />;
       case "teams":
         return <MyTeams userId={user.id} />;
+      case "progress":
+        return <LearningProgress />;
       case "notifications":
         return <NotificationsPanel userId={user.id} />;
       case "live":

@@ -47,6 +47,7 @@ import Hostels from "./pages/Hostels";
 import Repair from "./pages/Repair";
 import Shopping from "./pages/Shopping";
 import FoundersPassport from "./pages/FoundersPassport";
+import InviteAccept from "./pages/InviteAccept";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -99,6 +100,7 @@ const App = () => (
           <Route path="/repair" element={<Repair />} />
           <Route path="/shopping" element={<Shopping />} />
           <Route path="/founders-passport" element={<FoundersPassport />} />
+          <Route path="/invite/:token" element={<InviteAccept />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
