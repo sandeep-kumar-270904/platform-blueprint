@@ -444,6 +444,80 @@ export type Database = {
           },
         ]
       }
+      classroom_message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classroom_message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "classroom_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classroom_messages: {
+        Row: {
+          classroom_id: string
+          content: string
+          created_at: string
+          id: string
+          parent_id: string | null
+          user_id: string
+        }
+        Insert: {
+          classroom_id: string
+          content: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          user_id: string
+        }
+        Update: {
+          classroom_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          parent_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classroom_messages_classroom_id_fkey"
+            columns: ["classroom_id"]
+            isOneToOne: false
+            referencedRelation: "virtual_classrooms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classroom_messages_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "classroom_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collection_notes: {
         Row: {
           added_at: string
@@ -619,6 +693,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      event_attendance: {
+        Row: {
+          checked_in_at: string
+          event_id: string
+          id: string
+          method: string
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          checked_in_at?: string
+          event_id: string
+          id?: string
+          method?: string
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          checked_in_at?: string
+          event_id?: string
+          id?: string
+          method?: string
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_attendance_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_registrations: {
         Row: {
@@ -2113,6 +2222,53 @@ export type Database = {
           },
         ]
       }
+      study_group_invites: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string
+          group_id: string
+          id: string
+          max_uses: number
+          revoked: boolean
+          role: string
+          token: string
+          uses: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at: string
+          group_id: string
+          id?: string
+          max_uses?: number
+          revoked?: boolean
+          role?: string
+          token: string
+          uses?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          group_id?: string
+          id?: string
+          max_uses?: number
+          revoked?: boolean
+          role?: string
+          token?: string
+          uses?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_group_invites_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "study_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       study_group_members: {
         Row: {
           group_id: string
@@ -2604,6 +2760,10 @@ export type Database = {
         Args: { _booking_id: string }
         Returns: undefined
       }
+      check_in_event: {
+        Args: { _event_id: string; _user_id?: string }
+        Returns: string
+      }
       compute_note_quality_score: {
         Args: { _note_id: string }
         Returns: number
@@ -2613,6 +2773,19 @@ export type Database = {
         Returns: {
           circle_id: string
           feedback_count: number
+        }[]
+      }
+      create_group_invite: {
+        Args: {
+          _expires_in_hours?: number
+          _group_id: string
+          _max_uses?: number
+          _role?: string
+        }
+        Returns: {
+          expires_at: string
+          id: string
+          token: string
         }[]
       }
       has_role: {
@@ -2662,6 +2835,7 @@ export type Database = {
         }
         Returns: string
       }
+      redeem_group_invite: { Args: { _token: string }; Returns: string }
       register_for_event: { Args: { _event_id: string }; Returns: string }
       rsvp_learning_session: {
         Args: { _session_id: string }
@@ -2669,6 +2843,10 @@ export type Database = {
       }
       toggle_ama_question_vote: {
         Args: { _question_id: string }
+        Returns: Json
+      }
+      toggle_classroom_reaction: {
+        Args: { _emoji: string; _message_id: string }
         Returns: Json
       }
       toggle_comment_vote: {
