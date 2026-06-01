@@ -7,15 +7,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Video, Users, Calendar, Clock, Plus, Loader2, ExternalLink, LogOut, CheckCircle2 } from "lucide-react";
+import { Video, Users, Calendar, Clock, Plus, Loader2, ExternalLink, LogOut, CheckCircle2, MessageCircle } from "lucide-react";
 import { useVirtualClassroom } from "@/hooks/useVirtualClassroom";
 import { useAuth } from "@/hooks/useAuth";
 import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
+import { ClassroomChat } from "@/components/classroom/ClassroomChat";
 
 const VirtualClassroom = () => {
   const { user } = useAuth();
   const { classrooms, joined, loading, status, join, leave, create } = useVirtualClassroom();
   const [open, setOpen] = useState(false);
+  const [chatRoom, setChatRoom] = useState<any>(null);
   const [form, setForm] = useState<any>({ duration_minutes: 60, max_participants: 50 });
 
   const handleCreate = async () => {
@@ -97,15 +99,20 @@ const VirtualClassroom = () => {
                     <div className="flex items-center gap-2 text-muted-foreground"><Clock className="h-4 w-4" />{c.duration_minutes} min</div>
                     {c.description && <p className="text-muted-foreground line-clamp-2">{c.description}</p>}
                   </CardContent>
-                  <CardFooter className="gap-2">
-                    {isJoined ? (
+                  <CardFooter className="gap-2 flex-wrap">
+                    {isJoined || c.host_id === user?.id ? (
                       <>
                         {c.meeting_link && (
                           <Button variant="default" size="sm" className="flex-1" asChild>
-                            <a href={c.meeting_link} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4 mr-1" />Join Live</a>
+                            <a href={c.meeting_link} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4 mr-1" />Join</a>
                           </Button>
                         )}
-                        <Button variant="ghost" size="sm" onClick={() => leave(c.id)}><LogOut className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="sm" onClick={() => setChatRoom(c)}>
+                          <MessageCircle className="h-4 w-4" />
+                        </Button>
+                        {isJoined && (
+                          <Button variant="ghost" size="sm" onClick={() => leave(c.id)}><LogOut className="h-4 w-4" /></Button>
+                        )}
                       </>
                     ) : (
                       <Button size="sm" className="w-full" disabled={full} onClick={() => join(c.id)}>
@@ -119,6 +126,13 @@ const VirtualClassroom = () => {
           </div>
         )}
       </div>
+
+      <Dialog open={!!chatRoom} onOpenChange={(o) => !o && setChatRoom(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>{chatRoom?.title}</DialogTitle></DialogHeader>
+          {chatRoom && <ClassroomChat classroomId={chatRoom.id} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

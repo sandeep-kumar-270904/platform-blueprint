@@ -9,10 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users, Video, MessageSquare, Lock, Globe, Plus, Loader2, Send, LogOut } from "lucide-react";
+import { Users, Video, MessageSquare, Lock, Globe, Plus, Loader2, Send, LogOut, Link2 } from "lucide-react";
 import { useStudyGroups, useGroupMessages, type StudyGroupRow } from "@/hooks/useStudyGroups";
 import { useAuth } from "@/hooks/useAuth";
 import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
+import { InviteManager } from "@/components/study-groups/InviteManager";
 
 const StudyGroups = () => {
   const { user } = useAuth();
@@ -99,10 +100,15 @@ const StudyGroups = () => {
                     <p className="text-sm text-muted-foreground line-clamp-2">{group.description}</p>
                     <div className="flex items-center gap-2 text-sm"><Video className="h-4 w-4 text-primary" />{group.active_room_count} active rooms</div>
                   </CardContent>
-                  <CardFooter className="gap-2">
+                  <CardFooter className="gap-2 flex-wrap">
                     {isMember ? (
                       <>
                         <Button variant="outline" size="sm" className="flex-1" onClick={() => setChatGroup(group)}><MessageSquare className="h-4 w-4 mr-1" />Chat</Button>
+                        <InviteManager
+                          groupId={group.id}
+                          groupName={group.name}
+                          trigger={<Button size="sm" variant="outline"><Link2 className="h-4 w-4" /></Button>}
+                        />
                         <Button variant="ghost" size="sm" onClick={() => leave(group.id)}><LogOut className="h-4 w-4" /></Button>
                       </>
                     ) : (

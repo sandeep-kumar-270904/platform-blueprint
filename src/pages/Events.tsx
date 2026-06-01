@@ -13,6 +13,7 @@ import { Calendar, MapPin, Users, Trophy, Clock, Sparkles, Plus, Loader2, CheckC
 import { useEvents } from "@/hooks/useEvents";
 import { useAuth } from "@/hooks/useAuth";
 import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
+import { AttendanceManager } from "@/components/events/AttendanceManager";
 
 const Events = () => {
   const { user } = useAuth();
@@ -123,7 +124,7 @@ const Events = () => {
                 <h2 className="mb-6 text-2xl font-bold flex items-center gap-2"><Sparkles className="h-6 w-6 text-accent" />Featured</h2>
                 <div className="grid gap-6 md:grid-cols-2">
                   {events.filter(e => e.featured).map(event => (
-                    <EventCard key={event.id} event={event} registered={myRegistrations.has(event.id)} onRegister={() => register(event.id)} onCancel={() => cancel(event.id)} fmtDate={fmtDate} daysLeft={daysLeft} typeColor={typeColor} featured />
+                    <EventCard key={event.id} event={event} registered={myRegistrations.has(event.id)} isOrganizer={event.organizer_id === user?.id} onRegister={() => register(event.id)} onCancel={() => cancel(event.id)} fmtDate={fmtDate} daysLeft={daysLeft} typeColor={typeColor} featured />
                   ))}
                 </div>
               </div>
@@ -131,7 +132,7 @@ const Events = () => {
             <h2 className="mb-6 text-2xl font-bold">All Events</h2>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {events.filter(e => !e.featured).map(event => (
-                <EventCard key={event.id} event={event} registered={myRegistrations.has(event.id)} onRegister={() => register(event.id)} onCancel={() => cancel(event.id)} fmtDate={fmtDate} daysLeft={daysLeft} typeColor={typeColor} />
+                <EventCard key={event.id} event={event} registered={myRegistrations.has(event.id)} isOrganizer={event.organizer_id === user?.id} onRegister={() => register(event.id)} onCancel={() => cancel(event.id)} fmtDate={fmtDate} daysLeft={daysLeft} typeColor={typeColor} />
               ))}
             </div>
           </>
@@ -141,7 +142,7 @@ const Events = () => {
   );
 };
 
-const EventCard = ({ event, registered, onRegister, onCancel, fmtDate, daysLeft, typeColor, featured = false }: any) => {
+const EventCard = ({ event, registered, isOrganizer, onRegister, onCancel, fmtDate, daysLeft, typeColor, featured = false }: any) => {
   const left = daysLeft(event.registration_deadline);
   const full = event.registration_count >= event.capacity;
   return (
@@ -161,13 +162,22 @@ const EventCard = ({ event, registered, onRegister, onCancel, fmtDate, daysLeft,
         {event.venue && <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4" /><span className="truncate">{event.venue}</span></div>}
         <div className="flex items-center gap-2 text-muted-foreground"><Users className="h-4 w-4" />{event.registration_count}/{event.capacity}</div>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex-col gap-2">
         {registered ? (
           <Button variant="outline" className="w-full" onClick={onCancel}><CheckCircle2 className="h-4 w-4 mr-2 text-success" />Registered · Cancel</Button>
         ) : (
           <Button variant={featured ? "hero" : "default"} className="w-full" disabled={full} onClick={onRegister}>
             {full ? "Full" : "Register"}
           </Button>
+        )}
+        {(registered || isOrganizer) && (
+          <AttendanceManager
+            eventId={event.id}
+            eventTitle={event.title}
+            isOrganizer={isOrganizer}
+            isRegistered={registered}
+            trigger={<Button variant="ghost" size="sm" className="w-full">📋 Attendance{isOrganizer ? " & Report" : ""}</Button>}
+          />
         )}
       </CardFooter>
     </Card>

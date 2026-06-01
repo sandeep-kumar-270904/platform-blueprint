@@ -16,10 +16,13 @@ interface Notification {
   action_url: string | null;
 }
 
+import { Calendar } from "lucide-react";
 const typeIcons: Record<string, typeof Bell> = {
   comment: MessageSquare,
+  message: MessageSquare,
   idea: Lightbulb,
   team: Users,
+  event: Calendar,
   info: Info,
 };
 
