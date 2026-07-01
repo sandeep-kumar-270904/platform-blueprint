@@ -66,7 +66,7 @@ const MeetingRoom = () => {
         .select("*")
         .eq("classroom_id", id)
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
         
       if (!p && data.host_id !== user.id) {
         toast({ title: "Not joined or Waitlisted", description: "You must RSVP and not be on the waitlist.", variant: "destructive" });
