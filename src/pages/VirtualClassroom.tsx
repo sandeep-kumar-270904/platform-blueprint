@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Video, Users, Calendar, Clock, Plus, Loader2, ExternalLink, LogOut, CheckCircle2, MessageCircle, AlertTriangle } from "lucide-react";
+import { Video, Users, Calendar, Clock, Plus, Loader2, ExternalLink, LogOut, CheckCircle2, MessageCircle, AlertTriangle, Trash2 } from "lucide-react";
 import { useVirtualClassroom } from "@/hooks/useVirtualClassroom";
 import { useAuth } from "@/hooks/useAuth";
 import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
@@ -17,7 +17,7 @@ import { ClassroomChat } from "@/components/classroom/ClassroomChat";
 
 const VirtualClassroom = () => {
   const { user } = useAuth();
-  const { classrooms, joined, loading, status, join, leave, create, loadMore, hasMore } = useVirtualClassroom();
+  const { classrooms, joined, loading, status, join, leave, create, remove, loadMore, hasMore } = useVirtualClassroom();
   const [open, setOpen] = useState(false);
   const [chatRoom, setChatRoom] = useState<any>(null);
   const [checkoutSession, setCheckoutSession] = useState<any>(null);
@@ -176,11 +176,14 @@ const VirtualClassroom = () => {
                         <Users className="h-4 w-4" />{c.participant_count}/{c.max_participants}
                       </div>
                     </div>
-                    <div className="flex justify-between items-start gap-2">
-                      <h3 className="font-bold line-clamp-2">{c.title}</h3>
-                      {c.is_paid && <Badge className="bg-green-600 hover:bg-green-700 whitespace-nowrap">${c.price}</Badge>}
-                    </div>
-                    {c.subject && <Badge variant="outline" className="mt-1 w-fit">{c.subject}</Badge>}
+                      <div className="flex justify-between items-start gap-2">
+                        <h3 className="font-bold line-clamp-2">{c.title}</h3>
+                        <div className="flex gap-2">
+                          {c.is_paid && <Badge className="bg-green-600 hover:bg-green-700 whitespace-nowrap">${c.price}</Badge>}
+                          {participation?.status === "waitlisted" && <Badge variant="outline" className="text-orange-500 border-orange-500">Waitlisted</Badge>}
+                        </div>
+                      </div>
+                      {c.subject && <Badge variant="outline" className="mt-1 w-fit">{c.subject}</Badge>}
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm flex-1">
                     <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-primary" />{new Date(c.scheduled_at).toLocaleString()}</div>
@@ -209,21 +212,23 @@ const VirtualClassroom = () => {
                         {isJoined && (
                           <Button variant="ghost" size="sm" onClick={() => leave(c.id)}><LogOut className="h-4 w-4" /></Button>
                         )}
+                        {c.host_id === user?.id && (
+                          <Button variant="ghost" size="sm" onClick={() => remove(c.id)} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
+                        )}
                       </>
                     ) : (
                       <Button 
                         size="sm" 
                         className="w-full" 
-                        disabled={full} 
                         onClick={() => {
-                          if (c.is_paid) {
+                          if (c.is_paid && !full) {
                             setCheckoutSession(c);
                           } else {
                             join(c.id);
                           }
                         }}
                       >
-                        {full ? "Full" : <><CheckCircle2 className="h-4 w-4 mr-1" />RSVP {c.is_paid ? `($${c.price})` : ""}</>}
+                        {full ? <><Clock className="h-4 w-4 mr-1" />Join Waitlist (Free)</> : <><CheckCircle2 className="h-4 w-4 mr-1" />RSVP {c.is_paid ? `($${c.price})` : ""}</>}
                       </Button>
                     )}
                   </CardFooter>

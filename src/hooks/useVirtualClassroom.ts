@@ -150,11 +150,19 @@ export const useVirtualClassroom = () => {
       visibility: payload.visibility || "public",
       type: payload.type || "interactive",
       is_paid: payload.is_paid || false,
-      price: payload.price || 0
+      price: payload.price || 0,
+      join_code: Math.random().toString(36).substring(2, 10)
     });
     if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
     else toast({ title: "Classroom scheduled" });
   };
 
-  return { classrooms, joined, loading, status, join, leave, create, refetch: fetchAll, loadMore, hasMore };
+  const remove = async (id: string) => {
+    if (!user) return;
+    const { error } = await supabase.from("virtual_classrooms").delete().eq("id", id).eq("host_id", user.id);
+    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
+    else toast({ title: "Classroom cancelled" });
+  };
+
+  return { classrooms, joined, loading, status, join, leave, create, remove, refetch: fetchAll, loadMore, hasMore };
 };
