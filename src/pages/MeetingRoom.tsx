@@ -180,7 +180,7 @@ const MeetingRoom = () => {
               ? ['microphone', 'camera', 'chat', 'raisehand', 'tileview', 'hangup']
               : ['microphone', 'camera', 'closedcaptions', 'desktop', 'embedmeeting', 'fullscreen',
                 'fodeviceselection', 'profile', 'chat', 'recording', 'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
-                'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts', 'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone', 'security', 'whiteboard'
+                'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts', 'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone', 'security', 'whiteboard', 'participants-pane'
               ]
           }}
           userInfo={{
