@@ -2659,18 +2659,24 @@ export type Database = {
           id: string
           joined_at: string
           user_id: string
+          role: string
+          status: string
         }
         Insert: {
           classroom_id: string
           id?: string
           joined_at?: string
           user_id: string
+          role?: string
+          status?: string
         }
         Update: {
           classroom_id?: string
           id?: string
           joined_at?: string
           user_id?: string
+          role?: string
+          status?: string
         }
         Relationships: [
           {
@@ -2689,6 +2695,7 @@ export type Database = {
           duration_minutes: number
           host_id: string
           id: string
+          join_code: string
           max_participants: number
           meeting_link: string | null
           participant_count: number
@@ -2697,7 +2704,9 @@ export type Database = {
           status: string
           subject: string | null
           title: string
+          type: string
           updated_at: string
+          visibility: string
         }
         Insert: {
           created_at?: string
@@ -2705,6 +2714,7 @@ export type Database = {
           duration_minutes?: number
           host_id: string
           id?: string
+          join_code?: string
           max_participants?: number
           meeting_link?: string | null
           participant_count?: number
@@ -2713,7 +2723,9 @@ export type Database = {
           status?: string
           subject?: string | null
           title: string
+          type?: string
           updated_at?: string
+          visibility?: string
         }
         Update: {
           created_at?: string
@@ -2721,6 +2733,7 @@ export type Database = {
           duration_minutes?: number
           host_id?: string
           id?: string
+          join_code?: string
           max_participants?: number
           meeting_link?: string | null
           participant_count?: number
@@ -2729,7 +2742,9 @@ export type Database = {
           status?: string
           subject?: string | null
           title?: string
+          type?: string
           updated_at?: string
+          visibility?: string
         }
         Relationships: []
       }

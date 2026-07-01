@@ -13,21 +13,30 @@ interface Profile {
   username: string | null;
   full_name: string | null;
   avatar_url: string | null;
+  sessions_hosted?: number;
+  sessions_attended?: number;
 }
 
 export const ProfileManager = ({ userId, email }: { userId: string; email: string }) => {
-  const [profile, setProfile] = useState<Profile>({ username: null, full_name: null, avatar_url: null });
+  const [profile, setProfile] = useState<Profile>({ username: null, full_name: null, avatar_url: null, sessions_hosted: 0, sessions_attended: 0 });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("username, full_name, avatar_url")
-        .eq("id", userId)
-        .single();
-      if (data) setProfile(data);
+      const [profileRes, hostedRes, attendedRes] = await Promise.all([
+        supabase.from("profiles").select("username, full_name, avatar_url").eq("id", userId).single(),
+        supabase.from("virtual_classrooms").select("id", { count: "exact", head: true }).eq("host_id", userId),
+        supabase.from("virtual_classroom_participants").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "attending")
+      ]);
+
+      if (profileRes.data) {
+        setProfile({
+          ...profileRes.data,
+          sessions_hosted: hostedRes.count || 0,
+          sessions_attended: attendedRes.count || 0,
+        });
+      }
       setLoading(false);
     };
     fetch();
@@ -99,6 +108,17 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
               onChange={(e) => setProfile(p => ({ ...p, username: e.target.value }))}
               placeholder="your_username"
             />
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 pt-4">
+          <div className="rounded-lg border p-3 flex flex-col items-center justify-center bg-primary/5">
+            <span className="text-2xl font-bold">{profile.sessions_hosted}</span>
+            <span className="text-sm text-muted-foreground">Sessions Hosted</span>
+          </div>
+          <div className="rounded-lg border p-3 flex flex-col items-center justify-center bg-primary/5">
+            <span className="text-2xl font-bold">{profile.sessions_attended}</span>
+            <span className="text-sm text-muted-foreground">Sessions Attended</span>
           </div>
         </div>
 
