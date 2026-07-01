@@ -12,6 +12,8 @@ import Analytics from "./pages/Analytics";
 import QABoard from "./pages/QABoard";
 import Gamification from "./pages/Gamification";
 import VirtualClassroom from "./pages/VirtualClassroom";
+import MeetingRoom from "./pages/MeetingRoom";
+import ClassroomRecap from "./pages/ClassroomRecap";
 import Events from "./pages/Events";
 import Community from "./pages/Community";
 import Mentors from "./pages/Mentors";
@@ -87,6 +89,8 @@ const App = () => (
           <Route path="/qa-board" element={<QABoard />} />
           <Route path="/gamification" element={<Gamification />} />
           <Route path="/virtual-classroom" element={<VirtualClassroom />} />
+          <Route path="/classroom/:id" element={<MeetingRoom />} />
+          <Route path="/classroom/:id/recap" element={<ClassroomRecap />} />
           <Route path="/roadmaps" element={<Roadmaps />} />
           <Route path="/forum" element={<Forum />} />
           <Route path="/sessions" element={<Sessions />} />

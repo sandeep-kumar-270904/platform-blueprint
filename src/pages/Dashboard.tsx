@@ -15,20 +15,22 @@ import {
   LayoutDashboard, BookOpen, Lightbulb, Users, Bell, Star,
   ArrowRight, Handshake, Radio, User, UserPlus,
   Calendar, Target, GraduationCap, MessageSquare, Briefcase,
-  Flame, Award, TrendingUp,
+  Flame, Award, TrendingUp, BarChart2
 } from "lucide-react";
 
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
 import { MyIdeas } from "@/components/dashboard/MyIdeas";
 import { MyCollaborations } from "@/components/dashboard/MyCollaborations";
 import { MyTeams } from "@/components/dashboard/MyTeams";
+import { HostAnalytics } from "@/components/dashboard/HostAnalytics";
 import { NotificationsPanel } from "@/components/dashboard/NotificationsPanel";
 import { LiveActivity } from "@/components/dashboard/LiveActivity";
+import { UpcomingSessions } from "@/components/dashboard/UpcomingSessions";
 import { ProfileManager } from "@/components/dashboard/ProfileManager";
 import { JoinRequestsManager } from "@/components/dashboard/JoinRequestsManager";
 import { LearningProgress } from "@/components/dashboard/LearningProgress";
 
-type Section = "overview" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "live" | "profile" | "links";
+type Section = "overview" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "live" | "analytics" | "profile" | "links";
 
 const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -39,6 +41,7 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "progress", label: "Learning Progress", icon: TrendingUp },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "live", label: "Live Activity", icon: Radio },
+  { id: "analytics", label: "Host Analytics", icon: BarChart2 },
   { id: "profile", label: "Profile", icon: User },
   { id: "links", label: "Quick Links", icon: ArrowRight },
 ];
@@ -109,9 +112,12 @@ const Dashboard = () => {
         return (
           <div className="space-y-6">
             <DashboardOverview stats={stats} />
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 lg:grid-cols-3">
               <ScrollReveal delay={0.1}>
                 <MyIdeas userId={user.id} />
+              </ScrollReveal>
+              <ScrollReveal delay={0.15}>
+                <UpcomingSessions userId={user.id} />
               </ScrollReveal>
               <ScrollReveal delay={0.15}>
                 <LiveActivity />
@@ -193,6 +199,8 @@ const Dashboard = () => {
         return <NotificationsPanel userId={user.id} />;
       case "live":
         return <LiveActivity />;
+      case "analytics":
+        return <HostAnalytics userId={user.id} />;
       case "profile":
         return <ProfileManager userId={user.id} email={user.email || ""} />;
       case "links":
