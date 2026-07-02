@@ -80,6 +80,15 @@ All colors MUST be HSL.
     --sidebar-ring: 222 76% 48%;
   }
 
+  .theme-landing {
+    --background: 40 40% 96%; /* #FAF8F3 */
+    --foreground: 225 28% 14%; /* #1A1F2E */
+    --muted-foreground: 229 13% 42%; /* #5C6178 */
+    --accent: 40 64% 48%; /* #C9932E */
+    --border: 42 27% 88%; /* #E8E3D8 */
+    --card: 0 0% 100%; /* #FFFFFF */
+  }
+
   .dark {
     --background: 222 47% 6%;
     --foreground: 210 40% 98%;
