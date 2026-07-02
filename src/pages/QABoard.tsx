@@ -51,9 +51,9 @@ const QABoard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
-      <section className="container mx-auto px-4 py-12">
+      <section className="container mx-auto px-4 pt-24 pb-12">
         <div className="mb-8 flex flex-col items-center text-center gap-4">
           <Badge><MessageSquare className="mr-1 h-3 w-3" />Community Q&A</Badge>
           <h1 className="text-4xl md:text-5xl font-bold">Ask, Learn & Grow Together</h1>

@@ -12,6 +12,8 @@ export const ResourcesTab = ({ classroomId, isHost }: { classroomId: string, isH
   const [url, setUrl] = useState("");
   const [adding, setAdding] = useState(false);
 
+  const [type, setType] = useState("link");
+
   useEffect(() => {
     const fetchResources = async () => {
       const { data } = await supabase
@@ -43,12 +45,19 @@ export const ResourcesTab = ({ classroomId, isHost }: { classroomId: string, isH
       classroom_id: classroomId,
       user_id: user.id,
       title,
-      url
+      url,
+      type // Saving type ('link', 'gdrive', 'lms')
     });
     
     setTitle("");
     setUrl("");
     setAdding(false);
+  };
+
+  const getIcon = (type: string, url: string) => {
+    if (type === 'gdrive' || url.includes('drive.google.com')) return <div className="text-blue-500 font-bold text-xs">GD</div>;
+    if (type === 'lms' || url.includes('canvas') || url.includes('blackboard')) return <div className="text-purple-500 font-bold text-xs">LMS</div>;
+    return url.includes("http") ? <Link2 className="h-4 w-4 text-primary" /> : <FileText className="h-4 w-4 text-primary" />;
   };
 
   return (
@@ -67,12 +76,12 @@ export const ResourcesTab = ({ classroomId, isHost }: { classroomId: string, isH
               className="flex items-start gap-3 p-3 rounded-md border bg-card hover:bg-accent/50 transition-colors"
             >
               <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                {res.url.includes("http") ? <Link2 className="h-4 w-4 text-primary" /> : <FileText className="h-4 w-4 text-primary" />}
+                {getIcon(res.type, res.url)}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-sm truncate">{res.title}</p>
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                  Open <ExternalLink className="h-3 w-3" />
+                  {res.type === 'lms' ? 'Open Assignment' : 'Open Link'} <ExternalLink className="h-3 w-3" />
                 </p>
               </div>
             </a>
@@ -84,12 +93,21 @@ export const ResourcesTab = ({ classroomId, isHost }: { classroomId: string, isH
       {adding ? (
         <form onSubmit={handleAdd} className="space-y-3 p-3 border rounded-lg bg-card">
           <Input 
-            placeholder="Title (e.g. Slides)" 
+            placeholder="Title (e.g. Syllabus, Assignment 1)" 
             value={title} 
             onChange={(e) => setTitle(e.target.value)} 
             required 
             className="h-8 text-sm"
           />
+          <select 
+            className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            value={type} 
+            onChange={(e) => setType(e.target.value)}
+          >
+            <option value="link">General Web Link</option>
+            <option value="gdrive">Google Drive Folder</option>
+            <option value="lms">LMS Integration (Canvas/Moodle)</option>
+          </select>
           <Input 
             placeholder="URL" 
             value={url} 
@@ -99,12 +117,12 @@ export const ResourcesTab = ({ classroomId, isHost }: { classroomId: string, isH
           />
           <div className="flex gap-2">
             <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => setAdding(false)}>Cancel</Button>
-            <Button type="submit" size="sm" className="flex-1 h-8 text-xs">Share</Button>
+            <Button type="submit" size="sm" className="flex-1 h-8 text-xs">Connect Resource</Button>
           </div>
         </form>
       ) : (
         <Button variant="outline" size="sm" className="w-full gap-2 shrink-0" onClick={() => setAdding(true)}>
-          <Plus className="h-4 w-4" /> Share Resource
+          <Plus className="h-4 w-4" /> Connect Resource / LMS
         </Button>
       )}
     </div>

@@ -42,9 +42,9 @@ const InviteAccept = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-16 max-w-md">
+      <div className="container mx-auto px-4 pt-24 pb-16 max-w-md">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

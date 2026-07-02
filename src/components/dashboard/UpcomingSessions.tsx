@@ -4,14 +4,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Video, Calendar, Clock, ArrowRight, Sparkles } from "lucide-react";
 
 export const UpcomingSessions = ({ userId }: { userId: string }) => {
   const [sessions, setSessions] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchSessions = async () => {
+      setLoading(true);
       // Fetch blocks
       const { data: blocks } = await supabase.from("user_blocks").select("blocked_id").eq("blocker_id", userId);
       const blockedIds = blocks?.map(b => b.blocked_id) || [];
@@ -69,6 +72,7 @@ export const UpcomingSessions = ({ userId }: { userId: string }) => {
       
       const { data: recs } = await recsQuery;
       if (recs) setRecommendations(recs);
+      setLoading(false);
     };
 
     fetchSessions();
@@ -77,7 +81,7 @@ export const UpcomingSessions = ({ userId }: { userId: string }) => {
   if (sessions.length === 0 && recommendations.length === 0) return null;
 
   return (
-    <Card className="flex flex-col h-full border-primary/20 bg-gradient-to-br from-card to-primary/5">
+    <Card className="flex flex-col h-full border-primary/20 bg-primary text-primary-foreground">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-lg">
           <div className="flex items-center gap-2">
@@ -91,8 +95,21 @@ export const UpcomingSessions = ({ userId }: { userId: string }) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 space-y-6">
-        
-        {sessions.length > 0 && (
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2].map(i => (
+              <div key={i} className="flex justify-between border-b border-border/50 pb-3">
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+                <Skeleton className="h-5 w-16 ml-2" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            {sessions.length > 0 && (
           <div className="space-y-3">
             <h4 className="text-xs font-semibold uppercase text-muted-foreground">Upcoming For You</h4>
             {sessions.map((s) => (
@@ -130,7 +147,8 @@ export const UpcomingSessions = ({ userId }: { userId: string }) => {
             ))}
           </div>
         )}
-
+          </>
+        )}
       </CardContent>
     </Card>
   );

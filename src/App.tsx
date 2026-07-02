@@ -13,6 +13,7 @@ import QABoard from "./pages/QABoard";
 import Gamification from "./pages/Gamification";
 import VirtualClassroom from "./pages/VirtualClassroom";
 import MeetingRoom from "./pages/MeetingRoom";
+import HostDashboard from "./pages/HostDashboard";
 import ClassroomRecap from "./pages/ClassroomRecap";
 import Events from "./pages/Events";
 import Community from "./pages/Community";
@@ -90,6 +91,7 @@ const App = () => (
           <Route path="/gamification" element={<Gamification />} />
           <Route path="/virtual-classroom" element={<VirtualClassroom />} />
           <Route path="/classroom/:id" element={<MeetingRoom />} />
+          <Route path="/host-dashboard" element={<HostDashboard />} />
           <Route path="/classroom/:id/recap" element={<ClassroomRecap />} />
           <Route path="/roadmaps" element={<Roadmaps />} />
           <Route path="/forum" element={<Forum />} />

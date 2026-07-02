@@ -42,9 +42,9 @@ const Forum = () => {
   const open = (t: ForumThread) => { setSelected(t); incrementThreadViews(t.id); };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
-      <section className="container mx-auto px-4 py-12">
+      <section className="container mx-auto px-4 pt-24 pb-12">
         <div className="text-center mb-8 space-y-3">
           <Badge><MessageSquare className="mr-1 h-3 w-3" />Community Discussion</Badge>
           <h1 className="text-4xl md:text-5xl font-bold">Student Forum</h1>

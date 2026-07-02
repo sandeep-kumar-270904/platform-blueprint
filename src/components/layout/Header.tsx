@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,8 +9,9 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
-import { GraduationCap, Menu, X } from "lucide-react";
+import { GraduationCap, Menu, X, LogOut, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const navigationGroups = [
   {
@@ -86,16 +87,31 @@ const navigationGroups = [
 
 export const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
+  const { user, signOut } = useAuth();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/80">
+    <header className={cn(
+      "fixed top-0 z-50 w-full transition-all duration-300",
+      isScrolled 
+        ? "bg-background/80 backdrop-blur-md border-b border-border shadow-sm py-0" 
+        : "bg-transparent border-transparent py-2"
+    )}>
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent shadow-glow transition-all group-hover:scale-110">
-            <GraduationCap className="h-5 w-5 text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-all group-hover:scale-110">
+            <GraduationCap className="h-5 w-5" />
           </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          <span className="text-xl font-bold text-foreground display-font tracking-tight">
             StudentHub
           </span>
         </Link>
@@ -117,16 +133,21 @@ export const Header = () => {
                             <Link
                               to={item.href}
                               className={cn(
-                                "block select-none space-y-1 rounded-lg p-3 leading-none no-underline outline-none transition-all hover:bg-accent/50 hover:translate-x-1",
-                                location.pathname === item.href && "bg-accent/30"
+                                "flex items-start gap-3 select-none rounded-lg p-3 no-underline outline-none transition-all hover:bg-muted hover:text-primary active:scale-[0.98]",
+                                location.pathname === item.href && "bg-muted text-primary"
                               )}
                             >
-                              <div className="text-sm font-medium leading-none">
-                                {item.title}
+                              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background shadow-sm border border-border">
+                                <div className="h-2 w-2 rounded-full bg-primary" />
                               </div>
-                              <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-                                {item.desc}
-                              </p>
+                              <div className="flex-1 space-y-1">
+                                <p className="text-sm font-semibold leading-none display-font">
+                                  {item.title}
+                                </p>
+                                <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
+                                  {item.desc}
+                                </p>
+                              </div>
                             </Link>
                           </NavigationMenuLink>
                         </li>
@@ -141,16 +162,33 @@ export const Header = () => {
 
         {/* Right Side Actions */}
         <div className="flex items-center gap-3">
-          <Link to="/auth">
-            <Button variant="ghost" size="sm" className="hidden md:inline-flex">
-              Sign In
-            </Button>
-          </Link>
-          <Link to="/auth">
-            <Button variant="hero" size="sm" className="hidden md:inline-flex">
-              Get Started
-            </Button>
-          </Link>
+          {user ? (
+            <>
+              <Link to="/dashboard">
+                <Button variant="ghost" size="sm" className="hidden md:inline-flex gap-2">
+                  <LayoutDashboard className="h-4 w-4" />
+                  Dashboard
+                </Button>
+              </Link>
+              <Button variant="outline" size="sm" className="hidden md:inline-flex gap-2" onClick={signOut}>
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
+            </>
+          ) : (
+            <>
+              <Link to="/auth">
+                <Button variant="ghost" size="sm" className="hidden md:inline-flex">
+                  Sign In
+                </Button>
+              </Link>
+              <Link to="/auth">
+                <Button variant="default" size="sm" className="hidden md:inline-flex">
+                  Get Started
+                </Button>
+              </Link>
+            </>
+          )}
           
           {/* Mobile Menu Button */}
           <Button
@@ -197,12 +235,33 @@ export const Header = () => {
               </div>
             ))}
             <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
-              <Link to="/auth">
-                <Button variant="outline" className="w-full">Sign In</Button>
-              </Link>
-              <Link to="/auth">
-                <Button variant="hero" className="w-full">Get Started</Button>
-              </Link>
+              {user ? (
+                <>
+                  <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="outline" className="w-full justify-center gap-2">
+                      <LayoutDashboard className="h-4 w-4" />
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Button variant="ghost" className="w-full justify-center gap-2" onClick={() => { signOut(); setMobileMenuOpen(false); }}>
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="outline" className="w-full justify-center">
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="hero" className="w-full justify-center">
+                      Get Started
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

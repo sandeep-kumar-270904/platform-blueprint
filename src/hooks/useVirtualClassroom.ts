@@ -70,7 +70,7 @@ export const useVirtualClassroom = () => {
 
     try {
       const { data } = await fetchWithRetry(() => 
-        supabase.from("virtual_classrooms").select("*").order("scheduled_at", { ascending: true }).range(from, to)
+        supabase.from("virtual_classrooms").select("*").order("is_featured", { ascending: false }).order("scheduled_at", { ascending: true }).range(from, to)
       );
       
       let filteredData = (data as ClassroomRow[]) || [];

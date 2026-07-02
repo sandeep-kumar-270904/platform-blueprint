@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -9,20 +9,33 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Video, Users, Calendar, Clock, Plus, Loader2, ExternalLink, LogOut, CheckCircle2, MessageCircle, AlertTriangle, Trash2 } from "lucide-react";
+import { Video, Users, Calendar, Clock, Plus, Loader2, ExternalLink, LogOut, CheckCircle2, MessageCircle, AlertTriangle, Trash2, Share2, UserPlus, Send } from "lucide-react";
 import { useVirtualClassroom } from "@/hooks/useVirtualClassroom";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
 import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
 import { ClassroomChat } from "@/components/classroom/ClassroomChat";
+import { useTranslation } from "react-i18next";
+import { formatToTimezone, generateICS, downloadICS } from "@/utils/calendarUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 const VirtualClassroom = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const { t } = useTranslation();
   const { classrooms, joined, loading, status, join, leave, create, remove, loadMore, hasMore } = useVirtualClassroom();
   const [open, setOpen] = useState(false);
   const [chatRoom, setChatRoom] = useState<any>(null);
   const [checkoutSession, setCheckoutSession] = useState<any>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [subjectFilter, setSubjectFilter] = useState<string>("All");
   const [form, setForm] = useState<any>({ duration_minutes: 60, max_participants: 50, visibility: "public", type: "interactive", is_paid: false, price: 0 });
+  const [collections, setCollections] = useState<any[]>([]);
+
+  useEffect(() => {
+    supabase.from('virtual_classroom_collections')
+      .select('*, virtual_classroom_collection_items(classroom_id)')
+      .then(({data}) => { if (data) setCollections(data); });
+  }, []);
 
   const handleCreate = async () => {
     if (!form.title || !form.scheduled_at) return;
@@ -62,10 +75,33 @@ const VirtualClassroom = () => {
 
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
+  const handleShare = async (c: any) => {
+    const url = `${window.location.origin}/classroom/${c.id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: c.title, text: `Join this live session: ${c.title}`, url });
+      } catch (err) {}
+    } else {
+      navigator.clipboard.writeText(url);
+      toast({ title: "Link copied to clipboard!" });
+    }
+  };
+
+  const handleFollow = async (hostId: string) => {
+    if (!user) return toast({ title: "Sign in required", variant: "destructive" });
+    if (user.id === hostId) return;
+    const { error } = await supabase.from("user_follows").insert({ follower_id: user.id, following_id: hostId });
+    if (error) {
+      if (error.code === '23505') toast({ title: "Already following host" });
+      else toast({ title: "Failed to follow", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Host followed!" });
+    }
+  };
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 pt-24 pb-12">
         {isOffline && (
           <div className="bg-yellow-500/20 text-yellow-600 border border-yellow-500/30 p-3 rounded-lg mb-6 flex items-center justify-center gap-2 font-medium">
             <AlertTriangle className="h-5 w-5" />
@@ -74,11 +110,16 @@ const VirtualClassroom = () => {
         )}
         <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2"><Video className="h-7 w-7 text-primary" />Virtual Classroom</h1>
-            <p className="text-muted-foreground">Live and scheduled learning sessions.</p>
+            <h1 className="text-3xl font-bold flex items-center gap-2"><Video className="h-7 w-7 text-primary" />{t("Virtual Classroom")}</h1>
+            <p className="text-muted-foreground">{t("Live and scheduled learning sessions.")}</p>
           </div>
           <div className="flex items-center gap-3">
             <SyncStatusIndicator status={status} />
+            {user && (
+              <Button variant="outline" asChild>
+                <Link to="/host-dashboard">Host Dashboard</Link>
+              </Button>
+            )}
             {user && (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" />Schedule Class</Button></DialogTrigger>
@@ -145,6 +186,40 @@ const VirtualClassroom = () => {
             )}
           </div>
         </div>
+        
+        {/* Curated Collections */}
+        {collections.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-primary">Curated Collections</h2>
+            <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
+              {collections.map(col => (
+                <Card key={col.id} className="min-w-[280px] bg-primary/5 border-primary/20 shrink-0">
+                  <CardHeader className="pb-2">
+                    <h3 className="font-bold">{col.title}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{col.description}</p>
+                  </CardHeader>
+                  <CardContent className="text-xs font-medium">
+                    {col.virtual_classroom_collection_items?.length || 0} Sessions included
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Subject Hubs */}
+        <div className="flex overflow-x-auto pb-4 mb-6 gap-2 hide-scrollbar">
+          {["All", "Technology", "Design", "Business", "Math", "Science"].map(subject => (
+            <Button
+              key={subject}
+              variant={subjectFilter === subject ? "default" : "outline"}
+              className="rounded-full shrink-0"
+              onClick={() => setSubjectFilter(subject)}
+            >
+              {subject}
+            </Button>
+          ))}
+        </div>
 
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
@@ -155,7 +230,7 @@ const VirtualClassroom = () => {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {classrooms.map(c => {
+            {classrooms.filter(c => subjectFilter === "All" || c.subject === subjectFilter).map(c => {
               const live = isLive(c);
               const participation = joined[c.id];
               const isJoined = !!participation;
@@ -168,17 +243,18 @@ const VirtualClassroom = () => {
                 <Card key={c.id} className="hover-scale flex flex-col">
                   <CardHeader>
                     <div className="flex items-center justify-between mb-2">
-                      <Badge variant={live ? "destructive" : "secondary"}>
-                        {live && <span className="mr-1 inline-block h-2 w-2 rounded-full bg-current animate-pulse" />}
+                      <Badge variant={live ? "destructive" : "secondary"} role="status" aria-live="polite">
+                        {live && <span className="mr-1 inline-block h-2 w-2 rounded-full bg-current animate-pulse" aria-hidden="true" />}
                         {live ? "LIVE" : c.status}
                       </Badge>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />{c.participant_count}/{c.max_participants}
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground" aria-label={`${c.participant_count} out of ${c.max_participants} participants`} role="status" aria-live="polite">
+                        <Users className="h-4 w-4" aria-hidden="true" />{c.participant_count}/{c.max_participants}
                       </div>
                     </div>
                       <div className="flex justify-between items-start gap-2">
                         <h3 className="font-bold line-clamp-2">{c.title}</h3>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 items-end shrink-0">
+                          {c.is_featured && <Badge className="bg-yellow-500 text-black border-yellow-500 hover:bg-yellow-400">★ Featured</Badge>}
                           {c.is_paid && <Badge className="bg-green-600 hover:bg-green-700 whitespace-nowrap">${c.price}</Badge>}
                           {participation?.status === "waitlisted" && <Badge variant="outline" className="text-orange-500 border-orange-500">Waitlisted</Badge>}
                         </div>
@@ -186,9 +262,21 @@ const VirtualClassroom = () => {
                       {c.subject && <Badge variant="outline" className="mt-1 w-fit">{c.subject}</Badge>}
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm flex-1">
-                    <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-primary" />{new Date(c.scheduled_at).toLocaleString()}</div>
+                    <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-primary" />{formatToTimezone(c.scheduled_at, profile?.timezone, profile?.language || 'en')}</div>
                     <div className="flex items-center gap-2 text-muted-foreground"><Clock className="h-4 w-4" />{c.duration_minutes} min</div>
                     {c.description && <p className="text-muted-foreground line-clamp-2">{c.description}</p>}
+                    
+                    {/* Social Proof & Invites */}
+                    <div className="pt-2 flex flex-wrap gap-2">
+                      {c.visibility !== 'invite-only' && (
+                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleShare(c)}>
+                          <Share2 className="h-3 w-3 mr-1" /> Share
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleFollow(c.host_id)}>
+                        <UserPlus className="h-3 w-3 mr-1" /> Follow Host
+                      </Button>
+                    </div>
                   </CardContent>
                   <CardFooter className="gap-2 flex-wrap pt-4">
                     {isJoined || c.host_id === user?.id ? (
@@ -211,6 +299,11 @@ const VirtualClassroom = () => {
                         </Button>
                         {isJoined && (
                           <Button variant="ghost" size="sm" onClick={() => leave(c.id)}><LogOut className="h-4 w-4" /></Button>
+                        )}
+                        {isJoined && !live && (
+                          <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => downloadICS(c.title, generateICS(c.title, c.description, c.scheduled_at, c.duration_minutes, `${window.location.origin}/classroom/${c.id}`))}>
+                            <Calendar className="h-4 w-4 mr-1" /> Add to Calendar
+                          </Button>
                         )}
                         {c.host_id === user?.id && (
                           <Button variant="ghost" size="sm" onClick={() => remove(c.id)} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>

@@ -120,7 +120,7 @@ export const TeamDashboard = ({ teamId }: TeamDashboardProps) => {
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-2xl font-bold text-white">
+              <div className="h-16 w-16 rounded-xl bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold text-white">
                 {team.name[0]}
               </div>
               <div>

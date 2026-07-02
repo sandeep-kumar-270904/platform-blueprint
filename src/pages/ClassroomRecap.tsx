@@ -140,9 +140,9 @@ const ClassroomRecap = () => {
   const isHost = classroom?.host_id === user?.id;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5 pb-20">
+    <div className="min-h-screen bg-background pb-20">
       <Header />
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
+      <div className="container mx-auto px-4 pt-24 pb-8 max-w-5xl">
         <div className="mb-8">
           <Link to="/virtual-classroom" className="text-muted-foreground hover:text-foreground inline-flex items-center gap-2 mb-4">
             <ArrowLeft className="h-4 w-4" /> Back to Classrooms

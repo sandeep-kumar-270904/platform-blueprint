@@ -107,12 +107,12 @@ const FoundersPassport = () => {
   const displayName = profile?.full_name || profile?.username || user?.email?.split("@")[0] || "Student";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
 
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-16 md:py-24">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 blur-3xl" />
+          
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
@@ -122,7 +122,7 @@ const FoundersPassport = () => {
                 </Badge>
                 <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
                   Founder's{" "}
-                  <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                  <span className="text-foreground display-font">
                     Passport
                   </span>
                 </h1>
@@ -154,13 +154,13 @@ const FoundersPassport = () => {
                 animate={{ rotateY: 0, scale: 1 }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
               >
-                <Card className="overflow-hidden border-2 border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 shadow-xl">
-                  <div className="h-2 bg-gradient-to-r from-primary via-accent to-primary" />
+                <Card className="overflow-hidden border-2 border-primary/20 bg-primary text-primary-foreground shadow-xl">
+                  <div className="h-2 bg-primary text-primary-foreground" />
                   <CardContent className="p-8">
                     <div className="flex flex-col md:flex-row items-start gap-6">
                       <div className="flex flex-col items-center gap-3">
                         <Avatar className="h-24 w-24 ring-4 ring-primary/20">
-                          <AvatarFallback className="text-2xl bg-gradient-to-br from-primary to-accent text-primary-foreground">
+                          <AvatarFallback className="text-2xl bg-primary text-primary-foreground text-primary-foreground">
                             {displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
                           </AvatarFallback>
                         </Avatar>
@@ -212,7 +212,7 @@ const FoundersPassport = () => {
                   >
                     <Card className="bg-card/50 backdrop-blur-sm hover:shadow-md transition-all">
                       <CardContent className="p-5 text-center">
-                        <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color} mb-3`}>
+                        <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground${stat.color} mb-3`}>
                           <stat.icon className="h-6 w-6" />
                         </div>
                         <p className="text-3xl font-bold">{stat.value}</p>
