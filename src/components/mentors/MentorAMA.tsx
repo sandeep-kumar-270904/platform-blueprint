@@ -77,7 +77,7 @@ export const MentorAMA = () => {
                         <div className="flex items-center gap-3">
                           <Avatar className="h-12 w-12 ring-2 ring-primary/20">
                             <AvatarImage src={s.mentor_profile?.avatar_url || ""} />
-                            <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground text-sm">
+                            <AvatarFallback className="bg-primary text-primary-foreground text-primary-foreground text-sm">
                               {(s.mentor_profile?.full_name || s.mentor_profile?.username || "M").split(" ").map((n) => n[0]).join("").slice(0, 2)}
                             </AvatarFallback>
                           </Avatar>
@@ -123,7 +123,7 @@ export const MentorAMA = () => {
                   <div className="flex items-center gap-3">
                     <Avatar className="h-14 w-14 ring-2 ring-primary/20">
                       <AvatarImage src={selected.mentor_profile?.avatar_url || ""} />
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground">
+                      <AvatarFallback className="bg-primary text-primary-foreground text-primary-foreground">
                         {(selected.mentor_profile?.full_name || "M").split(" ").map((n) => n[0]).join("").slice(0, 2)}
                       </AvatarFallback>
                     </Avatar>

@@ -32,9 +32,9 @@ const Community = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
-      <section className="container mx-auto px-4 py-12 max-w-2xl">
+      <section className="container mx-auto px-4 pt-24 pb-12 max-w-2xl">
         <div className="text-center mb-6 space-y-2">
           <Badge><Sparkles className="mr-1 h-3 w-3" />Community Feed</Badge>
           <h1 className="text-3xl md:text-4xl font-bold">Share with the Community</h1>

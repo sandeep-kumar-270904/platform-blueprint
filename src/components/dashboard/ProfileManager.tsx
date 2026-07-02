@@ -80,7 +80,7 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
       <CardContent className="space-y-6">
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16 ring-2 ring-primary/20">
-            <AvatarFallback className="text-lg bg-gradient-to-br from-primary to-accent text-primary-foreground">
+            <AvatarFallback className="text-lg bg-primary text-primary-foreground text-primary-foreground">
               {initials}
             </AvatarFallback>
           </Avatar>

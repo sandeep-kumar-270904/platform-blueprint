@@ -40,6 +40,8 @@ export default {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
           glow: "hsl(var(--accent-glow))",
+          pine: "hsl(var(--accent-pine))",
+          sienna: "hsl(var(--accent-sienna))",
         },
         success: {
           DEFAULT: "hsl(var(--success))",

@@ -36,7 +36,7 @@ export const useNotes = () => {
       .order("created_at", { ascending: false });
 
     if (data && data.length > 0) {
-      setNotes(data);
+      setNotes([...data, ...mockNotes as any[]]);
     } else {
       setNotes(mockNotes as any[]);
     }

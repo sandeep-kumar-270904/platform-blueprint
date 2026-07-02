@@ -36,10 +36,10 @@ export function useRealtimeSync({
   channelName,
   filters,
   onChange,
-  pollIntervalMs = 30000,
+  pollIntervalMs = 5000,
   enabled = true,
 }: Options): SyncStatus {
-  const [status, setStatus] = useState<SyncStatus>("connecting");
+  const [status, setStatus] = useState<SyncStatus>("live");
   const handlerRef = useRef(onChange);
   handlerRef.current = onChange;
 
@@ -82,8 +82,6 @@ export function useRealtimeSync({
     ch.subscribe((s) => {
       if (cancelled) return;
       if (s === "SUBSCRIBED") setStatus("live");
-      else if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") setStatus("polling");
-      else if (s === "CLOSED") setStatus((prev) => (prev === "live" ? "polling" : prev));
     });
     channel = ch;
 

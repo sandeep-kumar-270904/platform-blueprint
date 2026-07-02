@@ -39,16 +39,16 @@ const Mentors = () => {
   const availableSlots = slots.filter((s) => !s.is_booked && s.starts_at.startsWith(dateKey || ""));
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-20 md:py-32">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 blur-3xl" />
+          
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
                 <Badge variant="accent" className="mb-6"><Users className="mr-1 h-3 w-3" />Connect with Industry Experts</Badge>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">Learn from the <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">Best Mentors</span></h1>
+                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">Learn from the <span className="text-foreground display-font">Best Mentors</span></h1>
                 <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">Get personalized guidance from experienced professionals. Book real 1-on-1 sessions today.</p>
               </div>
             </ScrollReveal>
@@ -105,7 +105,7 @@ const Mentors = () => {
                         <div className="flex items-start gap-4">
                           <Avatar className="h-16 w-16 ring-2 ring-primary/20">
                             <AvatarImage src={mentor.profile?.avatar_url || ""} />
-                            <AvatarFallback className="text-lg bg-gradient-to-br from-primary to-accent text-primary-foreground">{initials(mentor)}</AvatarFallback>
+                            <AvatarFallback className="text-lg bg-primary text-primary-foreground text-primary-foreground">{initials(mentor)}</AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">

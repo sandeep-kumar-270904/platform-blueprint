@@ -6,6 +6,7 @@ import { ParallaxSection } from "@/components/animations/ParallaxSection";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { CountUp } from "@/components/animations/CountUp";
 import {
   BookOpen,
   Calendar,
@@ -20,8 +21,10 @@ import {
   Zap,
   ArrowRight,
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
+  const { user } = useAuth();
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -37,72 +40,59 @@ const Index = () => {
       icon: BookOpen,
       title: "Notes Hub",
       description: "Share and access quality study materials from peers across all subjects",
-      color: "text-primary",
     },
     {
       icon: Calendar,
       title: "Events & Hackathons",
       description: "Never miss opportunities - track competitions and events with registration",
-      color: "text-accent",
     },
     {
       icon: MessageSquare,
       title: "Community Forum",
       description: "Connect with students, ask questions, and share knowledge in vibrant discussions",
-      color: "text-success",
     },
     {
       icon: Lightbulb,
       title: "Innovation Hub",
       description: "Showcase your startup ideas, find co-founders, and get mentor guidance",
-      color: "text-warning",
     },
     {
       icon: TrendingUp,
       title: "Career Resources",
       description: "Access jobs, internships, resume tips, and ATS optimization tools",
-      color: "text-primary",
     },
     {
       icon: Users,
       title: "Study Groups",
       description: "Form teams, join virtual study rooms, and collaborate on projects",
-      color: "text-accent",
     },
   ];
 
   const stats = [
-    { label: "Active Students", value: "10K+", icon: Users },
-    { label: "Study Resources", value: "5K+", icon: BookOpen },
-    { label: "Events Listed", value: "500+", icon: Calendar },
-    { label: "Success Stories", value: "2K+", icon: Award },
+    { label: "Active Students", value: 10, suffix: "K+", icon: Users },
+    { label: "Study Resources", value: 5, suffix: "K+", icon: BookOpen },
+    { label: "Events Listed", value: 500, suffix: "+", icon: Calendar },
+    { label: "Success Stories", value: 2, suffix: "K+", icon: Award },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5 relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 -left-4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-0 -right-4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
-      </div>
-      
+    <div className="min-h-screen bg-background relative overflow-hidden">
       <OnboardingModal onComplete={handleOnboardingComplete} />
       <Header />
 
       {/* Hero Section */}
       <ParallaxSection speed={0.3}>
-        <section className="relative overflow-hidden py-20 md:py-32">
+        <section className="relative overflow-hidden py-24 md:py-32">
           <ScrollReveal direction="down">
             <div className="container mx-auto px-4">
               <div className="mx-auto max-w-4xl text-center">
-                <Badge variant="accent" className="mb-6 animate-fade-in">
-                  <Sparkles className="mr-1 h-3 w-3" />
+                <Badge variant="outline" className="mb-6 animate-fade-in bg-surface">
+                  <Sparkles className="mr-1 h-3 w-3 text-primary" />
                   Your All-in-One Student Platform
                 </Badge>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl lg:text-7xl">
+                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl lg:text-7xl display-font text-foreground">
                   Where Students{" "}
-                  <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent animate-pulse-glow">
+                  <span className="text-primary">
                     Succeed Together
                   </span>
                 </h1>
@@ -110,10 +100,12 @@ const Index = () => {
                   Connect, learn, and grow with a comprehensive platform designed for student success. Access notes, join events, find mentors, and build your career - all in one place.
                 </p>
                 <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-                  <Button variant="hero" size="xl" className="group">
-                    Explore Platform
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </Button>
+                  <Link to={user ? "/dashboard" : "/auth"}>
+                    <Button variant="default" size="xl" className="group">
+                      Explore Platform
+                      <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </Button>
+                  </Link>
                   <Button variant="outline" size="xl">
                     Watch Demo
                   </Button>
@@ -131,10 +123,12 @@ const Index = () => {
             {stats.map((stat, index) => (
               <ScrollReveal key={index} delay={index * 0.1} direction="scale">
                 <div className="text-center">
-                  <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                    <stat.icon className="h-6 w-6 text-primary" />
+                  <div className="mx-auto mb-4 flex items-center justify-center text-foreground">
+                    <stat.icon className="h-6 w-6 text-muted-foreground" strokeWidth={2} />
                   </div>
-                  <div className="text-3xl font-bold">{stat.value}</div>
+                  <div className="text-3xl font-bold mono-font">
+                    <CountUp value={stat.value as number} suffix={stat.suffix as string} />
+                  </div>
                   <div className="text-sm text-muted-foreground">{stat.label}</div>
                 </div>
               </ScrollReveal>
@@ -164,16 +158,18 @@ const Index = () => {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {features.map((feature, index) => (
                 <ScrollReveal key={index} delay={index * 0.05} direction="scale">
-                  <div className="group card-hover rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-6 shadow-sm">
-                    <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-muted transition-colors group-hover:bg-primary/10 ${feature.color}`}>
-                      <feature.icon className="h-6 w-6" />
+                  <div className="group rounded-md border border-border bg-card p-6 flex flex-col h-full transition-all duration-300 hover:border-primary/50">
+                    <div className="mb-6 flex items-center justify-start text-foreground">
+                      <feature.icon className="h-6 w-6 text-muted-foreground transition-colors duration-300 group-hover:text-primary" strokeWidth={2} />
                     </div>
-                    <h3 className="mb-2 text-lg font-semibold">{feature.title}</h3>
-                    <p className="text-sm text-muted-foreground">{feature.description}</p>
-                    <Button variant="ghost" size="sm" className="mt-4 group-hover:text-primary">
-                      Learn more
-                      <ArrowRight className="ml-1 h-3 w-3 transition-transform group-hover:translate-x-1" />
-                    </Button>
+                    <h3 className="mb-2 text-lg font-medium display-font">{feature.title}</h3>
+                    <p className="text-sm text-muted-foreground flex-1 mb-6">{feature.description}</p>
+                    <div className="mt-auto">
+                      <Button variant="ghost" size="sm" className="group-hover:text-primary px-0 font-medium">
+                        Learn more
+                        <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-2" />
+                      </Button>
+                    </div>
                   </div>
                 </ScrollReveal>
               ))}
@@ -188,19 +184,21 @@ const Index = () => {
           <div className="container mx-auto px-4">
               <ScrollReveal direction="up">
                 <div className="mx-auto max-w-3xl text-center">
-                  <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent shadow-glow">
-                    <Zap className="h-8 w-8 text-white" />
+                  <div className="mb-8 inline-flex items-center justify-center text-primary">
+                    <Zap className="h-12 w-12" strokeWidth={1.5} />
                   </div>
-                  <h2 className="mb-4 text-3xl font-bold md:text-4xl">
+                  <h2 className="mb-4 text-3xl font-bold md:text-4xl display-font">
                     Ready to Transform Your Student Experience?
                   </h2>
                   <p className="mb-8 text-lg text-muted-foreground">
                     Join thousands of students already using StudentHub to excel in their academics and career
                   </p>
-                  <Button variant="hero" size="xl" className="group">
-                    Start Your Journey
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </Button>
+                  <Link to={user ? "/dashboard" : "/auth"}>
+                    <Button variant="default" size="xl" className="group">
+                      Start Your Journey
+                      <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </Button>
+                  </Link>
                 </div>
               </ScrollReveal>
             </div>
@@ -213,10 +211,10 @@ const Index = () => {
           <div className="grid gap-8 md:grid-cols-4">
             <div>
               <div className="mb-4 flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
-                  <GraduationCap className="h-4 w-4 text-white" />
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <GraduationCap className="h-4 w-4" />
                 </div>
-                <span className="font-bold">StudentHub</span>
+                <span className="font-bold display-font">StudentHub</span>
               </div>
               <p className="text-sm text-muted-foreground">
                 Empowering students with the tools they need to succeed.

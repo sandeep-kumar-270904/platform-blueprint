@@ -36,9 +36,9 @@ const AdminPanel = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+      <div className="min-h-screen bg-background">
         <Header />
-        <div className="container mx-auto px-4 py-12 text-center">
+      <div className="container mx-auto px-4 pt-24 pb-12 text-center">
           <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary" />
           <p className="mt-4 text-muted-foreground">Loading admin panel...</p>
         </div>
@@ -48,9 +48,9 @@ const AdminPanel = () => {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+      <div className="min-h-screen bg-background">
         <Header />
-        <div className="container mx-auto px-4 py-12 text-center">
+      <div className="container mx-auto px-4 pt-24 pb-12 text-center">
           <Shield className="h-16 w-16 mx-auto text-destructive mb-4" />
           <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
           <p className="text-muted-foreground">You need admin privileges to access this page.</p>
@@ -80,9 +80,9 @@ const AdminPanel = () => {
   const pendingReports = reports.filter((r) => r.status === "pending");
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 pt-24 pb-8">
         <ScrollReveal>
           <div className="flex items-center justify-between mb-6">
             <div>

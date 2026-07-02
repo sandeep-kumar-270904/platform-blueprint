@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageSquare, BarChart2, Link as LinkIcon, Settings, AlertTriangle } from "lucide-react";
+import { MessageSquare, BarChart2, Link as LinkIcon, Settings, AlertTriangle, Bot, Activity } from "lucide-react";
 import { ResourcesTab } from "./tabs/ResourcesTab";
 import { PollsTab } from "./tabs/PollsTab";
 import { QATab } from "./tabs/QATab";
 import { SettingsTab } from "./tabs/SettingsTab";
+import { AITab } from "./tabs/AITab";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,14 +42,24 @@ export const MeetingSidebar = ({ classroomId, isHost, isWebinar, jitsiApi }: { c
     <div className="w-80 border-l bg-background h-full flex flex-col">
       <div className="p-4 border-b shrink-0 flex items-center justify-between">
         <h3 className="font-semibold">Session Tools</h3>
-        <Button variant="ghost" size="sm" className="h-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setReportOpen(true)}>
-          <AlertTriangle className="h-4 w-4 mr-1" />
-          Report
-        </Button>
+        <div className="flex gap-1">
+          {isHost && (
+            <Button variant="ghost" size="sm" className="h-8 px-2 text-green-500 hover:text-green-600 hover:bg-green-500/10" title="Engagement Level: High (Based on chat velocity)">
+              <Activity className="h-4 w-4 mr-1 animate-pulse" /> Good
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setReportOpen(true)}>
+            <AlertTriangle className="h-4 w-4 mr-1" />
+            Report
+          </Button>
+        </div>
       </div>
       
-      <Tabs defaultValue="resources" className="flex-1 flex flex-col min-h-0">
+      <Tabs defaultValue="ai" className="flex-1 flex flex-col min-h-0">
         <TabsList className="w-full justify-start rounded-none border-b shrink-0 px-2 h-12 bg-transparent overflow-x-auto hide-scrollbar">
+          <TabsTrigger value="ai" className="flex-1 min-w-fit gap-2 data-[state=active]:shadow-none data-[state=active]:bg-muted">
+            <Bot className="h-4 w-4" /> AI
+          </TabsTrigger>
           <TabsTrigger value="resources" className="flex-1 min-w-fit gap-2 data-[state=active]:shadow-none data-[state=active]:bg-muted">
             <LinkIcon className="h-4 w-4" /> Resources
           </TabsTrigger>
@@ -68,6 +79,9 @@ export const MeetingSidebar = ({ classroomId, isHost, isWebinar, jitsiApi }: { c
         </TabsList>
         
         <div className="flex-1 overflow-y-auto p-4">
+          <TabsContent value="ai" className="mt-0 h-full">
+            <AITab classroomId={classroomId} isHost={isHost} />
+          </TabsContent>
           <TabsContent value="resources" className="mt-0 h-full">
             <ResourcesTab classroomId={classroomId} isHost={isHost} />
           </TabsContent>

@@ -41,9 +41,9 @@ const Events = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 pt-24 pb-8">
         <div className="mb-8 flex items-center justify-between gap-4 flex-wrap">
           <Tabs value={selectedType} onValueChange={setSelectedType}>
             <TabsList>
@@ -146,7 +146,7 @@ const EventCard = ({ event, registered, isOrganizer, onRegister, onCancel, fmtDa
   const left = daysLeft(event.registration_deadline);
   const full = event.registration_count >= event.capacity;
   return (
-    <Card className={`card-hover overflow-hidden ${featured ? "border-2 border-primary/20 bg-gradient-to-br from-card to-primary/5" : ""}`}>
+    <Card className={`card-hover overflow-hidden ${featured ? "border-2 border-primary/20 bg-primary text-primary-foreground" : ""}`}>
       <CardHeader className="pb-3">
         <div className="mb-2 flex items-center gap-2 flex-wrap">
           <Badge variant={typeColor(event.type)}>{event.type}</Badge>

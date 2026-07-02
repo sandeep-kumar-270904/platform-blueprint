@@ -214,7 +214,7 @@ export const InnovationLeaderboard = () => {
           animate={{ opacity: 1, y: 0 }}
           data-testid="my-rank"
         >
-          <Card className="border-primary/40 bg-gradient-to-r from-primary/5 to-accent/5">
+          <Card className="border-primary/40 bg-primary text-primary-foreground">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 {getRankIcon(myRank.rank)}

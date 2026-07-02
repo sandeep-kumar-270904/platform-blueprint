@@ -27,6 +27,7 @@ import { NoteCard } from "@/components/notes/NoteCard";
 import { NotesStatsBar } from "@/components/notes/NotesStatsBar";
 import { NotesFilterBar } from "@/components/notes/NotesFilterBar";
 import { TopContributors } from "@/components/notes/TopContributors";
+import { NoteSkeleton } from "@/components/notes/NoteSkeleton";
 import { supabase } from "@/integrations/supabase/client";
 
 const NotesHub = () => {
@@ -34,7 +35,7 @@ const NotesHub = () => {
   const {
     notes, myNotes, bookmarkedNotes, filters, updateFilter, clearFilters,
     getFilteredNotes, subjects, categories, branches, semesters,
-    totalViews, totalDownloads, loadNotes, deleteNote, user,
+    totalViews, totalDownloads, loadNotes, deleteNote, user, loading
   } = useNotes();
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -92,34 +93,54 @@ const NotesHub = () => {
     onDelete: (note: any) => { setDeleteNoteState(note); setShowDeleteDialog(true); },
   };
 
-  const renderNotesList = (notesList: any[], isOwner = false) => (
-    <>
-      {notesList.length > 0 ? (
-        <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-3"}>
-          {notesList.map((note, index) => (
-            <NoteCard key={note.id} note={note} index={index} isOwner={isOwner} {...cardHandlers} />
+  const renderNotesList = (notesList: any[], isOwner = false) => {
+    if (loading) {
+      return (
+        <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-4"}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <NoteSkeleton key={i} />
           ))}
         </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-            <BookOpen className="h-8 w-8 text-muted-foreground" />
+      );
+    }
+
+    return (
+      <>
+        {notesList.length > 0 ? (
+          <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-3"}>
+            {notesList.map((note, index) => (
+              <NoteCard key={note.id} note={note} index={index} isOwner={isOwner} {...cardHandlers} />
+            ))}
           </div>
-          <h3 className="mb-2 text-lg font-semibold">No notes found</h3>
-          <p className="mb-4 text-muted-foreground text-sm">Try adjusting your search or filters, or upload the first note!</p>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={clearFilters}>Clear Filters</Button>
-            {user && <Button onClick={() => setShowUploadDialog(true)}><Upload className="mr-2 h-4 w-4" />Upload Note</Button>}
+        ) : (
+          <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-border/60 rounded-xl bg-card/30 backdrop-blur-sm">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-muted/50 border border-border">
+              <BookOpen className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <h3 className="mb-2 text-xl font-bold tracking-tight">No notes found</h3>
+            <p className="mb-8 text-muted-foreground max-w-sm text-sm">
+              We couldn't find any materials matching your current filters. Try adjusting your search or be the first to upload one!
+            </p>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={clearFilters} className="font-medium">
+                Clear Filters
+              </Button>
+              {user && (
+                <Button onClick={() => setShowUploadDialog(true)} className="font-medium shadow-sm">
+                  <Upload className="mr-2 h-4 w-4" />Upload Note
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </>
-  );
+        )}
+      </>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 pt-24 pb-6">
         <NotesStatsBar
           totalNotes={notes.length}
           totalViews={totalViews}
@@ -155,13 +176,15 @@ const NotesHub = () => {
               {user && (
                 <TabsContent value="my-notes" className="mt-4">
                   {filteredMyNotes.length === 0 && !filters.searchQuery && !filters.selectedSubject && !filters.selectedCategory ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                        <Upload className="h-8 w-8 text-muted-foreground" />
+                    <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-border/60 rounded-xl bg-card/30 backdrop-blur-sm">
+                      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-muted/50 border border-border">
+                        <Upload className="h-10 w-10 text-muted-foreground" />
                       </div>
-                      <h3 className="mb-2 text-lg font-semibold">You haven't uploaded any notes yet</h3>
-                      <p className="mb-4 text-muted-foreground text-sm">Share your notes with the community and help fellow students!</p>
-                      <Button onClick={() => setShowUploadDialog(true)}><Upload className="mr-2 h-4 w-4" />Upload Your First Note</Button>
+                      <h3 className="mb-2 text-xl font-bold tracking-tight">You haven't uploaded any notes yet</h3>
+                      <p className="mb-8 text-muted-foreground max-w-sm text-sm">Share your knowledge with the community. Uploading notes helps fellow students and earns you reputation points!</p>
+                      <Button onClick={() => setShowUploadDialog(true)} className="shadow-sm">
+                        <Upload className="mr-2 h-4 w-4" />Upload Your First Note
+                      </Button>
                     </div>
                   ) : renderNotesList(filteredMyNotes, true)}
                 </TabsContent>
@@ -169,12 +192,12 @@ const NotesHub = () => {
               {user && (
                 <TabsContent value="bookmarks" className="mt-4">
                   {filteredBookmarks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                        <Bookmark className="h-8 w-8 text-muted-foreground" />
+                    <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-border/60 rounded-xl bg-card/30 backdrop-blur-sm">
+                      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-muted/50 border border-border">
+                        <Bookmark className="h-10 w-10 text-muted-foreground" />
                       </div>
-                      <h3 className="mb-2 text-lg font-semibold">No bookmarked notes</h3>
-                      <p className="mb-4 text-muted-foreground text-sm">Click the bookmark icon on any note to save it for later!</p>
+                      <h3 className="mb-2 text-xl font-bold tracking-tight">No bookmarked notes</h3>
+                      <p className="mb-4 text-muted-foreground max-w-sm text-sm">Click the bookmark icon on any note to save it for later quick access!</p>
                     </div>
                   ) : renderNotesList(filteredBookmarks)}
                 </TabsContent>

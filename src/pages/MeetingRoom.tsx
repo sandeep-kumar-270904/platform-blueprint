@@ -163,6 +163,7 @@ const MeetingRoom = () => {
             startWithVideoMuted: !isHost || lowBandwidth,
             prejoinPageEnabled: false,
             disableDeepLinking: true,
+            transcribingEnabled: true,
             resolution: lowBandwidth ? 180 : 720,
             constraints: {
               video: {
@@ -177,7 +178,7 @@ const MeetingRoom = () => {
           interfaceConfigOverwrite={{
             DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
             TOOLBAR_BUTTONS: isWebinar && !isHost 
-              ? ['microphone', 'camera', 'chat', 'raisehand', 'tileview', 'hangup']
+              ? ['microphone', 'camera', 'chat', 'raisehand', 'tileview', 'hangup', 'closedcaptions']
               : ['microphone', 'camera', 'closedcaptions', 'desktop', 'embedmeeting', 'fullscreen',
                 'fodeviceselection', 'profile', 'chat', 'recording', 'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
                 'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts', 'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone', 'security', 'whiteboard', 'participants-pane'

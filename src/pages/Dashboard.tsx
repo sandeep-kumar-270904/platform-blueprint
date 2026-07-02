@@ -53,14 +53,16 @@ const Dashboard = () => {
     notesCount: 0, notesViews: 0, notesDownloads: 0,
     notesAvgRating: 0, ideasCount: 0, teamsCount: 0, notificationsCount: 0,
   });
+  const [gamification, setGamification] = useState<any>(null);
 
   const fetchStats = useCallback(async () => {
     if (!user) return;
-    const [notesRes, ideasRes, teamsRes, notifsRes] = await Promise.all([
+    const [notesRes, ideasRes, teamsRes, notifsRes, gamificationRes] = await Promise.all([
       supabase.from("notes").select("views, downloads, rating").eq("user_id", user.id),
       supabase.from("ideas").select("*", { count: "exact", head: true }).eq("user_id", user.id),
       supabase.from("team_members").select("*", { count: "exact", head: true }).eq("user_id", user.id),
       supabase.from("notifications").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("is_read", false),
+      supabase.rpc("get_user_gamification_stats", { target_user_id: user.id })
     ]);
     const notes = notesRes.data || [];
     const rated = notes.filter(n => Number(n.rating) > 0);
@@ -73,6 +75,9 @@ const Dashboard = () => {
       teamsCount: teamsRes.count || 0,
       notificationsCount: notifsRes.count || 0,
     });
+    if (gamificationRes.data) {
+      setGamification(gamificationRes.data);
+    }
   }, [user]);
 
   // Realtime subscriptions filtered to current user only — respects RLS scope.
@@ -125,7 +130,7 @@ const Dashboard = () => {
             </div>
             <div className="grid gap-6 lg:grid-cols-3">
               <ScrollReveal delay={0.2}>
-                <Card className="bg-gradient-to-br from-primary/5 to-accent/5 border-primary/20">
+                <Card className="border-border bg-card">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <TrendingUp className="h-5 w-5" /> Weekly Progress
@@ -133,9 +138,9 @@ const Dashboard = () => {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     {[
-                      { label: "Study Hours", current: 12, goal: 20 },
-                      { label: "Notes Uploaded", current: stats.notesCount, goal: 10 },
-                      { label: "Ideas Posted", current: stats.ideasCount, goal: 5 },
+                      { label: "Current Streak (Days)", current: gamification?.current_streak || 0, goal: 7 },
+                      { label: "Notes Uploaded", current: gamification?.notes_count || stats.notesCount, goal: 10 },
+                      { label: "Ideas Posted", current: gamification?.ideas_count || stats.ideasCount, goal: 5 },
                     ].map((item) => (
                       <div key={item.label}>
                         <div className="flex items-center justify-between text-sm mb-1">
@@ -158,10 +163,11 @@ const Dashboard = () => {
                   <CardContent>
                     <div className="space-y-3">
                       {[
-                        { title: "Knowledge Sharer", desc: "Uploaded 5 notes", icon: "📚", earned: stats.notesCount >= 5 },
-                        { title: "Innovator", desc: "Posted 3 ideas", icon: "💡", earned: stats.ideasCount >= 3 },
-                        { title: "Team Player", desc: "Joined 2 teams", icon: "🤝", earned: stats.teamsCount >= 2 },
-                        { title: "Streak Master", desc: "7-day login streak", icon: "🔥", earned: false },
+                        { title: "Knowledge Sharer", desc: "Uploaded 5 notes", icon: "📚", earned: gamification?.badges?.knowledge_sharer || stats.notesCount >= 5 },
+                        { title: "Innovator", desc: "Posted 3 ideas", icon: "💡", earned: gamification?.badges?.innovator || stats.ideasCount >= 3 },
+                        { title: "Team Player", desc: "Joined 2 teams", icon: "🤝", earned: gamification?.badges?.team_player || stats.teamsCount >= 2 },
+                        { title: "Streak Master", desc: "7-day login streak", icon: "🔥", earned: gamification?.badges?.streak_master || false },
+                        { title: "Classroom Host", desc: "Hosted a virtual class", icon: "🎓", earned: gamification?.badges?.classroom_host || false },
                       ].map((a, i) => (
                         <div key={i} className={`flex items-start gap-3 ${!a.earned ? "opacity-40" : ""}`}>
                           <span className="text-xl">{a.icon}</span>
@@ -229,10 +235,9 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
-
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 pt-24 pb-6">
         <ScrollReveal>
           <div className="mb-6 flex items-center justify-between">
             <div>

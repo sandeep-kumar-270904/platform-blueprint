@@ -291,7 +291,7 @@ export const FeedbackCircles = () => {
       </div>
 
       {/* How it Works */}
-      <Card className="bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
+      <Card className="bg-primary text-primary-foreground border-primary/20">
         <CardContent className="p-6">
           <h3 className="font-semibold mb-4">How Feedback Circles Work</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
