@@ -15,7 +15,6 @@ interface NotesFilterBarProps {
   onViewModeChange: (mode: "grid" | "list") => void;
   onUploadClick: () => void;
   onBatchUploadClick: () => void;
-  showUploadButtons: boolean;
 }
 
 export const NotesFilterBar = ({
@@ -29,7 +28,6 @@ export const NotesFilterBar = ({
   onViewModeChange,
   onUploadClick,
   onBatchUploadClick,
-  showUploadButtons,
 }: NotesFilterBarProps) => {
   return (
     <div className="mb-6 space-y-3">
@@ -64,16 +62,12 @@ export const NotesFilterBar = ({
           <Button variant={viewMode === "list" ? "default" : "ghost"} size="icon" className="h-9 w-9" onClick={() => onViewModeChange("list")}>
             <List className="h-4 w-4" />
           </Button>
-          {showUploadButtons && (
-            <>
-              <Button onClick={onUploadClick} size="sm" className="h-9">
-                <Upload className="mr-1.5 h-3.5 w-3.5" />Upload
-              </Button>
-              <Button onClick={onBatchUploadClick} variant="secondary" size="sm" className="h-9">
-                <Upload className="mr-1.5 h-3.5 w-3.5" />Batch
-              </Button>
-            </>
-          )}
+          <Button onClick={onUploadClick} size="sm" className="h-9">
+            <Upload className="mr-1.5 h-3.5 w-3.5" />Upload
+          </Button>
+          <Button onClick={onBatchUploadClick} variant="secondary" size="sm" className="h-9">
+            <Upload className="mr-1.5 h-3.5 w-3.5" />Batch
+          </Button>
         </div>
       </div>
 
