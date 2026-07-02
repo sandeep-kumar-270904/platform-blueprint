@@ -157,9 +157,20 @@ const NotesHub = () => {
           semesters={semesters}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onUploadClick={() => setShowUploadDialog(true)}
-          onBatchUploadClick={() => setShowBatchUpload(true)}
-          showUploadButtons={!!user}
+          onUploadClick={() => {
+            if (!user) {
+              toast.error("Please sign in to upload notes");
+              return;
+            }
+            setShowUploadDialog(true);
+          }}
+          onBatchUploadClick={() => {
+            if (!user) {
+              toast.error("Please sign in to upload notes");
+              return;
+            }
+            setShowBatchUpload(true);
+          }}
         />
 
         <div className="flex gap-6 mb-6">

@@ -1,0 +1,31 @@
+:root {
+  --canvas: #EBE5DB;
+  --surface: #E1DBCF;
+  --surface-sunk: #D6CFC1;
+  --ink: #201C18;
+  --ink-soft: #4A453E;
+  --ink-faint: #8A8478;
+  --accent: #B5651D;
+  --accent-soft: #F4E4D4;
+  --border: #E2DCCE;
+
+  --shadow-sm: 0 1px 3px rgba(32,28,24,0.06);
+  --shadow-md: 0 8px 24px rgba(32,28,24,0.08);
+  --shadow-lg: 0 24px 56px rgba(32,28,24,0.14);
+
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-6: 48px;
+  --space-8: 64px;
+  --space-12: 96px;
+
+  --radius-sm: 12px;
+  --radius-lg: 20px;
+  
+  --icon-size: 40px;
+  --icon-radius: 10px;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}

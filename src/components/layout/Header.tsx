@@ -9,7 +9,7 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
-import { GraduationCap, Menu, X, LogOut, LayoutDashboard } from "lucide-react";
+import { GraduationCap, Menu, X, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -89,7 +89,7 @@ export const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -101,28 +101,29 @@ export const Header = () => {
 
   return (
     <header className={cn(
-      "fixed top-0 z-50 w-full transition-all duration-300",
-      isScrolled 
-        ? "bg-background/80 backdrop-blur-md border-b border-border shadow-sm py-0" 
-        : "bg-transparent border-transparent py-2"
+      "navbar transition-all duration-300",
+      isScrolled ? "py-0 shadow-sm" : "py-2"
     )}>
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-all group-hover:scale-110">
-            <GraduationCap className="h-5 w-5" />
-          </div>
-          <span className="text-xl font-bold text-foreground display-font tracking-tight">
-            StudentHub
-          </span>
-        </Link>
+      <div className="container mx-auto flex h-16 items-center justify-between gap-8">
+        {/* Left Side (Logo) */}
+        <div className="flex-1 flex justify-start min-w-max">
+          <Link to="/" className="flex items-center gap-2 group">
+            <div className="icon-box bg-[var(--ink)] text-white shadow-sm transition-all group-hover:scale-110">
+              <GraduationCap className="h-5 w-5" />
+            </div>
+            <span className="text-xl font-bold text-foreground display-font tracking-tight">
+              StudentHub
+            </span>
+          </Link>
+        </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden lg:block">
-          <NavigationMenu>
-            <NavigationMenuList>
+        {/* Desktop Navigation (Center) */}
+        <nav className="hidden lg:flex justify-center">
+          <NavigationMenu delayDuration={200}>
+            <NavigationMenuList className="flex gap-6 lg:gap-8">
               {navigationGroups.map((group) => (
                 <NavigationMenuItem key={group.title}>
-                  <NavigationMenuTrigger className="text-sm font-medium">
+                  <NavigationMenuTrigger className="text-sm font-medium h-10 bg-transparent">
                     {group.title}
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
@@ -161,33 +162,14 @@ export const Header = () => {
         </nav>
 
         {/* Right Side Actions */}
-        <div className="flex items-center gap-3">
-          {user ? (
-            <>
-              <Link to="/dashboard">
-                <Button variant="ghost" size="sm" className="hidden md:inline-flex gap-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Button>
-              </Link>
-              <Button variant="outline" size="sm" className="hidden md:inline-flex gap-2" onClick={signOut}>
-                <LogOut className="h-4 w-4" />
-                Sign Out
+        <div className="flex-1 flex items-center justify-end gap-3 min-w-max">
+          {user && (
+            <Link to="/dashboard">
+              <Button className="btn-secondary hidden md:inline-flex">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
               </Button>
-            </>
-          ) : (
-            <>
-              <Link to="/auth">
-                <Button variant="ghost" size="sm" className="hidden md:inline-flex">
-                  Sign In
-                </Button>
-              </Link>
-              <Link to="/auth">
-                <Button variant="default" size="sm" className="hidden md:inline-flex">
-                  Get Started
-                </Button>
-              </Link>
-            </>
+            </Link>
           )}
           
           {/* Mobile Menu Button */}
@@ -234,38 +216,21 @@ export const Header = () => {
                 </ul>
               </div>
             ))}
-            <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
-              {user ? (
-                <>
-                  <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="outline" className="w-full justify-center gap-2">
-                      <LayoutDashboard className="h-4 w-4" />
-                      Dashboard
-                    </Button>
-                  </Link>
-                  <Button variant="ghost" className="w-full justify-center gap-2" onClick={() => { signOut(); setMobileMenuOpen(false); }}>
-                    <LogOut className="h-4 w-4" />
-                    Sign Out
+            {user && (
+              <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
+                <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="outline" className="w-full justify-center gap-2">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
                   </Button>
-                </>
-              ) : (
-                <>
-                  <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="outline" className="w-full justify-center">
-                      Sign In
-                    </Button>
-                  </Link>
-                  <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="hero" className="w-full justify-center">
-                      Get Started
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </div>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}
     </header>
   );
 };
+
+export default Header;
