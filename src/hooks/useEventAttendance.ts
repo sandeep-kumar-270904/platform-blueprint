@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "./useAuth";
 import { toast } from "@/hooks/use-toast";
+import { io } from "socket.io-client";
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface AttendanceRow {
+  _id?: string;
   id: string;
   event_id: string;
   user_id: string;
@@ -12,7 +14,6 @@ export interface AttendanceRow {
 }
 
 export const useEventAttendance = (eventId: string | null) => {
-  const { user } = useAuth();
   const [rows, setRows] = useState<AttendanceRow[]>([]);
   const [profiles, setProfiles] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
@@ -20,25 +21,54 @@ export const useEventAttendance = (eventId: string | null) => {
   const fetchAll = useCallback(async () => {
     if (!eventId) return;
     setLoading(true);
-    const { data } = await supabase.from("event_attendance").select("*").eq("event_id", eventId);
-    setRows((data || []) as AttendanceRow[]);
-    const ids = Array.from(new Set((data || []).map((r: any) => r.user_id)));
-    if (ids.length) {
-      const { data: pr } = await supabase.from("profiles").select("id, full_name, username").in("id", ids);
-      const map: Record<string, any> = {};
-      (pr || []).forEach((p: any) => { map[p.id] = p; });
-      setProfiles(map);
+    try {
+      const res = await fetch(`${API_URL}/api/events/${eventId}/attendance`);
+      if (res.ok) {
+        const { rows, profiles } = await res.json();
+        setRows(rows.map((r: any) => ({ ...r, id: r._id })));
+        
+        const profileMap: Record<string, any> = {};
+        profiles.forEach((p: any) => { profileMap[p._id] = p; });
+        setProfiles(profileMap);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [eventId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { 
+    fetchAll(); 
+    
+    if (!eventId) return;
+    const socket = io(API_URL);
+    socket.on('event_attendance_updated', (updatedEventId) => {
+      if (updatedEventId === eventId) fetchAll();
+    });
+    
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchAll, eventId]);
 
   const checkIn = async (userId?: string) => {
-    if (!user || !eventId) return;
-    const { error } = await supabase.rpc("check_in_event", { _event_id: eventId, _user_id: userId || null });
-    if (error) toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
-    else { toast({ title: "Checked in" }); fetchAll(); }
+    const token = localStorage.getItem('token');
+    if (!token || !eventId) return;
+    try {
+      const res = await fetch(`${API_URL}/api/events/${eventId}/check-in`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Check-in failed');
+      }
+      toast({ title: "Checked in" });
+    } catch (error: any) {
+      toast({ title: "Check-in failed", description: error.message, variant: "destructive" });
+    }
   };
 
   const exportCsv = (eventTitle: string) => {
@@ -67,11 +97,16 @@ export const useEventAttendance = (eventId: string | null) => {
 };
 
 export const useMyAttendance = () => {
-  const { user } = useAuth();
   const [count, setCount] = useState(0);
   useEffect(() => {
-    if (!user) return;
-    supabase.from("event_attendance").select("*", { count: "exact", head: true }).eq("user_id", user.id).then(({ count }) => setCount(count || 0));
-  }, [user]);
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    fetch(`${API_URL}/api/events/attendance/me`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(data => setCount(data.count || 0))
+    .catch(() => {});
+  }, []);
   return count;
 };
