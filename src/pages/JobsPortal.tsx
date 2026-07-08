@@ -32,19 +32,19 @@ const JobsPortal = () => {
       <Header />
 
       <ParallaxSection speed={0.3}>
-        <section className="relative overflow-hidden py-12 md:py-16">
+        <section className="relative overflow-hidden py-6 md:py-10">
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
-              <div className="mx-auto max-w-3xl text-center">
-                <Badge variant="accent" className="mb-6">
+              <div className="mx-auto max-w-5xl text-center">
+                <Badge variant="accent" className="mb-4">
                   <Briefcase className="mr-1 h-3 w-3" />
                   Career Opportunities
                 </Badge>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
+                <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">
                   Find Your <span className="text-foreground display-font">Dream Job</span>
                 </h1>
-                <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
-                  Discover internships and full-time opportunities from top companies.
+                <p className="mx-auto mb-6 max-w-2xl text-lg text-muted-foreground">
+                  Discover roles that match your skills. Apply easily and track your applications in one place.
                 </p>
                 <Dialog open={isPostOpen} onOpenChange={setIsPostOpen}>
                   <DialogTrigger asChild>

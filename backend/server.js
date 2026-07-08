@@ -51,6 +51,7 @@ app.use('/api/community', require('./routes/community'));
 app.use('/api/mentors', require('./routes/mentors'));
 app.use('/api/jobs', require('./routes/jobs'));
 app.use('/api/resumes', require('./routes/resumes'));
+app.use('/api/study-groups', require('./routes/studyGroups'));
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
@@ -94,6 +95,16 @@ io.on('connection', (socket) => {
   socket.on('leave_community_post', (postId) => {
     socket.leave(`community_post_${postId}`);
     console.log(`Socket ${socket.id} left community_post_${postId}`);
+  });
+
+  socket.on('join_group_room', (groupId) => {
+    socket.join(`group_${groupId}`);
+    console.log(`Socket ${socket.id} joined group_${groupId}`);
+  });
+  
+  socket.on('leave_group_room', (groupId) => {
+    socket.leave(`group_${groupId}`);
+    console.log(`Socket ${socket.id} left group_${groupId}`);
   });
 
   socket.on('disconnect', () => {
