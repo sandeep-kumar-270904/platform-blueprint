@@ -48,19 +48,19 @@ const ResumeBuilder = () => {
       <Header />
 
       <ParallaxSection speed={0.3}>
-        <section className="relative overflow-hidden py-12 md:py-16">
+        <section className="relative overflow-hidden py-6 md:py-10">
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
-              <div className="mx-auto max-w-3xl text-center">
-                <Badge variant="accent" className="mb-6">
+              <div className="mx-auto max-w-5xl text-center">
+                <Badge variant="accent" className="mb-4">
                   <FileText className="mr-1 h-3 w-3" />
-                  ATS-Optimized Resume Builder
+                  ATS-Friendly Resumes
                 </Badge>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
-                  Build Your <span className="text-foreground display-font">Perfect Resume</span>
+                <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">
+                  Build Your <span className="text-primary display-font">Perfect Resume</span>
                 </h1>
-                <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
-                  Create ATS-friendly resumes that pass applicant tracking systems and impress recruiters.
+                <p className="mx-auto mb-6 max-w-2xl text-lg text-muted-foreground">
+                  Create professional, ATS-optimized resumes in minutes. Export to PDF and get instant feedback.
                 </p>
               </div>
             </ScrollReveal>
