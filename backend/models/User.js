@@ -25,6 +25,11 @@ const UserSchema = new mongoose.Schema({
   avatar_url: {
     type: String
   },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user'
+  },
   created_at: {
     type: Date,
     default: Date.now

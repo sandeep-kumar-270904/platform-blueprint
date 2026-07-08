@@ -57,6 +57,8 @@ app.use('/api/flashcards', require('./routes/flashcards'));
 app.use('/api/roadmaps', require('./routes/roadmaps'));
 app.use('/api/learning-sessions', require('./routes/learningSessions'));
 app.use('/api/learning-progress', require('./routes/learningProgress'));
+app.use('/api/note-comments', require('./routes/noteComments'));
+app.use('/api/admin', require('./routes/admin'));
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
