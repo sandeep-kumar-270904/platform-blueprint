@@ -34,7 +34,7 @@ export const useStudyGroups = () => {
   const [groups, setGroups] = useState<StudyGroupRow[]>([]);
   const [myGroupIds, setMyGroupIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState('connected');
+  const [status, setStatus] = useState('live');
 
   const fetchAll = useCallback(async () => {
     try {

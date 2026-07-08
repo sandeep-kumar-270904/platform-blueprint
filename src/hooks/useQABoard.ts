@@ -69,7 +69,7 @@ export function useQuestions(category?: string) {
     };
   }, [fetchQuestions]);
 
-  return { questions, loading, status: 'connected', refetch: fetchQuestions };
+  return { questions, loading, status: 'live', refetch: fetchQuestions };
 }
 
 export async function createQuestion(input: { title: string; body: string; category: string; tags: string[] }) {
@@ -152,7 +152,7 @@ export function useAnswers(questionId: string | null) {
     };
   }, [questionId, fetchAnswers]);
 
-  return { answers, loading, status: 'connected', refetch: fetchAnswers };
+  return { answers, loading, status: 'live', refetch: fetchAnswers };
 }
 
 export async function postAnswer(questionId: string, body: string) {

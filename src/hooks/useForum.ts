@@ -71,7 +71,7 @@ export function useForumThreads(category?: string, sort: "recent" | "trending" |
     };
   }, [fetchThreads]);
 
-  return { threads, loading, status: 'connected', refetch: fetchThreads };
+  return { threads, loading, status: 'live', refetch: fetchThreads };
 }
 
 export async function createThread(input: { title: string; body: string; category: string; tags: string[] }) {
@@ -149,7 +149,7 @@ export function useForumReplies(threadId: string | null) {
     };
   }, [threadId, fetchReplies]);
 
-  return { replies, loading, status: 'connected', refetch: fetchReplies };
+  return { replies, loading, status: 'live', refetch: fetchReplies };
 }
 
 export async function postReply(threadId: string, body: string, parentId?: string | null) {

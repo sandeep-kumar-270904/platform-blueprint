@@ -29,7 +29,7 @@ export const useEvents = (typeFilter: string = "all") => {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [myRegistrations, setMyRegistrations] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState('connected');
+  const [status, setStatus] = useState('live');
 
   const fetchAll = useCallback(async () => {
     try {
