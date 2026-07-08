@@ -59,6 +59,8 @@ app.use('/api/learning-sessions', require('./routes/learningSessions'));
 app.use('/api/learning-progress', require('./routes/learningProgress'));
 app.use('/api/note-comments', require('./routes/noteComments'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/ideas', require('./routes/ideas'));
+app.use('/api/amas', require('./routes/amas'));
 
 // Socket.io connection handling
 io.on('connection', (socket) => {

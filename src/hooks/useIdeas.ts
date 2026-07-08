@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { io } from "socket.io-client";
 import { useAuth } from "@/hooks/useAuth";
 
-interface IdeaRow {
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+export interface IdeaRow {
   id: string;
+  _id?: string;
   title: string;
   description: string;
   category: string;
@@ -16,7 +19,7 @@ interface IdeaRow {
   is_public: boolean | null;
 }
 
-interface IdeaWithProfile extends IdeaRow {
+export interface IdeaWithProfile extends IdeaRow {
   profile?: { username: string | null; avatar_url: string | null };
 }
 
@@ -27,75 +30,49 @@ export const useIdeas = () => {
 
   const fetchIdeas = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("ideas")
-      .select("*")
-      .eq("is_public", true)
-      .order("created_at", { ascending: false });
-
-    if (data) {
-      // Fetch profiles for all idea authors
-      const userIds = [...new Set(data.map(i => i.user_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, username, avatar_url")
-        .in("id", userIds);
-
-      const enriched: IdeaWithProfile[] = data.map(idea => ({
-        ...idea,
-        profile: profiles?.find(p => p.id === idea.user_id) || undefined,
-      }));
-      setIdeas(enriched);
+    try {
+      const res = await fetch(`${API_URL}/api/ideas`);
+      if (res.ok) {
+        let data = await res.json();
+        data = data.map((i: any) => ({ ...i, id: i._id }));
+        setIdeas(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useEffect(() => {
     fetchIdeas();
 
-    // Real-time subscription
-    const channel = supabase
-      .channel("ideas-realtime")
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "ideas",
-      }, async (payload) => {
-        const newIdea = payload.new as IdeaRow;
-        if (!newIdea.is_public) return;
-        // Fetch profile for new idea
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("id, username, avatar_url")
-          .eq("id", newIdea.user_id)
-          .single();
-        setIdeas(prev => [{ ...newIdea, profile: profile || undefined }, ...prev]);
-      })
-      .on("postgres_changes", {
-        event: "UPDATE",
-        schema: "public",
-        table: "ideas",
-      }, (payload) => {
-        setIdeas(prev => prev.map(i => i.id === payload.new.id ? { ...i, ...payload.new } : i));
-      })
-      .on("postgres_changes", {
-        event: "DELETE",
-        schema: "public",
-        table: "ideas",
-      }, (payload) => {
-        setIdeas(prev => prev.filter(i => i.id !== (payload.old as any).id));
-      })
-      .subscribe();
+    const socket = io(API_URL);
+    socket.on('ideas-realtime', (payload) => {
+      if (payload.action === 'update') {
+        const newIdea = { ...payload.data, id: payload.data._id };
+        setIdeas(prev => prev.map(i => i.id === newIdea.id ? { ...i, ...newIdea, profile: i.profile } : i));
+      } else {
+        fetchIdeas();
+      }
+    });
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { socket.disconnect(); };
   }, [fetchIdeas]);
 
   const upvoteIdea = async (ideaId: string) => {
     const idea = ideas.find(i => i.id === ideaId);
     if (!idea) return;
+    
+    // Optimistic update
     const newVotes = (idea.upvotes || 0) + 1;
     setIdeas(prev => prev.map(i => i.id === ideaId ? { ...i, upvotes: newVotes } : i));
-    await supabase.rpc("increment_idea_upvotes", { _idea_id: ideaId });
+    
+    try {
+      await fetch(`${API_URL}/api/ideas/${ideaId}/upvote`, { method: 'POST' });
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return { ideas, loading, refetch: fetchIdeas, upvoteIdea };
