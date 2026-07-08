@@ -1,9 +1,12 @@
-import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { useState, useCallback, useEffect } from "react";
+import { io } from "socket.io-client";
+import { useAuth } from "./useAuth";
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface LearningSessionRow {
   id: string;
+  _id?: string;
   host_id: string;
   title: string;
   description: string | null;
@@ -21,64 +24,76 @@ export interface LearningSessionRow {
   is_rsvped?: boolean;
 }
 
-export const useLearningSessions = (currentUserId: string | null | undefined) => {
+export const useLearningSessions = () => {
+  const { user } = useAuth();
   const [sessions, setSessions] = useState<LearningSessionRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchSessions = useCallback(async () => {
-    const { data } = await supabase
-      .from("learning_sessions")
-      .select("*")
-      .order("scheduled_at", { ascending: true });
-
-    if (!data) {
-      setSessions([]);
+    try {
+      const headers: Record<string, string> = {};
+      const token = localStorage.getItem('token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      
+      const res = await fetch(`${API_URL}/api/learning-sessions`, { headers });
+      if (res.ok) {
+        let data = await res.json();
+        data = data.map((s: any) => ({ ...s, id: s._id }));
+        setSessions(data as LearningSessionRow[]);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
       setLoading(false);
-      return;
     }
+  }, []);
 
-    const hostIds = [...new Set(data.map((s: any) => s.host_id))];
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, username, full_name, avatar_url")
-      .in("id", hostIds);
+  useEffect(() => {
+    setLoading(true);
+    fetchSessions();
+    
+    const socket = io(API_URL);
+    socket.on('learning-sessions-public', () => fetchSessions());
 
-    let myRsvps: string[] = [];
-    if (currentUserId) {
-      const { data: rsvps } = await supabase
-        .from("learning_session_participants")
-        .select("session_id")
-        .eq("user_id", currentUserId);
-      myRsvps = rsvps?.map((r: any) => r.session_id) || [];
-    }
-
-    setSessions(
-      data.map((s: any) => ({
-        ...s,
-        host_profile: profiles?.find((p: any) => p.id === s.host_id) || undefined,
-        is_rsvped: myRsvps.includes(s.id),
-      })) as LearningSessionRow[]
-    );
-    setLoading(false);
-  }, [currentUserId]);
-
-  useRealtimeSync({
-    channelName: "learning-sessions-public",
-    filters: [{ table: "learning_sessions" }, { table: "learning_session_participants" }],
-    onChange: fetchSessions,
-    pollIntervalMs: 30000,
-  });
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchSessions]);
 
   const rsvp = async (sessionId: string) => {
-    const { error } = await supabase.rpc("rsvp_learning_session", { _session_id: sessionId });
-    if (!error) await fetchSessions();
-    return error;
+    const token = localStorage.getItem('token');
+    if (!token) return { error: "Not authenticated" };
+    
+    const res = await fetch(`${API_URL}/api/learning-sessions/${sessionId}/rsvp`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!res.ok) {
+      const err = await res.json();
+      return err;
+    }
+    
+    await fetchSessions();
+    return null; // no error
   };
 
   const cancelRsvp = async (sessionId: string) => {
-    const { error } = await supabase.rpc("cancel_learning_session_rsvp", { _session_id: sessionId });
-    if (!error) await fetchSessions();
-    return error;
+    const token = localStorage.getItem('token');
+    if (!token) return { error: "Not authenticated" };
+    
+    const res = await fetch(`${API_URL}/api/learning-sessions/${sessionId}/rsvp`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!res.ok) {
+      const err = await res.json();
+      return err;
+    }
+    
+    await fetchSessions();
+    return null;
   };
 
   return { sessions, loading, refetch: fetchSessions, rsvp, cancelRsvp };
