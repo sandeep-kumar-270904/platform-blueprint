@@ -100,5 +100,5 @@ export const useClassroomChat = (classroomId: string | null) => {
     toast({ title: "Delete coming soon!" });
   };
 
-  return { messages, reactions, profiles, loading, status: 'connected', send, toggleReaction, deleteMessage };
+  return { messages, reactions, profiles, loading, status: 'live', send, toggleReaction, deleteMessage };
 };

@@ -180,5 +180,5 @@ export const useVirtualClassroom = () => {
     }
   };
 
-  return { classrooms, joined, loading, status: 'connected', join, leave, create, remove, refetch: fetchAll, loadMore, hasMore };
+  return { classrooms, joined, loading, status: 'live', join, leave, create, remove, refetch: fetchAll, loadMore, hasMore };
 };

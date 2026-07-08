@@ -32,7 +32,7 @@ export interface CommunityComment {
 export function useCommunityFeed() {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState('connected');
+  const [status, setStatus] = useState('live');
 
   const fetchPosts = useCallback(async () => {
     try {
@@ -101,7 +101,7 @@ export async function togglePostLike(postId: string) {
 export function usePostComments(postId: string | null) {
   const [comments, setComments] = useState<CommunityComment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState('connected');
+  const [status, setStatus] = useState('live');
 
   const fetchComments = useCallback(async () => {
     if (!postId) { setComments([]); setLoading(false); return; }

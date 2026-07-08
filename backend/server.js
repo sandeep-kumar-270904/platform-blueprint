@@ -52,6 +52,8 @@ app.use('/api/mentors', require('./routes/mentors'));
 app.use('/api/jobs', require('./routes/jobs'));
 app.use('/api/resumes', require('./routes/resumes'));
 app.use('/api/study-groups', require('./routes/studyGroups'));
+app.use('/api/quizzes', require('./routes/quizzes'));
+app.use('/api/flashcards', require('./routes/flashcards'));
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
