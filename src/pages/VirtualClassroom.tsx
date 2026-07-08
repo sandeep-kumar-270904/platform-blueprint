@@ -32,9 +32,12 @@ const VirtualClassroom = () => {
   const [collections, setCollections] = useState<any[]>([]);
 
   useEffect(() => {
-    supabase.from('virtual_classroom_collections')
-      .select('*, virtual_classroom_collection_items(classroom_id)')
-      .then(({data}) => { if (data) setCollections(data); });
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/classrooms/collections`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setCollections(data);
+      })
+      .catch(console.error);
   }, []);
 
   const handleCreate = async () => {

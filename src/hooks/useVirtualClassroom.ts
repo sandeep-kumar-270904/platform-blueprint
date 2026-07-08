@@ -1,11 +1,10 @@
 import { useCallback, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useRealtimeSync } from "./useRealtimeSync";
 import { useAuth } from "./useAuth";
 import { toast } from "@/hooks/use-toast";
 
 export interface ClassroomRow {
-  id: string;
+  _id: string;
+  id: string; // Map _id to id for backwards compatibility in UI
   host_id: string;
   title: string;
   subject: string | null;
@@ -15,8 +14,6 @@ export interface ClassroomRow {
   max_participants: number;
   participant_count: number;
   status: string;
-  meeting_link: string | null;
-  recording_url: string | null;
   join_code: string;
   visibility: string;
   type: string;
@@ -31,6 +28,8 @@ export interface ParticipantRow {
   status: string;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export const useVirtualClassroom = () => {
   const { user } = useAuth();
   const [classrooms, setClassrooms] = useState<ClassroomRow[]>([]);
@@ -42,8 +41,7 @@ export const useVirtualClassroom = () => {
 
   const fetchAll = useCallback(async (isLoadMore = false) => {
     const currentPage = isLoadMore ? page + 1 : 1;
-    const from = (currentPage - 1) * limit;
-    const to = from + limit - 1;
+    
     // If offline, attempt to load from cache
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       try {
@@ -60,48 +58,42 @@ export const useVirtualClassroom = () => {
       return;
     }
 
-    // Retry wrapper for resilient fetching
-    const fetchWithRetry = async (fn: () => Promise<any>, retries = 3) => {
-      for (let i = 0; i < retries; i++) {
-        try { return await fn(); } 
-        catch (e) { if (i === retries - 1) throw e; await new Promise(r => setTimeout(r, 1000 * (i + 1))); }
-      }
-    };
-
     try {
-      const { data } = await fetchWithRetry(() => 
-        supabase.from("virtual_classrooms").select("*").order("is_featured", { ascending: false }).order("scheduled_at", { ascending: true }).range(from, to)
-      );
+      // 1. Fetch Classrooms
+      const res = await fetch(`${API_URL}/api/classrooms?page=${currentPage}&limit=${limit}`);
+      if (!res.ok) throw new Error('Failed to fetch classrooms');
+      let data = await res.json();
       
-      let filteredData = (data as ClassroomRow[]) || [];
-      setHasMore(filteredData.length === limit);
+      // Map _id to id for frontend compatibility
+      data = data.map((c: any) => ({ ...c, id: c._id }));
+
+      setHasMore(data.length === limit);
       
       let joinedMap: Record<string, ParticipantRow> = isLoadMore ? { ...joined } : {};
       
       if (user) {
-        // Fetch blocks to filter out blocked hosts
-        const { data: blocks } = await supabase.from("user_blocks").select("blocked_id").eq("blocker_id", user.id);
-        if (blocks && blocks.length > 0) {
-          const blockedIds = new Set(blocks.map(b => b.blocked_id));
-          filteredData = filteredData.filter(c => !blockedIds.has(c.host_id));
-        }
-  
-        const { data: p } = await supabase.from("virtual_classroom_participants").select("*").eq("user_id", user.id);
-        if (p) {
-          p.forEach((x: any) => {
-            joinedMap[x.classroom_id] = x;
+        const token = localStorage.getItem('token');
+        if (token) {
+          const pRes = await fetch(`${API_URL}/api/classrooms/my-participation`, {
+            headers: { 'Authorization': `Bearer ${token}` }
           });
+          if (pRes.ok) {
+            const participations = await pRes.json();
+            participations.forEach((x: any) => {
+              joinedMap[x.classroom_id] = x;
+            });
+          }
         }
       }
       
-      setClassrooms(prev => isLoadMore ? [...prev, ...filteredData] : filteredData);
+      setClassrooms(prev => isLoadMore ? [...prev, ...data] : data);
       setJoined(joinedMap);
       if (isLoadMore) setPage(currentPage);
       
-      // Update cache (only cache page 1 for offline fallback)
+      // Update cache
       if (!isLoadMore) {
         localStorage.setItem("virtual_classrooms_cache", JSON.stringify({
-          classrooms: filteredData,
+          classrooms: data,
           joined: joinedMap
         }));
       }
@@ -119,50 +111,74 @@ export const useVirtualClassroom = () => {
     }
   };
 
-  const status = useRealtimeSync({
-    channelName: "virtual-classrooms",
-    filters: [{ table: "virtual_classrooms" }, { table: "virtual_classroom_participants" }],
-    onChange: fetchAll,
-  });
-
   const join = async (id: string) => {
     if (!user) return toast({ title: "Sign in required", variant: "destructive" });
-    const { error } = await supabase.rpc("join_virtual_classroom", { _classroom_id: id });
-    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
-    else toast({ title: "Joined classroom" });
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}/join`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to join');
+      toast({ title: data.message });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
   };
+
   const leave = async (id: string) => {
-    const { error } = await supabase.rpc("leave_virtual_classroom", { _classroom_id: id });
-    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
-    else toast({ title: "Left classroom" });
+    if (!user) return;
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}/leave`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to leave');
+      toast({ title: "Left classroom" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
   };
 
   const create = async (payload: Partial<ClassroomRow>) => {
     if (!user) return toast({ title: "Sign in required", variant: "destructive" });
-    const { error } = await supabase.from("virtual_classrooms").insert({
-      host_id: user.id,
-      title: payload.title!,
-      subject: payload.subject || null,
-      description: payload.description || "",
-      scheduled_at: payload.scheduled_at!,
-      duration_minutes: payload.duration_minutes || 60,
-      max_participants: payload.max_participants || 50,
-      visibility: payload.visibility || "public",
-      type: payload.type || "interactive",
-      is_paid: payload.is_paid || false,
-      price: payload.price || 0,
-      join_code: Math.random().toString(36).substring(2, 10)
-    });
-    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
-    else toast({ title: "Classroom scheduled" });
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('Failed to create');
+      toast({ title: "Classroom scheduled" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
   };
 
   const remove = async (id: string) => {
     if (!user) return;
-    const { error } = await supabase.from("virtual_classrooms").delete().eq("id", id).eq("host_id", user.id);
-    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
-    else toast({ title: "Classroom cancelled" });
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to delete');
+      toast({ title: "Classroom cancelled" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
   };
 
-  return { classrooms, joined, loading, status, join, leave, create, remove, refetch: fetchAll, loadMore, hasMore };
+  return { classrooms, joined, loading, status: 'connected', join, leave, create, remove, refetch: fetchAll, loadMore, hasMore };
 };

@@ -1,10 +1,12 @@
-import { useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useRealtimeSync } from "./useRealtimeSync";
+import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
+import { io, Socket } from "socket.io-client";
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface QAQuestion {
-  id: string;
+  _id?: string;
+  id?: string;
   user_id: string;
   title: string;
   body: string;
@@ -15,18 +17,21 @@ export interface QAQuestion {
   view_count: number;
   is_resolved: boolean;
   is_pinned: boolean;
-  created_at: string;
+  created_at?: string;
+  createdAt?: string;
   author?: { username: string | null; full_name: string | null; avatar_url: string | null } | null;
 }
 
 export interface QAAnswer {
-  id: string;
+  _id?: string;
+  id?: string;
   question_id: string;
   user_id: string;
   body: string;
   upvotes: number;
   is_accepted: boolean;
-  created_at: string;
+  created_at?: string;
+  createdAt?: string;
   author?: { username: string | null; full_name: string | null; avatar_url: string | null } | null;
 }
 
@@ -35,45 +40,71 @@ export function useQuestions(category?: string) {
   const [loading, setLoading] = useState(true);
 
   const fetchQuestions = useCallback(async () => {
-    let q = supabase.from("qa_questions").select("*").order("is_pinned", { ascending: false }).order("created_at", { ascending: false }).limit(100);
-    if (category && category !== "All") q = q.eq("category", category);
-    const { data, error } = await q;
-    if (error) { setLoading(false); return; }
-    const ids = [...new Set((data || []).map((d: any) => d.user_id))];
-    const { data: profiles } = await supabase.from("profiles").select("id,username,full_name,avatar_url").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
-    const map = new Map((profiles || []).map((p: any) => [p.id, p]));
-    setQuestions((data || []).map((d: any) => ({ ...d, author: map.get(d.user_id) || null })));
-    setLoading(false);
+    try {
+      const qs = new URLSearchParams();
+      if (category) qs.append('category', category);
+      
+      const res = await fetch(`${API_URL}/api/qa/questions?${qs.toString()}`);
+      let data = await res.json();
+      data = data.map((q: any) => ({ ...q, id: q._id, created_at: q.createdAt }));
+      setQuestions(data);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load QA questions");
+    } finally {
+      setLoading(false);
+    }
   }, [category]);
 
-  const status = useRealtimeSync({
-    channelName: `qa-questions-${category || "all"}`,
-    filters: [
-      { table: "qa_questions", event: "*" },
-      { table: "qa_answers", event: "*" },
-    ],
-    onChange: fetchQuestions,
-  });
+  useEffect(() => {
+    setLoading(true);
+    fetchQuestions();
+    
+    const socket = io(API_URL);
+    socket.on('qa_question_created', () => fetchQuestions());
+    socket.on('qa_question_updated', () => fetchQuestions());
+    
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchQuestions]);
 
-  return { questions, loading, status, refetch: fetchQuestions };
+  return { questions, loading, status: 'connected', refetch: fetchQuestions };
 }
 
 export async function createQuestion(input: { title: string; body: string; category: string; tags: string[] }) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) { toast.error("Please sign in"); return null; }
-  const { data, error } = await supabase.from("qa_questions").insert({ ...input, user_id: user.id }).select().single();
-  if (error) { toast.error(error.message); return null; }
-  toast.success("Question posted");
-  return data;
+  const token = localStorage.getItem('token');
+  try {
+    const res = await fetch(`${API_URL}/api/qa/questions`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(input)
+    });
+    if (!res.ok) throw new Error('Failed to create question');
+    toast.success("Question posted");
+    return await res.json();
+  } catch (err: any) {
+    toast.error(err.message);
+    return null;
+  }
 }
 
 export async function toggleQuestionVote(questionId: string) {
-  const { error } = await supabase.rpc("toggle_qa_question_vote", { _question_id: questionId });
-  if (error) toast.error(error.message);
+  const token = localStorage.getItem('token');
+  try {
+    await fetch(`${API_URL}/api/qa/questions/${questionId}/vote`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+  } catch (err: any) {
+    toast.error(err.message);
+  }
 }
 
 export async function incrementQuestionViews(questionId: string) {
-  await supabase.rpc("increment_qa_question_views", { _question_id: questionId });
+  try {
+    await fetch(`${API_URL}/api/qa/questions/${questionId}/view`, { method: 'POST' });
+  } catch (err) {}
 }
 
 export function useAnswers(questionId: string | null) {
@@ -82,35 +113,74 @@ export function useAnswers(questionId: string | null) {
 
   const fetchAnswers = useCallback(async () => {
     if (!questionId) { setAnswers([]); setLoading(false); return; }
-    const { data } = await supabase.from("qa_answers").select("*").eq("question_id", questionId).order("is_accepted", { ascending: false }).order("upvotes", { ascending: false });
-    const ids = [...new Set((data || []).map((d: any) => d.user_id))];
-    const { data: profiles } = await supabase.from("profiles").select("id,username,full_name,avatar_url").in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
-    const map = new Map((profiles || []).map((p: any) => [p.id, p]));
-    setAnswers((data || []).map((d: any) => ({ ...d, author: map.get(d.user_id) || null })));
-    setLoading(false);
+    try {
+      const res = await fetch(`${API_URL}/api/qa/questions/${questionId}/answers`);
+      let data = await res.json();
+      data = data.map((a: any) => ({ ...a, id: a._id, created_at: a.createdAt }));
+      setAnswers(data);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load answers");
+    } finally {
+      setLoading(false);
+    }
   }, [questionId]);
 
-  const status = useRealtimeSync({
-    channelName: questionId ? `qa-answers-${questionId}` : "qa-answers-none",
-    filters: questionId ? [{ table: "qa_answers", filter: `question_id=eq.${questionId}`, event: "*" }] : [],
-    onChange: fetchAnswers,
-    enabled: !!questionId,
-  });
+  useEffect(() => {
+    setLoading(true);
+    fetchAnswers();
+    
+    if (!questionId) return;
 
-  return { answers, loading, status, refetch: fetchAnswers };
+    const socket = io(API_URL);
+    socket.emit('join_qa_question', questionId);
+    
+    socket.on('qa_answer_created', (newAnswer) => {
+      newAnswer.id = newAnswer._id;
+      newAnswer.created_at = newAnswer.createdAt;
+      setAnswers(prev => [...prev, newAnswer]);
+    });
+    
+    socket.on('qa_answer_updated', () => {
+      // Just re-fetch to get new vote counts
+      fetchAnswers();
+    });
+    
+    return () => {
+      socket.emit('leave_qa_question', questionId);
+      socket.disconnect();
+    };
+  }, [questionId, fetchAnswers]);
+
+  return { answers, loading, status: 'connected', refetch: fetchAnswers };
 }
 
 export async function postAnswer(questionId: string, body: string) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) { toast.error("Please sign in"); return null; }
   if (!body.trim()) { toast.error("Answer cannot be empty"); return null; }
-  const { data, error } = await supabase.from("qa_answers").insert({ question_id: questionId, user_id: user.id, body: body.trim() }).select().single();
-  if (error) { toast.error(error.message); return null; }
-  toast.success("Answer posted");
-  return data;
+  const token = localStorage.getItem('token');
+  try {
+    const res = await fetch(`${API_URL}/api/qa/questions/${questionId}/answers`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: body.trim() })
+    });
+    if (!res.ok) throw new Error('Failed to post answer');
+    toast.success("Answer posted");
+    return await res.json();
+  } catch (err: any) {
+    toast.error(err.message);
+    return null;
+  }
 }
 
 export async function toggleAnswerVote(answerId: string) {
-  const { error } = await supabase.rpc("toggle_qa_answer_vote", { _answer_id: answerId });
-  if (error) toast.error(error.message);
+  const token = localStorage.getItem('token');
+  try {
+    await fetch(`${API_URL}/api/qa/answers/${answerId}/vote`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+  } catch (err: any) {
+    toast.error(err.message);
+  }
 }

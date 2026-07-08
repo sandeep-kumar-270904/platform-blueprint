@@ -88,9 +88,9 @@ export const TopContributors = () => {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="bg-[var(--surface-sunk)] border-[var(--border)] shadow-sm">
         <CardContent className="flex justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Loader2 className="h-6 w-6 animate-spin text-[var(--ink-soft)]" />
         </CardContent>
       </Card>
     );
@@ -98,14 +98,14 @@ export const TopContributors = () => {
 
   if (contributors.length === 0) {
     return (
-      <Card>
+      <Card className="bg-[var(--surface-sunk)] border-[var(--border)] shadow-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Trophy className="h-5 w-5 text-amber-500" /> Top Contributors
+          <CardTitle className="flex items-center gap-2 text-base text-[var(--ink)]">
+            <Trophy className="h-5 w-5 text-[var(--accent)]" /> Top Contributors
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground text-center py-6">
+          <p className="text-sm text-[var(--ink-soft)] text-center py-6">
             No contributors yet. Upload notes to appear here!
           </p>
         </CardContent>
@@ -114,10 +114,10 @@ export const TopContributors = () => {
   }
 
   return (
-    <Card>
+    <Card className="bg-[var(--surface-sunk)] border-[var(--border)] shadow-sm">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Trophy className="h-5 w-5 text-amber-500" /> Top Contributors
+        <CardTitle className="flex items-center gap-2 text-base text-[var(--ink)]">
+          <Trophy className="h-5 w-5 text-[var(--accent)]" /> Top Contributors
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -136,7 +136,7 @@ export const TopContributors = () => {
                   {rankStyle ? (
                     <span className="text-base">{rankStyle.icon}</span>
                   ) : (
-                    <span className="text-xs font-semibold text-muted-foreground tabular-nums">
+                    <span className="text-xs font-semibold text-[var(--ink-soft)] tabular-nums">
                       #{i + 1}
                     </span>
                   )}
@@ -151,14 +151,14 @@ export const TopContributors = () => {
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{getDisplayName(c)}</p>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <p className="text-sm font-medium truncate text-[var(--ink)]">{getDisplayName(c)}</p>
+                  <div className="flex items-center gap-3 text-xs text-[var(--ink-soft)]">
                     <span className="flex items-center gap-1">
                       <Upload className="h-3 w-3" />{c.note_count}
                     </span>
                     {c.avg_rating > 0 && (
                       <span className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />{c.avg_rating}
+                        <Star className="h-3 w-3 fill-[var(--accent)] text-[var(--accent)]" />{c.avg_rating}
                       </span>
                     )}
                     <span className="flex items-center gap-1">

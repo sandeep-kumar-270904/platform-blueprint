@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import NotesHub from "./pages/NotesHub";
@@ -60,53 +61,57 @@ const App = () => (
       <Sonner />
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
+          {/* Public Routes */}
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/notes" element={<NotesHub />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/study-session/:sessionId" element={<StudySession />} />
-          <Route path="/events" element={<Events />} />
-          <Route path="/community" element={<Community />} />
-          <Route path="/mentors" element={<Mentors />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/resume-builder" element={<ResumeBuilder />} />
-          <Route path="/college-insights" element={<CollegeInsights />} />
-          <Route path="/innovation-hub" element={<InnovationHub />} />
-          <Route path="/scholarships" element={<Scholarships />} />
-          <Route path="/courses" element={<Courses />} />
-          <Route path="/jobs" element={<JobsPortal />} />
-          <Route path="/quiz" element={<QuizHub />} />
-          <Route path="/skills" element={<SkillZone />} />
-          <Route path="/news" element={<TechNews />} />
-          <Route path="/placement" element={<PlacementCell />} />
-          <Route path="/study-groups" element={<StudyGroups />} />
-          <Route path="/team-hunt" element={<TeamHunt />} />
-          <Route path="/roommate-finder" element={<RoommateFind />} />
-          <Route path="/wellness" element={<Wellness />} />
-          <Route path="/flashcards" element={<Flashcards />} />
-          <Route path="/room-rentals" element={<RoomRentals />} />
-          <Route path="/food" element={<FoodServices />} />
-          <Route path="/transport" element={<Transport />} />
-          <Route path="/qa-board" element={<QABoard />} />
-          <Route path="/gamification" element={<Gamification />} />
-          <Route path="/virtual-classroom" element={<VirtualClassroom />} />
-          <Route path="/classroom/:id" element={<MeetingRoom />} />
-          <Route path="/host-dashboard" element={<HostDashboard />} />
-          <Route path="/classroom/:id/recap" element={<ClassroomRecap />} />
-          <Route path="/roadmaps" element={<Roadmaps />} />
-          <Route path="/forum" element={<Forum />} />
-          <Route path="/sessions" element={<Sessions />} />
-          <Route path="/tech-vault" element={<TechVault />} />
-          <Route path="/skill-swap" element={<SkillSwap />} />
-          <Route path="/creators" element={<CreatorsZone />} />
-          <Route path="/admin" element={<AdminPanel />} />
-          <Route path="/daily-hacks" element={<DailyHacks />} />
-          <Route path="/post-skill" element={<PostSkill />} />
-          <Route path="/hostels" element={<Hostels />} />
-          <Route path="/repair" element={<Repair />} />
-          <Route path="/shopping" element={<Shopping />} />
-          <Route path="/founders-passport" element={<FoundersPassport />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
+          
+          {/* Protected Routes */}
+          <Route path="/notes" element={<ProtectedRoute><NotesHub /></ProtectedRoute>} />
+          <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+          <Route path="/study-session/:sessionId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
+          <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
+          <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
+          <Route path="/mentors" element={<ProtectedRoute><Mentors /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/resume-builder" element={<ProtectedRoute><ResumeBuilder /></ProtectedRoute>} />
+          <Route path="/college-insights" element={<ProtectedRoute><CollegeInsights /></ProtectedRoute>} />
+          <Route path="/innovation-hub" element={<ProtectedRoute><InnovationHub /></ProtectedRoute>} />
+          <Route path="/scholarships" element={<ProtectedRoute><Scholarships /></ProtectedRoute>} />
+          <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
+          <Route path="/jobs" element={<ProtectedRoute><JobsPortal /></ProtectedRoute>} />
+          <Route path="/quiz" element={<ProtectedRoute><QuizHub /></ProtectedRoute>} />
+          <Route path="/skills" element={<ProtectedRoute><SkillZone /></ProtectedRoute>} />
+          <Route path="/news" element={<ProtectedRoute><TechNews /></ProtectedRoute>} />
+          <Route path="/placement" element={<ProtectedRoute><PlacementCell /></ProtectedRoute>} />
+          <Route path="/study-groups" element={<ProtectedRoute><StudyGroups /></ProtectedRoute>} />
+          <Route path="/team-hunt" element={<ProtectedRoute><TeamHunt /></ProtectedRoute>} />
+          <Route path="/roommate-finder" element={<ProtectedRoute><RoommateFind /></ProtectedRoute>} />
+          <Route path="/wellness" element={<ProtectedRoute><Wellness /></ProtectedRoute>} />
+          <Route path="/flashcards" element={<ProtectedRoute><Flashcards /></ProtectedRoute>} />
+          <Route path="/room-rentals" element={<ProtectedRoute><RoomRentals /></ProtectedRoute>} />
+          <Route path="/food" element={<ProtectedRoute><FoodServices /></ProtectedRoute>} />
+          <Route path="/transport" element={<ProtectedRoute><Transport /></ProtectedRoute>} />
+          <Route path="/qa-board" element={<ProtectedRoute><QABoard /></ProtectedRoute>} />
+          <Route path="/gamification" element={<ProtectedRoute><Gamification /></ProtectedRoute>} />
+          <Route path="/virtual-classroom" element={<ProtectedRoute><VirtualClassroom /></ProtectedRoute>} />
+          <Route path="/classroom/:id" element={<ProtectedRoute><MeetingRoom /></ProtectedRoute>} />
+          <Route path="/host-dashboard" element={<ProtectedRoute><HostDashboard /></ProtectedRoute>} />
+          <Route path="/classroom/:id/recap" element={<ProtectedRoute><ClassroomRecap /></ProtectedRoute>} />
+          <Route path="/roadmaps" element={<ProtectedRoute><Roadmaps /></ProtectedRoute>} />
+          <Route path="/forum" element={<ProtectedRoute><Forum /></ProtectedRoute>} />
+          <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
+          <Route path="/tech-vault" element={<ProtectedRoute><TechVault /></ProtectedRoute>} />
+          <Route path="/skill-swap" element={<ProtectedRoute><SkillSwap /></ProtectedRoute>} />
+          <Route path="/creators" element={<ProtectedRoute><CreatorsZone /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
+          <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
+          <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />
+          <Route path="/hostels" element={<ProtectedRoute><Hostels /></ProtectedRoute>} />
+          <Route path="/repair" element={<ProtectedRoute><Repair /></ProtectedRoute>} />
+          <Route path="/shopping" element={<ProtectedRoute><Shopping /></ProtectedRoute>} />
+          <Route path="/founders-passport" element={<ProtectedRoute><FoundersPassport /></ProtectedRoute>} />
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
