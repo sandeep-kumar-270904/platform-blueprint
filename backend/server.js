@@ -46,6 +46,8 @@ app.use('/api/notes', require('./routes/notes'));
 app.use('/api/classrooms', require('./routes/classrooms'));
 app.use('/api/forum', require('./routes/forum'));
 app.use('/api/qa', require('./routes/qa'));
+app.use('/api/events', require('./routes/events'));
+app.use('/api/community', require('./routes/community'));
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
@@ -79,6 +81,16 @@ io.on('connection', (socket) => {
   socket.on('leave_qa_question', (questionId) => {
     socket.leave(`qa_question_${questionId}`);
     console.log(`Socket ${socket.id} left qa_question_${questionId}`);
+  });
+
+  socket.on('join_community_post', (postId) => {
+    socket.join(`community_post_${postId}`);
+    console.log(`Socket ${socket.id} joined community_post_${postId}`);
+  });
+  
+  socket.on('leave_community_post', (postId) => {
+    socket.leave(`community_post_${postId}`);
+    console.log(`Socket ${socket.id} left community_post_${postId}`);
   });
 
   socket.on('disconnect', () => {
