@@ -113,12 +113,12 @@ const NotesHub = () => {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-border/60 rounded-xl bg-card/30 backdrop-blur-sm">
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-muted/50 border border-border">
-              <BookOpen className="h-10 w-10 text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-[var(--border)] rounded-xl bg-[var(--surface-sunk)] backdrop-blur-sm">
+            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--surface)] border border-[var(--border)]">
+              <BookOpen className="h-10 w-10 text-[var(--ink-soft)]" />
             </div>
-            <h3 className="mb-2 text-xl font-bold tracking-tight">No notes found</h3>
-            <p className="mb-8 text-muted-foreground max-w-sm text-sm">
+            <h3 className="mb-2 text-xl font-bold tracking-tight text-[var(--ink)]">No notes found</h3>
+            <p className="mb-8 text-[var(--ink-soft)] max-w-sm text-sm">
               We couldn't find any materials matching your current filters. Try adjusting your search or be the first to upload one!
             </p>
             <div className="flex gap-3">
@@ -138,7 +138,7 @@ const NotesHub = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[var(--canvas)]">
       <Header />
       <div className="container mx-auto px-4 pt-24 pb-6">
         <NotesStatsBar
@@ -176,10 +176,10 @@ const NotesHub = () => {
         <div className="flex gap-6 mb-6">
           <div className="flex-1 min-w-0">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList>
-                <TabsTrigger value="browse"><BookOpen className="mr-1.5 h-3.5 w-3.5" />Browse All ({filteredNotes.length})</TabsTrigger>
-                {user && <TabsTrigger value="my-notes"><FolderOpen className="mr-1.5 h-3.5 w-3.5" />My Notes ({filteredMyNotes.length})</TabsTrigger>}
-                {user && <TabsTrigger value="bookmarks"><Bookmark className="mr-1.5 h-3.5 w-3.5" />Bookmarks ({filteredBookmarks.length})</TabsTrigger>}
+              <TabsList className="bg-[var(--surface-sunk)]">
+                <TabsTrigger value="browse" className="data-[state=active]:bg-[var(--ink)] data-[state=active]:text-[var(--canvas)] text-[var(--ink-soft)]"><BookOpen className="mr-1.5 h-3.5 w-3.5" />Browse All ({filteredNotes.length})</TabsTrigger>
+                {user && <TabsTrigger value="my-notes" className="data-[state=active]:bg-[var(--ink)] data-[state=active]:text-[var(--canvas)] text-[var(--ink-soft)]"><FolderOpen className="mr-1.5 h-3.5 w-3.5" />My Notes ({filteredMyNotes.length})</TabsTrigger>}
+                {user && <TabsTrigger value="bookmarks" className="data-[state=active]:bg-[var(--ink)] data-[state=active]:text-[var(--canvas)] text-[var(--ink-soft)]"><Bookmark className="mr-1.5 h-3.5 w-3.5" />Bookmarks ({filteredBookmarks.length})</TabsTrigger>}
               </TabsList>
               <TabsContent value="browse" className="mt-4">
                 {renderNotesList(filteredNotes)}
@@ -187,12 +187,12 @@ const NotesHub = () => {
               {user && (
                 <TabsContent value="my-notes" className="mt-4">
                   {filteredMyNotes.length === 0 && !filters.searchQuery && !filters.selectedSubject && !filters.selectedCategory ? (
-                    <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-border/60 rounded-xl bg-card/30 backdrop-blur-sm">
-                      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-muted/50 border border-border">
-                        <Upload className="h-10 w-10 text-muted-foreground" />
+                    <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-[var(--border)] rounded-xl bg-[var(--surface-sunk)] backdrop-blur-sm">
+                      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--surface)] border border-[var(--border)]">
+                        <Upload className="h-10 w-10 text-[var(--ink-soft)]" />
                       </div>
-                      <h3 className="mb-2 text-xl font-bold tracking-tight">You haven't uploaded any notes yet</h3>
-                      <p className="mb-8 text-muted-foreground max-w-sm text-sm">Share your knowledge with the community. Uploading notes helps fellow students and earns you reputation points!</p>
+                      <h3 className="mb-2 text-xl font-bold tracking-tight text-[var(--ink)]">You haven't uploaded any notes yet</h3>
+                      <p className="mb-8 text-[var(--ink-soft)] max-w-sm text-sm">Share your knowledge with the community. Uploading notes helps fellow students and earns you reputation points!</p>
                       <Button onClick={() => setShowUploadDialog(true)} className="shadow-sm">
                         <Upload className="mr-2 h-4 w-4" />Upload Your First Note
                       </Button>
@@ -203,12 +203,12 @@ const NotesHub = () => {
               {user && (
                 <TabsContent value="bookmarks" className="mt-4">
                   {filteredBookmarks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-border/60 rounded-xl bg-card/30 backdrop-blur-sm">
-                      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-muted/50 border border-border">
-                        <Bookmark className="h-10 w-10 text-muted-foreground" />
+                    <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-[var(--border)] rounded-xl bg-[var(--surface-sunk)] backdrop-blur-sm">
+                      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--surface)] border border-[var(--border)]">
+                        <Bookmark className="h-10 w-10 text-[var(--ink-soft)]" />
                       </div>
-                      <h3 className="mb-2 text-xl font-bold tracking-tight">No bookmarked notes</h3>
-                      <p className="mb-4 text-muted-foreground max-w-sm text-sm">Click the bookmark icon on any note to save it for later quick access!</p>
+                      <h3 className="mb-2 text-xl font-bold tracking-tight text-[var(--ink)]">No bookmarked notes</h3>
+                      <p className="mb-4 text-[var(--ink-soft)] max-w-sm text-sm">Click the bookmark icon on any note to save it for later quick access!</p>
                     </div>
                   ) : renderNotesList(filteredBookmarks)}
                 </TabsContent>

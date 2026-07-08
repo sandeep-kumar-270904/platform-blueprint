@@ -26,14 +26,14 @@ export const NotesStatsBar = ({
     <ScrollReveal>
       <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-3">
         {stats.map((stat, i) => (
-          <Card key={i} className="bg-card/60 backdrop-blur-sm border-border/50">
+          <Card key={i} className="bg-[var(--surface-sunk)] border-[var(--border)] shadow-sm">
             <CardContent className="p-4 flex items-center gap-3">
-              <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${stat.color}`}>
-                <stat.icon className="h-5 w-5" />
+              <div className={`h-10 w-10 rounded-lg flex items-center justify-center bg-[var(--surface)] border border-[var(--border)]`}>
+                <stat.icon className="h-5 w-5 text-[var(--ink)]" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stat.value.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <p className="text-2xl font-bold text-[var(--ink)] display-font tracking-tight">{stat.value.toLocaleString()}</p>
+                <p className="text-xs text-[var(--ink-soft)]">{stat.label}</p>
               </div>
             </CardContent>
           </Card>

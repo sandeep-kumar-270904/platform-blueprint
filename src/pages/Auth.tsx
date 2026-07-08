@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,9 +11,12 @@ import { BookOpen } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from || "/";
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const { signIn, signUp } = useAuth();
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
 
@@ -22,22 +25,9 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            username,
-            full_name: fullName,
-          },
-          emailRedirectTo: `${window.location.origin}/`,
-        },
-      });
-
-      if (error) throw error;
-
-      toast.success("Account created! Please check your email to confirm.");
-      navigate("/");
+      await signUp(email, password, fullName);
+      toast.success("Account created successfully!");
+      navigate(from, { replace: true });
     } catch (error: any) {
       toast.error(error.message || "Failed to sign up");
     } finally {
@@ -50,15 +40,9 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
+      await signIn(email, password);
       toast.success("Welcome back!");
-      navigate("/");
+      navigate(from, { replace: true });
     } catch (error: any) {
       toast.error(error.message || "Failed to sign in");
     } finally {

@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { mockNotes } from "@/lib/mockData";
 
 export interface NotesFilters {
   searchQuery: string;
@@ -21,6 +19,8 @@ const defaultFilters: NotesFilters = {
   sortBy: "newest",
 };
 
+const API_URL = "http://localhost:5000/api/notes";
+
 export const useNotes = () => {
   const { user } = useAuth();
   const [notes, setNotes] = useState<any[]>([]);
@@ -30,51 +30,27 @@ export const useNotes = () => {
 
   const loadNotes = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("notes")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (data && data.length > 0) {
-      setNotes([...data, ...mockNotes as any[]]);
-    } else {
-      setNotes(mockNotes as any[]);
+    try {
+      const res = await fetch(API_URL);
+      if (res.ok) {
+        const data = await res.json();
+        setNotes(data.map((n: any) => ({ id: n._id, ...n })));
+      }
+    } catch (err) {
+      console.error("Failed to load notes", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
-
-  const loadBookmarks = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("note_bookmarks")
-      .select("note_id")
-      .eq("user_id", user.id);
-    if (data) setBookmarkedNoteIds(new Set(data.map((b) => b.note_id)));
-  }, [user]);
 
   useEffect(() => {
     loadNotes();
-    loadBookmarks();
-
-    const channel = supabase
-      .channel("notes-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "notes" }, () => {
-        loadNotes();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "note_bookmarks" }, () => {
-        loadBookmarks();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, loadNotes, loadBookmarks]);
+  }, [loadNotes]);
 
   const myNotes = user ? notes.filter((n) => n.user_id === user.id) : [];
   const bookmarkedNotes = notes.filter((n) => bookmarkedNoteIds.has(n.id));
 
-  const subjects = Array.from(new Set(notes.map((n) => n.subject)));
+  const subjects = Array.from(new Set(notes.map((n) => n.subject).filter(Boolean)));
   const categories = Array.from(new Set(notes.map((n) => n.category).filter(Boolean)));
   const branches = Array.from(new Set(notes.map((n) => n.branch).filter(Boolean)));
   const semesters = Array.from(new Set(notes.map((n) => n.semester).filter(Boolean))).sort(
@@ -87,8 +63,8 @@ export const useNotes = () => {
       let filtered = notesList.filter((note) => {
         const matchesSearch =
           !q ||
-          note.title.toLowerCase().includes(q) ||
-          note.subject.toLowerCase().includes(q) ||
+          note.title?.toLowerCase().includes(q) ||
+          note.subject?.toLowerCase().includes(q) ||
           (note.description || "").toLowerCase().includes(q) ||
           (note.tags || []).some((tag: string) => tag.toLowerCase().includes(q));
         const matchesSubject = !filters.selectedSubject || note.subject === filters.selectedSubject;
@@ -111,12 +87,12 @@ export const useNotes = () => {
           break;
         case "oldest":
           filtered.sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
           );
           break;
         default:
           filtered.sort(
-            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
           );
       }
       return filtered;
@@ -125,17 +101,27 @@ export const useNotes = () => {
   );
 
   const deleteNote = async (noteId: string) => {
-    const { error } = await supabase.from("notes").delete().eq("id", noteId);
-    if (error) throw error;
-    loadNotes();
+    try {
+      const token = localStorage.getItem("token");
+      await fetch(`${API_URL}/${noteId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      loadNotes();
+    } catch (err) {
+      console.error("Delete failed", err);
+    }
   };
 
   const incrementView = async (noteId: string) => {
-    await supabase.rpc("increment_note_views" as any, { _note_id: noteId });
+    try {
+      await fetch(`${API_URL}/${noteId}/view`, { method: 'PUT' });
+      setNotes(notes.map(n => n.id === noteId ? { ...n, views: n.views + 1 } : n));
+    } catch (err) {}
   };
 
   const incrementDownload = async (noteId: string) => {
-    await supabase.rpc("increment_note_downloads" as any, { _note_id: noteId });
+    // Implement on backend later if needed
   };
 
   const totalViews = notes.reduce((sum, n) => sum + (n.views || 0), 0);

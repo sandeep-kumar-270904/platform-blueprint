@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -96,43 +95,31 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
 
     setUploading(true);
     try {
-      const fileName = `${user.id}/${Date.now()}.pdf`;
-      const { error: uploadError } = await supabase.storage.from("notes").upload(fileName, file);
-      if (uploadError) throw uploadError;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("title", title.trim());
+      formData.append("subject", subject.trim());
+      if (description) formData.append("description", description.trim());
+      if (branch) formData.append("branch", branch);
+      if (semester) formData.append("semester", semester);
+      if (category) formData.append("category", category);
+      if (university) formData.append("university", university.trim());
+      if (year) formData.append("year", year);
+      if (tags) formData.append("tags", tags);
 
-      const { data: { publicUrl } } = supabase.storage.from("notes").getPublicUrl(fileName);
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:5000/api/notes", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        body: formData
+      });
 
-      let enhancedUrl = publicUrl;
-      if (enhanceWithAI) {
-        toast.info("Enhancing PDF with AI...");
-        const { data: enhancedData, error: enhanceError } = await supabase.functions.invoke("enhance-pdf", {
-          body: { pdfUrl: publicUrl },
-        });
-        if (enhanceError) {
-          console.error("Enhancement error:", enhanceError);
-          toast.error("PDF uploaded but enhancement failed. Using original.");
-        } else if (enhancedData?.enhancedUrl) {
-          enhancedUrl = enhancedData.enhancedUrl;
-          toast.success("PDF enhanced successfully!");
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to upload note");
       }
-
-      const { error: insertError } = await supabase.from("notes").insert({
-        user_id: user.id,
-        title: title.trim(),
-        subject: subject.trim(),
-        description: description.trim() || null,
-        branch: branch || null,
-        semester: semester ? parseInt(semester) : null,
-        category: category || null,
-        university: university.trim() || null,
-        year: year ? parseInt(year) : null,
-        tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
-        content_url: enhancedUrl,
-        file_type: "pdf",
-      } as any);
-
-      if (insertError) throw insertError;
 
       toast.success("Note uploaded successfully! 🎉");
       onSuccess();
