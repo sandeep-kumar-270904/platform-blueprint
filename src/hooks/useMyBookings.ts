@@ -1,9 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { io } from "socket.io-client";
+import { toast } from "sonner";
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface BookingRow {
-  id: string;
+  _id?: string;
+  id?: string;
   mentor_id: string;
   mentee_id: string;
   scheduled_at: string;
@@ -12,8 +15,8 @@ export interface BookingRow {
   status: string;
   video_link: string | null;
   notes: string | null;
-  mentor?: { title: string; company: string | null; user_id: string };
-  mentor_profile?: { username: string | null; full_name: string | null; avatar_url: string | null };
+  mentor?: { title: string; company: string | null; user_id: string } | null;
+  mentor_profile?: { username: string | null; full_name: string | null; avatar_url: string | null } | null;
 }
 
 export const useMyBookings = (userId: string | null | undefined) => {
@@ -26,56 +29,79 @@ export const useMyBookings = (userId: string | null | undefined) => {
       setLoading(false);
       return;
     }
-    const { data } = await supabase
-      .from("mentor_bookings")
-      .select("*")
-      .eq("mentee_id", userId)
-      .order("scheduled_at", { ascending: true });
+    
+    const token = localStorage.getItem('token');
+    if (!token) return;
 
-    if (!data) {
-      setBookings([]);
+    try {
+      const res = await fetch(`${API_URL}/api/mentors/bookings/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        let data = await res.json();
+        data = data.map((b: any) => ({ ...b, id: b._id }));
+        setBookings(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const mentorIds = [...new Set(data.map((b: any) => b.mentor_id))];
-    const { data: mentors } = await supabase
-      .from("mentor_profiles")
-      .select("id, title, company, user_id")
-      .in("id", mentorIds);
-
-    const userIds = [...new Set((mentors || []).map((m: any) => m.user_id))];
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, username, full_name, avatar_url")
-      .in("id", userIds);
-
-    setBookings(
-      data.map((b: any) => {
-        const m = mentors?.find((x: any) => x.id === b.mentor_id);
-        return {
-          ...b,
-          mentor: m,
-          mentor_profile: m ? profiles?.find((p: any) => p.id === m.user_id) : undefined,
-        };
-      }) as BookingRow[]
-    );
-    setLoading(false);
   }, [userId]);
 
-  useRealtimeSync({
-    channelName: userId ? `my-bookings-${userId}` : undefined,
-    enabled: !!userId,
-    filters: userId ? [{ table: "mentor_bookings", filter: `mentee_id=eq.${userId}` }] : [],
-    onChange: fetchBookings,
-    pollIntervalMs: 30000,
-  });
+  useEffect(() => {
+    fetchBookings();
+
+    if (!userId) return;
+
+    const socket = io(API_URL);
+    socket.on(`my_bookings_updated_${userId}`, () => fetchBookings());
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchBookings, userId]);
 
   const cancel = async (bookingId: string) => {
-    const { error } = await supabase.rpc("cancel_mentor_booking", { _booking_id: bookingId });
-    if (!error) await fetchBookings();
-    return error;
+    const token = localStorage.getItem('token');
+    if (!token) return new Error('Unauthorized');
+    
+    try {
+      const res = await fetch(`${API_URL}/api/mentors/bookings/${bookingId}/cancel`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Failed to cancel');
+      }
+      toast.success("Booking cancelled");
+      return null; // success
+    } catch (err: any) {
+      toast.error(err.message);
+      return err;
+    }
   };
 
-  return { bookings, loading, refetch: fetchBookings, cancel };
+  const bookSlot = async (slotId: string, mentorId: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) { toast.error("Sign in required"); return; }
+    
+    try {
+      const res = await fetch(`${API_URL}/api/mentors/bookings`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slot_id: slotId, mentor_id: mentorId })
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Failed to book slot');
+      }
+      toast.success("Slot booked successfully!");
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  return { bookings, loading, refetch: fetchBookings, cancel, bookSlot };
 };
