@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { io } from "socket.io-client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export type SortMode = "top" | "new" | "discussed";
 
 export interface Comment {
   id: string;
+  _id?: string;
   content: string;
   user_id: string;
   upvotes: number;
@@ -40,118 +43,63 @@ export const useNoteComments = (noteId: string) => {
 
     setLoading(true);
 
-    // Get total count
-    const { count } = await supabase
-      .from("note_comments")
-      .select("*", { count: "exact", head: true })
-      .eq("note_id", noteId);
-    setTotalCount(count || 0);
+    try {
+      const headers: Record<string, string> = {};
+      const token = localStorage.getItem('token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    // Determine sort
-    let query = supabase
-      .from("note_comments")
-      .select("*")
-      .eq("note_id", noteId)
-      .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
+      const res = await fetch(`${API_URL}/api/note-comments/notes/${noteId}/comments?page=${currentPage}&limit=${PAGE_SIZE}&sort=${sortMode}`, { headers });
+      if (res.ok) {
+        const json = await res.json();
+        const data = json.data.map((c: any) => ({ ...c, id: c._id }));
+        setTotalCount(json.count);
+        setHasMore(data.length === PAGE_SIZE);
 
-    switch (sortMode) {
-      case "top":
-        query = query.order("is_helpful", { ascending: false }).order("upvotes", { ascending: false });
-        break;
-      case "new":
-        query = query.order("created_at", { ascending: false });
-        break;
-      case "discussed":
-        query = query.order("upvotes", { ascending: false }).order("created_at", { ascending: false });
-        break;
-    }
-
-    const { data } = await query;
-
-    if (data) {
-      setHasMore(data.length === PAGE_SIZE);
-
-      // Enrich with profiles
-      const userIds = [...new Set(data.map(c => c.user_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, username, full_name")
-        .in("id", userIds);
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-
-      // Load user's votes
-      let userVotes = new Map<string, string>();
-      if (user) {
-        const commentIds = data.map(c => c.id);
-        const { data: votes } = await supabase
-          .from("comment_votes" as any)
-          .select("comment_id, vote_type")
-          .eq("user_id", user.id)
-          .in("comment_id", commentIds);
-        if (votes) {
-          (votes as any[]).forEach(v => userVotes.set(v.comment_id, v.vote_type));
+        if (reset || currentPage === 0) {
+          setComments(data);
+        } else {
+          setComments(prev => [...prev, ...data]);
         }
       }
-
-      const enriched: Comment[] = data.map(c => ({
-        ...c,
-        downvotes: (c as any).downvotes || 0,
-        is_helpful: (c as any).is_helpful || false,
-        is_reported: (c as any).is_reported || false,
-        is_edited: (c as any).is_edited || false,
-        profile: profileMap.get(c.user_id) || { username: null, full_name: null },
-        userVote: (userVotes.get(c.id) as "up" | "down") || null,
-      }));
-
-      if (reset || currentPage === 0) {
-        setComments(enriched);
-      } else {
-        setComments(prev => [...prev, ...enriched]);
-      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [noteId, sortMode, page, user]);
 
   useEffect(() => {
     loadComments(true);
 
-    const channel = supabase
-      .channel(`comments-${noteId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "note_comments", filter: `note_id=eq.${noteId}` }, () => {
-        loadComments(true);
-      })
-      .subscribe();
+    const socket = io(API_URL);
+    socket.on(`comments-${noteId}`, () => loadComments(true));
 
-    return () => { supabase.removeChannel(channel); };
-  }, [noteId, sortMode]);
+    return () => {
+      socket.disconnect();
+    };
+  }, [noteId, sortMode, loadComments]);
 
   const addComment = async (content: string, parentId: string | null = null) => {
     if (!user) { toast.error("Please sign in to comment"); return; }
     if (!content.trim()) return;
 
-    // Limit nesting depth to 2
     if (parentId) {
       const parent = comments.find(c => c.id === parentId);
       if (parent?.parent_id) {
-        // Already a reply — attach to root instead
         const grandparent = comments.find(c => c.id === parent.parent_id);
-        if (grandparent?.parent_id) {
-          parentId = grandparent.parent_id;
-        } else {
-          parentId = parent.parent_id;
-        }
+        parentId = grandparent?.parent_id ? grandparent.parent_id : parent.parent_id;
       }
     }
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("note_comments").insert({
-        note_id: noteId,
-        user_id: user.id,
-        content: content.trim(),
-        parent_id: parentId,
-      } as any);
-      if (error) throw error;
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/note-comments/notes/${noteId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ content: content.trim(), parent_id: parentId })
+      });
+      if (!res.ok) throw new Error();
       toast.success("Comment posted!");
     } catch {
       toast.error("Failed to post comment");
@@ -162,46 +110,79 @@ export const useNoteComments = (noteId: string) => {
 
   const editComment = async (commentId: string, content: string) => {
     if (!user) return;
-    const { error } = await supabase
-      .from("note_comments")
-      .update({ content: content.trim(), is_edited: true } as any)
-      .eq("id", commentId);
-    if (error) toast.error("Failed to edit");
-    else toast.success("Comment updated");
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/note-comments/comments/${commentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ content: content.trim() })
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Comment updated");
+    } catch {
+      toast.error("Failed to edit");
+    }
   };
 
   const deleteComment = async (commentId: string) => {
-    const { error } = await supabase.from("note_comments").delete().eq("id", commentId);
-    if (error) toast.error("Failed to delete");
-    else toast.success("Comment deleted");
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/note-comments/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Comment deleted");
+    } catch {
+      toast.error("Failed to delete");
+    }
   };
 
   const vote = async (commentId: string, voteType: "up" | "down") => {
     if (!user) { toast.error("Please sign in to vote"); return; }
-    await supabase.rpc("toggle_comment_vote" as any, {
-      _comment_id: commentId,
-      _user_id: user.id,
-      _vote_type: voteType,
-    });
-    loadComments(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/note-comments/comments/${commentId}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ vote_type: voteType })
+      });
+      if (!res.ok) throw new Error();
+      loadComments(true);
+    } catch {
+      toast.error("Failed to vote");
+    }
   };
 
   const markHelpful = async (commentId: string, isHelpful: boolean) => {
-    const { error } = await supabase
-      .from("note_comments")
-      .update({ is_helpful: !isHelpful } as any)
-      .eq("id", commentId);
-    if (error) toast.error("Failed to update");
-    else toast.success(isHelpful ? "Unmarked as helpful" : "Marked as helpful!");
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/note-comments/comments/${commentId}/helpful`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ is_helpful: !isHelpful })
+      });
+      if (!res.ok) throw new Error();
+      toast.success(isHelpful ? "Unmarked as helpful" : "Marked as helpful!");
+      loadComments(true);
+    } catch {
+      toast.error("Failed to update");
+    }
   };
 
   const reportComment = async (commentId: string) => {
-    const { error } = await supabase
-      .from("note_comments")
-      .update({ is_reported: true } as any)
-      .eq("id", commentId);
-    if (error) toast.error("Failed to report");
-    else toast.success("Comment reported. Thank you!");
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/note-comments/comments/${commentId}/report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ reason: "Inappropriate content" })
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Comment reported. Thank you!");
+    } catch {
+      toast.error("Failed to report");
+    }
   };
 
   const loadMore = () => {
@@ -209,7 +190,6 @@ export const useNoteComments = (noteId: string) => {
     loadComments(false);
   };
 
-  // Computed: top-level and replies
   const topLevel = comments.filter(c => !c.parent_id);
   const getReplies = (parentId: string) => comments.filter(c => c.parent_id === parentId);
 
