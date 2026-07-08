@@ -42,8 +42,7 @@ const Mentors = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <ParallaxSection speed={0.3}>
-        <section className="relative overflow-hidden py-20 md:py-32">
-          
+        <section className="relative overflow-hidden py-12 md:py-16">
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
