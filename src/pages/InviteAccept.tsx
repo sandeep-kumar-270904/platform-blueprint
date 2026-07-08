@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { redeemInvite } from "@/hooks/useGroupInvites";
 import { Loader2, Users, CheckCircle2, AlertTriangle } from "lucide-react";
@@ -20,15 +19,29 @@ const InviteAccept = () => {
   useEffect(() => {
     if (!token) return;
     (async () => {
-      const { data } = await supabase.from("study_group_invites").select("*").eq("token", token).maybeSingle();
-      if (!data) { setState("invalid"); setError("Invite not found"); return; }
-      if (data.revoked) { setState("invalid"); setError("This invite has been revoked"); return; }
-      if (new Date(data.expires_at).getTime() < Date.now()) { setState("invalid"); setError("This invite has expired"); return; }
-      if (data.uses >= data.max_uses) { setState("invalid"); setError("This invite has been fully used"); return; }
-      setMeta(data);
-      const { data: g } = await supabase.from("study_groups").select("*").eq("id", data.group_id).maybeSingle();
-      setGroup(g);
-      setState("ready");
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/study-groups/invites/info/${token}`);
+        if (!res.ok) {
+          setState("invalid");
+          setError("Invite not found");
+          return;
+        }
+        
+        const data = await res.json();
+        const inv = data.invite;
+        
+        if (inv.revoked) { setState("invalid"); setError("This invite has been revoked"); return; }
+        if (new Date(inv.expires_at).getTime() < Date.now()) { setState("invalid"); setError("This invite has expired"); return; }
+        if (inv.uses >= inv.max_uses) { setState("invalid"); setError("This invite has been fully used"); return; }
+        
+        setMeta(inv);
+        setGroup(data.group);
+        setState("ready");
+      } catch (err) {
+        setState("invalid");
+        setError("Error loading invite");
+      }
     })();
   }, [token]);
 

@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useRealtimeSync } from "./useRealtimeSync";
+import { useState, useCallback, useEffect } from "react";
+import { toast } from "sonner";
+import { io } from "socket.io-client";
 import { useAuth } from "./useAuth";
-import { toast } from "@/hooks/use-toast";
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface StudyGroupRow {
   id: string;
+  _id?: string;
   owner_id: string;
   name: string;
   description: string;
@@ -19,10 +21,12 @@ export interface StudyGroupRow {
 
 export interface GroupMessage {
   id: string;
+  _id?: string;
   group_id: string;
   user_id: string;
   content: string;
   created_at: string;
+  createdAt?: string;
 }
 
 export const useStudyGroups = () => {
@@ -30,47 +34,103 @@ export const useStudyGroups = () => {
   const [groups, setGroups] = useState<StudyGroupRow[]>([]);
   const [myGroupIds, setMyGroupIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState('connected');
 
   const fetchAll = useCallback(async () => {
-    const { data } = await supabase.from("study_groups").select("*").order("created_at", { ascending: false });
-    if (data) setGroups(data as StudyGroupRow[]);
-    if (user) {
-      const { data: m } = await supabase.from("study_group_members").select("group_id").eq("user_id", user.id);
-      if (m) setMyGroupIds(new Set(m.map((x: any) => x.group_id)));
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups`);
+      if (res.ok) {
+        let data = await res.json();
+        data = data.map((g: any) => ({ ...g, id: g._id, created_at: g.createdAt }));
+        setGroups(data);
+      }
+      
+      const token = localStorage.getItem('token');
+      if (token && user) {
+        const memRes = await fetch(`${API_URL}/api/study-groups/my-memberships`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (memRes.ok) {
+          const myIds = await memRes.json();
+          setMyGroupIds(new Set(myIds));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [user]);
 
-  const status = useRealtimeSync({
-    channelName: "study-groups",
-    filters: [{ table: "study_groups" }, { table: "study_group_members" }],
-    onChange: fetchAll,
-  });
+  useEffect(() => {
+    setLoading(true);
+    fetchAll();
+
+    const socket = io(API_URL);
+    socket.on('study_group_created', () => fetchAll());
+    socket.on('study_group_updated', () => fetchAll());
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchAll]);
 
   const join = async (gid: string) => {
-    if (!user) return toast({ title: "Sign in required", variant: "destructive" });
-    const { error } = await supabase.rpc("join_study_group", { _group_id: gid });
-    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
-    else toast({ title: "Joined group" });
+    const token = localStorage.getItem('token');
+    if (!token) return toast.error("Sign in required");
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${gid}/join`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to join');
+      }
+      toast.success("Joined group");
+      fetchAll();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
+  
   const leave = async (gid: string) => {
-    const { error } = await supabase.rpc("leave_study_group", { _group_id: gid });
-    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
-    else toast({ title: "Left group" });
+    const token = localStorage.getItem('token');
+    if (!token) return toast.error("Sign in required");
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${gid}/leave`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to leave');
+      }
+      toast.success("Left group");
+      fetchAll();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   const createGroup = async (payload: Partial<StudyGroupRow>) => {
-    if (!user) return toast({ title: "Sign in required", variant: "destructive" });
-    const { error } = await supabase.from("study_groups").insert({
-      owner_id: user.id,
-      name: payload.name!,
-      description: payload.description || "",
-      privacy: payload.privacy || "public",
-      category: payload.category || null,
-      member_limit: payload.member_limit || 50,
-    });
-    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
-    else toast({ title: "Group created" });
+    const token = localStorage.getItem('token');
+    if (!token) return toast.error("Sign in required");
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to create group');
+      }
+      toast.success("Group created");
+      fetchAll();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   return { groups, myGroupIds, loading, status, join, leave, createGroup, refetch: fetchAll };
@@ -79,27 +139,53 @@ export const useStudyGroups = () => {
 export const useGroupMessages = (groupId: string | null) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<GroupMessage[]>([]);
+
   const fetchMsgs = useCallback(async () => {
     if (!groupId) return;
-    const { data } = await supabase
-      .from("study_group_messages")
-      .select("*")
-      .eq("group_id", groupId)
-      .order("created_at", { ascending: true })
-      .limit(200);
-    if (data) setMessages(data as GroupMessage[]);
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${groupId}/messages`);
+      if (res.ok) {
+        let data = await res.json();
+        data = data.map((m: any) => ({ ...m, id: m._id, created_at: m.createdAt || m.created_at }));
+        setMessages(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   }, [groupId]);
 
-  useRealtimeSync({
-    channelName: `group-msg-${groupId}`,
-    filters: groupId ? [{ table: "study_group_messages", filter: `group_id=eq.${groupId}` }] : [],
-    onChange: fetchMsgs,
-    enabled: !!groupId,
-  });
+  useEffect(() => {
+    if (!groupId) return;
+    fetchMsgs();
+
+    const socket = io(API_URL);
+    socket.emit('join_group_room', groupId);
+    
+    socket.on('group_message', (newMsg: any) => {
+      const formatted = { ...newMsg, id: newMsg._id, created_at: newMsg.createdAt || newMsg.created_at };
+      setMessages(prev => [...prev, formatted]);
+    });
+
+    return () => {
+      socket.emit('leave_group_room', groupId);
+      socket.disconnect();
+    };
+  }, [groupId, fetchMsgs]);
 
   const send = async (content: string) => {
-    if (!user || !groupId || !content.trim()) return;
-    await supabase.from("study_group_messages").insert({ group_id: groupId, user_id: user.id, content: content.trim() });
+    const token = localStorage.getItem('token');
+    if (!token || !groupId || !content.trim()) return;
+    
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${groupId}/messages`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: content.trim() })
+      });
+      if (!res.ok) throw new Error('Failed to send message');
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   return { messages, send };
