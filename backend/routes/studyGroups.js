@@ -101,6 +101,8 @@ router.get('/:id/messages', async (req, res) => {
   }
 });
 
+const GroupInvite = require('../models/GroupInvite');
+
 // Send a group message
 router.post('/:id/messages', authMiddleware, async (req, res) => {
   try {
@@ -115,10 +117,103 @@ router.post('/:id/messages', authMiddleware, async (req, res) => {
     
     const savedMessage = await message.save();
     
-    // Broadcast message to the specific room
     req.io.to(`group_${group_id}`).emit('group_message', savedMessage);
     
     res.status(201).json(savedMessage);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get group invites
+router.get('/:id/invites', authMiddleware, async (req, res) => {
+  try {
+    const invites = await GroupInvite.find({ group_id: req.params.id }).sort({ created_at: -1 });
+    res.json(invites);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get invite info (public)
+router.get('/invites/info/:token', async (req, res) => {
+  try {
+    const invite = await GroupInvite.findOne({ token: req.params.token });
+    if (!invite) return res.status(404).json({ message: 'Invite not found' });
+    
+    const group = await StudyGroup.findById(invite.group_id);
+    if (!group) return res.status(404).json({ message: 'Group not found' });
+    
+    res.json({ invite, group });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Create group invite
+router.post('/:id/invites', authMiddleware, async (req, res) => {
+  try {
+    const { role, expires_in_hours, max_uses } = req.body;
+    const expires_at = new Date(Date.now() + expires_in_hours * 60 * 60 * 1000);
+    
+    const invite = new GroupInvite({
+      group_id: req.params.id,
+      created_by: req.user.id,
+      role: role || 'member',
+      expires_at,
+      max_uses: max_uses || 25
+    });
+    
+    const saved = await invite.save();
+    res.status(201).json(saved);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Revoke invite
+router.post('/invites/:id/revoke', authMiddleware, async (req, res) => {
+  try {
+    const invite = await GroupInvite.findById(req.params.id);
+    if (!invite) return res.status(404).json({ message: 'Invite not found' });
+    
+    invite.revoked = true;
+    await invite.save();
+    res.json(invite);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Redeem invite
+router.post('/invites/redeem/:token', authMiddleware, async (req, res) => {
+  try {
+    const invite = await GroupInvite.findOne({ token: req.params.token });
+    if (!invite) return res.status(404).json({ message: 'Invalid token' });
+    
+    if (invite.revoked || invite.uses >= invite.max_uses || new Date() > invite.expires_at) {
+      return res.status(400).json({ message: 'Invite is expired or fully used' });
+    }
+    
+    const group = await StudyGroup.findById(invite.group_id);
+    if (!group) return res.status(404).json({ message: 'Group not found' });
+    
+    if (group.members.includes(req.user.id)) {
+      return res.status(400).json({ message: 'Already a member' });
+    }
+    
+    if (group.members.length >= group.member_limit) {
+      return res.status(400).json({ message: 'Group is full' });
+    }
+    
+    group.members.push(req.user.id);
+    await group.save();
+    
+    invite.uses += 1;
+    await invite.save();
+    
+    req.io.emit('study_group_updated', group);
+    res.json(group._id);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

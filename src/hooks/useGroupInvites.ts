@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { toast } from "@/hooks/use-toast";
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 export interface GroupInvite {
   id: string;
+  _id?: string;
   group_id: string;
   token: string;
   role: string;
@@ -24,49 +26,90 @@ export const useGroupInvites = (groupId: string | null) => {
   const fetchInvites = useCallback(async () => {
     if (!groupId) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("study_group_invites")
-      .select("*")
-      .eq("group_id", groupId)
-      .order("created_at", { ascending: false });
-    setInvites((data || []) as GroupInvite[]);
-    setLoading(false);
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${groupId}/invites`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        let data = await res.json();
+        data = data.map((i: any) => ({ ...i, id: i._id }));
+        setInvites(data as GroupInvite[]);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, [groupId]);
 
   useEffect(() => { fetchInvites(); }, [fetchInvites]);
 
   const createInvite = async (role = "member", expiresInHours = 72, maxUses = 25) => {
-    if (!user || !groupId) return null;
-    const { data, error } = await supabase.rpc("create_group_invite", {
-      _group_id: groupId,
-      _role: role,
-      _expires_in_hours: expiresInHours,
-      _max_uses: maxUses,
-    });
-    if (error) {
-      toast({ title: "Could not create invite", description: error.message, variant: "destructive" });
+    const token = localStorage.getItem('token');
+    if (!user || !groupId || !token) return null;
+    
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${groupId}/invites`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, expires_in_hours: expiresInHours, max_uses: maxUses })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to create invite');
+      }
+      await fetchInvites();
+      const data = await res.json();
+      return { id: data._id, token: data.token, expires_at: data.expires_at };
+    } catch (err: any) {
+      toast({ title: "Could not create invite", description: err.message, variant: "destructive" });
       return null;
     }
-    await fetchInvites();
-    const row = Array.isArray(data) ? data[0] : data;
-    return row as { id: string; token: string; expires_at: string };
   };
 
   const revoke = async (id: string) => {
-    const { error } = await supabase.from("study_group_invites").update({ revoked: true }).eq("id", id);
-    if (error) toast({ title: "Could not revoke", description: error.message, variant: "destructive" });
-    else { toast({ title: "Invite revoked" }); fetchInvites(); }
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/invites/${id}/revoke`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to revoke');
+      }
+      toast({ title: "Invite revoked" });
+      fetchInvites();
+    } catch (err: any) {
+      toast({ title: "Could not revoke", description: err.message, variant: "destructive" });
+    }
   };
 
   return { invites, loading, createInvite, revoke, refetch: fetchInvites };
 };
 
-export const redeemInvite = async (token: string): Promise<string | null> => {
-  const { data, error } = await supabase.rpc("redeem_group_invite", { _token: token });
-  if (error) {
-    toast({ title: "Could not join", description: error.message, variant: "destructive" });
+export const redeemInvite = async (inviteToken: string): Promise<string | null> => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    toast({ title: "Could not join", description: "Please sign in first", variant: "destructive" });
     return null;
   }
-  toast({ title: "You joined the group!" });
-  return data as string;
+  try {
+    const res = await fetch(`${API_URL}/api/study-groups/invites/redeem/${inviteToken}`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Failed to redeem');
+    }
+    toast({ title: "You joined the group!" });
+    const groupId = await res.json();
+    return groupId;
+  } catch (err: any) {
+    toast({ title: "Could not join", description: err.message, variant: "destructive" });
+    return null;
+  }
 };
