@@ -41,27 +41,31 @@ export const BookingModal = ({ open, onOpenChange, mentor, slot }: BookingModalP
       return;
     }
     setSubmitting(true);
-    const { data, error } = await supabase.rpc("book_mentor_slot", {
-      _slot_id: slot.id,
-      _duration: 60,
-      _price: mentor.price_per_hour,
-      _notes: sessionNotes || null,
-    });
-    setSubmitting(false);
-    if (error) {
+    const token = localStorage.getItem('token');
+    
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${API_URL}/api/mentors/bookings`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slot_id: slot.id, mentor_id: mentor.id, notes: sessionNotes })
+      });
+      
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || 'Booking failed');
+      }
+      
+      const newBooking = await res.json();
+      setBookingId(newBooking._id || newBooking.id);
+      setVideoLink(newBooking.video_link || "");
+      setStep("confirmed");
+      toast({ title: "Booking confirmed!", description: "Your mentor session is scheduled." });
+    } catch (error: any) {
       toast({ title: "Booking failed", description: error.message, variant: "destructive" });
-      return;
+    } finally {
+      setSubmitting(false);
     }
-    const newBookingId = data as unknown as string;
-    setBookingId(newBookingId);
-    const { data: booking } = await supabase
-      .from("mentor_bookings")
-      .select("video_link")
-      .eq("id", newBookingId)
-      .single();
-    setVideoLink(booking?.video_link || "");
-    setStep("confirmed");
-    toast({ title: "Booking confirmed!", description: "Your mentor session is scheduled." });
   };
 
   const handleCopyLink = () => {

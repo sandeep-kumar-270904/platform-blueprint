@@ -52,15 +52,18 @@ import Repair from "./pages/Repair";
 import Shopping from "./pages/Shopping";
 import FoundersPassport from "./pages/FoundersPassport";
 import InviteAccept from "./pages/InviteAccept";
+import { AuthProvider } from "./hooks/useAuth";
+
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <Routes>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Routes>
           {/* Public Routes */}
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
@@ -113,9 +116,10 @@ const App = () => (
           <Route path="/founders-passport" element={<ProtectedRoute><FoundersPassport /></ProtectedRoute>} />
           
           <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

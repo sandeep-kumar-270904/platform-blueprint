@@ -1,9 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { io } from "socket.io-client";
+import { toast } from "sonner";
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface MentorRow {
-  id: string;
+  _id?: string;
+  id?: string;
   user_id: string;
   title: string;
   company: string | null;
@@ -21,7 +24,8 @@ export interface MentorRow {
 }
 
 export interface AvailabilitySlot {
-  id: string;
+  _id?: string;
+  id?: string;
   mentor_id: string;
   starts_at: string;
   ends_at: string;
@@ -33,38 +37,23 @@ export const useMentors = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchMentors = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("mentor_profiles")
-      .select("*")
-      .eq("is_active", true)
-      .order("rating", { ascending: false });
-
-    if (error || !data) {
+    try {
+      const res = await fetch(`${API_URL}/api/mentors`);
+      if (res.ok) {
+        let data = await res.json();
+        data = data.map((m: any) => ({ ...m, id: m._id }));
+        setMentors(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const userIds = [...new Set(data.map((m: any) => m.user_id))];
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, username, full_name, avatar_url")
-      .in("id", userIds);
-
-    setMentors(
-      data.map((m: any) => ({
-        ...m,
-        profile: profiles?.find((p: any) => p.id === m.user_id) || undefined,
-      })) as MentorRow[]
-    );
-    setLoading(false);
   }, []);
 
-  useRealtimeSync({
-    channelName: "mentors-public",
-    filters: [{ table: "mentor_profiles" }, { table: "mentor_reviews" }],
-    onChange: fetchMentors,
-    pollIntervalMs: 60000,
-  });
+  useEffect(() => {
+    fetchMentors();
+  }, [fetchMentors]);
 
   return { mentors, loading, refetch: fetchMentors };
 };
@@ -76,23 +65,34 @@ export const useMentorAvailability = (mentorId: string | null) => {
   const fetchSlots = useCallback(async () => {
     if (!mentorId) return setSlots([]);
     setLoading(true);
-    const { data } = await supabase
-      .from("mentor_availability")
-      .select("*")
-      .eq("mentor_id", mentorId)
-      .gte("starts_at", new Date().toISOString())
-      .order("starts_at", { ascending: true });
-    setSlots((data || []) as AvailabilitySlot[]);
-    setLoading(false);
+    try {
+      const res = await fetch(`${API_URL}/api/mentors/${mentorId}/availability`);
+      if (res.ok) {
+        let data = await res.json();
+        data = data.map((s: any) => ({ ...s, id: s._id }));
+        setSlots(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, [mentorId]);
 
-  useRealtimeSync({
-    channelName: mentorId ? `mentor-slots-${mentorId}` : undefined,
-    enabled: !!mentorId,
-    filters: mentorId ? [{ table: "mentor_availability", filter: `mentor_id=eq.${mentorId}` }] : [],
-    onChange: fetchSlots,
-    pollIntervalMs: 30000,
-  });
+  useEffect(() => {
+    fetchSlots();
+
+    if (!mentorId) return;
+
+    const socket = io(API_URL);
+    socket.on('mentor_slots_updated', (updatedMentorId) => {
+      if (updatedMentorId === mentorId) fetchSlots();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchSlots, mentorId]);
 
   return { slots, loading, refetch: fetchSlots };
 };

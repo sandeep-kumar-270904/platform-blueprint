@@ -48,6 +48,7 @@ app.use('/api/forum', require('./routes/forum'));
 app.use('/api/qa', require('./routes/qa'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/community', require('./routes/community'));
+app.use('/api/mentors', require('./routes/mentors'));
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
