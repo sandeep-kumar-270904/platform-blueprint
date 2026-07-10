@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Flag } from "lucide-react";
@@ -42,24 +42,29 @@ export const ReportDialog = ({ open, onOpenChange, contentType, contentId }: Rep
     setSubmitting(true);
     const fullReason = details ? `${reason}: ${details}` : reason;
 
-    const { error } = await supabase.from("reports").insert({
-      content_type: contentType,
-      content_id: contentId,
-      reported_by: user.id,
-      reason: fullReason,
-    } as any);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/reports`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content_type: contentType,
+          content_id: contentId,
+          reason: fullReason,
+        })
+      });
 
-    if (error) {
-      toast.error("Failed to submit report");
-    } else {
-      if (contentType === "note") {
-        const { data: noteData } = await supabase.from("notes").select("report_count").eq("id", contentId).single();
-        await supabase.from("notes").update({ report_count: ((noteData as any)?.report_count || 0) + 1 } as any).eq("id", contentId);
+      if (res.ok) {
+        toast.success("Report submitted. Thank you for helping keep the platform clean!");
+        onOpenChange(false);
+        setReason("");
+        setDetails("");
+      } else {
+        toast.error("Failed to submit report");
       }
-      toast.success("Report submitted. Thank you for helping keep the platform clean!");
-      onOpenChange(false);
-      setReason("");
-      setDetails("");
+    } catch {
+      toast.error("Failed to submit report");
     }
     setSubmitting(false);
   };

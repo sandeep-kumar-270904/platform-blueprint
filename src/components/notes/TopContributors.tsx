@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,55 +30,14 @@ export const TopContributors = () => {
   }, []);
 
   const loadContributors = async () => {
-    // Get all notes with their stats
-    const { data: notes } = await supabase
-      .from("notes")
-      .select("user_id, rating, views, downloads");
-
-    if (!notes || notes.length === 0) { setLoading(false); return; }
-
-    // Aggregate by user
-    const userMap = new Map<string, { count: number; totalRating: number; ratedCount: number; views: number; downloads: number }>();
-    notes.forEach(n => {
-      const prev = userMap.get(n.user_id) || { count: 0, totalRating: 0, ratedCount: 0, views: 0, downloads: 0 };
-      prev.count++;
-      if (n.rating && Number(n.rating) > 0) { prev.totalRating += Number(n.rating); prev.ratedCount++; }
-      prev.views += n.views || 0;
-      prev.downloads += n.downloads || 0;
-      userMap.set(n.user_id, prev);
-    });
-
-    // Get profiles
-    const userIds = [...userMap.keys()];
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, username, full_name")
-      .in("id", userIds);
-
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-
-    const result: Contributor[] = userIds.map(uid => {
-      const stats = userMap.get(uid)!;
-      const profile = profileMap.get(uid);
-      return {
-        user_id: uid,
-        username: profile?.username || null,
-        full_name: profile?.full_name || null,
-        note_count: stats.count,
-        avg_rating: stats.ratedCount > 0 ? Math.round((stats.totalRating / stats.ratedCount) * 10) / 10 : 0,
-        total_views: stats.views,
-        total_downloads: stats.downloads,
-      };
-    });
-
-    // Sort by composite score: uploads * 3 + avg_rating * 2 + downloads
-    result.sort((a, b) => {
-      const scoreA = a.note_count * 3 + a.avg_rating * 2 + a.total_downloads;
-      const scoreB = b.note_count * 3 + b.avg_rating * 2 + b.total_downloads;
-      return scoreB - scoreA;
-    });
-
-    setContributors(result.slice(0, 10));
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${API_URL}/api/notes/top-contributors`);
+      if (res.ok) {
+        const data = await res.json();
+        setContributors(data);
+      }
+    } catch {}
     setLoading(false);
   };
 

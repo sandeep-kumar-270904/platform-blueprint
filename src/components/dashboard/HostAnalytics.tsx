@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BarChart2, Users, Star, Clock, TrendingUp } from "lucide-react";
 
@@ -9,55 +8,24 @@ export const HostAnalytics = ({ userId }: { userId: string }) => {
 
   useEffect(() => {
     const fetchAnalytics = async () => {
-      const { data: hostedClasses } = await supabase
-        .from("virtual_classrooms")
-        .select("id, participant_count, created_at")
-        .eq("host_id", userId);
-
-      if (!hostedClasses || hostedClasses.length === 0) {
-        setStats({ totalSessions: 0 });
-        setLoading(false);
-        return;
-      }
-
-      const classIds = hostedClasses.map(c => c.id);
-
-      const [logsRes, feedbackRes, transRes] = await Promise.all([
-        supabase.from("virtual_classroom_attendance_log").select("*").in("classroom_id", classIds),
-        supabase.from("virtual_classroom_feedback").select("rating").in("classroom_id", classIds),
-        supabase.from("virtual_classroom_transactions").select("amount, status, type").in("classroom_id", classIds)
-      ]);
-
-      const logs = logsRes.data || [];
-      const feedbacks = feedbackRes.data || [];
-      const transactions = transRes.data || [];
-      
-      const uniqueAttendees = new Set(logs.map(l => l.user_id)).size;
-      const totalRatings = feedbacks.reduce((acc, curr) => acc + curr.rating, 0);
-      const avgRating = feedbacks.length > 0 ? (totalRatings / feedbacks.length).toFixed(1) : 0;
-      
-      let totalMinutes = 0;
-      logs.forEach(l => {
-        if (l.left_at && l.joined_at) {
-          const diff = new Date(l.left_at).getTime() - new Date(l.joined_at).getTime();
-          totalMinutes += diff / (1000 * 60);
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/classrooms/host/analytics`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setStats(data);
+        } else {
+          setStats({ totalSessions: 0 });
         }
-      });
-      
-      const avgDuration = uniqueAttendees > 0 ? Math.round(totalMinutes / uniqueAttendees) : 0;
-      
-      const totalEarnings = transactions
-        .filter(t => t.type === 'payment' && t.status === 'completed')
-        .reduce((acc, curr) => acc + Number(curr.amount), 0);
-
-      setStats({
-        totalSessions: hostedClasses.length,
-        totalAttendees: uniqueAttendees,
-        avgRating,
-        avgDuration,
-        totalEarnings
-      });
-      setLoading(false);
+      } catch (err) {
+        setStats({ totalSessions: 0 });
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchAnalytics();

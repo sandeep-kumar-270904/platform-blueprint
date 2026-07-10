@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { supabase } from "@/integrations/supabase/client";
 import { Lightbulb, ThumbsUp, Users, ArrowRight, Plus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
@@ -34,41 +33,31 @@ export const MyIdeas = ({ userId }: { userId: string }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchIdeas = useCallback(async () => {
-    const { data } = await supabase
-      .from("ideas")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (data) {
-      setIdeas(data);
-      const teamIds = data.filter(i => i.team_id).map(i => i.team_id!);
-      if (teamIds.length > 0) {
-        const { data: members } = await supabase
-          .from("team_members")
-          .select("team_id")
-          .in("team_id", teamIds);
-        if (members) {
-          const counts: Record<string, number> = {};
-          members.forEach(m => { counts[m.team_id] = (counts[m.team_id] || 0) + 1; });
-          setTeamCounts(counts);
-        }
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/my-ideas`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIdeas(data.ideas || []);
+        setTeamCounts(data.teamCounts || {});
       } else {
+        setIdeas([]);
         setTeamCounts({});
       }
+    } catch {
+      setIdeas([]);
+      setTeamCounts({});
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [userId]);
 
-  // Subscribe only to rows the user owns (RLS-aligned).
   useRealtimeSync({
     channelName: `my-ideas-${userId}`,
-    filters: [
-      { table: "ideas", filter: `user_id=eq.${userId}` },
-      // team_members has no per-team filter we can pre-compute cheaply,
-      // but we scope to memberships involving this user to stay RLS-relevant.
-      { table: "team_members", filter: `user_id=eq.${userId}` },
-    ],
+    filters: [],
     onChange: fetchIdeas,
   });
 

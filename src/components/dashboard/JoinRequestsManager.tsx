@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { supabase } from "@/integrations/supabase/client";
+
 import { UserPlus, Check, X, ArrowRight, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -39,61 +39,24 @@ export const JoinRequestsManager = ({ userId }: { userId: string }) => {
   const [ideaIds, setIdeaIds] = useState<string[]>([]);
 
   const fetchRequests = async () => {
-    const { data: ideas } = await supabase
-      .from("ideas")
-      .select("id, title, team_id")
-      .eq("user_id", userId);
-
-    const nextIds = (ideas || []).map((i) => i.id).sort();
-    setIdeaIds((prev) =>
-      prev.length === nextIds.length && prev.every((v, i) => v === nextIds[i]) ? prev : nextIds
-    );
-
-    if (!ideas || ideas.length === 0) {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/join-requests`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setRequests(data);
+      } else {
+        setRequests([]);
+      }
+    } catch {
       setRequests([]);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const { data: reqs } = await supabase
-      .from("join_requests")
-      .select("*")
-      .in("idea_id", nextIds)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
-
-    if (!reqs || reqs.length === 0) {
-      setRequests([]);
-      setLoading(false);
-      return;
-    }
-
-    const userIds = [...new Set(reqs.map((r) => r.user_id))];
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, username, full_name")
-      .in("id", userIds);
-
-    const ideaMap = Object.fromEntries(ideas.map((i) => [i.id, i.title]));
-    const profileMap = Object.fromEntries(
-      (profiles || []).map((p) => [p.id, p.username || p.full_name || "User"])
-    );
-
-    setRequests(
-      reqs.map((r) => ({
-        id: r.id,
-        idea_id: r.idea_id,
-        team_id: r.team_id,
-        user_id: r.user_id,
-        message: r.message,
-        requested_role: r.requested_role,
-        status: r.status,
-        created_at: r.created_at,
-        idea_title: ideaMap[r.idea_id] || "Unknown Idea",
-        applicant_name: profileMap[r.user_id] || "User",
-      }))
-    );
-    setLoading(false);
   };
 
   // Tightened subscription: one filter per owned idea_id (Supabase realtime
@@ -105,68 +68,23 @@ export const JoinRequestsManager = ({ userId }: { userId: string }) => {
   }, [userId]);
 
   useRealtimeSync({
-    channelName: `dashboard-join-requests-${userId}-${ideaIds.length}`,
-    filters: [
-      ...ideaIds.map((id) => ({ table: "join_requests", filter: `idea_id=eq.${id}` })),
-      { table: "ideas", filter: `user_id=eq.${userId}` },
-    ],
+    channelName: `dashboard-join-requests-${userId}`,
+    filters: [],
     onChange: fetchRequests,
   });
 
   const handleAccept = async (req: JoinRequest) => {
     setProcessing(req.id);
     try {
-      // Ensure idea has a team; if not, create one and link it
-      let teamId = req.team_id;
-      if (!teamId) {
-        const { data: newTeam, error: teamErr } = await supabase
-          .from("teams")
-          .insert({ name: req.idea_title, description: `Team for ${req.idea_title}`, created_by: userId })
-          .select("id")
-          .single();
-        if (teamErr || !newTeam) throw teamErr || new Error("Team create failed");
-        teamId = newTeam.id;
-
-        // Link team to idea
-        await supabase.from("ideas").update({ team_id: teamId }).eq("id", req.idea_id);
-
-        // Add owner as founder
-        await supabase.from("team_members").insert({
-          team_id: teamId,
-          user_id: userId,
-          role: "founder" as any,
-        });
-      }
-
-      // Update request status
-      await supabase
-        .from("join_requests")
-        .update({
-          status: "accepted",
-          reviewed_by: userId,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", req.id);
-
-      // Add user to team (ignore duplicate errors silently)
-      const roleValue = req.requested_role || "developer";
-      await supabase.from("team_members").insert({
-        team_id: teamId,
-        user_id: req.user_id,
-        role: roleValue as any,
-      });
-
-      // Notify the applicant
-      await supabase.from("notifications").insert({
-        user_id: req.user_id,
-        title: "Join Request Accepted! 🎉",
-        message: `Your request to join "${req.idea_title}" as ${roleValue} has been accepted.`,
-        type: "team",
-        action_url: "/dashboard",
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/dashboard/join-requests/${req.id}/accept`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
       setRequests((prev) => prev.filter((r) => r.id !== req.id));
-      toast.success(`Accepted ${req.applicant_name} as ${roleValue}`);
+      toast.success(`Accepted ${req.applicant_name} as ${req.requested_role || "developer"}`);
     } catch {
       toast.error("Failed to accept request");
     }
@@ -176,21 +94,11 @@ export const JoinRequestsManager = ({ userId }: { userId: string }) => {
   const handleReject = async (req: JoinRequest) => {
     setProcessing(req.id);
     try {
-      await supabase
-        .from("join_requests")
-        .update({
-          status: "rejected",
-          reviewed_by: userId,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", req.id);
-
-      await supabase.from("notifications").insert({
-        user_id: req.user_id,
-        title: "Join Request Update",
-        message: `Your request to join "${req.idea_title}" was not accepted at this time.`,
-        type: "team",
-        action_url: "/innovation-hub",
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/dashboard/join-requests/${req.id}/reject`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
       setRequests((prev) => prev.filter((r) => r.id !== req.id));

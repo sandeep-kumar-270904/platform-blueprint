@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const MeetingSidebar = ({ classroomId, isHost, isWebinar, jitsiApi }: { classroomId: string, isHost: boolean, isWebinar: boolean, jitsiApi?: any }) => {
@@ -22,19 +21,27 @@ export const MeetingSidebar = ({ classroomId, isHost, isWebinar, jitsiApi }: { c
   const handleReport = async () => {
     if (!reportReason.trim() || !user) return;
     setIsReporting(true);
-    const { error } = await supabase.from("virtual_classroom_reports").insert({
-      classroom_id: classroomId,
-      reporter_id: user.id,
-      reason: reportReason
-    });
-    setIsReporting(false);
     
-    if (error) {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/classrooms/${classroomId}/report`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reportReason })
+      });
+      
+      if (res.ok) {
+        toast.success("Report submitted successfully");
+        setReportOpen(false);
+        setReportReason("");
+      } else {
+        toast.error("Failed to submit report");
+      }
+    } catch {
       toast.error("Failed to submit report");
-    } else {
-      toast.success("Report submitted successfully");
-      setReportOpen(false);
-      setReportReason("");
+    } finally {
+      setIsReporting(false);
     }
   };
 

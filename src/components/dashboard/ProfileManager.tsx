@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { supabase } from "@/integrations/supabase/client";
 import { User, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,39 +22,47 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
-      const [profileRes, hostedRes, attendedRes] = await Promise.all([
-        supabase.from("profiles").select("username, full_name, avatar_url").eq("id", userId).single(),
-        supabase.from("virtual_classrooms").select("id", { count: "exact", head: true }).eq("host_id", userId),
-        supabase.from("virtual_classroom_participants").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "attending")
-      ]);
-
-      if (profileRes.data) {
-        setProfile({
-          ...profileRes.data,
-          sessions_hosted: hostedRes.count || 0,
-          sessions_attended: attendedRes.count || 0,
+    const fetchProfile = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/dashboard/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (res.ok) {
+          const data = await res.json();
+          setProfile(data);
+        }
+      } catch {} finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
-    fetch();
+    fetchProfile();
   }, [userId]);
 
   const handleSave = async () => {
     setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        username: profile.username,
-        full_name: profile.full_name,
-      })
-      .eq("id", userId);
-
-    if (error) {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/profile`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username: profile.username,
+          full_name: profile.full_name,
+        })
+      });
+      if (res.ok) {
+        toast.success("Profile updated!");
+      } else {
+        toast.error("Failed to update profile");
+      }
+    } catch {
       toast.error("Failed to update profile");
-    } else {
-      toast.success("Profile updated!");
     }
     setSaving(false);
   };

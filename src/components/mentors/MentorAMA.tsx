@@ -9,7 +9,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
 import { Mic, Users, MessageSquare, Clock, CheckCircle2, Pin, Send, Calendar, Radio, ArrowUp, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -33,9 +32,23 @@ export const MentorAMA = () => {
 
   const join = async (id: string) => {
     if (!user) return toast({ title: "Sign in required", variant: "destructive" });
-    const { error } = await supabase.rpc("join_ama_session", { _session_id: id });
-    if (error && !error.message.includes("duplicate")) toast({ title: "Could not join", description: error.message, variant: "destructive" });
-    setSelectedId(id);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/ama/${id}/join`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        if (!data.message?.includes("duplicate")) {
+          toast({ title: "Could not join", description: data.message, variant: "destructive" });
+        }
+      }
+      setSelectedId(id);
+    } catch (error: any) {
+      toast({ title: "Could not join", description: error.message, variant: "destructive" });
+    }
   };
 
   const ask = async () => {

@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { motion, Reorder } from "framer-motion";
@@ -75,80 +74,76 @@ export const TaskBoard = ({ teamId }: TaskBoardProps) => {
     if (!teamId) return;
 
     const fetchTasks = async () => {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("team_id", teamId)
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        setTasks(data as Task[]);
-      }
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/innovation/teams/${teamId}/tasks`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setTasks(data);
+        }
+      } catch {}
     };
 
     fetchTasks();
-
-    // Subscribe to task changes
-    const channel = supabase
-      .channel(`tasks-${teamId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "tasks",
-          filter: `team_id=eq.${teamId}`,
-        },
-        () => {
-          fetchTasks();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const interval = setInterval(fetchTasks, 10000);
+    return () => clearInterval(interval);
   }, [teamId]);
 
   const createTask = async () => {
     if (!newTask.title.trim() || !user) return;
 
-    const { error } = await supabase.from("tasks").insert({
-      team_id: teamId,
-      title: newTask.title,
-      description: newTask.description || null,
-      priority: newTask.priority,
-      status: newTask.status,
-      required_skills: newTask.required_skills,
-      created_by: user.id,
-    });
-
-    if (error) {
-      toast.error("Failed to create task");
-    } else {
-      toast.success("Task created!");
-      setIsAddingTask(false);
-      setNewTask({
-        title: "",
-        description: "",
-        priority: "medium",
-        status: "todo",
-        required_skills: [],
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/innovation/teams/${teamId}/tasks`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTask.title,
+          description: newTask.description || null,
+          priority: newTask.priority,
+          status: newTask.status,
+          required_skills: newTask.required_skills,
+        })
       });
+
+      if (res.ok) {
+        toast.success("Task created!");
+        setIsAddingTask(false);
+        setNewTask({
+          title: "",
+          description: "",
+          priority: "medium",
+          status: "todo",
+          required_skills: [],
+        });
+      } else {
+        toast.error("Failed to create task");
+      }
+    } catch {
+      toast.error("Failed to create task");
     }
   };
 
   const updateTaskStatus = async (taskId: string, newStatus: string) => {
-    const { error } = await supabase
-      .from("tasks")
-      .update({ status: newStatus })
-      .eq("id", taskId);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/innovation/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
 
-    if (!error) {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
-      );
-    }
+      if (res.ok) {
+        setTasks((prev) =>
+          prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
+        );
+      }
+    } catch {}
   };
 
   const addSkill = () => {

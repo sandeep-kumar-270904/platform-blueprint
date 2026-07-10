@@ -8,7 +8,7 @@ import { NoteRating } from "./NoteRating";
 import { NoteComments } from "./NoteComments";
 import { ReportDialog } from "./ReportDialog";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+
 
 interface NoteDetailDialogProps {
   open: boolean;
@@ -23,9 +23,10 @@ export const NoteDetailDialog = ({ open, onOpenChange, note, onRefresh }: NoteDe
   // Track view when dialog opens
   useEffect(() => {
     if (open && note?.id) {
-      supabase.rpc("increment_note_views" as any, { _note_id: note.id }).then(() => {
-        onRefresh?.();
-      });
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      fetch(`${API_URL}/api/notes/${note.id}/view`, { method: 'POST' })
+        .then(() => onRefresh?.())
+        .catch(() => {});
     }
   }, [open, note?.id]);
 
@@ -33,10 +34,10 @@ export const NoteDetailDialog = ({ open, onOpenChange, note, onRefresh }: NoteDe
 
   const handleDownload = async () => {
     try {
-      // Track download atomically
-      supabase.rpc("increment_note_downloads" as any, { _note_id: note.id }).then(() => {
-        onRefresh?.();
-      });
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      fetch(`${API_URL}/api/notes/${note.id}/download`, { method: 'POST' })
+        .then(() => onRefresh?.())
+        .catch(() => {});
 
       const response = await fetch(note.content_url);
       const blob = await response.blob();

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -54,19 +54,29 @@ export const NoteEditDialog = ({ open, onOpenChange, note, onSuccess }: NoteEdit
     }
     setSaving(true);
     try {
-      const { error } = await supabase.from("notes").update({
-        title: title.trim(),
-        subject: subject.trim(),
-        description: description.trim() || null,
-        category: category || null,
-        branch: branch || null,
-        semester: semester ? parseInt(semester) : null,
-        university: university.trim() || null,
-        year: year ? parseInt(year) : null,
-        tags: tags ? tags.split(",").map(t => t.trim()).filter(Boolean) : [],
-      } as any).eq("id", note.id);
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/notes/${note.id}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          subject: subject.trim(),
+          description: description.trim() || null,
+          category: category || null,
+          branch: branch || null,
+          semester: semester ? parseInt(semester) : null,
+          university: university.trim() || null,
+          year: year ? parseInt(year) : null,
+          tags: tags ? tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+        })
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to update note");
+      }
+      
       toast.success("Note updated successfully!");
       onSuccess();
       onOpenChange(false);

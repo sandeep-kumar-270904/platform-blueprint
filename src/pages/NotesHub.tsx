@@ -28,7 +28,7 @@ import { NotesStatsBar } from "@/components/notes/NotesStatsBar";
 import { NotesFilterBar } from "@/components/notes/NotesFilterBar";
 import { TopContributors } from "@/components/notes/TopContributors";
 import { NoteSkeleton } from "@/components/notes/NoteSkeleton";
-import { supabase } from "@/integrations/supabase/client";
+
 
 const NotesHub = () => {
   const navigate = useNavigate();
@@ -65,11 +65,32 @@ const NotesHub = () => {
   const createStudySession = async () => {
     if (!user) { toast.error("Please sign in"); navigate("/auth"); return; }
     if (!sessionName.trim()) { toast.error("Please enter a session name"); return; }
-    const { data, error } = await supabase.from("study_sessions").insert({
-      note_id: selectedNote.id, host_id: user.id, session_name: sessionName,
-    }).select().single();
-    if (error) toast.error("Failed to create session");
-    else { toast.success("Study session created!"); setShowSessionDialog(false); setSessionName(""); navigate(`/study-session/${data.id}`); }
+    
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/study-sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          note_id: selectedNote.id,
+          session_name: sessionName
+        })
+      });
+
+      if (!res.ok) throw new Error("Failed to create");
+      const data = await res.json();
+      
+      toast.success("Study session created!"); 
+      setShowSessionDialog(false); 
+      setSessionName(""); 
+      navigate(`/study-session/${data.id || data._id}`);
+    } catch {
+      toast.error("Failed to create session");
+    }
   };
 
   const handleDeleteNote = async () => {

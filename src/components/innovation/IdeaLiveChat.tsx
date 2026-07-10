@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +41,7 @@ export const IdeaLiveChat = ({ ideaId }: IdeaLiveChatProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notifCooldownRef = useRef<Record<string, number>>({});
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const channelRef = useRef<any>(null);
   const lastSendRef = useRef<number>(0);
   const lastTypingRef = useRef<number>(0);
 
@@ -50,130 +50,47 @@ export const IdeaLiveChat = ({ ideaId }: IdeaLiveChatProps) => {
 
   const getUsername = useCallback(async (userId: string): Promise<string> => {
     if (profileCache.current[userId]) return profileCache.current[userId];
-    const { data } = await supabase
-      .from("profiles")
-      .select("username")
-      .eq("id", userId)
-      .single();
-    const name = data?.username || "Anonymous";
-    profileCache.current[userId] = name;
-    return name;
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${API_URL}/api/users/${userId}/profile`);
+      if (res.ok) {
+        const data = await res.json();
+        const name = data?.username || "Anonymous";
+        profileCache.current[userId] = name;
+        return name;
+      }
+    } catch {}
+    return "Anonymous";
   }, []);
 
   // Load existing messages
   useEffect(() => {
     const fetchMessages = async () => {
       setLoading(true);
-      const { data } = await supabase
-        .from("idea_messages")
-        .select("*")
-        .eq("idea_id", ideaId)
-        .order("created_at", { ascending: true })
-        .limit(200);
-
-      if (data && data.length > 0) {
-        const userIds = [...new Set(data.map((m) => m.user_id))];
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, username")
-          .in("id", userIds);
-
-        const enriched = data.map((m) => ({
-          ...m,
-          username: profiles?.find((p) => p.id === m.user_id)?.username,
-        }));
-        // Cache profiles
-        profiles?.forEach((p) => {
-          profileCache.current[p.id] = p.username || "Anonymous";
-        });
-        setMessages(enriched);
-      } else {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/innovation/ideas/${ideaId}/messages`);
+        if (res.ok) {
+          const data = await res.json();
+          setMessages(data);
+        } else {
+          setMessages([]);
+        }
+      } catch {
         setMessages([]);
       }
       setLoading(false);
     };
     fetchMessages();
+    const interval = setInterval(fetchMessages, 5000);
+    return () => clearInterval(interval);
   }, [ideaId]);
 
-  // Realtime: messages + presence + typing
+  // Presence and typing mock interval for UI
   useEffect(() => {
-    if (!user) return;
-
-    const channelName = `idea-chat-${ideaId}`;
-    const channel = supabase.channel(channelName, {
-      config: { presence: { key: user.id } },
-    });
-    channelRef.current = channel;
-
-    channel
-      // Realtime message inserts
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "idea_messages",
-          filter: `idea_id=eq.${ideaId}`,
-        },
-        async (payload) => {
-          const msg = payload.new as ChatMessage;
-          const username = await getUsername(msg.user_id);
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === msg.id)) return prev;
-            return [...prev, { ...msg, username }];
-          });
-        }
-      )
-      // Presence sync
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
-        const users: PresenceUser[] = [];
-        Object.entries(state).forEach(([key, value]) => {
-          if (Array.isArray(value) && value.length > 0) {
-            const userData = value[0] as any;
-            users.push({
-              id: key,
-              username: userData.username || "Anonymous",
-              status: userData.status || "online",
-            });
-          }
-        });
-        setOnlineUsers(users);
-      })
-      // Typing broadcast
-      .on("broadcast", { event: "typing" }, ({ payload }) => {
-        if (payload.userId !== user.id) {
-          setTypingUsers((prev) => {
-            if (!prev.includes(payload.username)) {
-              return [...prev, payload.username];
-            }
-            return prev;
-          });
-          setTimeout(() => {
-            setTypingUsers((prev) =>
-              prev.filter((u) => u !== payload.username)
-            );
-          }, 3000);
-        }
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          const username =
-            user.email?.split("@")[0] ||
-            user.user_metadata?.username ||
-            "Anonymous";
-          await channel.track({
-            username,
-            status: "online",
-          });
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-      channelRef.current = null;
-    };
-  }, [user, ideaId, getUsername]);
+    // In a full MERN, this would be Socket.io. For now, empty online users since no supabase.
+    setOnlineUsers([]);
+  }, [user, ideaId]);
 
   // Auto-scroll
   useEffect(() => {
@@ -183,20 +100,8 @@ export const IdeaLiveChat = ({ ideaId }: IdeaLiveChatProps) => {
   }, [messages]);
 
   const broadcastTyping = useCallback(() => {
-    if (!channelRef.current || !user) return;
-    const now = Date.now();
-    if (now - lastTypingRef.current < 2000) return; // Throttle: max once per 2s
-    lastTypingRef.current = now;
-    const username =
-      user.email?.split("@")[0] ||
-      user.user_metadata?.username ||
-      "Anonymous";
-    channelRef.current.send({
-      type: "broadcast",
-      event: "typing",
-      payload: { userId: user.id, username },
-    });
-  }, [user]);
+    // Requires Socket.io in MERN, no-op for polling
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
@@ -215,45 +120,22 @@ export const IdeaLiveChat = ({ ideaId }: IdeaLiveChatProps) => {
     setNewMessage("");
     setSending(true);
 
-    const { error } = await supabase.from("idea_messages").insert({
-      idea_id: ideaId,
-      user_id: user.id,
-      content,
-    });
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/innovation/ideas/${ideaId}/messages`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      });
 
-    if (error) {
+      if (!res.ok) {
+        toast.error("Failed to send message");
+        setNewMessage(content);
+      }
+    } catch {
       toast.error("Failed to send message");
       setNewMessage(content);
-    } else {
-      // Rate-limited notification to idea owner (1 per sender per 5 min)
-      const cooldownKey = `${ideaId}:${user.id}`;
-      const lastNotif = notifCooldownRef.current[cooldownKey] || 0;
-      const now = Date.now();
-      if (now - lastNotif < 5 * 60 * 1000) {
-        // Skip — already notified recently
-      } else {
-        const { data: idea } = await supabase
-          .from("ideas")
-          .select("user_id, title")
-          .eq("id", ideaId)
-          .single();
-
-        if (idea && idea.user_id !== user.id) {
-          const senderName =
-            user.email?.split("@")[0] ||
-            user.user_metadata?.username ||
-            "Someone";
-          await supabase.from("notifications").insert({
-            user_id: idea.user_id,
-            title: "New message on your idea",
-            message: `${senderName} sent a message in "${idea.title}"`,
-            type: "chat",
-            action_url: `/innovation-hub?idea=${ideaId}`,
-            metadata: { idea_id: ideaId, sender_id: user.id },
-          });
-          notifCooldownRef.current[cooldownKey] = now;
-        }
-      }
     }
     setSending(false);
   };

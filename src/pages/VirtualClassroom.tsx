@@ -17,7 +17,6 @@ import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator"
 import { ClassroomChat } from "@/components/classroom/ClassroomChat";
 import { useTranslation } from "react-i18next";
 import { formatToTimezone, generateICS, downloadICS } from "@/utils/calendarUtils";
-import { supabase } from "@/integrations/supabase/client";
 
 const VirtualClassroom = () => {
   const { user, profile } = useAuth();
@@ -57,23 +56,20 @@ const VirtualClassroom = () => {
     if (!checkoutSession || !user) return;
     setIsProcessingPayment(true);
     
-    // Simulate network delay for payment
-    await new Promise(r => setTimeout(r, 1500));
-    
-    // 1. Create Transaction Record
-    await supabase.from("virtual_classroom_transactions").insert({
-      classroom_id: checkoutSession.id,
-      user_id: user.id,
-      amount: checkoutSession.price,
-      status: 'completed',
-      type: 'payment'
-    });
-    
-    // 2. Process RSVP
-    await join(checkoutSession.id);
-    
-    setIsProcessingPayment(false);
-    setCheckoutSession(null);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/classrooms/${checkoutSession.id}/transactions`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: checkoutSession.price })
+      });
+      
+      await join(checkoutSession.id);
+    } catch {} finally {
+      setIsProcessingPayment(false);
+      setCheckoutSession(null);
+    }
   };
 
   const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
@@ -93,12 +89,25 @@ const VirtualClassroom = () => {
   const handleFollow = async (hostId: string) => {
     if (!user) return toast({ title: "Sign in required", variant: "destructive" });
     if (user.id === hostId) return;
-    const { error } = await supabase.from("user_follows").insert({ follower_id: user.id, following_id: hostId });
-    if (error) {
-      if (error.code === '23505') toast({ title: "Already following host" });
-      else toast({ title: "Failed to follow", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Host followed!" });
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/users/${hostId}/follow`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        toast({ title: "Host followed!" });
+      } else {
+        const data = await res.json();
+        if (data.message === 'Already following host') {
+          toast({ title: "Already following host" });
+        } else {
+          toast({ title: "Failed to follow", variant: "destructive" });
+        }
+      }
+    } catch {
+      toast({ title: "Failed to follow", variant: "destructive" });
     }
   };
   return (
