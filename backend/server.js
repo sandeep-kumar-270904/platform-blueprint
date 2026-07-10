@@ -61,6 +61,13 @@ app.use('/api/note-comments', require('./routes/noteComments'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/ideas', require('./routes/ideas'));
 app.use('/api/amas', require('./routes/amas'));
+app.use('/api/uploads', require('./routes/uploads'));
+app.use('/api/ai', require('./routes/ai'));
+app.use('/api/dashboard', require('./routes/dashboard'));
+
+// Serve static files from the uploads directory
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Socket.io connection handling
 io.on('connection', (socket) => {

@@ -24,6 +24,58 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/classrooms/host - Fetch classrooms hosted by the user
+router.get('/host', authMiddleware, async (req, res) => {
+  try {
+    const classrooms = await VirtualClassroom.find({ host_id: req.user.id }).sort({ scheduled_at: 1 });
+    res.json(classrooms);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/classrooms/templates - Fetch classroom templates for host
+router.get('/templates', authMiddleware, async (req, res) => {
+  try {
+    const VirtualClassroomTemplate = require('../models/VirtualClassroomTemplate');
+    const templates = await VirtualClassroomTemplate.find({ host_id: req.user.id }).sort({ created_at: -1 });
+    res.json(templates);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/classrooms/templates - Create a classroom template
+router.post('/templates', authMiddleware, async (req, res) => {
+  try {
+    const VirtualClassroomTemplate = require('../models/VirtualClassroomTemplate');
+    const newTemplate = new VirtualClassroomTemplate({
+      ...req.body,
+      host_id: req.user.id
+    });
+    const savedTemplate = await newTemplate.save();
+    res.status(201).json(savedTemplate);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/classrooms/bulk - Create multiple sessions
+router.post('/bulk', authMiddleware, async (req, res) => {
+  try {
+    const sessions = req.body.sessions.map(s => ({
+      ...s,
+      host_id: req.user.id,
+      join_code: Math.random().toString(36).substring(2, 10)
+    }));
+    
+    const savedSessions = await VirtualClassroom.insertMany(sessions);
+    res.status(201).json(savedSessions);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // GET /api/classrooms/my-participation - Fetch user's RSVPs
 router.get('/my-participation', authMiddleware, async (req, res) => {
   try {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,11 +24,15 @@ export const NoteAIFeatures = ({ noteId, noteTitle }: NoteAIFeaturesProps) => {
   const generateContent = async (type: string) => {
     setLoading(type);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-note-content", {
-        body: { noteId, type },
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/ai/generate-content`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ noteId, type, prompt: `generate ${type}` })
       });
-
-      if (error) throw error;
+      if (!res.ok) throw new Error('Generation failed');
+      const data = await res.json();
 
       if (type === "summary") {
         setSummary(data.content);

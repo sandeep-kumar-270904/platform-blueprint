@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";
 import {
@@ -51,23 +51,35 @@ const FoundersPassport = () => {
   useEffect(() => {
     if (!user) return;
     const fetchData = async () => {
-      const [ideasRes, teamsRes, notesRes, profileRes] = await Promise.all([
-        supabase.from("ideas").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("team_members").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("notes").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("profiles").select("username, full_name").eq("id", user.id).single(),
-      ]);
-      setStats({
-        ideasPosted: ideasRes.count || 0,
-        teamsJoined: teamsRes.count || 0,
-        projectsLaunched: Math.floor((ideasRes.count || 0) * 0.3),
-        mentorSessions: 3,
-        notesShared: notesRes.count || 0,
-        quizzesCompleted: 8,
-        eventsAttended: 5,
-        feedbackGiven: 12,
-      });
-      if (profileRes.data) setProfile(profileRes.data);
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/dashboard/stats`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch stats');
+        const data = await res.json();
+        
+        setStats({
+          ideasPosted: data.ideas || 0,
+          teamsJoined: data.teams || 0,
+          projectsLaunched: Math.floor((data.ideas || 0) * 0.3),
+          mentorSessions: 3,
+          notesShared: data.notes?.total || 0,
+          quizzesCompleted: 8,
+          eventsAttended: 5,
+          feedbackGiven: 12,
+        });
+        
+        if (user.user_metadata) {
+          setProfile({
+            username: user.user_metadata.username || null,
+            full_name: user.user_metadata.full_name || null
+          });
+        }
+      } catch (err) {
+        console.error(err);
+      }
     };
     fetchData();
   }, [user]);

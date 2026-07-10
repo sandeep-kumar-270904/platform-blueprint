@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -75,111 +75,80 @@ const StudySession = () => {
   }, [user, authLoading, sessionId]);
 
   const loadSession = async () => {
-    const { data, error } = await supabase
-      .from("study_sessions")
-      .select("*, notes(*)")
-      .eq("id", sessionId)
-      .single();
-
-    if (error) {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/study-sessions/${sessionId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Failed to load");
+      const data = await res.json();
+      setSession(data);
+      setCurrentPage(data.current_page || 1);
+      loadAnnotations(data.current_page);
+      loadParticipants();
+      loadMessages();
+    } catch {
       toast.error("Failed to load session");
       navigate("/notes");
-      return;
     }
-
-    setSession(data);
-    setCurrentPage(data.current_page || 1);
-    loadAnnotations(data.current_page);
-    loadParticipants();
-    loadMessages();
   };
 
   const joinSession = async () => {
-    const { error } = await supabase
-      .from("session_participants")
-      .insert({ session_id: sessionId, user_id: user?.id })
-      .select()
-      .maybeSingle();
-
-    if (error && !error.message.includes("duplicate")) {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/study-sessions/${sessionId}/join`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+    } catch (e) {
       toast.error("Failed to join session");
     }
   };
 
   const leaveSession = async () => {
-    await supabase
-      .from("session_participants")
-      .delete()
-      .eq("session_id", sessionId)
-      .eq("user_id", user?.id);
-
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/study-sessions/${sessionId}/leave`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+    } catch (e) {}
     navigate("/notes");
   };
 
   const loadAnnotations = async (page: number) => {
     if (!session?.note_id) return;
-    
-    const { data } = await supabase
-      .from("annotations")
-      .select("*")
-      .eq("note_id", session.note_id)
-      .eq("page_number", page);
-
-    if (data) setAnnotations(data as any);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/study-sessions/${sessionId}/annotations?page=${page}`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.ok) setAnnotations(await res.json());
+    } catch (e) {}
   };
 
   const loadParticipants = async () => {
-    const { data } = await supabase
-      .from("session_participants")
-      .select("*")
-      .eq("session_id", sessionId);
-
-    if (data) setParticipants(data as any);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/study-sessions/${sessionId}/participants`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.ok) setParticipants(await res.json());
+    } catch (e) {}
   };
 
   const loadMessages = async () => {
-    const { data } = await supabase
-      .from("chat_messages")
-      .select("*")
-      .eq("session_id", sessionId)
-      .order("created_at", { ascending: true });
-
-    if (data) setMessages(data as any);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/study-sessions/${sessionId}/messages`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (res.ok) setMessages(await res.json());
+    } catch (e) {}
   };
 
   const subscribeToUpdates = () => {
-    const channel = supabase.channel(`session-${sessionId}`);
-
-    channel
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "annotations" },
-        () => loadAnnotations(currentPage)
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "session_participants" },
-        () => loadParticipants()
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_messages" },
-        () => loadMessages()
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "study_sessions" },
-        (payload) => {
-          if (payload.new.current_page !== currentPage) {
-            setCurrentPage(payload.new.current_page);
-            loadAnnotations(payload.new.current_page);
-          }
-        }
-      )
-      .subscribe();
+    // using polling as fallback for now
+    const pollId = window.setInterval(() => {
+      loadAnnotations(currentPage);
+      loadParticipants();
+      loadMessages();
+    }, 5000);
 
     return () => {
-      supabase.removeChannel(channel);
+      window.clearInterval(pollId);
     };
   };
 
@@ -187,17 +156,19 @@ const StudySession = () => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
-    const { error } = await supabase.from("chat_messages").insert({
-      session_id: sessionId,
-      user_id: user?.id,
-      message: newMessage,
-    });
-
-    if (error) {
-      toast.error("Failed to send message");
-    } else {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/study-sessions/${sessionId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ message: newMessage })
+      });
+      
       setNewMessage("");
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    } catch {
+      toast.error("Failed to send message");
     }
   };
 
@@ -213,15 +184,20 @@ const StudySession = () => {
   };
 
   const createAnnotation = async (x: number, y: number) => {
-    const { error } = await supabase.from("annotations").insert({
-      note_id: session?.note_id,
-      user_id: user?.id,
-      page_number: currentPage,
-      position: { x, y, width: 10, height: 2 },
-      color: selectedColor,
-    });
-
-    if (error) {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/study-sessions/${sessionId}/annotations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          note_id: session?.note_id,
+          page_number: currentPage,
+          position: { x, y, width: 10, height: 2 },
+          color: selectedColor,
+        })
+      });
+    } catch {
       toast.error("Failed to create annotation");
     }
   };
@@ -232,12 +208,15 @@ const StudySession = () => {
       return;
     }
 
-    const { error } = await supabase
-      .from("study_sessions")
-      .update({ current_page: newPage })
-      .eq("id", sessionId);
-
-    if (error) {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/study-sessions/${sessionId}/sync-page`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ current_page: newPage })
+      });
+    } catch {
       toast.error("Failed to sync page");
     }
   };
