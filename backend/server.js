@@ -65,6 +65,8 @@ app.use('/api/amas', require('./routes/amas'));
 app.use('/api/uploads', require('./routes/uploads'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/study-sessions', require('./routes/studySessions'));
+app.use('/api/users', require('./routes/users'));
 
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

@@ -275,4 +275,17 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// POST /api/classrooms/:id/transactions - Mock payment completion
+router.post('/:id/transactions', authMiddleware, async (req, res) => {
+  try {
+    const classroom = await VirtualClassroom.findById(req.params.id);
+    if (!classroom) return res.status(404).json({ message: 'Classroom not found' });
+    
+    // In a real app we'd save a transaction record to Stripe and the DB here
+    res.json({ message: 'Payment successful', transaction_id: 'tx_mock_' + Date.now() });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
