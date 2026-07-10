@@ -8,7 +8,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -69,25 +68,25 @@ export const BrainstormRooms = () => {
   // Fetch rooms
   useEffect(() => {
     const fetchRooms = async () => {
-      const { data } = await supabase
-        .from("brainstorm_rooms")
-        .select("*")
-        .eq("is_active", true)
-        .order("participant_count", { ascending: false });
-      
-      if (data && data.length > 0) {
-        setRooms(data);
-      } else {
-        // Use seed data as fallback display (no fake counts)
-        setRooms(defaultRoomSeeds.map((r, i) => ({
-          id: `seed-${i}`,
-          ...r,
-          is_active: true,
-          mentor_led: false,
-          participant_count: 0,
-          created_at: new Date().toISOString(),
-        })));
-      }
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/innovation/rooms`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0) {
+            setRooms(data);
+          } else {
+            setRooms(defaultRoomSeeds.map((r, i) => ({
+              id: `seed-${i}`,
+              ...r,
+              is_active: true,
+              mentor_led: false,
+              participant_count: 0,
+              created_at: new Date().toISOString(),
+            })));
+          }
+        }
+      } catch {}
       setLoadingRooms(false);
     };
     fetchRooms();
@@ -101,70 +100,19 @@ export const BrainstormRooms = () => {
     }
     setLoadingMessages(true);
     const fetchMessages = async () => {
-      const { data } = await supabase
-        .from("brainstorm_messages")
-        .select("*")
-        .eq("room_id", selectedRoomId)
-        .order("created_at", { ascending: true })
-        .limit(100);
-
-      if (data) {
-        const userIds = [...new Set(data.map(m => m.user_id))];
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, username")
-          .in("id", userIds);
-        setMessages(data.map(m => ({
-          ...m,
-          username: profiles?.find(p => p.id === m.user_id)?.username,
-        })));
-      }
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/innovation/rooms/${selectedRoomId}/messages`);
+        if (res.ok) {
+          const data = await res.json();
+          setMessages(data);
+        }
+      } catch {}
       setLoadingMessages(false);
     };
     fetchMessages();
-
-    // Realtime messages + presence
-    const channel = supabase.channel(`room-${selectedRoomId}`, {
-      config: { presence: { key: user?.id || "anon" } },
-    });
-
-    channel
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "brainstorm_messages",
-        filter: `room_id=eq.${selectedRoomId}`,
-      }, async (payload) => {
-        const msg = payload.new as RoomMessage;
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("username")
-          .eq("id", msg.user_id)
-          .single();
-        setMessages(prev => {
-          if (prev.some(m => m.id === msg.id)) return prev;
-          return [...prev, { ...msg, username: profile?.username }];
-        });
-      })
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
-        const count = Object.keys(state).length;
-        setRooms(prev => prev.map(r => r.id === selectedRoomId ? { ...r, participant_count: count } : r));
-      })
-      .on("broadcast", { event: "typing" }, ({ payload }) => {
-        if (payload.userId !== user?.id) {
-          setTypingUser(payload.username);
-          setTimeout(() => setTypingUser(null), 3000);
-        }
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED" && user) {
-          const username = user.email?.split("@")[0] || "Anonymous";
-          await channel.track({ username, status: "online" });
-        }
-      });
-
-    return () => { supabase.removeChannel(channel); };
+    const interval = setInterval(fetchMessages, 5000);
+    return () => clearInterval(interval);
   }, [selectedRoomId, user]);
 
   // Auto scroll
@@ -186,15 +134,18 @@ export const BrainstormRooms = () => {
     const content = newMessage.trim();
     if (content.length > 1000) { toast.error("Message too long (max 1000 chars)"); return; }
     setSending(true);
-    const { error } = await supabase.from("brainstorm_messages").insert({
-      room_id: selectedRoomId,
-      user_id: user.id,
-      content,
-    });
-    if (error) {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/innovation/rooms/${selectedRoomId}/messages`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      });
+      setNewMessage("");
+    } catch {
       toast.error("Failed to send message");
     }
-    setNewMessage("");
     setSending(false);
   };
 
@@ -208,22 +159,30 @@ export const BrainstormRooms = () => {
   const handleCreateRoom = async () => {
     if (!newRoom.name.trim() || !user || creatingRoom) return;
     setCreatingRoom(true);
-    const { error } = await supabase.from("brainstorm_rooms").insert({
-      name: newRoom.name.trim(),
-      topic: newRoom.name.trim().toLowerCase().replace(/\s+/g, "-"),
-      description: newRoom.description || null,
-      created_by: user.id,
-    });
-    if (error) {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/innovation/rooms`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newRoom.name.trim(),
+          topic: newRoom.name.trim().toLowerCase().replace(/\s+/g, "-"),
+          description: newRoom.description || null,
+        })
+      });
+      if (res.ok) {
+        toast.success(`Room "${newRoom.name}" created!`);
+        setCreateOpen(false);
+        setNewRoom({ name: "", description: "", topic: "" });
+        // Room will be refetched by interval or next mount
+      } else {
+        toast.error("Failed to create room");
+      }
+    } catch {
       toast.error("Failed to create room");
-    } else {
-      toast.success(`Room "${newRoom.name}" created!`);
-      const { data } = await supabase.from("brainstorm_rooms").select("*").eq("is_active", true).order("participant_count", { ascending: false });
-      if (data) setRooms(data);
     }
     setCreatingRoom(false);
-    setCreateOpen(false);
-    setNewRoom({ name: "", description: "", topic: "" });
   };
 
   return (
@@ -382,14 +341,6 @@ export const BrainstormRooms = () => {
                     value={newMessage}
                     onChange={e => {
                       setNewMessage(e.target.value);
-                      // Throttled typing broadcast
-                      if (user && selectedRoomId && !selectedRoomId.startsWith("seed-")) {
-                        const now = Date.now();
-                        if (now - lastTypingRef.current < 2000) return;
-                        lastTypingRef.current = now;
-                        const ch = supabase.channel(`room-${selectedRoomId}`);
-                        ch.send({ type: "broadcast", event: "typing", payload: { userId: user.id, username: user.email?.split("@")[0] || "Anonymous" } });
-                      }
                     }}
                     onKeyDown={handleKeyPress}
                     placeholder={user ? "Share your thoughts..." : "Sign in to chat"}

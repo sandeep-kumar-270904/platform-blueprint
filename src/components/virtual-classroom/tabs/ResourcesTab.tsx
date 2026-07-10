@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,42 +15,40 @@ export const ResourcesTab = ({ classroomId, isHost }: { classroomId: string, isH
 
   useEffect(() => {
     const fetchResources = async () => {
-      const { data } = await supabase
-        .from("virtual_classroom_resources")
-        .select("*")
-        .eq("classroom_id", classroomId)
-        .order("created_at", { ascending: false });
-      if (data) setResources(data);
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/classrooms/${classroomId}/resources`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setResources(data);
+        }
+      } catch {}
     };
     
     fetchResources();
-
-    const channel = supabase.channel(`resources-${classroomId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'virtual_classroom_resources', filter: `classroom_id=eq.${classroomId}` }, () => {
-        fetchResources();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const interval = setInterval(fetchResources, 5000);
+    return () => clearInterval(interval);
   }, [classroomId]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !url || !user) return;
     
-    await supabase.from("virtual_classroom_resources").insert({
-      classroom_id: classroomId,
-      user_id: user.id,
-      title,
-      url,
-      type // Saving type ('link', 'gdrive', 'lms')
-    });
-    
-    setTitle("");
-    setUrl("");
-    setAdding(false);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/classrooms/${classroomId}/resources`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, url, type })
+      });
+      setTitle("");
+      setUrl("");
+      setAdding(false);
+    } catch {}
   };
 
   const getIcon = (type: string, url: string) => {

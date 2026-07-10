@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,64 +14,26 @@ export const UpcomingSessions = ({ userId }: { userId: string }) => {
   useEffect(() => {
     const fetchSessions = async () => {
       setLoading(true);
-      // Fetch blocks
-      const { data: blocks } = await supabase.from("user_blocks").select("blocked_id").eq("blocker_id", userId);
-      const blockedIds = blocks?.map(b => b.blocked_id) || [];
-
-      // 1. Fetch user's attending/hosting sessions
-      const { data: participation } = await supabase
-        .from("virtual_classroom_participants")
-        .select("classroom_id")
-        .eq("user_id", userId);
-        
-      const joinedIds = participation?.map((p: any) => p.classroom_id) || [];
-
-      let upcomingQuery = supabase
-        .from("virtual_classrooms")
-        .select("*")
-        .or(`id.in.(${joinedIds.join(',') || '00000000-0000-0000-0000-000000000000'}),host_id.eq.${userId}`)
-        .gte("scheduled_at", new Date().toISOString())
-        .order("scheduled_at", { ascending: true })
-        .limit(3);
-        
-      if (blockedIds.length > 0) {
-        upcomingQuery = upcomingQuery.not("host_id", "in", `(${blockedIds.join(',')})`);
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/dashboard/upcoming-sessions`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSessions(data.sessions || []);
+          setRecommendations(data.recommendations || []);
+        } else {
+          setSessions([]);
+          setRecommendations([]);
+        }
+      } catch {
+        setSessions([]);
+        setRecommendations([]);
+      } finally {
+        setLoading(false);
       }
-
-      const { data: upcoming } = await upcomingQuery;
-      if (upcoming) setSessions(upcoming);
-
-      // 2. Fetch AI Recommendations (sessions not joined, matching past subjects)
-      // Extract subjects of past attended classes
-      const { data: pastClasses } = await supabase
-        .from("virtual_classrooms")
-        .select("subject")
-        .in("id", joinedIds)
-        .not("subject", "is", null);
-        
-      const subjects = [...new Set(pastClasses?.map(c => c.subject))];
-
-      let recsQuery = supabase
-        .from("virtual_classrooms")
-        .select("*")
-        .gte("scheduled_at", new Date().toISOString())
-        .not("host_id", "eq", userId)
-        .not("id", "in", `(${joinedIds.join(',') || '00000000-0000-0000-0000-000000000000'})`)
-        .order("scheduled_at", { ascending: true })
-        .limit(2);
-        
-      if (blockedIds.length > 0) {
-        recsQuery = recsQuery.not("host_id", "in", `(${blockedIds.join(',')})`);
-      }
-        
-      // If user has past subjects, filter by them to simulate "Smart Personalized AI Recommendation"
-      if (subjects.length > 0) {
-        recsQuery = recsQuery.in("subject", subjects);
-      }
-      
-      const { data: recs } = await recsQuery;
-      if (recs) setRecommendations(recs);
-      setLoading(false);
     };
 
     fetchSessions();

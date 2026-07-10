@@ -10,7 +10,6 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Rocket, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -45,21 +44,31 @@ export const PostIdeaDialog = ({ open, onOpenChange }: PostIdeaDialogProps) => {
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.from("ideas").insert({
-      user_id: user.id,
-      title: title.trim(),
-      description: description.trim(),
-      category,
-      tags,
-      status: "draft",
-      is_public: true,
-    });
-    if (error) {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/innovation/ideas`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          category,
+          tags,
+          status: "draft",
+          is_public: true,
+        })
+      });
+
+      if (res.ok) {
+        toast.success("Idea posted!");
+        setTitle(""); setDescription(""); setCategory(""); setTags([]);
+        onOpenChange(false);
+      } else {
+        toast.error("Failed to post idea");
+      }
+    } catch {
       toast.error("Failed to post idea");
-    } else {
-      toast.success("Idea posted!");
-      setTitle(""); setDescription(""); setCategory(""); setTags([]);
-      onOpenChange(false);
     }
     setSubmitting(false);
   };

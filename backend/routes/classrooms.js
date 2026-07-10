@@ -34,6 +34,28 @@ router.get('/host', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/classrooms/host/analytics - Fetch analytics for host
+router.get('/host/analytics', authMiddleware, async (req, res) => {
+  try {
+    const hostedClasses = await VirtualClassroom.find({ host_id: req.user.id });
+    
+    if (!hostedClasses || hostedClasses.length === 0) {
+      return res.json({ totalSessions: 0 });
+    }
+
+    // Mock analytics for now, can be replaced with real DB models later
+    res.json({
+      totalSessions: hostedClasses.length,
+      totalAttendees: Math.floor(Math.random() * 100) + 10,
+      avgRating: (Math.random() * 2 + 3).toFixed(1), // 3.0 - 5.0
+      avgDuration: Math.floor(Math.random() * 60) + 30, // 30 - 90 mins
+      totalEarnings: Math.floor(Math.random() * 1000)
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // GET /api/classrooms/templates - Fetch classroom templates for host
 router.get('/templates', authMiddleware, async (req, res) => {
   try {

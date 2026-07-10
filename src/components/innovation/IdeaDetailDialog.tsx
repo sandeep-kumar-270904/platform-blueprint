@@ -8,7 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useAuth } from "@/hooks/useAuth";
 import {
   Heart, Users, Loader2, Calendar, Tag, MessageSquare, Info,
@@ -49,50 +49,39 @@ export const IdeaDetailDialog = ({ ideaId, open, onOpenChange }: IdeaDetailProps
     setLoading(true);
     setActiveTab("details");
     const fetchIdea = async () => {
-      const { data: ideaData } = await supabase
-        .from("ideas").select("*").eq("id", ideaId).single();
-
-      if (ideaData) {
-        const { data: profile } = await supabase
-          .from("profiles").select("username, full_name").eq("id", ideaData.user_id).single();
-        setIdea({ ...ideaData, profile });
-
-        if (ideaData.team_id) {
-          const { data: members } = await supabase
-            .from("team_members").select("user_id, role").eq("team_id", ideaData.team_id);
-          if (members) {
-            const profileIds = members.map(m => m.user_id);
-            const { data: profiles } = await supabase
-              .from("profiles").select("id, username").in("id", profileIds);
-            setTeamMembers(members.map(m => ({
-              ...m,
-              username: profiles?.find(p => p.id === m.user_id)?.username || null,
-            })));
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/innovation/ideas/${ideaId}`);
+        if (res.ok) {
+          const ideaData = await res.json();
+          setIdea(ideaData);
+          if (ideaData.team_id) {
+            const teamRes = await fetch(`${API_URL}/api/innovation/teams/${ideaData.team_id}/members`);
+            if (teamRes.ok) {
+              setTeamMembers(await teamRes.json());
+            }
           }
         }
-      }
+      } catch {}
       setLoading(false);
     };
     fetchIdea();
 
-    const channel = supabase
-      .channel(`idea-${ideaId}`)
-      .on("postgres_changes", {
-        event: "UPDATE", schema: "public", table: "ideas",
-        filter: `id=eq.${ideaId}`,
-      }, (payload) => {
-        setIdea(prev => prev ? { ...prev, ...payload.new } : null);
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    const interval = setInterval(fetchIdea, 15000);
+    return () => clearInterval(interval);
   }, [ideaId, open]);
 
   const handleUpvote = async () => {
     if (!user || !idea || liked) return;
     setLiked(true);
-    setIdea(prev => prev ? { ...prev, upvotes: (prev.upvotes || 0) + 1 } : null);
-    await supabase.rpc("increment_idea_upvotes", { _idea_id: idea.id });
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/innovation/ideas/${idea.id}/upvote`, { 
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch {}
   };
 
   const statusColors: Record<string, string> = {

@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { supabase } from "@/integrations/supabase/client";
 import { Radio, MessageSquare, Lightbulb, BookOpen, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -21,13 +20,22 @@ export const LiveActivity = () => {
 
   const fetchActivity = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from("user_activity_feed")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(5);
-    setActivities(data || []);
-    setLoading(false);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/live-activity`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setActivities(await res.json());
+      } else {
+        setActivities([]);
+      }
+    } catch {
+      setActivities([]);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {

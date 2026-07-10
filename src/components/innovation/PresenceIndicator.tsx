@@ -6,7 +6,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -32,72 +31,8 @@ export const PresenceIndicator = ({
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase.channel(channelName, {
-      config: {
-        presence: {
-          key: user.id,
-        },
-      },
-    });
-
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState();
-        const users: Presence[] = [];
-        
-        Object.entries(state).forEach(([key, value]) => {
-          if (Array.isArray(value) && value.length > 0) {
-            const userData = value[0] as any;
-            users.push({
-              id: key,
-              username: userData.username || "Anonymous",
-              avatar_url: userData.avatar_url,
-              status: userData.status || "online",
-              lastSeen: userData.lastSeen || new Date().toISOString(),
-            });
-          }
-        });
-        
-        setPresence(users.filter((u) => u.id !== user.id));
-      })
-      .on("presence", { event: "join" }, ({ key, newPresences }) => {
-        console.log("User joined:", key, newPresences);
-      })
-      .on("presence", { event: "leave" }, ({ key, leftPresences }) => {
-        console.log("User left:", key, leftPresences);
-      })
-      .on("broadcast", { event: "typing" }, ({ payload }) => {
-        if (payload.userId !== user.id) {
-          setTypingUsers((prev) => {
-            if (!prev.includes(payload.username)) {
-              return [...prev, payload.username];
-            }
-            return prev;
-          });
-          // Remove typing indicator after 3 seconds
-          setTimeout(() => {
-            setTypingUsers((prev) =>
-              prev.filter((u) => u !== payload.username)
-            );
-          }, 3000);
-        }
-      })
-      .subscribe(async (status) => {
-        if (status === "SUBSCRIBED") {
-          await channel.track({
-            username: user.email?.split("@")[0] || "Anonymous",
-            avatar_url: null,
-            status: "online",
-            lastSeen: new Date().toISOString(),
-          });
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    // Requires Socket.io implementation in MERN
+    setPresence([]);
   }, [user, channelName]);
 
   const onlineCount = presence.length + 1; // +1 for current user

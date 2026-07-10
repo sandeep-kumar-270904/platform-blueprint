@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { useParams, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -25,53 +25,22 @@ const ClassroomRecap = () => {
   useEffect(() => {
     const fetchRecap = async () => {
       if (!id || !user) return;
-      const { data, error } = await supabase
-        .from("virtual_classrooms")
-        .select("*")
-        .eq("id", id)
-        .single();
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/classrooms/${id}/recap`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
         
-      if (data) {
-        setClassroom(data);
-        const isHost = data.host_id === user.id;
-
-        // Fetch Feedback state
-        const { data: feedbackData } = await supabase
-          .from("virtual_classroom_feedback")
-          .select("*")
-          .eq("classroom_id", id)
-          .eq("user_id", user.id)
-          .single();
-          
-        if (feedbackData) setFeedbackSubmitted(true);
-
-        if (isHost) {
-          // Aggregate Analytics
-          const [logsRes, rsvpRes, pollsRes] = await Promise.all([
-            supabase.from("virtual_classroom_attendance_log").select("*").eq("classroom_id", id),
-            supabase.from("virtual_classroom_participants").select("*", { count: 'exact', head: true }).eq("classroom_id", id),
-            supabase.from("virtual_classroom_polls").select("id").eq("classroom_id", id)
-          ]);
-          
-          const logs = logsRes.data || [];
-          const uniqueAttendees = new Set(logs.map(l => l.user_id)).size;
-          
-          let totalMinutes = 0;
-          logs.forEach(l => {
-            if (l.left_at && l.joined_at) {
-              const diff = new Date(l.left_at).getTime() - new Date(l.joined_at).getTime();
-              totalMinutes += diff / (1000 * 60);
-            }
-          });
-
-          setAnalytics({
-            totalRSVP: rsvpRes.count || 0,
-            actualAttendance: uniqueAttendees,
-            avgDuration: uniqueAttendees > 0 ? Math.round(totalMinutes / uniqueAttendees) : 0,
-            pollsCount: pollsRes.data?.length || 0
-          });
+        if (res.ok) {
+          const data = await res.json();
+          setClassroom(data.classroom);
+          setFeedbackSubmitted(data.feedbackSubmitted);
+          if (data.analytics) {
+            setAnalytics(data.analytics);
+          }
         }
-      }
+      } catch {}
       setLoading(false);
     };
 
@@ -82,15 +51,19 @@ const ClassroomRecap = () => {
     e.preventDefault();
     if (rating === 0) return toast.error("Please select a rating.");
     
-    await supabase.from("virtual_classroom_feedback").insert({
-      classroom_id: id,
-      user_id: user?.id,
-      rating,
-      comment
-    });
-    
-    setFeedbackSubmitted(true);
-    toast.success("Thanks for your feedback!");
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/classrooms/${id}/feedback`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating, comment })
+      });
+      setFeedbackSubmitted(true);
+      toast.success("Thanks for your feedback!");
+    } catch {
+      toast.error("Failed to submit feedback");
+    }
   };
 
   const generateAI = async () => {
@@ -111,21 +84,26 @@ const ClassroomRecap = () => {
         { q: "What is the primary best practice?", a: "Consistency in implementation." }
       ];
 
-      await supabase.from("virtual_classrooms").update({
-        ai_summary: summary,
-        ai_action_items: actionItems,
-        ai_flashcards: flashcards
-      }).eq("id", id);
-      
-      setClassroom({
-        ...classroom,
-        ai_summary: summary,
-        ai_action_items: actionItems,
-        ai_flashcards: flashcards
-      });
-      
-      setAiGenerating(false);
-      toast.success("AI Summary Generated!");
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        await fetch(`${API_URL}/api/classrooms/${id}/ai-summary`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ai_summary: summary, ai_action_items: actionItems, ai_flashcards: flashcards })
+        });
+        
+        setClassroom({
+          ...classroom,
+          ai_summary: summary,
+          ai_action_items: actionItems,
+          ai_flashcards: flashcards
+        });
+        
+        toast.success("AI Summary Generated!");
+      } catch {} finally {
+        setAiGenerating(false);
+      }
     }, 2500);
   };
 

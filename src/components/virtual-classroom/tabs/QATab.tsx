@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,83 +13,65 @@ export const QATab = ({ classroomId, isHost }: { classroomId: string, isHost: bo
 
   useEffect(() => {
     const fetchQA = async () => {
-      const { data: qData } = await supabase
-        .from("virtual_classroom_qa")
-        .select(`
-          *,
-          user:profiles!virtual_classroom_qa_user_id_fkey(full_name, username)
-        `)
-        .eq("classroom_id", classroomId)
-        .order("created_at", { ascending: true });
-        
-      if (qData) {
-        setQuestions(qData);
-        
-        const qIds = qData.map(q => q.id);
-        if (qIds.length > 0) {
-          const { data: vData } = await supabase
-            .from("virtual_classroom_qa_votes")
-            .select("*")
-            .in("qa_id", qIds);
-            
-          if (vData) {
-            const vMap: Record<string, number> = {};
-            const mvMap: Record<string, boolean> = {};
-            
-            vData.forEach(v => {
-              vMap[v.qa_id] = (vMap[v.qa_id] || 0) + 1;
-              if (v.user_id === user?.id) {
-                mvMap[v.qa_id] = true;
-              }
-            });
-            
-            setVotes(vMap);
-            setMyVotes(mvMap);
-          }
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/classrooms/${classroomId}/qa`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setQuestions(data.questions || []);
+          setVotes(data.votes || {});
+          setMyVotes(data.myVotes || {});
         }
-      }
+      } catch {}
     };
     
     fetchQA();
-
-    const channel = supabase.channel(`qa-${classroomId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'virtual_classroom_qa', filter: `classroom_id=eq.${classroomId}` }, fetchQA)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'virtual_classroom_qa_votes' }, fetchQA)
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const interval = setInterval(fetchQA, 5000);
+    return () => clearInterval(interval);
   }, [classroomId, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newQuestion.trim() || !user) return;
     
-    await supabase.from("virtual_classroom_qa").insert({
-      classroom_id: classroomId,
-      user_id: user.id,
-      question: newQuestion.trim()
-    });
-    
-    setNewQuestion("");
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/classrooms/${classroomId}/qa`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: newQuestion.trim() })
+      });
+      setNewQuestion("");
+    } catch {}
   };
 
   const handleUpvote = async (qaId: string) => {
     if (!user || myVotes[qaId]) return;
-    
-    // Optimistic UI
     setMyVotes(prev => ({ ...prev, [qaId]: true }));
     setVotes(prev => ({ ...prev, [qaId]: (prev[qaId] || 0) + 1 }));
-    
-    await supabase.from("virtual_classroom_qa_votes").insert({
-      qa_id: qaId,
-      user_id: user.id
-    });
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/classrooms/${classroomId}/qa/${qaId}/vote`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch {}
   };
 
   const markAnswered = async (qaId: string) => {
-    await supabase.from("virtual_classroom_qa").update({ is_answered: true }).eq("id", qaId);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/classrooms/${classroomId}/qa/${qaId}/answer`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch {}
   };
 
   // Sort: Unanswered first, then by upvotes (desc), then chronologically

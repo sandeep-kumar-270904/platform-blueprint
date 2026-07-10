@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TeamChat } from "./TeamChat";
 import { TaskBoard } from "./TaskBoard";
 import { PresenceIndicator } from "./PresenceIndicator";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";
 
@@ -62,42 +61,19 @@ export const TeamDashboard = ({ teamId }: TeamDashboardProps) => {
     if (!teamId) return;
 
     const fetchTeamData = async () => {
-      // Fetch team
-      const { data: teamData } = await supabase
-        .from("teams")
-        .select("*")
-        .eq("id", teamId)
-        .single();
-
-      if (teamData) {
-        setTeam(teamData);
-      }
-
-      // Fetch members
-      const { data: membersData } = await supabase
-        .from("team_members")
-        .select("*")
-        .eq("team_id", teamId);
-
-      if (membersData) {
-        setMembers(membersData as TeamMember[]);
-      }
-
-      // Fetch stats
-      const [ideasResult, tasksResult, messagesResult] = await Promise.all([
-        supabase.from("ideas").select("id", { count: "exact" }).eq("team_id", teamId),
-        supabase.from("tasks").select("id, status").eq("team_id", teamId),
-        supabase.from("team_messages").select("id", { count: "exact" }).eq("team_id", teamId),
-      ]);
-
-      const completedTasks = tasksResult.data?.filter((t) => t.status === "done").length || 0;
-
-      setStats({
-        ideas: ideasResult.count || 0,
-        tasks: tasksResult.data?.length || 0,
-        completedTasks,
-        messages: messagesResult.count || 0,
-      });
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/innovation/teams/${teamId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.team) setTeam(data.team);
+          if (data.members) setMembers(data.members);
+          if (data.stats) setStats(data.stats);
+        }
+      } catch {}
     };
 
     fetchTeamData();

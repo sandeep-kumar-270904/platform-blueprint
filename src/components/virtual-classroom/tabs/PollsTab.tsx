@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -18,83 +17,66 @@ export const PollsTab = ({ classroomId, isHost }: { classroomId: string, isHost:
 
   useEffect(() => {
     const fetchPolls = async () => {
-      const { data: pollsData } = await supabase
-        .from("virtual_classroom_polls")
-        .select("*")
-        .eq("classroom_id", classroomId)
-        .order("created_at", { ascending: false });
-        
-      if (pollsData) {
-        setPolls(pollsData);
-        
-        // Fetch votes
-        const pollIds = pollsData.map(p => p.id);
-        if (pollIds.length > 0) {
-          const { data: votesData } = await supabase
-            .from("virtual_classroom_poll_votes")
-            .select("*")
-            .in("poll_id", pollIds);
-            
-          if (votesData) {
-            const vMap: Record<string, any[]> = {};
-            const mvMap: Record<string, number> = {};
-            
-            votesData.forEach(v => {
-              if (!vMap[v.poll_id]) vMap[v.poll_id] = [];
-              vMap[v.poll_id].push(v);
-              
-              if (v.user_id === user?.id) {
-                mvMap[v.poll_id] = v.option_index;
-              }
-            });
-            
-            setVotes(vMap);
-            setMyVotes(mvMap);
-          }
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/classrooms/${classroomId}/polls`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setPolls(data.polls || []);
+          setVotes(data.votes || {});
+          setMyVotes(data.myVotes || {});
         }
-      }
+      } catch {}
     };
     
     fetchPolls();
-
-    const channel = supabase.channel(`polls-${classroomId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'virtual_classroom_polls', filter: `classroom_id=eq.${classroomId}` }, fetchPolls)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'virtual_classroom_poll_votes' }, fetchPolls)
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const interval = setInterval(fetchPolls, 5000); // Polling for realtime updates
+    return () => clearInterval(interval);
   }, [classroomId, user]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!question || options.some(o => !o.trim()) || !user) return;
     
-    await supabase.from("virtual_classroom_polls").insert({
-      classroom_id: classroomId,
-      created_by: user.id,
-      question,
-      options: options.map(o => o.trim())
-    });
-    
-    setQuestion("");
-    setOptions(["", ""]);
-    setCreating(false);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/classrooms/${classroomId}/polls`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, options: options.map(o => o.trim()) })
+      });
+      setQuestion("");
+      setOptions(["", ""]);
+      setCreating(false);
+    } catch {}
   };
 
   const handleVote = async (pollId: string, index: number) => {
     if (!user || myVotes[pollId] !== undefined) return;
-    
-    await supabase.from("virtual_classroom_poll_votes").insert({
-      poll_id: pollId,
-      user_id: user.id,
-      option_index: index
-    });
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/classrooms/${classroomId}/polls/${pollId}/vote`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ option_index: index })
+      });
+    } catch {}
   };
 
   const closePoll = async (pollId: string) => {
-    await supabase.from("virtual_classroom_polls").update({ status: 'closed' }).eq("id", pollId);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/classrooms/${classroomId}/polls/${pollId}/close`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch {}
   };
 
   return (

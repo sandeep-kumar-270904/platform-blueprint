@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { generateICS, downloadICS } from "@/lib/icsGenerator";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useAuth } from "@/hooks/useAuth";
 import { CreditCard, Video, Calendar, FileText, CheckCircle2, Copy, Download, Loader2 } from "lucide-react";
 import type { MentorRow, AvailabilitySlot } from "@/hooks/useMentors";
