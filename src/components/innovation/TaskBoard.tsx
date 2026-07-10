@@ -281,7 +281,7 @@ export const TaskBoard = ({ teamId }: TaskBoardProps) => {
         {columns.map((column) => (
           <div
             key={column.id}
-            className={`rounded-lg p-4 ${column.color} min-h-[300px]`}
+            className={`relative rounded-lg p-4 ${column.color} min-h-[300px]`}
           >
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-medium">{column.title}</h4>
