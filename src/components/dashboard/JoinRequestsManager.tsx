@@ -59,7 +59,7 @@ export const JoinRequestsManager = ({ userId }: { userId: string }) => {
     }
   };
 
-  // Tightened subscription: one filter per owned idea_id (Supabase realtime
+  // Tightened subscription: one filter per owned idea_id (Realtime
   // filters only support eq/neq/lt/lte/gt/gte — no `in()`), so we register one
   // postgres_changes filter per idea. RLS already restricts visibility, but
   // narrowing here drops irrelevant broadcasts on the wire. The `ideas` filter

@@ -38,9 +38,15 @@ export const useClassroomChat = (classroomId: string | null) => {
       msgs = msgs.map((m: any) => ({ ...m, id: m._id }));
       setMessages(msgs);
       
-      // Assuming user profiles might be needed from a separate endpoint or cached locally
-      // For now, we will rely on a generic name if profile fetching is omitted for simplicity in this migration.
-      // E.g., You'd fetch profiles from `/api/users?ids=...`
+      const newProfiles: Record<string, any> = {};
+      msgs.forEach((m: any) => {
+        if (m.profile && !newProfiles[m.user_id]) {
+          newProfiles[m.user_id] = m.profile;
+        }
+      });
+      if (Object.keys(newProfiles).length > 0) {
+        setProfiles(prev => ({ ...prev, ...newProfiles }));
+      }
     } catch (err) {
       console.error("Failed to load messages", err);
     } finally {

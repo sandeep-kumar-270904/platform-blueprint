@@ -88,7 +88,7 @@ export const IdeaLiveChat = ({ ideaId }: IdeaLiveChatProps) => {
 
   // Presence and typing mock interval for UI
   useEffect(() => {
-    // In a full MERN, this would be Socket.io. For now, empty online users since no supabase.
+    // In a full MERN, this would be Socket.io. For now, empty online users.
     setOnlineUsers([]);
   }, [user, ideaId]);
 
