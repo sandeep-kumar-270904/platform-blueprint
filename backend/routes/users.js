@@ -22,4 +22,15 @@ router.post('/:id/follow', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/users/:id/profile
+router.get('/:id/profile', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('username full_name avatar_url university degree graduation_year');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

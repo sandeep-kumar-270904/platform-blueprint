@@ -221,7 +221,20 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 router.get('/:id/messages', async (req, res) => {
   try {
     const messages = await ClassroomMessage.find({ classroom_id: req.params.id }).sort({ created_at: 1 });
-    res.json(messages);
+    
+    // Enrich with profiles
+    const User = require('../models/User');
+    const userIds = [...new Set(messages.map(m => m.user_id))];
+    const users = await User.find({ _id: { $in: userIds } }).select('username full_name avatar_url');
+    const userMap = users.reduce((acc, u) => { acc[u._id] = u; return acc; }, {});
+    
+    const enriched = messages.map(m => {
+      const mObj = m.toObject();
+      mObj.profile = userMap[m.user_id];
+      return mObj;
+    });
+    
+    res.json(enriched);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
