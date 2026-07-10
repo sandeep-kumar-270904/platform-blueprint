@@ -97,13 +97,31 @@ export const useClassroomChat = (classroomId: string | null) => {
 
   const toggleReaction = async (messageId: string, emoji: string) => {
     if (!user) return toast({ title: "Sign in required", variant: "destructive" });
-    // TODO: implement reaction endpoint in backend
-    toast({ title: "Reactions coming soon!" });
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${classroomId}/messages/${messageId}/reactions`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji })
+      });
+      if (!res.ok) throw new Error('Failed to react');
+    } catch (err: any) {
+      toast({ title: "Action failed", description: err.message, variant: "destructive" });
+    }
   };
 
   const deleteMessage = async (id: string) => {
-    // TODO: implement delete endpoint in backend
-    toast({ title: "Delete coming soon!" });
+    if (!user) return toast({ title: "Sign in required", variant: "destructive" });
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${classroomId}/messages/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to delete message');
+    } catch (err: any) {
+      toast({ title: "Delete failed", description: err.message, variant: "destructive" });
+    }
   };
 
   return { messages, reactions, profiles, loading, status: 'live', send, toggleReaction, deleteMessage };
