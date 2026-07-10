@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -28,13 +28,25 @@ export default function HostDashboard() {
     
     const fetchData = async () => {
       setLoading(true);
-      const [sessRes, tempRes] = await Promise.all([
-        supabase.from("virtual_classrooms").select("*").eq("host_id", user.id).order("scheduled_at", { ascending: true }),
-        supabase.from("virtual_classroom_templates").select("*").eq("host_id", user.id).order("created_at", { ascending: false })
-      ]);
-      
-      if (sessRes.data) setSessions(sessRes.data);
-      if (tempRes.data) setTemplates(tempRes.data);
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const [sessRes, tempRes] = await Promise.all([
+          fetch(`${API_URL}/api/classrooms/host`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`${API_URL}/api/classrooms/templates`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        
+        if (sessRes.ok) {
+            const sessData = await sessRes.json();
+            setSessions(sessData);
+        }
+        if (tempRes.ok) {
+            const tempData = await tempRes.json();
+            setTemplates(tempData);
+        }
+      } catch (err) {
+        console.error(err);
+      }
       setLoading(false);
     };
     fetchData();
@@ -43,18 +55,30 @@ export default function HostDashboard() {
   const handleCreateTemplate = async () => {
     if (!user || !form.title) return;
     
-    const { data, error } = await supabase.from("virtual_classroom_templates").insert({
-      host_id: user.id,
-      ...form
-    }).select().single();
-    
-    if (error) {
-      toast({ title: "Failed to create template", description: error.message, variant: "destructive" });
-    } else if (data) {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/classrooms/templates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(form)
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to create template');
+      }
+      
+      const data = await res.json();
       toast({ title: "Template saved!" });
       setTemplates([data, ...templates]);
       setOpenTemplate(false);
       setForm({ title: "", duration_minutes: 60, max_participants: 50, visibility: "public", type: "interactive", is_paid: false, price: 0 });
+    } catch (error: any) {
+      toast({ title: "Failed to create template", description: error.message, variant: "destructive" });
     }
   };
 
@@ -69,7 +93,6 @@ export default function HostDashboard() {
     
     for (let i = 0; i < bulkConfig.instances; i++) {
       newSessions.push({
-        host_id: user.id,
         title: `${template.title} (Session ${i + 1})`,
         subject: template.subject,
         description: template.description,
@@ -85,15 +108,32 @@ export default function HostDashboard() {
       currentDate.setDate(currentDate.getDate() + bulkConfig.intervalDays);
     }
 
-    const { error } = await supabase.from("virtual_classrooms").insert(newSessions);
-    if (error) {
-      toast({ title: "Failed to bulk schedule", description: error.message, variant: "destructive" });
-    } else {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/classrooms/bulk`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ sessions: newSessions })
+      });
+      
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || 'Failed to bulk schedule');
+      }
+      
       toast({ title: "Bulk scheduling complete!", description: `Created ${bulkConfig.instances} sessions.` });
       setScheduleModalOpen(null);
       // reload
-      const { data } = await supabase.from("virtual_classrooms").select("*").eq("host_id", user.id).order("scheduled_at", { ascending: true });
-      if (data) setSessions(data);
+      const sessRes = await fetch(`${API_URL}/api/classrooms/host`, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (sessRes.ok) {
+         setSessions(await sessRes.json());
+      }
+    } catch (error: any) {
+      toast({ title: "Failed to bulk schedule", description: error.message, variant: "destructive" });
     }
   };
 

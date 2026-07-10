@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Users, Lock, MicOff, MessageSquareOff, UserMinus } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 
@@ -19,14 +19,17 @@ export const SettingsTab = ({ classroomId, jitsiApi }: { classroomId: string, ji
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data, error } = await supabase
-        .from("virtual_classrooms")
-        .select("room_settings")
-        .eq("id", classroomId)
-        .single();
-        
-      if (data?.room_settings) {
-        setSettings(data.room_settings);
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/classrooms/${classroomId}`);
+        if (res.ok) {
+            const data = await res.json();
+            if (data?.room_settings) {
+              setSettings(data.room_settings);
+            }
+        }
+      } catch (err) {
+        console.error(err);
       }
     };
     fetchSettings();
@@ -36,15 +39,19 @@ export const SettingsTab = ({ classroomId, jitsiApi }: { classroomId: string, ji
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
     
-    // Update DB
-    const { error } = await supabase
-      .from("virtual_classrooms")
-      .update({ room_settings: newSettings })
-      .eq("id", classroomId);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/classrooms/${classroomId}/settings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ settings: newSettings })
+      });
       
-    if (error) {
-      toast.error("Failed to update setting");
-    } else {
+      if (!res.ok) throw new Error('Failed to update');
       toast.success("Setting updated");
       
       // Execute Jitsi commands if API is available
@@ -60,6 +67,8 @@ export const SettingsTab = ({ classroomId, jitsiApi }: { classroomId: string, ji
           console.error("Jitsi command error", e);
         }
       }
+    } catch (error) {
+      toast.error("Failed to update setting");
     }
   };
   

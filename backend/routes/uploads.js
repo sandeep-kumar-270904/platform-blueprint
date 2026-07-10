@@ -1,0 +1,46 @@
+const express = require('express');
+const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configure multer storage
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir)
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, uniqueSuffix + '-' + file.originalname)
+  }
+})
+
+const upload = multer({ storage: storage })
+
+// POST /api/uploads - Upload a file
+router.post('/', upload.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+    
+    // Return a mocked public URL (in real app, this would be a static route or cloud bucket URL)
+    const publicUrl = `/uploads/${req.file.filename}`;
+    
+    res.status(200).json({ 
+      message: 'File uploaded successfully', 
+      url: publicUrl 
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error during upload' });
+  }
+});
+
+module.exports = router;

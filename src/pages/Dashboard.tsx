@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useAuth } from "@/hooks/useAuth";
 import {
   LayoutDashboard, BookOpen, Lightbulb, Users, Bell, Star,
@@ -57,26 +57,29 @@ const Dashboard = () => {
 
   const fetchStats = useCallback(async () => {
     if (!user) return;
-    const [notesRes, ideasRes, teamsRes, notifsRes, gamificationRes] = await Promise.all([
-      supabase.from("notes").select("views, downloads, rating").eq("user_id", user.id),
-      supabase.from("ideas").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-      supabase.from("team_members").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-      supabase.from("notifications").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("is_read", false),
-      supabase.rpc("get_user_gamification_stats", { target_user_id: user.id })
-    ]);
-    const notes = notesRes.data || [];
-    const rated = notes.filter(n => Number(n.rating) > 0);
-    setStats({
-      notesCount: notes.length,
-      notesViews: notes.reduce((s, n) => s + (n.views || 0), 0),
-      notesDownloads: notes.reduce((s, n) => s + (n.downloads || 0), 0),
-      notesAvgRating: rated.length > 0 ? rated.reduce((s, n) => s + Number(n.rating), 0) / rated.length : 0,
-      ideasCount: ideasRes.count || 0,
-      teamsCount: teamsRes.count || 0,
-      notificationsCount: notifsRes.count || 0,
-    });
-    if (gamificationRes.data) {
-      setGamification(gamificationRes.data);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/stats`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch stats');
+      const data = await res.json();
+      
+      setStats({
+        notesCount: data.notes.total,
+        notesViews: data.notes.views,
+        notesDownloads: data.notes.downloads,
+        notesAvgRating: 0,
+        ideasCount: data.ideas,
+        teamsCount: data.teams,
+        notificationsCount: data.notifications,
+      });
+      if (data.gamification) {
+        setGamification(data.gamification);
+      }
+    } catch (error) {
+      console.error(error);
     }
   }, [user]);
 
@@ -84,14 +87,7 @@ const Dashboard = () => {
   const syncStatus = useRealtimeSync({
     channelName: user ? `dashboard-stats-${user.id}` : undefined,
     enabled: !!user,
-    filters: user
-      ? [
-          { table: "ideas", filter: `user_id=eq.${user.id}` },
-          { table: "notes", filter: `user_id=eq.${user.id}` },
-          { table: "team_members", filter: `user_id=eq.${user.id}` },
-          { table: "notifications", filter: `user_id=eq.${user.id}` },
-        ]
-      : [],
+    filters: [],
     onChange: fetchStats,
     pollIntervalMs: 30000,
   });
