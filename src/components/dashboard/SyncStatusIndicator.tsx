@@ -39,7 +39,7 @@ const meta: Record<SyncStatus, { label: string; tip: string; icon: typeof Wifi; 
 };
 
 export const SyncStatusIndicator = ({ status, className = "" }: Props) => {
-  const m = meta[status];
+  const m = meta[status] || meta["error"]; // fallback to error/offline if unknown status
   const Icon = m.icon;
   return (
     <TooltipProvider delayDuration={200}>
