@@ -67,4 +67,66 @@ router.get('/analytics', authMiddleware, async (req, res) => {
   }
 });
 
+const JoinRequest = require('../models/JoinRequest');
+const User = require('../models/User');
+
+// GET /api/dashboard/join-requests
+router.get('/join-requests', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    // Get all ideas owned by the user
+    const userIdeas = await Idea.find({ user_id: userId });
+    const ideaIds = userIdeas.map(i => i._id);
+    
+    // Find all pending join requests for these ideas
+    const requests = await JoinRequest.find({ idea_id: { $in: ideaIds }, status: 'pending' }).sort({ created_at: -1 });
+    
+    // Enrich with idea title and applicant name
+    const applicantIds = [...new Set(requests.map(r => r.user_id))];
+    const applicants = await User.find({ _id: { $in: applicantIds } }).select('username');
+    const applicantMap = applicants.reduce((acc, u) => { acc[u._id] = u; return acc; }, {});
+    
+    const ideaMap = userIdeas.reduce((acc, i) => { acc[i._id] = i; return acc; }, {});
+    
+    const enriched = requests.map(r => {
+      const rObj = r.toObject();
+      rObj.id = r._id;
+      rObj.idea_title = ideaMap[r.idea_id]?.title || 'Unknown Idea';
+      rObj.applicant_name = applicantMap[r.user_id]?.username || 'Unknown User';
+      return rObj;
+    });
+    
+    res.json(enriched);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/dashboard/join-requests/:id/accept
+router.post('/join-requests/:id/accept', authMiddleware, async (req, res) => {
+  try {
+    const request = await JoinRequest.findByIdAndUpdate(req.params.id, { status: 'accepted' }, { new: true });
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    
+    // In a real app we would add the user to the team here
+    // const TeamMember = require('../models/TeamMember');
+    // await new TeamMember({ team_id: request.team_id || request.idea_id, user_id: request.user_id, role: request.requested_role }).save();
+    
+    res.json({ message: 'Accepted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/dashboard/join-requests/:id/reject
+router.post('/join-requests/:id/reject', authMiddleware, async (req, res) => {
+  try {
+    const request = await JoinRequest.findByIdAndUpdate(req.params.id, { status: 'rejected' }, { new: true });
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    res.json({ message: 'Rejected successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;
