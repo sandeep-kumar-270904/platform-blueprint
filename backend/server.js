@@ -24,8 +24,18 @@ const io = new Server(server, {
 });
 
 // Middleware
+const allowedOrigins = ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:5173'];
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
 app.use(cors({
-  origin: ['http://localhost:8080', 'http://localhost:8081'],
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
