@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useSearchParams } from "react-router-dom";
 
 export interface NotesFilters {
   searchQuery: string;
@@ -23,11 +24,37 @@ const API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/
 
 export const useNotes = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  const initialFilters = useMemo(() => {
+    return {
+      searchQuery: searchParams.get("q") || defaultFilters.searchQuery,
+      selectedSubject: searchParams.get("subject") || defaultFilters.selectedSubject,
+      selectedCategory: searchParams.get("category") || defaultFilters.selectedCategory,
+      selectedBranch: searchParams.get("branch") || defaultFilters.selectedBranch,
+      selectedSemester: searchParams.get("semester") || defaultFilters.selectedSemester,
+      sortBy: searchParams.get("sort") || defaultFilters.sortBy,
+    };
+  }, []);
+
   const [notes, setNotes] = useState<any[]>([]);
   const [bookmarkedNoteIds, setBookmarkedNoteIds] = useState<Set<string>>(new Set());
-  const [filters, setFilters] = useState<NotesFilters>(defaultFilters);
+  const [filters, setFilters] = useState<NotesFilters>(initialFilters);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync filters to URL when they change
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (filters.searchQuery) params.set("q", filters.searchQuery);
+    if (filters.selectedSubject) params.set("subject", filters.selectedSubject);
+    if (filters.selectedCategory) params.set("category", filters.selectedCategory);
+    if (filters.selectedBranch) params.set("branch", filters.selectedBranch);
+    if (filters.selectedSemester) params.set("semester", filters.selectedSemester);
+    if (filters.sortBy !== "newest") params.set("sort", filters.sortBy);
+    
+    setSearchParams(params, { replace: true });
+  }, [filters, setSearchParams]);
 
   const loadNotes = useCallback(async () => {
     setLoading(true);

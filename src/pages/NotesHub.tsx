@@ -41,6 +41,11 @@ const NotesHub = () => {
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [activeTab, setActiveTab] = useState("browse");
+  const [visibleCount, setVisibleCount] = useState(20);
+
+  useEffect(() => {
+    setVisibleCount(20);
+  }, [filters, activeTab]);
 
   // Dialog states
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -126,13 +131,29 @@ const NotesHub = () => {
       );
     }
 
+    const visibleNotes = notesList.slice(0, visibleCount);
+    const hasMore = visibleCount < notesList.length;
+
     return (
       <>
         {notesList.length > 0 ? (
-          <div className={viewMode === "grid" ? "grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-3"}>
-            {notesList.map((note, index) => (
-              <NoteCard key={note.id} note={note} index={index} isOwner={isOwner} {...cardHandlers} />
-            ))}
+          <div className="space-y-6">
+            <div className={viewMode === "grid" ? "grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-3"}>
+              {visibleNotes.map((note, index) => (
+                <NoteCard key={note.id} note={note} index={index} isOwner={isOwner} {...cardHandlers} />
+              ))}
+            </div>
+            {hasMore && (
+              <div className="flex justify-center pt-4 pb-8">
+                <Button 
+                  variant="outline" 
+                  className="rounded-full px-8 bg-transparent border-[var(--color-border)] hover:bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors shadow-sm"
+                  onClick={() => setVisibleCount(prev => prev + 20)}
+                >
+                  Load More
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <EmptyState
