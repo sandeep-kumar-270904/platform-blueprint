@@ -22,6 +22,8 @@ import Mentors from "./pages/Mentors";
 import Dashboard from "./pages/Dashboard";
 import ResumeBuilder from "./pages/ResumeBuilder";
 import CollegeInsights from "./pages/CollegeInsights";
+import CollegeDetail from "./pages/CollegeDetail";
+import CompareColleges from "./pages/CompareColleges";
 import InnovationHub from "./pages/InnovationHub";
 import Scholarships from "./pages/Scholarships";
 import Courses from "./pages/Courses";
@@ -45,6 +47,7 @@ import TechVault from "./pages/TechVault";
 import SkillSwap from "./pages/SkillSwap";
 import CreatorsZone from "./pages/CreatorsZone";
 import AdminPanel from "./pages/AdminPanel";
+import AdminCollegePanel from "./pages/AdminCollegePanel";
 import DailyHacks from "./pages/DailyHacks";
 import PostSkill from "./pages/PostSkill";
 import Hostels from "./pages/Hostels";
@@ -79,6 +82,8 @@ const App = () => (
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/resume-builder" element={<ProtectedRoute><ResumeBuilder /></ProtectedRoute>} />
           <Route path="/college-insights" element={<ProtectedRoute><CollegeInsights /></ProtectedRoute>} />
+          <Route path="/colleges/:id" element={<ProtectedRoute><CollegeDetail /></ProtectedRoute>} />
+          <Route path="/compare" element={<ProtectedRoute><CompareColleges /></ProtectedRoute>} />
           <Route path="/innovation-hub" element={<ProtectedRoute><InnovationHub /></ProtectedRoute>} />
           <Route path="/scholarships" element={<ProtectedRoute><Scholarships /></ProtectedRoute>} />
           <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
@@ -108,6 +113,7 @@ const App = () => (
           <Route path="/skill-swap" element={<ProtectedRoute><SkillSwap /></ProtectedRoute>} />
           <Route path="/creators" element={<ProtectedRoute><CreatorsZone /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
+          <Route path="/admin/colleges" element={<ProtectedRoute><AdminCollegePanel /></ProtectedRoute>} />
           <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
           <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />
           <Route path="/hostels" element={<ProtectedRoute><Hostels /></ProtectedRoute>} />

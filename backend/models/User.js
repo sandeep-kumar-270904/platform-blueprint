@@ -62,6 +62,14 @@ const UserSchema = new mongoose.Schema({
     enum: ['user', 'admin'],
     default: 'user'
   },
+  savedColleges: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'College' 
+  }],
+  viewedColleges: [{
+    collegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
+    viewedAt: { type: Date, default: Date.now }
+  }],
   created_at: {
     type: Date,
     default: Date.now
