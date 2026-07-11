@@ -98,6 +98,8 @@ app.use('/api/learning-progress', require('./routes/learningProgress'));
 app.use('/api/note-comments', require('./routes/noteComments'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/innovation', require('./routes/innovation'));
+app.use('/api/colleges', require('./routes/colleges'));
+app.use('/api/college-qa', require('./routes/collegeQA'));
 app.use('/api/ideas', require('./routes/ideas')); // kept for any backwards compatibility
 app.use('/api/amas', require('./routes/amas'));
 app.use('/api/uploads', require('./routes/uploads'));
