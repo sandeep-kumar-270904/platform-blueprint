@@ -27,17 +27,22 @@ export const useNotes = () => {
   const [bookmarkedNoteIds, setBookmarkedNoteIds] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<NotesFilters>(defaultFilters);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadNotes = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(API_URL);
       if (res.ok) {
         const data = await res.json();
         setNotes(data.map((n: any) => ({ id: n._id, ...n })));
+      } else {
+        throw new Error("Failed to load notes");
       }
     } catch (err) {
       console.error("Failed to load notes", err);
+      setError("Unable to connect to the server. Please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -57,9 +62,18 @@ export const useNotes = () => {
     (a, b) => Number(a) - Number(b)
   );
 
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(filters.searchQuery);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(filters.searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [filters.searchQuery]);
+
   const getFilteredNotes = useCallback(
     (notesList: any[]) => {
-      const q = filters.searchQuery.toLowerCase();
+      const q = debouncedSearchQuery.toLowerCase();
       let filtered = notesList.filter((note) => {
         const matchesSearch =
           !q ||
@@ -97,10 +111,11 @@ export const useNotes = () => {
       }
       return filtered;
     },
-    [filters]
+    [filters, debouncedSearchQuery]
   );
 
   const deleteNote = async (noteId: string) => {
+
     try {
       const token = localStorage.getItem("token");
       await fetch(`${API_URL}/${noteId}`, {
@@ -154,6 +169,7 @@ export const useNotes = () => {
     incrementView,
     incrementDownload,
     loading,
+    error,
     user,
   };
 };

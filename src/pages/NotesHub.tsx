@@ -28,6 +28,7 @@ import { NotesStatsBar } from "@/components/notes/NotesStatsBar";
 import { NotesFilterBar } from "@/components/notes/NotesFilterBar";
 import { TopContributors } from "@/components/notes/TopContributors";
 import { NoteSkeleton } from "@/components/notes/NoteSkeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 
 const NotesHub = () => {
@@ -117,7 +118,7 @@ const NotesHub = () => {
   const renderNotesList = (notesList: any[], isOwner = false) => {
     if (loading) {
       return (
-        <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-4"}>
+        <div className={viewMode === "grid" ? "grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-4"}>
           {Array.from({ length: 8 }).map((_, i) => (
             <NoteSkeleton key={i} />
           ))}
@@ -128,45 +129,34 @@ const NotesHub = () => {
     return (
       <>
         {notesList.length > 0 ? (
-          <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-3"}>
+          <div className={viewMode === "grid" ? "grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-3"}>
             {notesList.map((note, index) => (
               <NoteCard key={note.id} note={note} index={index} isOwner={isOwner} {...cardHandlers} />
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-[var(--border)] rounded-xl bg-[var(--surface-sunk)] backdrop-blur-sm">
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--surface)] border border-[var(--border)]">
-              <BookOpen className="h-10 w-10 text-[var(--ink-soft)]" />
-            </div>
-            <h3 className="mb-2 text-xl font-bold tracking-tight text-[var(--ink)]">No notes found</h3>
-            <p className="mb-8 text-[var(--ink-soft)] max-w-sm text-sm">
-              We couldn't find any materials matching your current filters. Try adjusting your search or be the first to upload one!
-            </p>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={clearFilters} className="font-medium">
-                Clear Filters
-              </Button>
-              {user && (
-                <Button onClick={() => setShowUploadDialog(true)} className="font-medium shadow-sm">
-                  <Upload className="mr-2 h-4 w-4" />Upload Note
-                </Button>
-              )}
-            </div>
-          </div>
+          <EmptyState
+            icon={BookOpen}
+            title="No notes found"
+            description="We couldn't find any materials matching your current filters. Try adjusting your search or be the first to upload one!"
+            actionLabel="Clear Filters"
+            onAction={clearFilters}
+          />
         )}
       </>
     );
   };
 
   return (
-    <div className="min-h-screen bg-[var(--canvas)]">
+    <div className="min-h-screen bg-[var(--color-bg)]">
       <Header />
-      <div className="container mx-auto px-4 pt-24 pb-6">
+      <div className="container mx-auto px-4 pt-12 pb-6">
         <NotesStatsBar
           totalNotes={notes.length}
           totalViews={totalViews}
           totalDownloads={totalDownloads}
           totalSubjects={subjects.length}
+          isLoading={loading}
         />
 
         <NotesFilterBar
@@ -194,13 +184,23 @@ const NotesHub = () => {
           }}
         />
 
-        <div className="flex gap-6 mb-6">
+        <div className="flex flex-col lg:flex-row gap-6 mb-6">
           <div className="flex-1 min-w-0">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="bg-[var(--surface-sunk)]">
-                <TabsTrigger value="browse" className="data-[state=active]:bg-[var(--ink)] data-[state=active]:text-[var(--canvas)] text-[var(--ink-soft)]"><BookOpen className="mr-1.5 h-3.5 w-3.5" />Browse All ({filteredNotes.length})</TabsTrigger>
-                {user && <TabsTrigger value="my-notes" className="data-[state=active]:bg-[var(--ink)] data-[state=active]:text-[var(--canvas)] text-[var(--ink-soft)]"><FolderOpen className="mr-1.5 h-3.5 w-3.5" />My Notes ({filteredMyNotes.length})</TabsTrigger>}
-                {user && <TabsTrigger value="bookmarks" className="data-[state=active]:bg-[var(--ink)] data-[state=active]:text-[var(--canvas)] text-[var(--ink-soft)]"><Bookmark className="mr-1.5 h-3.5 w-3.5" />Bookmarks ({filteredBookmarks.length})</TabsTrigger>}
+              <TabsList className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-sm">
+                <TabsTrigger value="browse" className="data-[state=active]:bg-[var(--color-text-primary)] data-[state=active]:text-[var(--color-text-inverse)] text-[var(--color-text-secondary)]">
+                  <BookOpen className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />Browse All ({filteredNotes.length})
+                </TabsTrigger>
+                {user && (
+                  <TabsTrigger value="my-notes" className="data-[state=active]:bg-[var(--color-text-primary)] data-[state=active]:text-[var(--color-text-inverse)] text-[var(--color-text-secondary)]">
+                    <FolderOpen className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />My Notes ({filteredMyNotes.length})
+                  </TabsTrigger>
+                )}
+                {user && (
+                  <TabsTrigger value="bookmarks" className="data-[state=active]:bg-[var(--color-text-primary)] data-[state=active]:text-[var(--color-text-inverse)] text-[var(--color-text-secondary)]">
+                    <Bookmark className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />Bookmarks ({filteredBookmarks.length})
+                  </TabsTrigger>
+                )}
               </TabsList>
               <TabsContent value="browse" className="mt-4">
                 {renderNotesList(filteredNotes)}
@@ -208,35 +208,31 @@ const NotesHub = () => {
               {user && (
                 <TabsContent value="my-notes" className="mt-4">
                   {filteredMyNotes.length === 0 && !filters.searchQuery && !filters.selectedSubject && !filters.selectedCategory ? (
-                    <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-[var(--border)] rounded-xl bg-[var(--surface-sunk)] backdrop-blur-sm">
-                      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--surface)] border border-[var(--border)]">
-                        <Upload className="h-10 w-10 text-[var(--ink-soft)]" />
-                      </div>
-                      <h3 className="mb-2 text-xl font-bold tracking-tight text-[var(--ink)]">You haven't uploaded any notes yet</h3>
-                      <p className="mb-8 text-[var(--ink-soft)] max-w-sm text-sm">Share your knowledge with the community. Uploading notes helps fellow students and earns you reputation points!</p>
-                      <Button onClick={() => setShowUploadDialog(true)} className="shadow-sm">
-                        <Upload className="mr-2 h-4 w-4" />Upload Your First Note
-                      </Button>
-                    </div>
+                    <EmptyState
+                      icon={Upload}
+                      title="You haven't uploaded any notes yet"
+                      description="Share your knowledge with the community. Uploading notes helps fellow students and earns you reputation points!"
+                      actionLabel="Upload Your First Note"
+                      actionIcon={Upload}
+                      onAction={() => setShowUploadDialog(true)}
+                    />
                   ) : renderNotesList(filteredMyNotes, true)}
                 </TabsContent>
               )}
               {user && (
                 <TabsContent value="bookmarks" className="mt-4">
                   {filteredBookmarks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-24 text-center border-2 border-dashed border-[var(--border)] rounded-xl bg-[var(--surface-sunk)] backdrop-blur-sm">
-                      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-[var(--surface)] border border-[var(--border)]">
-                        <Bookmark className="h-10 w-10 text-[var(--ink-soft)]" />
-                      </div>
-                      <h3 className="mb-2 text-xl font-bold tracking-tight text-[var(--ink)]">No bookmarked notes</h3>
-                      <p className="mb-4 text-[var(--ink-soft)] max-w-sm text-sm">Click the bookmark icon on any note to save it for later quick access!</p>
-                    </div>
+                    <EmptyState
+                      icon={Bookmark}
+                      title="No bookmarked notes"
+                      description="Click the bookmark icon on any note to save it for later quick access!"
+                    />
                   ) : renderNotesList(filteredBookmarks)}
                 </TabsContent>
               )}
             </Tabs>
           </div>
-          <div className="hidden lg:block w-72 shrink-0">
+          <div className="w-full lg:w-72 shrink-0">
             <div className="sticky top-4">
               <TopContributors />
             </div>
