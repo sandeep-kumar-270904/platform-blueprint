@@ -237,16 +237,9 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 pt-24 pb-6">
+      <div className="container mx-auto px-4 pt-6 pb-6">
         <ScrollReveal>
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <LayoutDashboard className="h-6 w-6 text-primary" />
-                {user ? "Control Center" : "Dashboard"}
-              </h1>
-              <p className="text-sm text-muted-foreground">Your single source of truth for all activity</p>
-            </div>
+          <div className="mb-6 flex items-center justify-end">
             <div className="flex items-center gap-3">
               {user && <SyncStatusIndicator status={syncStatus} />}
               {!user && (

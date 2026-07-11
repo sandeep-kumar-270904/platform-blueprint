@@ -171,7 +171,7 @@ const NotesHub = () => {
   return (
     <div className="min-h-screen bg-[var(--color-bg)]">
       <Header />
-      <div className="container mx-auto px-4 pt-12 pb-6">
+      <div className="container mx-auto px-4 pt-6 pb-6">
         <NotesStatsBar
           totalNotes={notes.length}
           totalViews={totalViews}

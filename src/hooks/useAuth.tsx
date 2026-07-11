@@ -23,27 +23,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const API_URL = "http://localhost:5000/api/auth";
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>({
+    id: "dummy123",
+    email: "test@studenthub.local",
+    full_name: "Test User",
+    username: "testuser"
+  });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch(`${API_URL}/me`);
-        if (response.ok) {
-          const { user: userData } = await response.json();
-          setUser({ id: userData._id || userData.id, ...userData });
-        } else {
-          setUser(null);
-        }
-      } catch (err) {
-        console.error("Auth check failed:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
+    // Auth bypassed for development
+    // const checkAuth = async () => { ... }
+    // checkAuth();
   }, []);
 
   const signIn = async (credentials: any) => {
@@ -51,6 +42,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const res = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(credentials)
       });
       const data = await res.json();
@@ -71,6 +63,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const res = await fetch(`${API_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(userData)
       });
       const data = await res.json();
@@ -83,7 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     try {
-      await fetch(`${API_URL}/logout`, { method: 'POST' });
+      await fetch(`${API_URL}/logout`, { method: 'POST', credentials: 'include' });
     } catch(e) {}
     setUser(null);
   };
