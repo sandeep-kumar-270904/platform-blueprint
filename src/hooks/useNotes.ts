@@ -19,7 +19,7 @@ const defaultFilters: NotesFilters = {
   sortBy: "newest",
 };
 
-const API_URL = "http://localhost:5000/api/notes";
+const API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/notes` : "http://localhost:5000/api/notes";
 
 export const useNotes = () => {
   const { user } = useAuth();
