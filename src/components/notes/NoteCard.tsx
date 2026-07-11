@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { NoteBookmarkButton } from "./NoteBookmarkButton";
 import { Star, Eye, Download, Sparkles, Users, Pencil, Trash2 } from "lucide-react";
-import { formatStat } from "@/lib/utils";
+import { formatStat, cn } from "@/lib/utils";
 
 interface NoteCardProps {
   note: any;
@@ -31,10 +31,13 @@ export const NoteCard = ({
 }: NoteCardProps) => (
   <ScrollReveal delay={index * 0.03} direction="scale">
     <Card 
-      className="card-hover overflow-hidden transition-all duration-150 ease-out bg-[var(--color-surface-dark)] text-[var(--color-text-inverse)] border-[var(--color-border-dark)] hover:-translate-y-1 hover:shadow-lg hover:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent)] focus-within:ring-offset-2 group h-full flex flex-col cursor-pointer"
+      className="relative card-hover overflow-hidden transition-all duration-150 ease-out bg-[var(--color-surface-dark)] text-[var(--color-text-inverse)] border-[var(--color-border-dark)] hover:-translate-y-1 hover:shadow-lg hover:border-[var(--color-accent)] focus-within:ring-2 focus-within:ring-[var(--color-accent)] focus-within:ring-offset-2 group h-full flex flex-col cursor-pointer"
       onClick={() => onPreview(note)}
     >
-      <CardHeader className="p-[20px] pb-3">
+      {/* Dog-ear fold detail */}
+      <div className="absolute top-0 right-0 w-8 h-8 bg-gradient-to-bl from-transparent via-transparent to-[var(--color-border)] dark:to-[var(--color-border-dark)] opacity-0 group-hover:opacity-100 transition-opacity" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }} />
+
+      <CardHeader className="p-[20px] pb-3 relative z-10">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0 pr-3">
             <h3
@@ -45,10 +48,24 @@ export const NoteCard = ({
             <p className="mt-1 caption-meta">{note.subject}</p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {note.file_type && <Badge variant="secondary" className="chip-label uppercase">{note.file_type || "pdf"}</Badge>}
+            {note.file_type && (
+              <Badge 
+                variant="secondary" 
+                className={cn(
+                  "chip-label uppercase text-white",
+                  note.file_type.toLowerCase() === 'pdf' ? 'bg-red-500 hover:bg-red-600' :
+                  note.file_type.toLowerCase() === 'docx' ? 'bg-blue-500 hover:bg-blue-600' :
+                  note.file_type.toLowerCase() === 'ppt' ? 'bg-orange-500 hover:bg-orange-600' :
+                  ['png', 'jpg', 'jpeg'].includes(note.file_type.toLowerCase()) ? 'bg-green-500 hover:bg-green-600' :
+                  'bg-gray-500 hover:bg-gray-600'
+                )}
+              >
+                {note.file_type}
+              </Badge>
+            )}
             <NoteBookmarkButton noteId={note.id} aria-label="Bookmark this note" />
             {isOwner && (
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onEdit?.(note); }} aria-label="Edit note">
                   <Pencil className="h-3 w-3" />
                 </Button>
