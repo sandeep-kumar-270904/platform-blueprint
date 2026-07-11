@@ -8,8 +8,40 @@ const UserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true
+    required: function() {
+      // password is only required if authProvider is 'local'
+      return !this.authProvider || this.authProvider === 'local';
+    }
   },
+  googleId: { type: String, default: null },
+  githubId: { type: String, default: null },
+  linkedinId: { type: String, default: null },
+  authProvider: { type: String, default: 'local' },
+  refreshToken: { type: String, default: null },
+  
+  // Security & Settings
+  consent: {
+    accepted_at: { type: Date },
+    terms_version: { type: String },
+    ip_address: { type: String }
+  },
+  knownDevices: [{
+    hash: String,
+    os: String,
+    browser: String,
+    region: String,
+    last_seen: Date
+  }],
+  pendingLinkProvider: {
+    provider: String,
+    id: String,
+    expiresAt: Date
+  },
+  pendingEmail: { type: String, default: null },
+  emailChangeToken: { type: String, default: null },
+  failedLoginAttempts: { type: Number, default: 0 },
+  lockUntil: { type: Date, default: null },
+
   full_name: {
     type: String
   },
@@ -33,6 +65,10 @@ const UserSchema = new mongoose.Schema({
   created_at: {
     type: Date,
     default: Date.now
+  },
+  deletedAt: {
+    type: Date,
+    default: null
   }
 });
 

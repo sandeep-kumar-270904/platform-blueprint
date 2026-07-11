@@ -13,8 +13,8 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signIn: (credentials: any) => Promise<any>;
+  signUp: (userData: any) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -28,24 +28,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
       try {
-        const res = await fetch(`${API_URL}/me`, {
-          headers: {
-            "Authorization": `Bearer ${token}`
-          }
-        });
-        
-        if (res.ok) {
-          const userData = await res.json();
-          setUser({ id: userData._id, ...userData });
+        const response = await fetch(`${API_URL}/me`);
+        if (response.ok) {
+          const { user: userData } = await response.json();
+          setUser({ id: userData._id || userData.id, ...userData });
         } else {
-          localStorage.removeItem("token");
+          setUser(null);
         }
       } catch (err) {
         console.error("Auth check failed:", err);
@@ -57,34 +46,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     checkAuth();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const res = await fetch(`${API_URL}/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Login failed");
-    
-    localStorage.setItem("token", data.token);
-    setUser(data.user);
+  const signIn = async (credentials: any) => {
+    try {
+      const res = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 429) throw new Error(data.message || 'Too many attempts. Try again later.');
+        throw new Error(data.message || 'Login failed');
+      }
+      setUser(data.user);
+      return data; // Return full data to handle newDeviceDetails and linkedProvider in UI
+    } catch (error: any) {
+      throw error;
+    }
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const res = await fetch(`${API_URL}/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, full_name: fullName })
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Registration failed");
-    
-    localStorage.setItem("token", data.token);
-    setUser(data.user);
+  const signUp = async (userData: any) => {
+    try {
+      // userData includes consent, captchaToken, etc.
+      const res = await fetch(`${API_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Registration failed');
+      setUser(data.user);
+    } catch (error: any) {
+      throw error;
+    }
   };
 
   const signOut = async () => {
-    localStorage.removeItem("token");
+    try {
+      await fetch(`${API_URL}/logout`, { method: 'POST' });
+    } catch(e) {}
     setUser(null);
   };
 

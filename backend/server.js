@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const connectDB = require('./db');
 const path = require('path');
 const fs = require('fs');
+const rateLimit = require('express-rate-limit');
 
 dotenv.config();
 
@@ -23,8 +24,24 @@ const io = new Server(server, {
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:8080', 'http://localhost:8081'],
+  credentials: true
+}));
 app.use(express.json());
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
+const passport = require('./auth/passport');
+
+app.use(cookieParser());
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'keyboard cat',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: process.env.NODE_ENV === 'production' }
+}));
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Ensure uploads folder exists
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -41,7 +58,18 @@ app.use((req, res, next) => {
 });
 
 // Define Routes
-app.use('/api/auth', require('./routes/auth'));
+app.get('/', (req, res) => res.send('Student Hub backend is running'));
+const authRoutes = require('./routes/auth');
+const settingsRoutes = require('./routes/settings');
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: { message: 'Too many requests from this IP, please try again after 15 minutes' }
+});
+
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/settings', authLimiter, settingsRoutes);
 app.use('/api/notes', require('./routes/notes'));
 app.use('/api/classrooms', require('./routes/classrooms'));
 app.use('/api/forum', require('./routes/forum'));
