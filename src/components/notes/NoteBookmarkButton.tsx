@@ -36,7 +36,18 @@ export const NoteBookmarkButton = ({ noteId, size = "icon", className }: NoteBoo
 
   const toggle = async () => {
     if (!user) { toast.error("Please sign in to bookmark notes"); return; }
-    setLoading(true);
+    
+    // Optimistic UI update
+    const previousState = bookmarked;
+    const newState = !bookmarked;
+    setBookmarked(newState);
+    
+    if (newState) {
+      toast.success("Note bookmarked!");
+    } else {
+      toast.success("Bookmark removed");
+    }
+
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('token');
@@ -44,19 +55,13 @@ export const NoteBookmarkButton = ({ noteId, size = "icon", className }: NoteBoo
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (res.ok) {
-        const data = await res.json();
-        setBookmarked(data.bookmarked);
-        if (data.bookmarked) {
-          toast.success("Note bookmarked!");
-        } else {
-          toast.success("Bookmark removed");
-        }
+      if (!res.ok) {
+        throw new Error("Failed to update");
       }
     } catch {
+      // Revert optimistic update on failure
+      setBookmarked(previousState);
       toast.error("Failed to update bookmark");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -66,9 +71,9 @@ export const NoteBookmarkButton = ({ noteId, size = "icon", className }: NoteBoo
       size={size}
       className={cn("h-7 w-7", className)}
       onClick={(e) => { e.stopPropagation(); toggle(); }}
-      disabled={loading}
+      aria-label={bookmarked ? "Remove bookmark" : "Bookmark note"}
     >
-      <Bookmark className={cn("h-3.5 w-3.5 transition-colors", bookmarked ? "fill-primary text-primary" : "text-muted-foreground")} />
+      <Bookmark className={cn("h-3.5 w-3.5 transition-colors", bookmarked ? "fill-[var(--color-accent)] text-[var(--color-accent)]" : "text-muted-foreground")} aria-hidden="true" />
     </Button>
   );
 };

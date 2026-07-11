@@ -53,18 +53,19 @@ export interface ForumThread {
 export const mockNotes: Note[] = [
   {
     id: "note_1",
-    title: "Operating Systems - Process Scheduling Algorithms",
-    subject: "Operating Systems",
+    title: "Cryptography — Hashing Algorithms",
+    subject: "Cryptography",
     branch: "Computer Science",
     semester: 5,
-    tags: ["scheduling", "cpu", "algorithms"],
-    contentUrl: "/uploads/os-scheduling.pdf",
+    tags: ["hashing", "security", "algorithms", "crypto"],
+    contentUrl: "/uploads/crypto-hashing.pdf",
     uploaderId: "user_123",
     uploaderName: "Priya Sharma",
     rating: 4.8,
     views: 1243,
     downloads: 567,
     createdAt: "2025-10-15T10:00:00Z",
+    description: "This document provides a brief overview of the SHA and MD5 hashing algorithms",
   },
   {
     id: "note_2",
