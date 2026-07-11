@@ -39,7 +39,7 @@ const Auth = () => {
     method: urlMethod
   });
 
-  const { signIn, signUp, loading } = useAuth();
+  const { signIn, signUp, loading, user } = useAuth();
   
   const signinTabRef = useRef<HTMLButtonElement>(null);
   const signupTabRef = useRef<HTMLButtonElement>(null);
@@ -62,6 +62,12 @@ const Auth = () => {
     pwStrength = "FAIR";
     pwColor = "var(--gold)";
   }
+
+  useEffect(() => {
+    if (user) {
+      navigate(from, { replace: true });
+    }
+  }, [user, navigate, from]);
 
   useEffect(() => {
     if (urlError === "oauth_failed") {
@@ -149,7 +155,7 @@ const Auth = () => {
     <div className="min-h-screen w-full flex flex-col md:flex-row bg-[var(--cover)] text-[var(--cream-text)] font-sans m-0 p-0 overflow-hidden">
       
       {/* LEFT PANEL (COVER) */}
-      <div className="w-full md:w-[58%] flex flex-col justify-between p-8 md:p-[64px] min-h-[40vh] md:min-h-screen relative z-10 shrink-0">
+      <div className="w-full md:w-[58%] flex flex-col justify-between p-8 md:px-[64px] md:pt-[32px] md:pb-[64px] min-h-[40vh] md:min-h-screen relative z-10 shrink-0">
         <div>
           {/* Logo Row */}
           <div 
