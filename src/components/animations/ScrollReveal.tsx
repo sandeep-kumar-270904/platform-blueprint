@@ -50,7 +50,7 @@ export const ScrollReveal = ({
       initial="hidden"
       animate={controls}
       variants={variants}
-      className={className}
+      className={`relative ${className}`}
     >
       {children}
     </motion.div>
