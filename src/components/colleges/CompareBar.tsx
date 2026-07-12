@@ -17,7 +17,7 @@ export const CompareBar = ({ colleges, onRemove }: CompareBarProps) => {
         <div className="flex flex-1 items-center gap-4 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto">
           <div className="hidden md:flex flex-col text-sm font-medium mr-2">
             <span className="text-muted-foreground flex items-center gap-1"><Scale className="h-4 w-4" /> Compare</span>
-            <span>{colleges.length}/4 Selected</span>
+            <span>{colleges.length}/20 Selected</span>
           </div>
           
           {colleges.map((college) => (
@@ -36,8 +36,8 @@ export const CompareBar = ({ colleges, onRemove }: CompareBarProps) => {
             </div>
           ))}
 
-          {/* Placeholders for remaining slots */}
-          {Array.from({ length: Math.max(0, 4 - colleges.length) }).map((_, i) => (
+          {/* Placeholders for remaining slots up to 4 for visual padding */}
+          {colleges.length < 4 && Array.from({ length: Math.max(0, 4 - colleges.length) }).map((_, i) => (
             <div key={`empty-${i}`} className="flex items-center justify-center border border-dashed border-border bg-muted/30 rounded-md p-2 min-w-[200px] h-[58px] shrink-0 text-muted-foreground text-sm">
               Add college
             </div>

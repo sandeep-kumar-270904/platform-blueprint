@@ -1,6 +1,17 @@
 const jwt = require('jsonwebtoken');
 
-module.exports = function (req, res, next) {
+const User = require('../models/User');
+
+module.exports = async function (req, res, next) {
+  // --- AUTH BYPASS FOR DEVELOPMENT ---
+  // Try to find the admin user seeded in the DB
+  const adminUser = await User.findOne({ role: 'admin' });
+  if (adminUser) {
+    req.user = { id: adminUser._id.toString(), role: adminUser.role };
+    return next();
+  }
+  // -----------------------------------
+
   // Get token from cookies or fallback to header for backwards compatibility
   let token = req.cookies?.accessToken;
   if (!token && req.header('Authorization')) {

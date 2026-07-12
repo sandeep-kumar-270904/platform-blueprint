@@ -46,9 +46,16 @@ export const useColleges = () => {
     return res.json();
   };
 
-  const getReviews = async (id: string, page = 1) => {
-    const res = await fetch(`${API_URL}/api/colleges/${id}/reviews?page=${page}`);
+  const getReviews = async (id: string, page = 1, sort = "helpful", verifiedFirst = false) => {
+    const params = new URLSearchParams({ page: String(page), sort, verifiedFirst: String(verifiedFirst) });
+    const res = await fetch(`${API_URL}/api/colleges/${id}/reviews?${params.toString()}`);
     if (!res.ok) throw new Error("Failed to fetch reviews");
+    return res.json();
+  };
+
+  const getRatingBreakdown = async (id: string) => {
+    const res = await fetch(`${API_URL}/api/colleges/${id}/rating-breakdown`);
+    if (!res.ok) throw new Error("Failed to fetch rating breakdown");
     return res.json();
   };
 
@@ -96,6 +103,7 @@ export const useColleges = () => {
     getCollege,
     getCompareColleges,
     getReviews,
+    getRatingBreakdown,
     getSavedColleges,
     toggleSaveCollege
   };

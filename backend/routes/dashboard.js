@@ -24,7 +24,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
       $or: [ { creator_id: userId }, { 'members.user_id': userId } ]
     });
     
-    const notificationsCount = await Notification.countDocuments({ user_id: userId, is_read: false });
+    const notificationsCount = await Notification.countDocuments({ userId: userId, isRead: false });
     
     res.json({
       notes: { total: notes.length, views, downloads },

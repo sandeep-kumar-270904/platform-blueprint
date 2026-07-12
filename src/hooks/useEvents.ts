@@ -7,26 +7,34 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 export interface EventRow {
   _id?: string;
   id?: string;
-  organizer_id: string;
   title: string;
   description: string;
-  type: string;
-  mode: string;
-  venue: string | null;
-  starts_at: string;
-  ends_at: string | null;
-  registration_deadline: string | null;
-  capacity: number;
-  registration_count: number;
-  prize: string | null;
-  tags: string[];
-  banner_url: string | null;
-  featured: boolean;
+  eventType: string;
+  bannerImage: string | null;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  isVirtual: boolean;
+  venue: string;
+  hostedBy: any;
+  hostName: string;
   status: string;
+  registrationRequired: boolean;
+  registrationDeadline: string | null;
+  capacity: number | null;
+  registrationCount?: number;
+  teamSize?: { min: number, max: number };
+  prizes?: string[];
+  agenda?: any[];
+  rulesDocument?: string | null;
+  tags: string[];
+  createdAt: string;
 }
 
-export const useEvents = (typeFilter: string = "all") => {
+export const useEvents = (typeFilter: string = "all", timeFilter: string = "upcoming", searchQuery: string = "", month: string = "") => {
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [thisWeekEvents, setThisWeekEvents] = useState<EventRow[]>([]);
   const [myRegistrations, setMyRegistrations] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('live');
@@ -36,11 +44,22 @@ export const useEvents = (typeFilter: string = "all") => {
       const token = localStorage.getItem('token');
       const qs = new URLSearchParams();
       if (typeFilter !== "all") qs.append('type', typeFilter);
+      if (timeFilter !== "all") qs.append('filter', timeFilter);
+      if (searchQuery) qs.append('search', searchQuery);
+      if (month) qs.append('month', month);
       
-      const res = await fetch(`${API_URL}/api/events?${qs.toString()}`);
+      const [res, twRes] = await Promise.all([
+        fetch(`${API_URL}/api/events?${qs.toString()}`),
+        fetch(`${API_URL}/api/events?filter=this_week`)
+      ]);
+      
       let data = await res.json();
       data = data.map((e: any) => ({ ...e, id: e._id }));
       setEvents(data);
+
+      let twData = await twRes.json();
+      twData = twData.map((e: any) => ({ ...e, id: e._id }));
+      setThisWeekEvents(twData);
 
       if (token) {
         const regsRes = await fetch(`${API_URL}/api/events/registrations/me`, {
@@ -57,7 +76,7 @@ export const useEvents = (typeFilter: string = "all") => {
     } finally {
       setLoading(false);
     }
-  }, [typeFilter]);
+  }, [typeFilter, timeFilter, searchQuery, month]);
 
   useEffect(() => {
     setLoading(true);
@@ -127,5 +146,5 @@ export const useEvents = (typeFilter: string = "all") => {
     }
   };
 
-  return { events, myRegistrations, loading, status, register, cancel, createEvent, refetch: fetchAll };
+  return { events, thisWeekEvents, myRegistrations, loading, status, register, cancel, createEvent, refetch: fetchAll };
 };

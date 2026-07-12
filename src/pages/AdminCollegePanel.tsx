@@ -11,10 +11,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Building2, Plus, Edit, Trash2, Shield, Eye, EyeOff } from "lucide-react";
+import { Building2, Plus, Edit, Trash2, Shield, Eye, EyeOff, Check, MessageSquareWarning } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -24,6 +24,7 @@ const AdminCollegePanel = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [colleges, setColleges] = useState<any[]>([]);
+  const [flaggedReviews, setFlaggedReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,15 +46,13 @@ const AdminCollegePanel = () => {
   
   const [formData, setFormData] = useState(defaultForm);
 
-  // We should check if user is admin. Since we don't have role explicitly in useAuth type yet, 
-  // we check if it's there. Actually, the user's role might be on user.role.
-  // For now, let's just assume we have user.role === 'admin' or just protect via middleware.
-  
   const fetchColleges = async () => {
     try {
       const res = await fetch(`${API_URL}/api/colleges`);
       const data = await res.json();
-      setColleges(data);
+      const collegesArray = Array.isArray(data) ? data : (data.colleges || []);
+      const sorted = collegesArray.sort((a: any, b: any) => a.name.localeCompare(b.name));
+      setColleges(sorted);
     } catch (error) {
       console.error(error);
       toast.error("Failed to load colleges");
@@ -62,14 +61,29 @@ const AdminCollegePanel = () => {
     }
   };
 
+  const fetchFlaggedReviews = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/admin/flagged-reviews`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFlaggedReviews(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch flagged reviews", error);
+    }
+  };
+
   useEffect(() => {
-    // If not admin, redirect. (Assuming user.role is how we check)
-    // If auth state isn't loaded yet, wait.
     if (user && user.role !== "admin") {
-      // In a real app we might redirect to "/" if not admin
-      // For this demo, let's just let it load or we can enforce it if the backend returns 403
+      return;
     }
     fetchColleges();
+    if (user?.role === "admin") {
+      fetchFlaggedReviews();
+    }
   }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -136,6 +150,25 @@ const AdminCollegePanel = () => {
     }
   };
 
+  const moderateReview = async (id: string, action: 'approve' | 'hide' | 'delete') => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/admin/reviews/${id}/moderate`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ action })
+      });
+      if (!res.ok) throw new Error("Failed to moderate review");
+      toast.success(`Review ${action}d`);
+      fetchFlaggedReviews();
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  };
+
   const openEdit = (college: any) => {
     setFormData(college);
     setEditingId(college._id);
@@ -172,8 +205,24 @@ const AdminCollegePanel = () => {
             </h1>
             <p className="text-muted-foreground mt-1">Add, edit, and moderate college insights data</p>
           </div>
-          
-          <Dialog open={open} onOpenChange={setOpen}>
+        </div>
+
+        <Tabs defaultValue="colleges" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="colleges">Manage Colleges</TabsTrigger>
+            <TabsTrigger value="flagged-reviews">
+              Flagged Reviews 
+              {flaggedReviews.length > 0 && (
+                <span className="ml-2 bg-destructive text-destructive-foreground text-xs px-2 py-0.5 rounded-full">
+                  {flaggedReviews.length}
+                </span>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="colleges">
+            <div className="flex justify-end mb-4">
+              <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> Add College</Button>
             </DialogTrigger>
@@ -313,6 +362,60 @@ const AdminCollegePanel = () => {
             )}
           </CardContent>
         </Card>
+      </TabsContent>
+          <TabsContent value="flagged-reviews" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Flagged Reviews</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
+                      <tr>
+                        <th className="px-4 py-3">College</th>
+                        <th className="px-4 py-3">User</th>
+                        <th className="px-4 py-3">Review Text</th>
+                        <th className="px-4 py-3">Flag Count</th>
+                        <th className="px-4 py-3">Reasons</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {flaggedReviews.map((review) => (
+                        <tr key={review._id} className="border-b border-border hover:bg-muted/30">
+                          <td className="px-4 py-4 font-medium">{review.collegeId?.name || "Unknown"}</td>
+                          <td className="px-4 py-4">{review.userId?.username || "Unknown"}</td>
+                          <td className="px-4 py-4 max-w-[200px] truncate" title={review.reviewText}>{review.reviewText}</td>
+                          <td className="px-4 py-4 font-bold text-destructive">{review.flaggedCount}</td>
+                          <td className="px-4 py-4 max-w-[200px] truncate text-xs text-muted-foreground">
+                            {review.flagReasons?.map((r: any) => r.reason).join(", ")}
+                          </td>
+                          <td className="px-4 py-4 text-right space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => moderateReview(review._id, 'approve')} className="text-green-500" title="Approve & Restore">
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => moderateReview(review._id, 'hide')} className="text-orange-500" title="Hide">
+                              <MessageSquareWarning className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => moderateReview(review._id, 'delete')} className="text-destructive" title="Delete">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                      {flaggedReviews.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="text-center py-8 text-muted-foreground">No flagged reviews.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

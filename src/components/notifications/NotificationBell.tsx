@@ -34,6 +34,10 @@ export const NotificationBell = () => {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
+      if (res.status === 401) {
+        // Silently fail if not logged in or token expired
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setUnreadCount(data.count);
@@ -50,6 +54,7 @@ export const NotificationBell = () => {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       });
+      if (res.status === 401) return;
       if (res.ok) {
         const data = await res.json();
         setNotifications(data.notifications);

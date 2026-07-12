@@ -31,8 +31,9 @@ import { JoinRequestsManager } from "@/components/dashboard/JoinRequestsManager"
 import { LearningProgress } from "@/components/dashboard/LearningProgress";
 import { SecuritySettings } from "@/components/dashboard/SecuritySettings";
 import { SavedColleges } from "@/components/dashboard/SavedColleges";
+import { MyActivity } from "@/components/dashboard/MyActivity";
 
-type Section = "overview" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "live" | "analytics" | "profile" | "security" | "links" | "saved-colleges";
+type Section = "overview" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "live" | "analytics" | "profile" | "security" | "links" | "saved-colleges" | "activity";
 
 const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -45,6 +46,7 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "live", label: "Live Activity", icon: Radio },
   { id: "analytics", label: "Host Analytics", icon: BarChart2 },
   { id: "saved-colleges", label: "Saved Colleges", icon: Building2 },
+  { id: "activity", label: "My Activity", icon: Star },
   { id: "profile", label: "Profile", icon: User },
   { id: "security", label: "Security", icon: Lock },
   { id: "links", label: "Quick Links", icon: ArrowRight },
@@ -213,6 +215,8 @@ const Dashboard = () => {
         return <SecuritySettings />;
       case "saved-colleges":
         return <SavedColleges />;
+      case "activity":
+        return <MyActivity />;
       case "links":
         return (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

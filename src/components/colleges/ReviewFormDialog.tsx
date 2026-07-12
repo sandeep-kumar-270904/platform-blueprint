@@ -10,21 +10,32 @@ import { useAuth } from "@/hooks/useAuth";
 interface ReviewFormDialogProps {
   collegeId: string;
   onSuccess: () => void;
+  review?: any;
+  trigger?: React.ReactNode;
 }
 
-export const ReviewFormDialog = ({ collegeId, onSuccess }: ReviewFormDialogProps) => {
+export const ReviewFormDialog = ({ collegeId, onSuccess, review, trigger }: ReviewFormDialogProps) => {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [rating, setRating] = useState(0);
+  const [rating, setRating] = useState(review?.rating || 0);
   const [hoverRating, setHoverRating] = useState(0);
   const [formData, setFormData] = useState({
-    title: "",
-    reviewText: "",
-    pros: "",
-    cons: "",
-    courseStudied: "",
-    yearOfStudy: ""
+    title: review?.title || "",
+    reviewText: review?.reviewText || "",
+    pros: review?.pros || "",
+    cons: review?.cons || "",
+    courseStudied: review?.courseStudied || "",
+    yearOfStudy: review?.yearOfStudy || ""
+  });
+  const [categoryRatings, setCategoryRatings] = useState({
+    hostel: review?.categoryRatings?.hostel || 0,
+    labs: review?.categoryRatings?.labs || 0,
+    faculty: review?.categoryRatings?.faculty || 0,
+    campusLife: review?.categoryRatings?.campusLife || 0,
+    placements: review?.categoryRatings?.placements || 0,
+    academics: review?.categoryRatings?.academics || 0,
+    infrastructure: review?.categoryRatings?.infrastructure || 0
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,19 +53,26 @@ export const ReviewFormDialog = ({ collegeId, onSuccess }: ReviewFormDialogProps
     try {
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
       const token = localStorage.getItem("token");
-      const res = await fetch(`${API_URL}/api/colleges/${collegeId}/reviews`, {
-        method: "POST",
+      
+      const url = review 
+        ? `${API_URL}/api/reviews/${review._id}`
+        : `${API_URL}/api/colleges/${collegeId}/reviews`;
+        
+      const method = review ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ ...formData, rating })
+        body: JSON.stringify({ ...formData, rating, categoryRatings })
       });
       
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to submit review");
+      if (!res.ok) throw new Error(data.message || (review ? "Failed to update review" : "Failed to submit review"));
       
-      toast.success("Review submitted successfully!");
+      toast.success(review ? "Review updated successfully!" : "Review submitted successfully!");
       setOpen(false);
       onSuccess();
     } catch (error: any) {
@@ -67,11 +85,11 @@ export const ReviewFormDialog = ({ collegeId, onSuccess }: ReviewFormDialogProps
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>Write a Review</Button>
+        {trigger ? trigger : <Button>Write a Review</Button>}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Write a Review</DialogTitle>
+          <DialogTitle>{review ? "Edit Review" : "Write a Review"}</DialogTitle>
         </DialogHeader>
         
         {!user ? (
@@ -101,6 +119,43 @@ export const ReviewFormDialog = ({ collegeId, onSuccess }: ReviewFormDialogProps
                       }`} 
                     />
                   </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t border-border/50 pt-4 pb-2">
+              <span className="text-sm font-medium">Rate Specific Aspects</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[
+                  { key: 'academics', label: 'Academics' },
+                  { key: 'faculty', label: 'Faculty' },
+                  { key: 'infrastructure', label: 'Infrastructure' },
+                  { key: 'placements', label: 'Placements' },
+                  { key: 'campusLife', label: 'Campus Life' },
+                  { key: 'hostel', label: 'Hostel' },
+                  { key: 'labs', label: 'Labs' }
+                ].map((cat) => (
+                  <div key={cat.key} className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">{cat.label}</span>
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          className="p-0.5 transition-transform hover:scale-110"
+                          onClick={() => setCategoryRatings(prev => ({ ...prev, [cat.key]: star }))}
+                        >
+                          <Star 
+                            className={`h-4 w-4 ${
+                              (categoryRatings as any)[cat.key] >= star 
+                                ? "fill-warning text-warning" 
+                                : "text-muted-foreground opacity-30"
+                            }`} 
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -169,7 +224,7 @@ export const ReviewFormDialog = ({ collegeId, onSuccess }: ReviewFormDialogProps
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "Submitting..." : "Submit Review"}
+                {loading ? (review ? "Updating..." : "Submitting...") : (review ? "Update Review" : "Submit Review")}
               </Button>
             </div>
           </form>
