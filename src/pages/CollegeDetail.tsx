@@ -6,9 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   MapPin, Star, DollarSign, TrendingUp, Users, Award, 
-  ExternalLink, Heart, Scale, Building2, BookOpen, GraduationCap, ArrowLeft, ThumbsUp 
+  ExternalLink, Heart, Scale, Building2, BookOpen, GraduationCap, ArrowLeft, ThumbsUp, Flag, CheckCircle, ShieldCheck
 } from "lucide-react";
 import { useColleges } from "@/hooks/useColleges";
 import { ReviewFormDialog } from "@/components/colleges/ReviewFormDialog";
@@ -20,7 +23,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const CollegeDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { getCollege, getReviews, getSavedColleges, toggleSaveCollege } = useColleges();
+  const { getCollege, getReviews, getRatingBreakdown, getSavedColleges, toggleSaveCollege } = useColleges();
   
   const [college, setCollege] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -29,6 +32,14 @@ const CollegeDetail = () => {
   const [reviewsData, setReviewsData] = useState<any>({ reviews: [], distribution: {} });
   const [reviewsPage, setReviewsPage] = useState(1);
   const [loadingReviews, setLoadingReviews] = useState(false);
+  const [reviewSort, setReviewSort] = useState("helpful");
+  const [verifiedFirst, setVerifiedFirst] = useState(false);
+  const [ratingBreakdown, setRatingBreakdown] = useState<any>(null);
+
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportReviewId, setReportReviewId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -38,6 +49,8 @@ const CollegeDetail = () => {
       try {
         const data = await getCollege(id);
         setCollege(data);
+        
+        getRatingBreakdown(id).then(setRatingBreakdown).catch(e => console.error("Error fetching breakdown", e));
         
         if (user) {
           const saved = await getSavedColleges();
@@ -61,11 +74,13 @@ const CollegeDetail = () => {
     loadData();
   }, [id, user]);
 
-  const loadReviewPage = async (page: number) => {
+  const loadReviewPage = async (page: number, sortOverride?: string, verifiedOverride?: boolean) => {
     if (!id) return;
     setLoadingReviews(true);
     try {
-      const data = await getReviews(id, page);
+      const s = sortOverride ?? reviewSort;
+      const v = verifiedOverride ?? verifiedFirst;
+      const data = await getReviews(id, page, s, v);
       setReviewsData(data);
       setReviewsPage(page);
     } catch (error) {
@@ -103,18 +118,49 @@ const CollegeDetail = () => {
     }
   };
 
+  const handleReport = async () => {
+    if (!reportReviewId || !reportReason.trim()) return;
+    setReportSubmitting(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/reviews/${reportReviewId}/report`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ reason: reportReason })
+      });
+      if (res.ok) {
+        import("sonner").then(({ toast }) => toast.success("Review reported successfully"));
+        setReportModalOpen(false);
+        setReportReason("");
+      } else {
+        throw new Error("Failed to report");
+      }
+    } catch (error) {
+      console.error(error);
+      import("sonner").then(({ toast }) => toast.error("Error reporting review"));
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
+
   const handleAddToCompare = () => {
     if (!college) return;
     const stored = sessionStorage.getItem("compareList");
     let current = stored ? JSON.parse(stored) : [];
     if (!current.some((c: any) => c._id === college._id)) {
-      if (current.length < 4) {
-        current.push(college);
-        sessionStorage.setItem("compareList", JSON.stringify(current));
-        // You might want to use a context or custom event to notify CompareBar, 
-        // or just redirect to Compare page or Insights page.
-        window.dispatchEvent(new Event("storage"));
+      if (current.length >= 20) {
+        import("sonner").then(({ toast }) => toast.error("Maximum 20 colleges allowed for comparison"));
+        return;
       }
+      current.push(college);
+      sessionStorage.setItem("compareList", JSON.stringify(current));
+      import("sonner").then(({ toast }) => toast.success("Added to Compare"));
+      window.dispatchEvent(new Event("storage"));
+    } else {
+      import("sonner").then(({ toast }) => toast.info("Already added to compare"));
     }
   };
 
@@ -378,6 +424,31 @@ const CollegeDetail = () => {
                     })}
                   </div>
 
+                  {ratingBreakdown && (
+                    <div className="pt-4 border-t border-border space-y-3">
+                      <h4 className="text-sm font-semibold">Category Ratings</h4>
+                      {[
+                        { key: 'academics', label: 'Academics' },
+                        { key: 'faculty', label: 'Faculty' },
+                        { key: 'infrastructure', label: 'Infrastructure' },
+                        { key: 'placements', label: 'Placements' },
+                        { key: 'campusLife', label: 'Campus Life' },
+                        { key: 'hostel', label: 'Hostel' },
+                        { key: 'labs', label: 'Labs' }
+                      ].map(cat => {
+                        const val = ratingBreakdown[`avg${cat.label.replace(' ', '')}Rating`] || 0;
+                        return val > 0 ? (
+                          <div key={cat.key} className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">{cat.label}</span>
+                            <div className="flex items-center gap-1 font-medium">
+                              {val.toFixed(1)} <Star className="h-3 w-3 fill-warning text-warning" />
+                            </div>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+
                   <div className="pt-4 border-t border-border">
                     <ReviewFormDialog collegeId={college._id} onSuccess={() => loadReviewPage(1)} />
                   </div>
@@ -386,7 +457,32 @@ const CollegeDetail = () => {
 
               {/* Reviews List */}
               <div className="md:col-span-2 space-y-6">
-                <h3 className="text-xl font-bold">Student Reviews</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <h3 className="text-xl font-bold">Student Reviews</h3>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                      <input type="checkbox" className="accent-primary" checked={verifiedFirst} onChange={(e) => {
+                        setVerifiedFirst(e.target.checked);
+                        loadReviewPage(1, reviewSort, e.target.checked);
+                      }} />
+                      Verified First
+                    </label>
+                    <Select value={reviewSort} onValueChange={(val) => {
+                      setReviewSort(val);
+                      loadReviewPage(1, val, verifiedFirst);
+                    }}>
+                      <SelectTrigger className="w-[140px] h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="helpful">Most Helpful</SelectItem>
+                        <SelectItem value="recent">Most Recent</SelectItem>
+                        <SelectItem value="highest">Highest Rated</SelectItem>
+                        <SelectItem value="lowest">Lowest Rated</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 
                 {loadingReviews ? (
                   <Skeleton className="h-40 w-full" />
@@ -403,7 +499,15 @@ const CollegeDetail = () => {
                               <div>
                                 <div className="font-medium flex items-center gap-2">
                                   {review.userId?.full_name || 'Anonymous User'}
-                                  {review.isVerified && <Badge variant="secondary" className="text-[10px] h-4">Verified</Badge>}
+                                  {review.verificationStatus === "verified" ? (
+                                    <Badge variant="outline" className="text-[10px] h-4 bg-green-500/10 text-green-600 border-green-500/20 gap-1 px-1.5">
+                                      <ShieldCheck className="h-3 w-3"/> Verified Student
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="text-[10px] h-4 bg-muted text-muted-foreground gap-1 px-1.5">
+                                      Unverified
+                                    </Badge>
+                                  )}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   {review.courseStudied && `${review.courseStudied} • `}
@@ -411,8 +515,16 @@ const CollegeDetail = () => {
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1 bg-warning/10 text-warning px-2 py-1 rounded text-sm font-bold">
-                              {review.rating} <Star className="h-3 w-3 fill-warning" />
+                            <div className="flex flex-col items-end gap-2">
+                              <div className="flex items-center gap-1 bg-warning/10 text-warning px-2 py-1 rounded text-sm font-bold">
+                                {review.rating} <Star className="h-3 w-3 fill-warning" />
+                              </div>
+                              <button 
+                                onClick={() => { setReportReviewId(review._id); setReportModalOpen(true); }} 
+                                className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1"
+                              >
+                                <Flag className="h-3 w-3" /> Report
+                              </button>
                             </div>
                           </div>
                           
@@ -420,6 +532,16 @@ const CollegeDetail = () => {
                           <p className="text-muted-foreground text-sm mb-4 leading-relaxed whitespace-pre-wrap">
                             {review.reviewText}
                           </p>
+
+                          {review.categoryRatings && Object.keys(review.categoryRatings).length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {Object.entries(review.categoryRatings).map(([key, val]) => (val as number) > 0 ? (
+                                <Badge key={key} variant="outline" className="text-xs text-muted-foreground font-normal bg-muted/20">
+                                  {key.replace(/([A-Z])/g, ' $1').trim().replace(/^\w/, c => c.toUpperCase())}: {val as any} ★
+                                </Badge>
+                              ) : null)}
+                            </div>
+                          )}
                           
                           {(review.pros || review.cons) && (
                             <div className="grid sm:grid-cols-2 gap-4 mb-4 text-sm bg-muted/20 p-3 rounded-lg border border-border">
@@ -489,6 +611,36 @@ const CollegeDetail = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={reportModalOpen} onOpenChange={setReportModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report Review</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reason for reporting</label>
+              <Select value={reportReason} onValueChange={setReportReason}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Spam">Spam</SelectItem>
+                  <SelectItem value="Fake / Not a real student">Fake / Not a real student</SelectItem>
+                  <SelectItem value="Inappropriate content">Inappropriate content</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportModalOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleReport} disabled={!reportReason || reportSubmitting}>
+              {reportSubmitting ? "Reporting..." : "Submit Report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

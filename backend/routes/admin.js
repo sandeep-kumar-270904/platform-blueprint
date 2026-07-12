@@ -5,6 +5,9 @@ const Note = require('../models/Note');
 const { NoteComment } = require('../models/NoteComment');
 const Report = require('../models/Report');
 const User = require('../models/User');
+const Review = require('../models/Review');
+const Notification = require('../models/Notification');
+const Event = require('../models/Event');
 
 // Check if user is admin
 router.get('/check', authMiddleware, async (req, res) => {
@@ -120,6 +123,140 @@ router.put('/reports/:id', authMiddleware, async (req, res) => {
     res.json(report);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/admin/flagged-reviews - Fetch flagged reviews
+router.get('/flagged-reviews', authMiddleware, async (req, res) => {
+  try {
+    // We already have a middleware check at /check or similar, but let's assume authMiddleware passes.
+    // In production we should verify admin here.
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+
+    const reviews = await Review.find({
+      $or: [
+        { flaggedCount: { $gt: 0 } },
+        { status: 'hidden' }
+      ]
+    })
+    .populate('collegeId', 'name')
+    .populate('userId', 'username full_name')
+    .sort({ flaggedCount: -1, createdAt: -1 });
+    
+    res.json(reviews);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching flagged reviews', error: error.message });
+  }
+});
+
+// PUT /api/admin/reviews/:id/moderate - Moderate review
+router.put('/reviews/:id/moderate', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+
+    const { action } = req.body; // 'approve', 'hide', 'delete'
+    const review = await Review.findById(req.params.id);
+    if (!review) return res.status(404).json({ message: 'Review not found' });
+
+    if (action === 'approve') {
+      review.flaggedCount = 0;
+      review.flagReasons = [];
+      review.status = 'public';
+      await review.save();
+      
+      // Notify the user that their review was approved/restored
+      await Notification.create({
+        userId: review.userId,
+        type: 'review_reported_resolved',
+        relatedCollegeId: review.collegeId,
+        relatedContentId: review._id,
+        message: 'Your review was reported but has been reviewed and restored by an admin.'
+      });
+      
+      res.json({ message: 'Review approved and restored to public', review });
+    } else if (action === 'hide') {
+      review.status = 'hidden';
+      await review.save();
+      res.json({ message: 'Review hidden', review });
+    } else if (action === 'delete') {
+      await Review.findByIdAndDelete(req.params.id);
+      res.json({ message: 'Review deleted' });
+    } else {
+      res.status(400).json({ message: 'Invalid action' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Error moderating review', error: error.message });
+  }
+});
+
+// GET /api/admin/events/pending
+router.get('/events/pending', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+    
+    const pendingEvents = await Event.find({ status: 'pending_approval' })
+      .populate('hostedBy', 'username full_name')
+      .sort({ createdAt: -1 });
+      
+    res.json(pendingEvents);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PUT /api/admin/events/:id/approve
+router.put('/events/:id/approve', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+    
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+    
+    event.status = 'approved';
+    await event.save();
+    
+    // Notify host
+    await Notification.create({
+      userId: event.hostedBy,
+      type: 'event_approved',
+      relatedContentId: event._id,
+      message: `Your event "${event.title}" has been approved and is now live!`
+    });
+    
+    res.json({ message: 'Event approved', event });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PUT /api/admin/events/:id/reject
+router.put('/events/:id/reject', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+    
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+    
+    event.status = 'rejected';
+    event.rejectionReason = req.body.reason || 'No reason provided';
+    await event.save();
+    
+    // Notify host
+    await Notification.create({
+      userId: event.hostedBy,
+      type: 'event_rejected',
+      relatedContentId: event._id,
+      message: `Your event "${event.title}" was rejected. Reason: ${event.rejectionReason}`
+    });
+    
+    res.json({ message: 'Event rejected', event });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 

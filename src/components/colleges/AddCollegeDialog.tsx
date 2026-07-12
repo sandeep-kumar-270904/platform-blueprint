@@ -48,7 +48,7 @@ export const AddCollegeDialog = ({ onSuccess }: AddCollegeDialogProps) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to add college");
       
-      toast.success("College added successfully!");
+      toast.success(user?.role === "admin" ? "College published successfully!" : "College submitted for review!");
       setOpen(false);
       onSuccess();
     } catch (error: any) {
@@ -74,6 +74,16 @@ export const AddCollegeDialog = ({ onSuccess }: AddCollegeDialogProps) => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+            {user.role !== "admin" ? (
+              <div className="bg-muted p-3 rounded-md text-sm text-muted-foreground border border-border">
+                <strong>Note:</strong> Your college submission will be reviewed by an admin before becoming public.
+              </div>
+            ) : (
+              <div className="bg-primary/10 p-3 rounded-md text-sm text-primary border border-primary/20">
+                <strong>Admin Mode:</strong> This college will be published immediately.
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label>College Name *</Label>
               <Input 

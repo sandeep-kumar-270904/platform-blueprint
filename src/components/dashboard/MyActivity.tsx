@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MoreVertical, Edit2, Trash2, ExternalLink, Star } from "lucide-react";
+import { MoreVertical, Edit2, Trash2, ExternalLink, Star, Calendar } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -27,6 +27,9 @@ export const MyActivity = () => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [answers, setAnswers] = useState<any[]>([]);
+  const [hostedEvents, setHostedEvents] = useState<any[]>([]);
+  const [registeredUpcoming, setRegisteredUpcoming] = useState<any[]>([]);
+  const [registeredPast, setRegisteredPast] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Edit Q&A States
@@ -34,7 +37,8 @@ export const MyActivity = () => {
   const [editText, setEditText] = useState("");
 
   // Delete States
-  const [deleteItem, setDeleteItem] = useState<{ id: string, type: 'review' | 'question' | 'answer' } | null>(null);
+  const [deleteItem, setDeleteItem] = useState<{ id: string, type: 'review' | 'question' | 'answer' | 'event' } | null>(null);
+  const [cancelRegItem, setCancelRegItem] = useState<{ id: string } | null>(null);
 
   const fetchActivity = useCallback(async () => {
     setLoading(true);
@@ -42,10 +46,12 @@ export const MyActivity = () => {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [revRes, qRes, aRes] = await Promise.all([
+      const [revRes, qRes, aRes, eHostRes, eRegRes] = await Promise.all([
         fetch(`${API_URL}/api/users/me/reviews`, { headers }),
         fetch(`${API_URL}/api/users/me/questions`, { headers }),
-        fetch(`${API_URL}/api/users/me/answers`, { headers })
+        fetch(`${API_URL}/api/users/me/answers`, { headers }),
+        fetch(`${API_URL}/api/users/me/events/hosting`, { headers }),
+        fetch(`${API_URL}/api/users/me/events/registered`, { headers })
       ]);
 
       if (revRes.ok) {
@@ -59,6 +65,15 @@ export const MyActivity = () => {
       if (aRes.ok) {
         const aData = await aRes.json();
         setAnswers(aData.answers);
+      }
+      if (eHostRes.ok) {
+        const data = await eHostRes.json();
+        setHostedEvents(data.events);
+      }
+      if (eRegRes.ok) {
+        const data = await eRegRes.json();
+        setRegisteredUpcoming(data.upcoming);
+        setRegisteredPast(data.past);
       }
     } catch (err) {
       console.error(err);
@@ -114,6 +129,7 @@ export const MyActivity = () => {
       if (deleteItem.type === 'review') url = `${API_URL}/api/reviews/${deleteItem.id}`;
       else if (deleteItem.type === 'question') url = `${API_URL}/api/college-qa/questions/${deleteItem.id}`;
       else if (deleteItem.type === 'answer') url = `${API_URL}/api/college-qa/answers/${deleteItem.id}`;
+      else if (deleteItem.type === 'event') url = `${API_URL}/api/events/${deleteItem.id}`;
 
       const res = await fetch(url, {
         method: "DELETE",
@@ -131,6 +147,24 @@ export const MyActivity = () => {
     }
   };
 
+  const handleCancelRegistration = async () => {
+    if (!cancelRegItem) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/api/events/${cancelRegItem.id}/register`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to cancel registration");
+      toast.success("Registration cancelled successfully");
+      setCancelRegItem(null);
+      fetchActivity();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to cancel registration");
+    }
+  };
+
   if (loading) {
     return <div className="p-8 text-center text-muted-foreground">Loading activity...</div>;
   }
@@ -142,10 +176,11 @@ export const MyActivity = () => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="reviews">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="reviews">Reviews ({reviews.length})</TabsTrigger>
             <TabsTrigger value="questions">Questions ({questions.length})</TabsTrigger>
             <TabsTrigger value="answers">Answers ({answers.length})</TabsTrigger>
+            <TabsTrigger value="events">Events ({hostedEvents.length + registeredUpcoming.length + registeredPast.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="reviews" className="space-y-4">
@@ -318,6 +353,155 @@ export const MyActivity = () => {
               ))
             )}
           </TabsContent>
+
+          <TabsContent value="events" className="space-y-4">
+            <Tabs defaultValue="hosting" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="hosting">Hosting ({hostedEvents.length})</TabsTrigger>
+                <TabsTrigger value="registered">Registered ({registeredUpcoming.length + registeredPast.length})</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="hosting" className="space-y-4">
+                {hostedEvents.length === 0 ? (
+                  <div className="text-center py-12 bg-muted/30 rounded-lg">
+                    <p className="text-muted-foreground mb-4">You haven't hosted any events yet.</p>
+                    <Link to="/events">
+                      <Button variant="outline">Host an Event</Button>
+                    </Link>
+                  </div>
+                ) : (
+                  hostedEvents.map((ev) => (
+                    <div key={ev._id} className="border rounded-lg p-4 bg-card">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`capitalize text-xs px-2 py-0.5 text-white rounded-full font-medium ${
+                              ev.eventType === 'hackathon' ? 'bg-blue-600' :
+                              ev.eventType === 'competition' ? 'bg-orange-600' :
+                              ev.eventType === 'workshop' ? 'bg-purple-600' : 'bg-green-600'
+                            }`}>
+                              {ev.eventType}
+                            </span>
+                            <span className={`capitalize text-xs px-2 py-0.5 rounded-full font-medium ${
+                              ev.status === 'approved' ? 'bg-success/10 text-success' : 
+                              ev.status === 'rejected' ? 'bg-destructive/10 text-destructive' :
+                              'bg-warning/10 text-warning'
+                            }`}>
+                              {ev.status.replace('_', ' ')}
+                            </span>
+                          </div>
+                          <h4 className="font-semibold text-lg">{ev.title}</h4>
+                          <Link 
+                            to={`/events/${ev._id}`} 
+                            className="text-sm text-primary hover:underline flex items-center gap-1 mt-1"
+                          >
+                            View Event Page <ExternalLink className="h-3 w-3" />
+                          </Link>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link to={`/events/${ev._id}/edit`}>
+                                <Edit2 className="mr-2 h-4 w-4" /> Edit
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setDeleteItem({ id: ev._id, type: 'event' })}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      {ev.status === 'rejected' && ev.rejectionReason && (
+                        <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-3 rounded mt-3">
+                          <strong>Rejection Reason:</strong> {ev.rejectionReason}
+                        </div>
+                      )}
+                      <p className="text-sm text-muted-foreground mt-3 line-clamp-2">
+                        {ev.description}
+                      </p>
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground mt-4">
+                        <span className="flex items-center"><Calendar className="mr-1 h-3 w-3" /> {new Date(ev.startDate).toLocaleDateString()}</span>
+                        <span>{ev.isVirtual ? 'Virtual' : ev.venue}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </TabsContent>
+
+              <TabsContent value="registered" className="space-y-8">
+                {/* Upcoming */}
+                <div>
+                  <h3 className="font-semibold text-lg mb-4">Upcoming Events</h3>
+                  {registeredUpcoming.length === 0 ? (
+                    <div className="text-center py-6 border rounded-lg bg-muted/10">
+                      <p className="text-muted-foreground text-sm">No upcoming events.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {registeredUpcoming.map((ev) => (
+                        <div key={ev._id} className="border rounded-lg p-4 bg-card flex justify-between items-center">
+                          <div>
+                            <div className="flex gap-2 items-center mb-1">
+                              <h4 className="font-semibold text-md">
+                                <Link to={`/events/${ev._id}`} className="hover:underline">{ev.title}</Link>
+                              </h4>
+                              {ev.registrationStatus === 'waitlisted' && (
+                                <span className="bg-warning/20 text-warning text-[10px] uppercase font-bold px-2 py-0.5 rounded-full">Waitlisted</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                              <span className="flex items-center"><Calendar className="mr-1 h-3 w-3" /> {new Date(ev.startDate).toLocaleDateString()} at {ev.startTime}</span>
+                              <span>•</span>
+                              <span className="capitalize">{ev.eventType}</span>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setCancelRegItem({ id: ev._id })}>
+                            Cancel RSVP
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Past */}
+                <div>
+                  <h3 className="font-semibold text-lg mb-4">Past Events</h3>
+                  {registeredPast.length === 0 ? (
+                    <div className="text-center py-6 border rounded-lg bg-muted/10">
+                      <p className="text-muted-foreground text-sm">No past events.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 opacity-70">
+                      {registeredPast.map((ev) => (
+                        <div key={ev._id} className="border rounded-lg p-4 bg-card flex justify-between items-center">
+                          <div>
+                            <h4 className="font-medium text-md">{ev.title}</h4>
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                              <span className="flex items-center"><Calendar className="mr-1 h-3 w-3" /> {new Date(ev.startDate).toLocaleDateString()}</span>
+                              <span>•</span>
+                              <span className="capitalize">{ev.eventType}</span>
+                            </div>
+                          </div>
+                          <div className="text-sm font-medium text-muted-foreground border px-3 py-1 rounded-full bg-muted/50">
+                            {ev.registrationStatus === 'waitlisted' ? 'Did not attend' : 'Attended'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
+          </TabsContent>
         </Tabs>
       </CardContent>
 
@@ -357,6 +541,27 @@ export const MyActivity = () => {
               onClick={handleDeleteConfirm}
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Registration Confirmation Alert */}
+      <AlertDialog open={!!cancelRegItem} onOpenChange={(open) => !open && setCancelRegItem(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Registration?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel your RSVP? If there is a waitlist, you will lose your spot to the next person in line.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Spot</AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleCancelRegistration}
+            >
+              Cancel RSVP
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

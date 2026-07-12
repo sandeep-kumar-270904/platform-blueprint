@@ -1,12 +1,28 @@
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
-  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  title: { type: String, required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  type: { 
+    type: String, 
+    enum: [
+      'question_answered', 
+      'review_upvoted', 
+      'answer_upvoted', 
+      'review_reported_resolved', 
+      'question_upvoted',
+      'event_approved',
+      'event_rejected',
+      'event_reminder',
+      'event_updated',
+      'event_cancelled',
+      'waitlist_confirmed'
+    ],
+    required: true
+  },
+  relatedCollegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College', default: null },
+  relatedContentId: { type: mongoose.Schema.Types.ObjectId, default: null }, // questionId/reviewId/answerId
   message: { type: String, required: true },
-  type: { type: String, default: 'info' },
-  is_read: { type: Boolean, default: false },
-  link: { type: String, default: null }
-}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+  isRead: { type: Boolean, default: false }
+}, { timestamps: true });
 
 module.exports = mongoose.model('Notification', notificationSchema);

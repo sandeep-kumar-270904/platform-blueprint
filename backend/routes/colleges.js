@@ -3,6 +3,7 @@ const router = express.Router();
 const College = require('../models/College');
 const Review = require('../models/Review');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const CollegeQuestion = require('../models/CollegeQuestion');
 const auth = require('../middleware/auth');
 
@@ -25,7 +26,7 @@ router.get('/compare', async (req, res) => {
     const { ids } = req.query;
     if (!ids) return res.status(400).json({ message: 'No college IDs provided' });
     
-    const idArray = ids.split(',').slice(0, 4); // Max 4
+    const idArray = ids.split(',').slice(0, 20); // Max 20
     const colleges = await College.find({ _id: { $in: idArray } });
     
     res.json(colleges);
@@ -244,7 +245,21 @@ router.get('/:id', async (req, res) => {
 // POST /api/colleges - Any authenticated user add college
 router.post('/', auth, async (req, res) => {
   try {
-    const college = new College(req.body);
+    const { name, location } = req.body;
+    if (name && location) {
+      const existing = await College.findOne({ name, 'location.city': location.city, 'location.state': location.state });
+      if (existing) return res.status(400).json({ message: 'This college already exists in our database.' });
+    }
+    
+    const user = await User.findById(req.user.id);
+    const isAdmin = user && user.role === 'admin';
+    
+    const collegeData = req.body;
+    if (!isAdmin) {
+      collegeData.draft = true;
+    }
+
+    const college = new College(collegeData);
     await college.save();
     res.status(201).json(college);
   } catch (error) {
@@ -277,20 +292,32 @@ router.delete('/:id', auth, isAdmin, async (req, res) => {
 // GET /api/colleges/:id/reviews - Get reviews
 router.get('/:id/reviews', async (req, res) => {
   try {
-    const { page = 1, limit = 5 } = req.query;
+    const { page = 1, limit = 5, sort = 'recent', verifiedFirst = 'false' } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
-    const reviews = await Review.find({ collegeId: req.params.id })
+    let sortObj = {};
+    if (verifiedFirst === 'true') {
+      sortObj.verificationStatus = -1; // 'verified' > 'unverified'
+    }
+    
+    if (sort === 'helpful') sortObj.helpfulVotes = -1;
+    else if (sort === 'highest') sortObj.rating = -1;
+    else if (sort === 'lowest') sortObj.rating = 1;
+    else sortObj.createdAt = -1; // recent
+
+    const query = { collegeId: req.params.id, status: 'public' };
+
+    const reviews = await Review.find(query)
       .populate('userId', 'username full_name avatar_url')
-      .sort({ createdAt: -1 })
+      .sort(sortObj)
       .skip(skip)
       .limit(parseInt(limit));
       
-    const total = await Review.countDocuments({ collegeId: req.params.id });
+    const total = await Review.countDocuments(query);
 
-    // Calculate distribution
+    // Calculate distribution (only public)
     const distribution = await Review.aggregate([
-      { $match: { collegeId: new mongoose.Types.ObjectId(req.params.id) } },
+      { $match: { collegeId: new mongoose.Types.ObjectId(req.params.id), status: 'public' } },
       { $group: { _id: "$rating", count: { $sum: 1 } } }
     ]);
     
@@ -309,6 +336,27 @@ router.get('/:id/reviews', async (req, res) => {
   }
 });
 
+// GET /api/colleges/:id/rating-breakdown
+router.get('/:id/rating-breakdown', async (req, res) => {
+  try {
+    const college = await College.findById(req.params.id);
+    if (!college) return res.status(404).json({ message: 'College not found' });
+    
+    res.json({
+      overall: college.rating,
+      hostel: college.avgHostelRating,
+      labs: college.avgLabsRating,
+      faculty: college.avgFacultyRating,
+      campusLife: college.avgCampusLifeRating,
+      placements: college.avgPlacementsRating,
+      academics: college.avgAcademicsRating,
+      infrastructure: college.avgInfrastructureRating
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching breakdown', error: error.message });
+  }
+});
+
 // POST /api/colleges/:id/reviews - Submit review
 router.post('/:id/reviews', auth, async (req, res) => {
   try {
@@ -319,18 +367,61 @@ router.post('/:id/reviews', auth, async (req, res) => {
     const existing = await Review.findOne({ collegeId: req.params.id, userId: req.user.id });
     if (existing) return res.status(400).json({ message: 'You have already reviewed this college' });
 
+    const user = await User.findById(req.user.id);
+    let verificationStatus = 'unverified';
+    if (college.officialEmailDomain && user && user.email) {
+      const userDomain = user.email.split('@')[1];
+      if (userDomain === college.officialEmailDomain) {
+        verificationStatus = 'verified';
+      }
+    }
+
+    const { categoryRatings } = req.body;
+    let overallRating = req.body.rating;
+    
+    if (categoryRatings) {
+      const cats = ['hostel', 'labs', 'faculty', 'campusLife', 'placements', 'academics', 'infrastructure'];
+      let sum = 0;
+      let count = 0;
+      cats.forEach(c => {
+        if (categoryRatings[c]) {
+          sum += categoryRatings[c];
+          count++;
+        }
+      });
+      if (count > 0) overallRating = Math.round((sum / count) * 10) / 10;
+    }
+
     const review = new Review({
       ...req.body,
+      rating: overallRating,
       collegeId: req.params.id,
-      userId: req.user.id
+      userId: req.user.id,
+      verificationStatus,
+      verificationMethod: verificationStatus === 'verified' ? 'domain_match' : undefined
     });
     await review.save();
 
     // Update college rating
-    college.totalReviews += 1;
-    const allReviews = await Review.find({ collegeId: req.params.id });
-    const avg = allReviews.reduce((sum, r) => sum + r.rating, 0) / college.totalReviews;
-    college.rating = Math.round(avg * 10) / 10;
+    const allReviews = await Review.find({ collegeId: req.params.id, status: 'public' });
+    college.totalReviews = allReviews.length;
+    
+    if (college.totalReviews > 0) {
+      college.rating = Math.round((allReviews.reduce((sum, r) => sum + r.rating, 0) / college.totalReviews) * 10) / 10;
+      const cats = ['hostel', 'labs', 'faculty', 'campusLife', 'placements', 'academics', 'infrastructure'];
+      cats.forEach(cat => {
+        let catSum = 0;
+        let catCount = 0;
+        allReviews.forEach(r => {
+          if (r.categoryRatings && r.categoryRatings[cat]) {
+            catSum += r.categoryRatings[cat];
+            catCount++;
+          }
+        });
+        college[`avg${cat.charAt(0).toUpperCase() + cat.slice(1)}Rating`] = catCount > 0 ? Math.round((catSum / catCount) * 10) / 10 : 0;
+      });
+    }
+    
     await college.save();
 
     res.status(201).json(review);
@@ -379,6 +470,18 @@ router.post('/:id/reviews/:reviewId/helpful', auth, async (req, res) => {
     
     review.helpfulVotes += 1;
     await review.save();
+    
+    // Trigger notification if not upvoting own review
+    if (review.userId.toString() !== req.user.id) {
+      const upvoter = await User.findById(req.user.id);
+      await Notification.create({
+        userId: review.userId,
+        type: 'review_upvoted',
+        relatedCollegeId: req.params.id,
+        relatedContentId: review._id,
+        message: `${upvoter?.username || 'Someone'} found your review helpful.`
+      });
+    }
     
     res.json({ helpfulVotes: review.helpfulVotes });
   } catch (error) {

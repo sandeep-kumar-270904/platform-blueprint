@@ -12,6 +12,7 @@ import {
 import { GraduationCap, Menu, X, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 const navigationGroups = [
   {
@@ -164,12 +165,15 @@ export const Header = () => {
         {/* Right Side Actions */}
         <div className="flex-1 flex items-center justify-end gap-3 min-w-max">
           {user && (
-            <Link to="/dashboard">
-              <Button className="btn-secondary hidden md:inline-flex">
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </Button>
-            </Link>
+            <>
+              <NotificationBell />
+              <Link to="/dashboard">
+                <Button className="btn-secondary hidden md:inline-flex">
+                  <LayoutDashboard className="h-4 w-4" />
+                  Dashboard
+                </Button>
+              </Link>
+            </>
           )}
           
           {/* Mobile Menu Button */}

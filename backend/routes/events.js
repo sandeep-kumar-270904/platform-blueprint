@@ -1,21 +1,69 @@
 const express = require('express');
 const router = express.Router();
 const Event = require('../models/Event');
-const EventAttendance = require('../models/EventAttendance');
+const EventRegistration = require('../models/EventRegistration');
 const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
 
 // GET /api/events
 router.get('/', async (req, res) => {
   try {
-    const { type } = req.query;
-    let query = { status: 'published' };
+    const { type, status, filter, search, sort } = req.query;
+    
+    // Default to approved public events
+    let query = { status: status || 'approved' };
+    
     if (type && type !== 'all') {
-      query.type = type;
+      query.eventType = type;
     }
-
-    const events = await Event.find(query).sort({ starts_at: 1 });
+    
+    if (search) {
+      query.title = { $regex: search, $options: 'i' };
+    }
+    
+    if (filter === 'upcoming') {
+      query.startDate = { $gte: new Date() };
+    } else if (filter === 'past') {
+      query.startDate = { $lt: new Date() };
+    } else if (filter === 'this_week') {
+      const now = new Date();
+      const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      query.startDate = { $gte: now, $lte: in7Days };
+    }
+    
+    if (req.query.month) {
+      // e.g. 2026-07
+      const [year, month] = req.query.month.split('-');
+      const startOfMonth = new Date(parseInt(year), parseInt(month) - 1, 1);
+      const endOfMonth = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      query.startDate = { $gte: startOfMonth, $lte: endOfMonth };
+    }
+    
+    let sortObj = { startDate: 1 };
+    if (sort === 'newest') sortObj = { createdAt: -1 };
+    if (sort === 'oldest') sortObj = { createdAt: 1 };
+    if (sort === 'date_desc') sortObj = { startDate: -1 };
+    
+    const events = await Event.find(query).sort(sortObj).populate('hostedBy', 'username full_name avatar_url');
     res.json(events);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/events/:id
+router.get('/:id', async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id).populate('hostedBy', 'username full_name avatar_url');
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+    
+    const registrationCount = await EventRegistration.countDocuments({ eventId: event._id, status: { $in: ['registered', 'waitlisted'] } });
+    
+    // Return event with registration count attached
+    const eventObj = event.toObject();
+    eventObj.registrationCount = registrationCount;
+    
+    res.json(eventObj);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -24,24 +72,123 @@ router.get('/', async (req, res) => {
 // POST /api/events
 router.post('/', authMiddleware, async (req, res) => {
   try {
+    const { startDate, endDate, capacity, title, description, eventType, startTime, endTime, venue, hostName } = req.body;
+    
+    if (!title || !description || !eventType || !startDate || !endDate || !startTime || !endTime || !venue || !hostName) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+    
+    if (new Date(startDate) < new Date(new Date().setHours(0,0,0,0))) {
+      return res.status(400).json({ message: 'Start date cannot be in the past' });
+    }
+    if (new Date(endDate) < new Date(startDate)) {
+      return res.status(400).json({ message: 'End date must be after or equal to start date' });
+    }
+    if (capacity !== undefined && capacity !== null && capacity <= 0) {
+      return res.status(400).json({ message: 'Capacity must be positive' });
+    }
+    
     const newEvent = new Event({
-      organizer_id: req.user.id,
-      title: req.body.title,
-      description: req.body.description,
-      type: req.body.type,
-      mode: req.body.mode,
-      venue: req.body.venue,
-      starts_at: req.body.starts_at,
-      ends_at: req.body.ends_at,
-      registration_deadline: req.body.registration_deadline,
-      capacity: req.body.capacity,
-      prize: req.body.prize,
-      tags: req.body.tags || []
+      ...req.body,
+      hostedBy: req.user.id,
+      status: 'pending_approval'
     });
-
+    
     const savedEvent = await newEvent.save();
-    req.io.emit('event_created', savedEvent);
     res.status(201).json(savedEvent);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PUT /api/events/:id
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+    
+    const user = await User.findById(req.user.id);
+    const isAdmin = user && user.role === 'admin';
+    
+    if (event.hostedBy.toString() !== req.user.id && !isAdmin) {
+      return res.status(403).json({ message: 'Unauthorized to edit this event' });
+    }
+    
+    const { startDate, endDate, capacity, title, venue } = req.body;
+    
+    if (startDate && new Date(startDate) < new Date(new Date().setHours(0,0,0,0)) && new Date(startDate).getTime() !== event.startDate.getTime()) {
+      return res.status(400).json({ message: 'Start date cannot be in the past' });
+    }
+    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+      return res.status(400).json({ message: 'End date must be after or equal to start date' });
+    }
+    if (capacity !== undefined && capacity !== null && capacity <= 0) {
+      return res.status(400).json({ message: 'Capacity must be positive' });
+    }
+    
+    // Check if significant fields changed
+    const needsReapproval = (
+      (title && title !== event.title) ||
+      (startDate && new Date(startDate).getTime() !== event.startDate.getTime()) ||
+      (venue && venue !== event.venue)
+    );
+    
+    Object.assign(event, req.body);
+    
+    if (needsReapproval && event.status === 'approved' && !isAdmin) {
+      event.status = 'pending_approval';
+    }
+    
+    await event.save();
+    
+    // Notify attendees if crucial details changed
+    if (needsReapproval) {
+      const Notification = require('../models/Notification');
+      const attendees = await EventRegistration.find({ eventId: event._id, status: { $in: ['registered', 'waitlisted'] } });
+      for (const attendee of attendees) {
+        await Notification.create({
+          userId: attendee.userId,
+          type: 'event_updated',
+          relatedContentId: event._id,
+          message: `The event "${event.title}" has been updated (Date/Time/Venue changed).`
+        });
+      }
+    }
+    
+    res.json(event);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// DELETE /api/events/:id
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+    
+    const user = await User.findById(req.user.id);
+    if (event.hostedBy.toString() !== req.user.id && (!user || user.role !== 'admin')) {
+      return res.status(403).json({ message: 'Unauthorized to delete this event' });
+    }
+    
+    await Event.findByIdAndDelete(req.params.id);
+    
+    // Notify attendees before cleaning up registrations
+    const Notification = require('../models/Notification');
+    const attendees = await EventRegistration.find({ eventId: event._id, status: { $in: ['registered', 'waitlisted'] } });
+    for (const attendee of attendees) {
+      await Notification.create({
+        userId: attendee.userId,
+        type: 'event_cancelled',
+        message: `The event "${event.title}" has been cancelled by the host.`
+      });
+    }
+    
+    // Cleanup registrations
+    await EventRegistration.deleteMany({ eventId: req.params.id });
+    
+    res.json({ message: 'Event deleted' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -50,19 +197,36 @@ router.post('/', authMiddleware, async (req, res) => {
 // POST /api/events/:id/register
 router.post('/:id/register', authMiddleware, async (req, res) => {
   try {
-    const eventId = req.params.id;
-    const userId = req.user.id;
-
-    const event = await Event.findById(eventId);
-    if (!event) return res.status(404).json({ message: 'Not found' });
-
-    if (!event.registered_users.includes(userId)) {
-      event.registered_users.push(userId);
-      await event.save();
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+    if (event.status !== 'approved') return res.status(400).json({ message: 'Event is not open for registration' });
+    
+    if (event.registrationDeadline && new Date() > new Date(event.registrationDeadline)) {
+      return res.status(400).json({ message: 'Registration deadline has passed' });
     }
-
-    req.io.emit('event_updated', eventId);
-    res.json({ message: 'Registered successfully' });
+    
+    const existingReg = await EventRegistration.findOne({ eventId: event._id, userId: req.user.id });
+    if (existingReg) {
+      return res.status(400).json({ message: 'Already registered' });
+    }
+    
+    const count = await EventRegistration.countDocuments({ eventId: event._id, status: 'registered' });
+    
+    let status = 'registered';
+    if (event.capacity && count >= event.capacity) {
+      status = 'waitlisted';
+    }
+    
+    const reg = new EventRegistration({
+      eventId: event._id,
+      userId: req.user.id,
+      status,
+      teamName: req.body.teamName || null,
+      teamMembers: req.body.teamMembers || []
+    });
+    
+    await reg.save();
+    res.json({ message: 'Registration successful', status });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -71,74 +235,51 @@ router.post('/:id/register', authMiddleware, async (req, res) => {
 // DELETE /api/events/:id/register
 router.delete('/:id/register', authMiddleware, async (req, res) => {
   try {
-    const eventId = req.params.id;
-    const userId = req.user.id;
-
-    const event = await Event.findById(eventId);
-    if (!event) return res.status(404).json({ message: 'Not found' });
-
-    event.registered_users = event.registered_users.filter(id => id.toString() !== userId.toString());
-    await event.save();
-
-    req.io.emit('event_updated', eventId);
+    const reg = await EventRegistration.findOneAndDelete({ eventId: req.params.id, userId: req.user.id });
+    if (!reg) return res.status(404).json({ message: 'Registration not found' });
+    
+    // If they were 'registered', promote a waitlisted user
+    if (reg.status === 'registered') {
+      const nextWaitlisted = await EventRegistration.findOne({ eventId: req.params.id, status: 'waitlisted' }).sort({ registeredAt: 1 });
+      if (nextWaitlisted) {
+        nextWaitlisted.status = 'registered';
+        await nextWaitlisted.save();
+        
+        const Event = require('../models/Event');
+        const Notification = require('../models/Notification');
+        const event = await Event.findById(req.params.id);
+        
+        await Notification.create({
+          userId: nextWaitlisted.userId,
+          type: 'waitlist_confirmed',
+          relatedContentId: event._id,
+          message: `Good news! A spot opened up for "${event.title}" and you are now officially registered.`
+        });
+      }
+    }
+    
     res.json({ message: 'Registration cancelled' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-// GET /api/events/registrations/me
-router.get('/registrations/me', authMiddleware, async (req, res) => {
+// GET /api/events/:id/attendees
+router.get('/:id/attendees', authMiddleware, async (req, res) => {
   try {
-    const events = await Event.find({ registered_users: req.user.id }).select('_id');
-    res.json(events.map(e => ({ event_id: e._id })));
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// GET /api/events/:id/attendance
-router.get('/:id/attendance', async (req, res) => {
-  try {
-    const attendance = await EventAttendance.find({ event_id: req.params.id }).lean();
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
     
-    const userIds = [...new Set(attendance.map(a => a.user_id.toString()))];
-    const users = await User.find({ _id: { $in: userIds } }, 'full_name username').lean();
-    
-    // We return both rows and profiles to easily map in frontend
-    res.json({ rows: attendance, profiles: users });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// POST /api/events/:id/check-in
-router.post('/:id/check-in', authMiddleware, async (req, res) => {
-  try {
-    const eventId = req.params.id;
-    const targetUserId = req.body.user_id || req.user.id;
-    
-    const checkIn = new EventAttendance({
-      event_id: eventId,
-      user_id: targetUserId
-    });
-    await checkIn.save();
-    
-    req.io.emit('event_attendance_updated', eventId);
-    res.json(checkIn);
-  } catch (err) {
-    if (err.code === 11000) {
-      return res.status(400).json({ message: 'Already checked in' });
+    const user = await User.findById(req.user.id);
+    if (event.hostedBy.toString() !== req.user.id && (!user || user.role !== 'admin')) {
+      return res.status(403).json({ message: 'Unauthorized to view attendees' });
     }
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// GET /api/events/attendance/me
-router.get('/attendance/me', authMiddleware, async (req, res) => {
-  try {
-    const count = await EventAttendance.countDocuments({ user_id: req.user.id });
-    res.json({ count });
+    
+    const attendees = await EventRegistration.find({ eventId: event._id })
+      .populate('userId', 'username full_name email avatar_url')
+      .sort({ registeredAt: 1 });
+      
+    res.json(attendees);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

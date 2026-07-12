@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { useAdmin } from "@/hooks/useAdmin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import {
   Users, FileText, AlertTriangle, Shield, Trash2, XCircle,
-  RefreshCw, Search, Star, Flag, MessageSquare, BarChart3,
+  RefreshCw, Search, Star, Flag, MessageSquare, BarChart3, Calendar, Check, X
 } from "lucide-react";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 
@@ -33,6 +33,54 @@ const AdminPanel = () => {
   const [noteSearch, setNoteSearch] = useState("");
   const [commentSearch, setCommentSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string; title: string } | null>(null);
+
+  const [pendingEvents, setPendingEvents] = useState<any[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+
+  const fetchPendingEvents = async () => {
+    try {
+      setEventsLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/events/pending`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingEvents(data.events);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setEventsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin && activeTab === "events") {
+      fetchPendingEvents();
+    }
+  }, [isAdmin, activeTab]);
+
+  const handleEventAction = async (id: string, action: 'approve' | 'reject') => {
+    try {
+      const token = localStorage.getItem('token');
+      let reason = "";
+      if (action === 'reject') {
+        reason = prompt("Reason for rejection:") || "";
+        if (!reason) return;
+      }
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/events/${id}/${action}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      if (res.ok) {
+        fetchPendingEvents();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   if (loading) {
     return (
@@ -126,6 +174,10 @@ const AdminPanel = () => {
               {pendingReports.length > 0 && <Badge variant="destructive" className="ml-1.5 text-xs px-1.5">{pendingReports.length}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="users"><Users className="mr-1.5 h-3.5 w-3.5" />Users ({users.length})</TabsTrigger>
+            <TabsTrigger value="events">
+              <Calendar className="mr-1.5 h-3.5 w-3.5" />Events
+              {pendingEvents.length > 0 && <Badge variant="secondary" className="ml-1.5 text-xs px-1.5">{pendingEvents.length}</Badge>}
+            </TabsTrigger>
           </TabsList>
 
           {/* OVERVIEW */}
@@ -425,6 +477,47 @@ const AdminPanel = () => {
                   ))}
                 </TableBody>
               </Table>
+            </Card>
+          </TabsContent>
+
+          {/* EVENTS TAB */}
+          <TabsContent value="events">
+            <Card>
+              <CardHeader><CardTitle>Pending Events</CardTitle></CardHeader>
+              <CardContent>
+                {eventsLoading ? (
+                  <div className="flex justify-center p-8"><RefreshCw className="animate-spin text-muted-foreground" /></div>
+                ) : pendingEvents.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No pending events</p>
+                ) : (
+                  <div className="space-y-4">
+                    {pendingEvents.map((ev) => (
+                      <div key={ev._id} className="p-4 border rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge className="capitalize">{ev.eventType}</Badge>
+                            <span className="font-semibold text-lg">{ev.title}</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">{ev.description}</p>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span>Host: {ev.hostName}</span>
+                            <span>Date: {new Date(ev.startDate).toLocaleDateString()}</span>
+                            <span>Venue: {ev.isVirtual ? 'Virtual' : ev.venue}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10" onClick={() => handleEventAction(ev._id, 'reject')}>
+                            <X className="mr-1 h-4 w-4" /> Reject
+                          </Button>
+                          <Button size="sm" variant="success" onClick={() => handleEventAction(ev._id, 'approve')}>
+                            <Check className="mr-1 h-4 w-4" /> Approve
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
             </Card>
           </TabsContent>
         </Tabs>

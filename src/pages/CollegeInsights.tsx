@@ -28,6 +28,7 @@ import { useAuth } from "@/hooks/useAuth";
 const CollegeInsights = () => {
   const { user } = useAuth();
   const [colleges, setColleges] = useState<any[]>([]);
+  const [totalColleges, setTotalColleges] = useState(0);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -67,6 +68,7 @@ const CollegeInsights = () => {
       } else {
         setColleges(data.colleges);
       }
+      setTotalColleges(data.total || data.colleges.length);
       setHasMore(pageNum < data.pages);
     } catch (error) {
       console.error("Failed to fetch colleges:", error);
@@ -106,7 +108,10 @@ const CollegeInsights = () => {
       if (exists) {
         newList = prev.filter(c => c._id !== college._id);
       } else {
-        if (prev.length >= 4) return prev;
+        if (prev.length >= 20) {
+          import("sonner").then(({ toast }) => toast.error("Maximum 20 colleges allowed for comparison"));
+          return prev;
+        }
         newList = [...prev, college];
       }
       sessionStorage.setItem("compareList", JSON.stringify(newList));
@@ -332,14 +337,14 @@ const CollegeInsights = () => {
                       onOpenChange={setAiModalOpen} 
                       onSuccess={(data) => setAiResults(data)} 
                     />
-                    {user?.role === "admin" && (
+                    {user?.role === 'admin' && (
                       <AddCollegeDialog onSuccess={() => { loadColleges(1); setPage(1); }} />
                     )}
                   </div>
                 </div>
 
                 <div className="text-sm font-medium text-muted-foreground">
-                  {!loading && `Showing ${colleges.length} college${colleges.length !== 1 ? 's' : ''}`}
+                  {!loading && `Showing ${colleges.length} of ${totalColleges} college${totalColleges !== 1 ? 's' : ''}`}
                 </div>
               </div>
             </ScrollReveal>
@@ -386,7 +391,7 @@ const CollegeInsights = () => {
                 <p className="text-muted-foreground mb-6">Try adjusting your search or filters, or check back later.</p>
                 <div className="flex justify-center gap-4">
                   {hasActiveFilters && <Button onClick={clearFilters}>Clear All Filters</Button>}
-                  {user?.role === "admin" && (
+                  {user?.role === 'admin' && (
                     <AddCollegeDialog onSuccess={() => { loadColleges(1); setPage(1); }} />
                   )}
                 </div>

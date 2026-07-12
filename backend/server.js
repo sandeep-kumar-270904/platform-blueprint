@@ -9,7 +9,54 @@ const rateLimit = require('express-rate-limit');
 dotenv.config();
 
 // Connect to MongoDB
-connectDB();
+connectDB().then(async () => {
+  try {
+    const Event = require('./models/Event');
+    const count = await Event.countDocuments();
+    if (count === 0) {
+      const seedEvents = require('./seedEvents');
+      await seedEvents();
+    }
+
+    // --- 24-Hour Event Reminder Cron Job ---
+    // Runs every hour (3600000 ms)
+    setInterval(async () => {
+      try {
+        const EventRegistration = require('./models/EventRegistration');
+        const Notification = require('./models/Notification');
+        
+        const now = new Date();
+        const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const in25Hours = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+
+        // Find events starting between 24 and 25 hours from now that haven't been reminded
+        const events = await Event.find({
+          startDate: { $gte: in24Hours, $lt: in25Hours },
+          reminded24h: false,
+          status: 'approved'
+        });
+
+        for (const event of events) {
+          const attendees = await EventRegistration.find({ eventId: event._id, status: 'registered' });
+          for (const attendee of attendees) {
+            await Notification.create({
+              userId: attendee.userId,
+              type: 'event_reminder',
+              relatedContentId: event._id,
+              message: `Reminder: The event "${event.title}" is starting in 24 hours!`
+            });
+          }
+          event.reminded24h = true;
+          await event.save();
+        }
+      } catch (err) {
+        console.error('Error in 24h event reminder cron:', err);
+      }
+    }, 60 * 60 * 1000); // Check every hour
+  } catch (err) {
+    console.error('Seed events error:', err);
+  }
+});
 
 const http = require('http');
 const { Server } = require('socket.io');
@@ -107,6 +154,7 @@ app.use('/api/ai', require('./routes/ai'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/study-sessions', require('./routes/studySessions'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

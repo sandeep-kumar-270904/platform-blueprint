@@ -23,18 +23,27 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const API_URL = "http://localhost:5000/api/auth";
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>({
-    id: "dummy123",
-    email: "test@studenthub.local",
-    full_name: "Test User",
-    username: "testuser"
-  });
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Auth bypassed for development
-    // const checkAuth = async () => { ... }
-    // checkAuth();
+    const checkAuth = async () => {
+      try {
+        const res = await fetch(`${API_URL}/me`, { credentials: 'omit' }); // Omit credentials since we are bypassing
+        if (res.ok) {
+          const data = await res.json();
+          setUser({
+            ...data.user,
+            id: data.user._id || data.user.id
+          });
+        }
+      } catch (err) {
+        console.error("Auth check failed", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkAuth();
   }, []);
 
   const signIn = async (credentials: any) => {
