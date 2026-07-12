@@ -3,8 +3,10 @@ const router = express.Router();
 const CollegeQuestion = require('../models/CollegeQuestion');
 const CollegeAnswer = require('../models/CollegeAnswer');
 const User = require('../models/User');
-const Notification = require('../models/Notification');
+const Report = require('../models/Report');
+const notificationService = require('../services/notificationService');
 const auth = require('../middleware/auth');
+const { qaPostLimiter, voteLimiter } = require('../middleware/rateLimiter');
 
 // GET /api/college-qa/questions/:id/answers
 router.get('/questions/:id/answers', async (req, res) => {
@@ -19,7 +21,7 @@ router.get('/questions/:id/answers', async (req, res) => {
 });
 
 // POST /api/college-qa/questions/:id/answers
-router.post('/questions/:id/answers', auth, async (req, res) => {
+router.post('/questions/:id/answers', auth, qaPostLimiter, async (req, res) => {
   try {
     const { answerText } = req.body;
     if (!answerText) return res.status(400).json({ message: 'Answer text is required' });
@@ -56,7 +58,7 @@ router.post('/questions/:id/answers', auth, async (req, res) => {
 
     // Trigger Notification for the question asker
     if (question.askedBy.toString() !== req.user.id) {
-      await Notification.create({
+      await notificationService.createNotification({
         userId: question.askedBy,
         type: 'question_answered',
         relatedCollegeId: question.collegeId,
@@ -72,7 +74,7 @@ router.post('/questions/:id/answers', auth, async (req, res) => {
 });
 
 // POST /api/college-qa/questions/:id/upvote
-router.post('/questions/:id/upvote', auth, async (req, res) => {
+router.post('/questions/:id/upvote', auth, voteLimiter, async (req, res) => {
   try {
     const question = await CollegeQuestion.findById(req.params.id);
     if (!question) return res.status(404).json({ message: 'Question not found' });
@@ -90,7 +92,7 @@ router.post('/questions/:id/upvote', auth, async (req, res) => {
       // Trigger Notification for the question asker
       if (question.askedBy.toString() !== userId) {
         const user = await User.findById(userId);
-        await Notification.create({
+        await notificationService.createNotification({
           userId: question.askedBy,
           type: 'question_upvoted',
           relatedCollegeId: question.collegeId,
@@ -107,8 +109,28 @@ router.post('/questions/:id/upvote', auth, async (req, res) => {
   }
 });
 
+// POST /api/college-qa/questions/:id/report
+router.post('/questions/:id/report', auth, async (req, res) => {
+  try {
+    const questionId = req.params.id;
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ message: 'Reason is required' });
+
+    const report = new Report({
+      content_type: 'college_question',
+      content_id: questionId,
+      reported_by: req.user.id,
+      reason
+    });
+    await report.save();
+    res.json({ message: 'Question reported successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // POST /api/college-qa/answers/:id/upvote
-router.post('/answers/:id/upvote', auth, async (req, res) => {
+router.post('/answers/:id/upvote', auth, voteLimiter, async (req, res) => {
   try {
     const answer = await CollegeAnswer.findById(req.params.id);
     if (!answer) return res.status(404).json({ message: 'Answer not found' });
@@ -126,7 +148,7 @@ router.post('/answers/:id/upvote', auth, async (req, res) => {
       // Trigger Notification for the answer author
       if (answer.answeredBy.toString() !== userId) {
         const user = await User.findById(userId);
-        await Notification.create({
+        await notificationService.createNotification({
           userId: answer.answeredBy,
           type: 'answer_upvoted',
           relatedCollegeId: null,
@@ -140,6 +162,26 @@ router.post('/answers/:id/upvote', auth, async (req, res) => {
     res.json({ upvotes: answer.upvotes, isUpvoted: !isUpvoted });
   } catch (error) {
     res.status(500).json({ message: 'Error upvoting answer', error: error.message });
+  }
+});
+
+// POST /api/college-qa/answers/:id/report
+router.post('/answers/:id/report', auth, async (req, res) => {
+  try {
+    const answerId = req.params.id;
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ message: 'Reason is required' });
+
+    const report = new Report({
+      content_type: 'college_answer',
+      content_id: answerId,
+      reported_by: req.user.id,
+      reason
+    });
+    await report.save();
+    res.json({ message: 'Answer reported successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 

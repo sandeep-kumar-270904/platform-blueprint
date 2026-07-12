@@ -55,6 +55,8 @@ import Repair from "./pages/Repair";
 import Shopping from "./pages/Shopping";
 import FoundersPassport from "./pages/FoundersPassport";
 import InviteAccept from "./pages/InviteAccept";
+import Search from "./pages/Search";
+import EventDetail from "./pages/EventDetail";
 import { AuthProvider } from "./hooks/useAuth";
 
 const queryClient = new QueryClient();
@@ -70,10 +72,10 @@ const App = () => (
           {/* Public Routes */}
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/amas" element={<Amas />} />
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
+          <Route path="/search" element={<Search />} />
           
           {/* Protected Routes */}
           <Route path="/notes" element={<ProtectedRoute><NotesHub /></ProtectedRoute>} />

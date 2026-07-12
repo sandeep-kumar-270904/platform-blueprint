@@ -68,7 +68,7 @@ export const fetchCards = async (deckId: string): Promise<Flashcard[]> => {
   try {
     const res = await fetch(`${API_URL}/api/flashcards/decks/${deckId}/cards`);
     if (res.ok) {
-      let data = await res.json();
+      const data = await res.json();
       return data.map((c: any) => ({ ...c, id: c._id }));
     }
     return [];

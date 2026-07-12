@@ -15,7 +15,8 @@ const notificationSchema = new mongoose.Schema({
       'event_reminder',
       'event_updated',
       'event_cancelled',
-      'waitlist_confirmed'
+      'waitlist_confirmed',
+      'event_feedback_request'
     ],
     required: true
   },

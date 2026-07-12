@@ -3,7 +3,9 @@ const router = express.Router();
 const QAQuestion = require('../models/QAQuestion');
 const QAAnswer = require('../models/QAAnswer');
 const User = require('../models/User'); // Required to populate user details
+const Report = require('../models/Report');
 const authMiddleware = require('../middleware/auth');
+const { qaPostLimiter, voteLimiter } = require('../middleware/rateLimiter');
 
 // GET /api/qa/questions
 router.get('/questions', async (req, res) => {
@@ -30,7 +32,7 @@ router.get('/questions', async (req, res) => {
 });
 
 // POST /api/qa/questions
-router.post('/questions', authMiddleware, async (req, res) => {
+router.post('/questions', authMiddleware, qaPostLimiter, async (req, res) => {
   try {
     const newQuestion = new QAQuestion({
       user_id: req.user.id,
@@ -51,7 +53,7 @@ router.post('/questions', authMiddleware, async (req, res) => {
 });
 
 // POST /api/qa/questions/:id/vote
-router.post('/questions/:id/vote', authMiddleware, async (req, res) => {
+router.post('/questions/:id/vote', authMiddleware, voteLimiter, async (req, res) => {
   try {
     const questionId = req.params.id;
     const userId = req.user.id;
@@ -76,6 +78,26 @@ router.post('/questions/:id/vote', authMiddleware, async (req, res) => {
     req.io.emit('qa_question_updated', questionId);
 
     res.json({ message: isUpvoted ? 'Downvoted' : 'Upvoted' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/qa/questions/:id/report
+router.post('/questions/:id/report', authMiddleware, async (req, res) => {
+  try {
+    const questionId = req.params.id;
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ message: 'Reason is required' });
+
+    const report = new Report({
+      content_type: 'qa_question',
+      content_id: questionId,
+      reported_by: req.user.id,
+      reason
+    });
+    await report.save();
+    res.json({ message: 'Question reported successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -113,7 +135,7 @@ router.get('/questions/:id/answers', async (req, res) => {
 });
 
 // POST /api/qa/questions/:id/answers
-router.post('/questions/:id/answers', authMiddleware, async (req, res) => {
+router.post('/questions/:id/answers', authMiddleware, qaPostLimiter, async (req, res) => {
   try {
     const questionId = req.params.id;
     
@@ -138,7 +160,7 @@ router.post('/questions/:id/answers', authMiddleware, async (req, res) => {
 });
 
 // POST /api/qa/answers/:id/vote
-router.post('/answers/:id/vote', authMiddleware, async (req, res) => {
+router.post('/answers/:id/vote', authMiddleware, voteLimiter, async (req, res) => {
   try {
     const answerId = req.params.id;
     const userId = req.user.id;
@@ -163,6 +185,26 @@ router.post('/answers/:id/vote', authMiddleware, async (req, res) => {
     req.io.to(`qa_question_${answer.question_id}`).emit('qa_answer_updated', answerId);
 
     res.json({ message: isUpvoted ? 'Downvoted' : 'Upvoted' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/qa/answers/:id/report
+router.post('/answers/:id/report', authMiddleware, async (req, res) => {
+  try {
+    const answerId = req.params.id;
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ message: 'Reason is required' });
+
+    const report = new Report({
+      content_type: 'qa_answer',
+      content_id: answerId,
+      reported_by: req.user.id,
+      reason
+    });
+    await report.save();
+    res.json({ message: 'Answer reported successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

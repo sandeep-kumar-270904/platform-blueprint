@@ -138,4 +138,30 @@ router.get('/:id/profile', async (req, res) => {
   }
 });
 
+// GET /api/users/me/notification-preferences
+router.get('/me/notification-preferences', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('notificationPreferences');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user.notificationPreferences || {});
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/users/me/notification-preferences
+router.put('/me/notification-preferences', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    user.notificationPreferences = { ...user.notificationPreferences, ...req.body };
+    await user.save();
+    
+    res.json(user.notificationPreferences);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

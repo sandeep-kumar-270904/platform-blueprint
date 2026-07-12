@@ -32,8 +32,9 @@ import { LearningProgress } from "@/components/dashboard/LearningProgress";
 import { SecuritySettings } from "@/components/dashboard/SecuritySettings";
 import { SavedColleges } from "@/components/dashboard/SavedColleges";
 import { MyActivity } from "@/components/dashboard/MyActivity";
+import { NotificationSettings } from "@/components/dashboard/NotificationSettings";
 
-type Section = "overview" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "live" | "analytics" | "profile" | "security" | "links" | "saved-colleges" | "activity";
+type Section = "overview" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "notification-settings" | "live" | "analytics" | "profile" | "security" | "links" | "saved-colleges" | "activity";
 
 const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -43,10 +44,11 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "teams", label: "My Teams", icon: Users },
   { id: "progress", label: "Learning Progress", icon: TrendingUp },
   { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "notification-settings", label: "Notification Settings", icon: Bell },
   { id: "live", label: "Live Activity", icon: Radio },
   { id: "analytics", label: "Host Analytics", icon: BarChart2 },
   { id: "saved-colleges", label: "Saved Colleges", icon: Building2 },
-  { id: "activity", label: "My Activity", icon: Star },
+  { id: "activity", label: "Activity & Events", icon: Star },
   { id: "profile", label: "Profile", icon: User },
   { id: "security", label: "Security", icon: Lock },
   { id: "links", label: "Quick Links", icon: ArrowRight },
@@ -118,7 +120,7 @@ const Dashboard = () => {
       case "overview":
         return (
           <div className="space-y-6">
-            <DashboardOverview stats={stats} />
+            <DashboardOverview stats={stats} setActiveSection={setActiveSection} />
             <div className="grid gap-6 lg:grid-cols-3">
               <ScrollReveal delay={0.1}>
                 <MyIdeas userId={user.id} />
@@ -205,6 +207,8 @@ const Dashboard = () => {
         return <LearningProgress />;
       case "notifications":
         return <NotificationsPanel userId={user.id} />;
+      case "notification-settings":
+        return <NotificationSettings />;
       case "live":
         return <LiveActivity />;
       case "analytics":

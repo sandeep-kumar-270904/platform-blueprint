@@ -89,7 +89,7 @@ export default function HostDashboard() {
 
     // Generate N instances
     const newSessions = [];
-    let currentDate = new Date(bulkConfig.startDate);
+    const currentDate = new Date(bulkConfig.startDate);
     
     for (let i = 0; i < bulkConfig.instances; i++) {
       newSessions.push({

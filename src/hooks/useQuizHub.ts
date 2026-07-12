@@ -72,7 +72,7 @@ export const fetchQuizQuestions = async (quizId: string): Promise<QuizQuestion[]
   try {
     const res = await fetch(`${API_URL}/api/quizzes/${quizId}/questions`);
     if (res.ok) {
-      let data = await res.json();
+      const data = await res.json();
       return data.map((q: any) => ({ ...q, id: q._id }));
     }
     return [];
