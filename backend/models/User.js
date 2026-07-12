@@ -77,6 +77,16 @@ const UserSchema = new mongoose.Schema({
   deletedAt: {
     type: Date,
     default: null
+  },
+  notificationPreferences: {
+    question_answered: { type: Boolean, default: true },
+    review_upvoted: { type: Boolean, default: true },
+    answer_upvoted: { type: Boolean, default: true },
+    event_reminder: { type: Boolean, default: true },
+    event_approved: { type: Boolean, default: true },
+    event_rejected: { type: Boolean, default: true },
+    event_cancelled_or_changed: { type: Boolean, default: true },
+    waitlist_promoted: { type: Boolean, default: true }
   }
 });
 

@@ -22,8 +22,15 @@ const eventSchema = new mongoose.Schema({
   endTime: { type: String, required: true },   // e.g. "17:00"
   
   isVirtual: { type: Boolean, default: false },
-  venue: { type: String, required: true }, // or meeting link if virtual
+  venue: { type: String, required: false }, // empty if virtual
   
+  hostCollegeId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'College', 
+    required: false,
+    default: null
+  },
+
   hostedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   hostName: { type: String, required: true }, // e.g. "Computer Science Club"
   
@@ -52,6 +59,9 @@ const eventSchema = new mongoose.Schema({
   rejectionReason: { type: String, default: null }, // Added previously possibly but we should make sure it exists, wait, it didn't exist in the file but let's add it if missing. Oh wait, it wasn't in the schema above? Wait, in the previous conversation I did add rejectionReason. I'll add reminded24h and rejectionReason if missing. 
   
   reminded24h: { type: Boolean, default: false },
+  
+  avgRating: { type: Number, default: 0 },
+  totalFeedbackCount: { type: Number, default: 0 },
   
 }, { timestamps: true });
 

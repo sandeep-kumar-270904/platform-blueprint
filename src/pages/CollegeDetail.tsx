@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import { 
   MapPin, Star, DollarSign, TrendingUp, Users, Award, 
-  ExternalLink, Heart, Scale, Building2, BookOpen, GraduationCap, ArrowLeft, ThumbsUp, Flag, CheckCircle, ShieldCheck
+  ExternalLink, Heart, Scale, Building2, BookOpen, GraduationCap, ArrowLeft, ThumbsUp, Flag, CheckCircle, ShieldCheck, Calendar, Trophy
 } from "lucide-react";
 import { useColleges } from "@/hooks/useColleges";
 import { ReviewFormDialog } from "@/components/colleges/ReviewFormDialog";
@@ -41,6 +41,9 @@ const CollegeDetail = () => {
   const [reportReason, setReportReason] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
 
+  const [collegeEvents, setCollegeEvents] = useState<any>({ upcoming: [], past: [] });
+  const [loadingEvents, setLoadingEvents] = useState(false);
+
   useEffect(() => {
     if (!id) return;
     
@@ -65,6 +68,21 @@ const CollegeDetail = () => {
             }).catch(e => console.error("Error tracking view", e));
           }
         }
+        
+        // Fetch college events
+        setLoadingEvents(true);
+        try {
+          const eventsRes = await fetch(`${API_URL}/api/colleges/${id}/events`);
+          if (eventsRes.ok) {
+            const eventsData = await eventsRes.json();
+            setCollegeEvents(eventsData);
+          }
+        } catch (e) {
+          console.error("Error fetching college events", e);
+        } finally {
+          setLoadingEvents(false);
+        }
+        
       } catch (error) {
         console.error(error);
       } finally {
@@ -149,7 +167,7 @@ const CollegeDetail = () => {
   const handleAddToCompare = () => {
     if (!college) return;
     const stored = sessionStorage.getItem("compareList");
-    let current = stored ? JSON.parse(stored) : [];
+    const current = stored ? JSON.parse(stored) : [];
     if (!current.some((c: any) => c._id === college._id)) {
       if (current.length >= 20) {
         import("sonner").then(({ toast }) => toast.error("Maximum 20 colleges allowed for comparison"));
@@ -268,7 +286,7 @@ const CollegeDetail = () => {
         {/* Content Tabs */}
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="w-full justify-start overflow-x-auto bg-transparent border-b border-border rounded-none h-auto p-0 mb-6 flex-nowrap hide-scrollbar">
-            {["Overview", "Courses & Fees", "Placements", "Facilities", "Reviews", "Q&A"].map((tab) => (
+            {["Overview", "Courses & Fees", "Placements", "Facilities", "Events", "Reviews", "Q&A"].map((tab) => (
               <TabsTrigger 
                 key={tab} 
                 value={tab.toLowerCase().replace(' & ', '-')}
@@ -387,6 +405,76 @@ const CollegeDetail = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="events" className="space-y-6 animate-in fade-in duration-500">
+            <Card className="border-border">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Upcoming Events at {college.name}</CardTitle>
+                <Link to={`/events?college=${college._id}`}>
+                  <Button variant="outline" size="sm">View All</Button>
+                </Link>
+              </CardHeader>
+              <CardContent>
+                {loadingEvents ? (
+                  <div className="flex justify-center p-8"><Skeleton className="h-40 w-full rounded-xl" /></div>
+                ) : collegeEvents.upcoming?.length > 0 ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {collegeEvents.upcoming.map((event: any) => (
+                      <Link to={`/events/${event._id}`} key={event._id}>
+                        <div className="flex border border-border rounded-xl overflow-hidden hover:border-primary transition-colors h-32 group cursor-pointer">
+                          <div className="w-1/3 relative bg-muted shrink-0">
+                            {event.bannerImage ? (
+                              <img src={event.bannerImage} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30"><Calendar className="h-10 w-10" /></div>
+                            )}
+                          </div>
+                          <div className="p-4 flex flex-col justify-center overflow-hidden w-full bg-card">
+                            <div className="flex gap-2 mb-1">
+                              <Badge variant={event.eventType as any} className="text-[10px] py-0 h-4 capitalize">{event.eventType}</Badge>
+                            </div>
+                            <h4 className="font-semibold text-sm line-clamp-1 group-hover:text-primary transition-colors">{event.title}</h4>
+                            <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(event.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground bg-muted/20 rounded-xl border border-border border-dashed">
+                    <Calendar className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                    <p>No upcoming events currently scheduled.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            {collegeEvents.past?.length > 0 && (
+              <Card className="border-border">
+                <CardHeader><CardTitle>Past Events</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {collegeEvents.past.slice(0, 4).map((event: any) => (
+                      <Link to={`/events/${event._id}`} key={event._id}>
+                        <div className="flex items-center gap-4 p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors">
+                          <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                            {event.bannerImage ? <img src={event.bannerImage} className="w-full h-full object-cover" /> : <Calendar className="h-5 w-5 text-muted-foreground" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h5 className="font-medium text-sm truncate">{event.title}</h5>
+                            <p className="text-xs text-muted-foreground">{new Date(event.startDate).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="reviews" className="animate-in fade-in duration-500">

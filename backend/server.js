@@ -23,7 +23,7 @@ connectDB().then(async () => {
     setInterval(async () => {
       try {
         const EventRegistration = require('./models/EventRegistration');
-        const Notification = require('./models/Notification');
+        const notificationService = require('./services/notificationService');
         
         const now = new Date();
         const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
@@ -39,7 +39,7 @@ connectDB().then(async () => {
         for (const event of events) {
           const attendees = await EventRegistration.find({ eventId: event._id, status: 'registered' });
           for (const attendee of attendees) {
-            await Notification.create({
+            await notificationService.createNotification({
               userId: attendee.userId,
               type: 'event_reminder',
               relatedContentId: event._id,
@@ -49,6 +49,37 @@ connectDB().then(async () => {
           event.reminded24h = true;
           await event.save();
         }
+
+        // --- Mark events as completed and request feedback ---
+        // Find approved events where endDate + endTime is in the past
+        const allApprovedEvents = await Event.find({ status: 'approved' });
+        for (const event of allApprovedEvents) {
+          // Parse endDate and endTime
+          // Note: Event.endDate is stored as Date, but might be midnight. endTime is "HH:mm".
+          const endDate = new Date(event.endDate);
+          if (event.endTime) {
+            const [hours, minutes] = event.endTime.split(':');
+            endDate.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+          }
+          
+          if (endDate < now) {
+            // Event has passed, mark as completed
+            event.status = 'completed';
+            await event.save();
+            
+            // Notify attendees to leave feedback
+            const attendees = await EventRegistration.find({ eventId: event._id, status: 'registered' });
+            for (const attendee of attendees) {
+              await notificationService.createNotification({
+                userId: attendee.userId,
+                type: 'event_feedback_request',
+                relatedContentId: event._id,
+                message: `How was "${event.title}"? Share your feedback!`
+              });
+            }
+          }
+        }
+
       } catch (err) {
         console.error('Error in 24h event reminder cron:', err);
       }
@@ -87,6 +118,8 @@ app.use(cors({
 }));
 app.use(express.json());
 const cookieParser = require('cookie-parser');
+// const xss = require('xss-clean');
+// app.use(xss()); // Temporarily disabled for audit due to IncomingMessage getter crash
 const session = require('express-session');
 const passport = require('./auth/passport');
 
@@ -132,6 +165,7 @@ app.use('/api/classrooms', require('./routes/classrooms'));
 app.use('/api/forum', require('./routes/forum'));
 app.use('/api/qa', require('./routes/qa'));
 app.use('/api/events', require('./routes/events'));
+app.use('/api/search', require('./routes/search'));
 app.use('/api/community', require('./routes/community'));
 app.use('/api/mentors', require('./routes/mentors'));
 app.use('/api/jobs', require('./routes/jobs'));

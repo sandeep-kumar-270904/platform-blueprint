@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   NavigationMenu,
@@ -9,7 +9,8 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
-import { GraduationCap, Menu, X, LayoutDashboard } from "lucide-react";
+import { GraduationCap, Menu, X, LayoutDashboard, Search, Loader2, MapPin, Calendar, Building2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
@@ -90,7 +91,58 @@ export const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{colleges: any[], events: any[]}>({ colleges: [], events: [] });
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  // Handle outside click for search
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch search results
+  useEffect(() => {
+    if (!debouncedQuery) {
+      setSearchResults({ colleges: [], events: [] });
+      setIsSearching(false);
+      return;
+    }
+    
+    setIsSearching(true);
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/search?q=${encodeURIComponent(debouncedQuery)}`)
+      .then(r => r.json())
+      .then(data => setSearchResults({ colleges: data.colleges || [], events: data.events || [] }))
+      .catch(console.error)
+      .finally(() => setIsSearching(false));
+  }, [debouncedQuery]);
+
+  const handleSearchSubmit = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      setShowSearchDropdown(false);
+      navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -162,8 +214,91 @@ export const Header = () => {
           </NavigationMenu>
         </nav>
 
-        {/* Right Side Actions */}
+        {/* Right Side Actions & Search */}
         <div className="flex-1 flex items-center justify-end gap-3 min-w-max">
+          <div className="relative hidden md:block w-48 lg:w-64" ref={searchRef}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Search colleges, events..." 
+              className="pl-9 h-9 bg-muted/50 border-transparent focus-visible:bg-background"
+              value={searchQuery}
+              onChange={e => {
+                setSearchQuery(e.target.value);
+                setShowSearchDropdown(true);
+              }}
+              onFocus={() => setShowSearchDropdown(true)}
+              onKeyDown={handleSearchSubmit}
+            />
+            {showSearchDropdown && searchQuery && (
+              <div className="absolute top-full mt-2 w-80 lg:w-96 right-0 bg-popover text-popover-foreground rounded-lg shadow-lg border p-2 z-50 flex flex-col gap-2">
+                {isSearching ? (
+                  <div className="p-4 flex justify-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                ) : (
+                  <>
+                    {searchResults.colleges.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Colleges</div>
+                        {searchResults.colleges.slice(0, 5).map(college => (
+                          <div 
+                            key={college._id} 
+                            onClick={() => { setShowSearchDropdown(false); navigate(`/college-insights/${college._id}`); }}
+                            className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                          >
+                            {college.imageUrl ? (
+                              <img src={college.imageUrl} alt={college.name} className="h-8 w-8 rounded object-cover" />
+                            ) : (
+                              <div className="h-8 w-8 rounded bg-muted flex items-center justify-center"><Building2 className="h-4 w-4 opacity-50" /></div>
+                            )}
+                            <div className="overflow-hidden">
+                              <div className="text-sm font-medium truncate">{college.name}</div>
+                              <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                <MapPin className="h-3 w-3" /> {college.location?.city}, {college.location?.state}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {searchResults.events.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Events</div>
+                        {searchResults.events.slice(0, 5).map(event => (
+                          <div 
+                            key={event._id} 
+                            onClick={() => { setShowSearchDropdown(false); navigate(`/events/${event._id}`); }}
+                            className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                          >
+                            <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center">
+                              <Calendar className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="overflow-hidden">
+                              <div className="text-sm font-medium truncate">{event.title}</div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {new Date(event.startDate).toLocaleDateString()} • <span className="capitalize">{event.eventType}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {searchResults.colleges.length === 0 && searchResults.events.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-muted-foreground">No results for "{searchQuery}"</div>
+                    ) : (
+                      <div 
+                        className="p-2 mt-1 text-center text-sm text-primary font-medium hover:underline cursor-pointer border-t"
+                        onClick={() => { setShowSearchDropdown(false); navigate(`/search?q=${encodeURIComponent(searchQuery)}`); }}
+                      >
+                        See all results for "{searchQuery}"
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
           {user && (
             <>
               <NotificationBell />

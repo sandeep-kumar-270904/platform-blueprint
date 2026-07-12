@@ -21,26 +21,50 @@ const storage = multer.diskStorage({
   }
 })
 
-const upload = multer({ storage: storage })
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = /jpeg|jpg|png|gif|webp|pdf/;
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedTypes.test(file.mimetype);
+
+  if (extname && mimetype) {
+    return cb(null, true);
+  } else {
+    cb(new Error('Error: Images and PDFs only!'));
+  }
+};
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: fileFilter
+});
 
 // POST /api/uploads - Upload a file
-router.post('/', upload.single('file'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+router.post('/', (req, res) => {
+  upload.single('file')(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ message: 'Multer error', error: err.message });
+    } else if (err) {
+      return res.status(400).json({ message: 'Upload error', error: err.message });
     }
     
-    // Return a mocked public URL (in real app, this would be a static route or cloud bucket URL)
-    const publicUrl = `/uploads/${req.file.filename}`;
-    
-    res.status(200).json({ 
-      message: 'File uploaded successfully', 
-      url: publicUrl 
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error during upload' });
-  }
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+      
+      // Return a mocked public URL (in real app, this would be a static route or cloud bucket URL)
+      const publicUrl = `/uploads/${req.file.filename}`;
+      
+      res.status(200).json({ 
+        message: 'File uploaded successfully', 
+        url: publicUrl 
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error during upload' });
+    }
+  });
 });
 
 module.exports = router;

@@ -64,7 +64,7 @@ export const JoinRequestsManager = ({ userId }: { userId: string }) => {
   // postgres_changes filter per idea. RLS already restricts visibility, but
   // narrowing here drops irrelevant broadcasts on the wire. The `ideas` filter
   // refreshes the subscription set when the user creates/deletes ideas.
-  useEffect(() => { void fetchRequests(); /* initial load before any realtime */ // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { void fetchRequests(); /* initial load before any realtime */  
   }, [userId]);
 
   useRealtimeSync({

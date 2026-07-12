@@ -5,10 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Calendar, MapPin, Users, Trophy, Clock, ArrowLeft, Loader2, CheckCircle2 } from "lucide-react";
+import { Calendar, MapPin, Users, Trophy, Clock, ArrowLeft, Loader2, CheckCircle2, Star, MessageSquare } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { EventRow } from "@/hooks/useEvents";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -21,6 +25,11 @@ const EventDetail = () => {
   const [loading, setLoading] = useState(true);
   const [myStatus, setMyStatus] = useState<string | null>(null);
   const [attendees, setAttendees] = useState<any[]>([]);
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  
+  const [feedbackForm, setFeedbackForm] = useState({ rating: 5, reviewText: "", wouldRecommend: true });
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -42,6 +51,13 @@ const EventDetail = () => {
           // but we never built `/api/events/registrations/me` in the new backend route!
           // Ah, I need to add that or assume they can register. 
           // For now, let's just show Register and let the backend return 400 if already registered.
+        }
+        // Fetch feedback if event is completed
+        if (data.status === 'completed') {
+          fetch(`${API_URL}/api/events/${id}/feedback`)
+            .then(r => r.json())
+            .then(fData => setFeedbacks(fData.feedbacks || []))
+            .catch(console.error);
         }
       } catch (err) {
         toast({ title: "Error", description: "Failed to load event details", variant: "destructive" });
@@ -117,6 +133,34 @@ const EventDetail = () => {
       setEvent(prev => prev ? { ...prev, registrationCount: Math.max((prev.registrationCount || 1) - 1, 0) } : prev);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!user) return;
+    setSubmittingFeedback(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/events/${id}/feedback`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(feedbackForm)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to submit feedback");
+      
+      toast({ title: "Feedback Submitted", description: "Thank you for your feedback!" });
+      setFeedbackOpen(false);
+      
+      // Refresh feedbacks
+      fetch(`${API_URL}/api/events/${id}/feedback`)
+        .then(r => r.json())
+        .then(fData => setFeedbacks(fData.feedbacks || []));
+        
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmittingFeedback(false);
     }
   };
 
@@ -203,6 +247,86 @@ const EventDetail = () => {
                     <Button variant="outline">Edit Event Details</Button>
                   </TabsContent>
                 </Tabs>
+              </div>
+            )}
+
+            {event.status === 'completed' && (
+              <div className="mt-12 border-t pt-8">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold">Attendee Feedback</h2>
+                  {myStatus === 'registered' && !feedbacks.some(f => f.userId._id === user?.id) && (
+                    <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+                      <DialogTrigger asChild>
+                        <Button>Rate This Event</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Rate "{event.title}"</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div>
+                            <Label>Rating (1-5)</Label>
+                            <div className="flex gap-2 mt-2">
+                              {[1, 2, 3, 4, 5].map(star => (
+                                <Star 
+                                  key={star} 
+                                  className={`h-8 w-8 cursor-pointer ${star <= feedbackForm.rating ? 'fill-warning text-warning' : 'text-muted-foreground/30'}`}
+                                  onClick={() => setFeedbackForm(prev => ({ ...prev, rating: star }))}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <Label>Review (Optional)</Label>
+                            <Textarea 
+                              placeholder="What did you think of the event?" 
+                              value={feedbackForm.reviewText}
+                              onChange={e => setFeedbackForm(prev => ({ ...prev, reviewText: e.target.value }))}
+                              className="mt-2"
+                            />
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox 
+                              id="recommend" 
+                              checked={feedbackForm.wouldRecommend}
+                              onCheckedChange={(c) => setFeedbackForm(prev => ({ ...prev, wouldRecommend: !!c }))}
+                            />
+                            <Label htmlFor="recommend" className="cursor-pointer">I would recommend this event to others</Label>
+                          </div>
+                          <Button className="w-full mt-4" onClick={handleSubmitFeedback} disabled={submittingFeedback}>
+                            {submittingFeedback ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit Feedback"}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </div>
+                
+                {feedbacks.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
+                    <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                    <p>No feedback has been submitted yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {feedbacks.map((f: any) => (
+                      <Card key={f._id} className="bg-card/50">
+                        <CardContent className="p-4">
+                          <div className="flex justify-between mb-2">
+                            <div className="font-medium text-sm flex items-center gap-2">
+                              {f.userId.full_name || f.userId.username}
+                              {f.wouldRecommend && <Badge variant="success" className="text-[10px] py-0 h-4">Recommended</Badge>}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {f.rating} <Star className="h-3 w-3 fill-warning text-warning" />
+                            </div>
+                          </div>
+                          {f.reviewText && <p className="text-sm text-muted-foreground">{f.reviewText}</p>}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

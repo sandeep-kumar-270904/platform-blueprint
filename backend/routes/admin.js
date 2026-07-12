@@ -6,10 +6,24 @@ const { NoteComment } = require('../models/NoteComment');
 const Report = require('../models/Report');
 const User = require('../models/User');
 const Review = require('../models/Review');
-const Notification = require('../models/Notification');
 const Event = require('../models/Event');
+const notificationService = require('../services/notificationService');
 
-// Check if user is admin
+// Check if user is admin middleware
+const isAdmin = async (req, res, next) => {
+  try {
+    // In production we should verify the DB role
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Admin only.' });
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Check if user is admin route
 router.get('/check', authMiddleware, async (req, res) => {
   try {
     // For blueprint testing, temporarily return true for any authenticated user
@@ -96,7 +110,7 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
 });
 
 // Admin actions
-router.delete('/notes/:id', authMiddleware, async (req, res) => {
+router.delete('/notes/:id', authMiddleware, isAdmin, async (req, res) => {
   try {
     await Note.findByIdAndDelete(req.params.id);
     res.json({ message: 'Note deleted' });
@@ -105,7 +119,7 @@ router.delete('/notes/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/comments/:id', authMiddleware, async (req, res) => {
+router.delete('/comments/:id', authMiddleware, isAdmin, async (req, res) => {
   try {
     await NoteComment.findByIdAndDelete(req.params.id);
     res.json({ message: 'Comment deleted' });
@@ -114,7 +128,7 @@ router.delete('/comments/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.put('/reports/:id', authMiddleware, async (req, res) => {
+router.put('/reports/:id', authMiddleware, isAdmin, async (req, res) => {
   try {
     const report = await Report.findByIdAndUpdate(req.params.id, {
       status: req.body.status,
@@ -167,7 +181,7 @@ router.put('/reviews/:id/moderate', authMiddleware, async (req, res) => {
       await review.save();
       
       // Notify the user that their review was approved/restored
-      await Notification.create({
+      await notificationService.createNotification({
         userId: review.userId,
         type: 'review_reported_resolved',
         relatedCollegeId: review.collegeId,
@@ -220,7 +234,7 @@ router.put('/events/:id/approve', authMiddleware, async (req, res) => {
     await event.save();
     
     // Notify host
-    await Notification.create({
+    await notificationService.createNotification({
       userId: event.hostedBy,
       type: 'event_approved',
       relatedContentId: event._id,
@@ -247,7 +261,7 @@ router.put('/events/:id/reject', authMiddleware, async (req, res) => {
     await event.save();
     
     // Notify host
-    await Notification.create({
+    await notificationService.createNotification({
       userId: event.hostedBy,
       type: 'event_rejected',
       relatedContentId: event._id,

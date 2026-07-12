@@ -69,7 +69,7 @@ export const useVirtualClassroom = () => {
 
       setHasMore(data.length === limit);
       
-      let joinedMap: Record<string, ParticipantRow> = isLoadMore ? { ...joined } : {};
+      const joinedMap: Record<string, ParticipantRow> = isLoadMore ? { ...joined } : {};
       
       if (user) {
         const token = localStorage.getItem('token');

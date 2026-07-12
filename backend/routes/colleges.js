@@ -3,9 +3,10 @@ const router = express.Router();
 const College = require('../models/College');
 const Review = require('../models/Review');
 const User = require('../models/User');
-const Notification = require('../models/Notification');
+const notificationService = require('../services/notificationService');
 const CollegeQuestion = require('../models/CollegeQuestion');
 const auth = require('../middleware/auth');
+const { qaPostLimiter, reviewLimiter } = require('../middleware/rateLimiter');
 
 // Middleware to check if user is admin
 const isAdmin = async (req, res, next) => {
@@ -43,6 +44,30 @@ router.get('/saved/me', auth, async (req, res) => {
     res.json(user.savedColleges);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET /api/colleges/:id/events
+router.get('/:id/events', async (req, res) => {
+  try {
+    const Event = require('../models/Event');
+    
+    const now = new Date();
+    const upcoming = await Event.find({
+      hostCollegeId: req.params.id,
+      status: 'approved',
+      startDate: { $gte: now }
+    }).sort({ startDate: 1 });
+    
+    const past = await Event.find({
+      hostCollegeId: req.params.id,
+      status: { $in: ['approved', 'completed'] },
+      startDate: { $lt: now }
+    }).sort({ startDate: -1 });
+
+    res.json({ upcoming, past });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
@@ -210,7 +235,7 @@ router.get('/:id/questions', async (req, res) => {
 });
 
 // POST /api/colleges/:id/questions
-router.post('/:id/questions', auth, async (req, res) => {
+router.post('/:id/questions', auth, qaPostLimiter, async (req, res) => {
   try {
     const { questionText } = req.body;
     if (!questionText) return res.status(400).json({ message: 'Question text is required' });
@@ -283,7 +308,20 @@ router.delete('/:id', auth, isAdmin, async (req, res) => {
   try {
     const college = await College.findByIdAndDelete(req.params.id);
     if (!college) return res.status(404).json({ message: 'College not found' });
-    res.json({ message: 'College deleted' });
+    
+    // Cascade delete associated data
+    await Review.deleteMany({ collegeId: req.params.id });
+    const CollegeQuestion = require('../models/CollegeQuestion');
+    const CollegeAnswer = require('../models/CollegeAnswer');
+    const questions = await CollegeQuestion.find({ collegeId: req.params.id });
+    const questionIds = questions.map(q => q._id);
+    await CollegeAnswer.deleteMany({ questionId: { $in: questionIds } });
+    await CollegeQuestion.deleteMany({ collegeId: req.params.id });
+    
+    const Event = require('../models/Event');
+    await Event.updateMany({ hostCollegeId: req.params.id }, { $unset: { hostCollegeId: 1 } });
+    
+    res.json({ message: 'College and associated data deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting college', error: error.message });
   }
@@ -358,7 +396,7 @@ router.get('/:id/rating-breakdown', async (req, res) => {
 });
 
 // POST /api/colleges/:id/reviews - Submit review
-router.post('/:id/reviews', auth, async (req, res) => {
+router.post('/:id/reviews', auth, reviewLimiter, async (req, res) => {
   try {
     const college = await College.findById(req.params.id);
     if (!college) return res.status(404).json({ message: 'College not found' });
@@ -377,16 +415,24 @@ router.post('/:id/reviews', auth, async (req, res) => {
     }
 
     const { categoryRatings } = req.body;
-    let overallRating = req.body.rating;
+    let overallRating = Number(req.body.rating);
+    
+    // Enforce 1-5 boundary for overall rating
+    if (isNaN(overallRating) || overallRating < 1 || overallRating > 5) {
+      return res.status(400).json({ message: 'Rating must be a number between 1 and 5' });
+    }
     
     if (categoryRatings) {
       const cats = ['hostel', 'labs', 'faculty', 'campusLife', 'placements', 'academics', 'infrastructure'];
       let sum = 0;
       let count = 0;
       cats.forEach(c => {
-        if (categoryRatings[c]) {
-          sum += categoryRatings[c];
-          count++;
+        if (categoryRatings[c] !== undefined) {
+          let catVal = Number(categoryRatings[c]);
+          if (!isNaN(catVal) && catVal >= 1 && catVal <= 5) {
+            sum += catVal;
+            count++;
+          }
         }
       });
       if (count > 0) overallRating = Math.round((sum / count) * 10) / 10;
@@ -474,7 +520,7 @@ router.post('/:id/reviews/:reviewId/helpful', auth, async (req, res) => {
     // Trigger notification if not upvoting own review
     if (review.userId.toString() !== req.user.id) {
       const upvoter = await User.findById(req.user.id);
-      await Notification.create({
+      await notificationService.createNotification({
         userId: review.userId,
         type: 'review_upvoted',
         relatedCollegeId: req.params.id,

@@ -73,7 +73,7 @@ export function useRealtimeSync({
       cancelled = true;
       window.clearInterval(pollId);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [filterKey, channelName, pollIntervalMs, enabled, safeInvoke]);
 
   return status;

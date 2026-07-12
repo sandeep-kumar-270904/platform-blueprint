@@ -101,7 +101,7 @@ export const useNotes = () => {
   const getFilteredNotes = useCallback(
     (notesList: any[]) => {
       const q = debouncedSearchQuery.toLowerCase();
-      let filtered = notesList.filter((note) => {
+      const filtered = notesList.filter((note) => {
         const matchesSearch =
           !q ||
           note.title?.toLowerCase().includes(q) ||
