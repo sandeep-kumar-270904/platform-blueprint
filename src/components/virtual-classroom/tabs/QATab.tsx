@@ -102,7 +102,7 @@ export const QATab = ({ classroomId, isHost }: { classroomId: string, isHost: bo
                   <Button 
                     variant={hasUpvoted ? "secondary" : "ghost"} 
                     size="sm" 
-                    className={`h-7 px-2 shrink-0 ${hasUpvoted ? 'text-primary' : 'text-muted-foreground'}`}
+                    className={`h-6 px-2 shrink-0 ${hasUpvoted ? 'text-primary' : 'text-muted-foreground'}`}
                     onClick={() => handleUpvote(q.id)}
                     disabled={q.is_answered || hasUpvoted}
                   >

@@ -91,7 +91,7 @@ export function NotificationSettings() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <BellRing className="h-5 w-5" /> Notification Preferences
+          <BellRing className="h-4 w-4" /> Notification Preferences
         </CardTitle>
         <CardDescription>Choose which notifications you want to receive.</CardDescription>
       </CardHeader>

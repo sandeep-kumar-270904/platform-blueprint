@@ -8,35 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefreshCw, ArrowRight, Clock, Star } from "lucide-react";
 
-const mockOffers = [
-  {
-    id: 1,
-    user: "Priya Sharma",
-    offering: "Web Development",
-    seeking: "UI/UX Design",
-    experience: "2 years",
-    rating: 4.8,
-    matchScore: 95
-  },
-  {
-    id: 2,
-    user: "Arjun Patel",
-    offering: "Machine Learning",
-    seeking: "Backend Development",
-    experience: "1.5 years",
-    rating: 4.9,
-    matchScore: 88
-  },
-  {
-    id: 3,
-    user: "Sneha Reddy",
-    offering: "Graphic Design",
-    seeking: "Content Writing",
-    experience: "3 years",
-    rating: 5.0,
-    matchScore: 82
-  }
-];
+const mockOffers = [];
 
 const SkillSwap = () => {
   const [selectedTab, setSelectedTab] = useState("browse");

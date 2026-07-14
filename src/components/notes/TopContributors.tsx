@@ -70,7 +70,7 @@ export const TopContributors = () => {
     <Card className="bg-[var(--color-surface)] border-[var(--color-border)] shadow-[var(--shadow-resting)]">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 page-heading text-[var(--color-text-primary)]">
-          <Trophy className="h-5 w-5 text-[var(--color-accent)]" aria-hidden="true" /> Top Contributors
+          <Trophy className="h-4 w-4 text-[var(--color-accent)]" aria-hidden="true" /> Top Contributors
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">

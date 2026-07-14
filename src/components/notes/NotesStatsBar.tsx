@@ -31,8 +31,8 @@ export const NotesStatsBar = ({
         {stats.map((stat, i) => (
           <Card key={i} className="bg-[var(--color-surface)] border-[var(--color-border)] shadow-sm">
             <CardContent className="p-[24px] flex flex-col md:flex-row items-start md:items-center gap-3">
-              <div className="h-10 w-10 shrink-0 rounded-lg flex items-center justify-center bg-[var(--color-bg)] border border-[var(--color-border)]">
-                <stat.icon className="h-5 w-5 text-[var(--color-text-primary)]" aria-hidden="true" />
+              <div className="h-8 w-8 shrink-0 rounded-lg flex items-center justify-center bg-[var(--color-bg)] border border-[var(--color-border)]">
+                <stat.icon className="h-4 w-4 text-[var(--color-text-primary)]" aria-hidden="true" />
               </div>
               <div className="min-w-0">
                 <p className="stat-number text-[var(--color-text-primary)]">{formatStat(stat.value, !isLoading, stat.zeroState)}</p>

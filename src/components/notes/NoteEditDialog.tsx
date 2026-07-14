@@ -112,8 +112,7 @@ export const NoteEditDialog = ({ open, onOpenChange, note, onSuccess }: NoteEdit
             </Select>
           </div>
           <div>
-            <Label>Description</Label>
-            <Textarea value={description} onChange={e => setDescription(e.target.value.slice(0, 500))} rows={3} className="mt-1.5" />
+            <Label htmlFor="description">Description</Label><Textarea id="description" value={description} onChange={e => setDescription(e.target.value.slice(0, 500))} rows={3} className="mt-1.5" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -137,8 +136,7 @@ export const NoteEditDialog = ({ open, onOpenChange, note, onSuccess }: NoteEdit
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>University</Label>
-              <Input value={university} onChange={e => setUniversity(e.target.value)} className="mt-1.5" />
+              <Label htmlFor="university">University</Label><Input id="university" value={university} onChange={e => setUniversity(e.target.value)} className="mt-1.5" />
             </div>
             <div>
               <Label>Year</Label>

@@ -80,7 +80,7 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <User className="h-5 w-5 text-primary" />
+          <User className="h-4 w-4 text-primary" />
           Profile Management
         </CardTitle>
       </CardHeader>

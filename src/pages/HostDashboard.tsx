@@ -53,7 +53,8 @@ export default function HostDashboard() {
   }, [user]);
 
   const handleCreateTemplate = async () => {
-    if (!user || !form.title) return;
+    if (!user) return toast.error("You must be logged in");
+    if (!form.title) return toast.error("Cohort title is required");
     
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -137,7 +138,7 @@ export default function HostDashboard() {
     }
   };
 
-  if (loading) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" /></div>;
+  if (loading) return <div className="p-24 text-center"><Loader2 className="animate-spin mx-auto h-8 w-8 text-primary" /></div>;
 
   return (
     <div className="min-h-screen bg-background">
@@ -183,10 +184,8 @@ export default function HostDashboard() {
                 <DialogContent>
                   <DialogHeader><DialogTitle>Create Session Template</DialogTitle></DialogHeader>
                   <div className="space-y-3">
-                    <Label>Title Pattern</Label>
-                    <Input value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="e.g. Weekly Math Prep" />
-                    <Label>Duration (min)</Label>
-                    <Input type="number" value={form.duration_minutes} onChange={e => setForm({...form, duration_minutes: +e.target.value})} />
+                    <Label htmlFor="title-pattern">Title Pattern</Label><Input id="title-pattern" value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="e.g. Weekly Math Prep" />
+                    <Label htmlFor="duration-min">Duration (min)</Label><Input id="duration-min" type="number" value={form.duration_minutes} onChange={e => setForm({...form, duration_minutes: +e.target.value})} />
                   </div>
                   <DialogFooter><Button onClick={handleCreateTemplate}>Save Template</Button></DialogFooter>
                 </DialogContent>
@@ -209,17 +208,14 @@ export default function HostDashboard() {
                         <DialogHeader><DialogTitle>Bulk Schedule: {t.title}</DialogTitle></DialogHeader>
                         <div className="space-y-3 py-4">
                           <div>
-                            <Label>Start Date/Time (First Session)</Label>
-                            <Input type="datetime-local" onChange={e => setBulkConfig({...bulkConfig, startDate: new Date(e.target.value).toISOString()})} />
+                            <Label htmlFor="start-date-time-first-session">Start Date/Time (First Session)</Label><Input id="start-date-time-first-session" type="datetime-local" onChange={e => setBulkConfig({...bulkConfig, startDate: new Date(e.target.value).toISOString()})} />
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <Label>Number of Sessions</Label>
-                              <Input type="number" value={bulkConfig.instances} onChange={e => setBulkConfig({...bulkConfig, instances: +e.target.value})} />
+                              <Label htmlFor="number-of-sessions">Number of Sessions</Label><Input id="number-of-sessions" type="number" value={bulkConfig.instances} onChange={e => setBulkConfig({...bulkConfig, instances: +e.target.value})} />
                             </div>
                             <div>
-                              <Label>Interval (Days)</Label>
-                              <Input type="number" value={bulkConfig.intervalDays} onChange={e => setBulkConfig({...bulkConfig, intervalDays: +e.target.value})} />
+                              <Label htmlFor="interval-days">Interval (Days)</Label><Input id="interval-days" type="number" value={bulkConfig.intervalDays} onChange={e => setBulkConfig({...bulkConfig, intervalDays: +e.target.value})} />
                             </div>
                           </div>
                           <p className="text-xs text-muted-foreground mt-2">

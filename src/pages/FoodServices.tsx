@@ -6,26 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { UtensilsCrossed, Star, MapPin, Clock, Percent } from "lucide-react";
 
-const mockRestaurants = [
-  {
-    id: 1,
-    name: "Campus Canteen",
-    cuisine: "Indian, Chinese",
-    rating: 4.2,
-    distance: "Inside Campus",
-    discount: "10% Student Discount",
-    timing: "7 AM - 10 PM",
-  },
-  {
-    id: 2,
-    name: "Pizza Corner",
-    cuisine: "Italian, Fast Food",
-    rating: 4.5,
-    distance: "200m from Gate",
-    discount: "15% on Orders > ₹300",
-    timing: "11 AM - 11 PM",
-  },
-];
+const mockRestaurants = [];
 
 const FoodServices = () => {
   return (

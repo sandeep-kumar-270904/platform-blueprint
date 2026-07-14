@@ -6,22 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Bus, MapPin, Clock, DollarSign } from "lucide-react";
 
-const mockRoutes = [
-  {
-    id: 1,
-    name: "Campus to City Center",
-    frequency: "Every 30 min",
-    fare: "₹20",
-    stops: ["Main Gate", "Mall Road", "Railway Station", "City Center"],
-  },
-  {
-    id: 2,
-    name: "Campus to Airport",
-    frequency: "Every 2 hours",
-    fare: "₹100",
-    stops: ["Main Gate", "Highway", "Airport Terminal"],
-  },
-];
+const mockRoutes = [];
 
 const Transport = () => {
   return (

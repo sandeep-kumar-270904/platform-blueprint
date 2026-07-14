@@ -75,7 +75,7 @@ export const CollegeRecommenderDialog = ({ onSuccess, open, onOpenChange }: Coll
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button className="w-full sm:w-auto gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/20 h-10">
+        <Button className="w-full sm:w-auto gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/20 h-8">
           <Sparkles className="h-4 w-4" />
           AI Match
         </Button>

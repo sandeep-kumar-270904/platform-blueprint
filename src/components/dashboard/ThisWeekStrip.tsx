@@ -85,7 +85,7 @@ export const ThisWeekStrip = () => {
   return (
     <div className="mb-6">
       <div className="flex items-center gap-2 mb-3">
-        <Calendar className="h-5 w-5 text-primary" />
+        <Calendar className="h-4 w-4 text-primary" />
         <h3 className="font-semibold text-lg">This Week</h3>
       </div>
       <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">

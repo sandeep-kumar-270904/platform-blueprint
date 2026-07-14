@@ -21,11 +21,11 @@ export const MyBookings = ({ userId }: { userId: string }) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg"><Calendar className="h-5 w-5" />My Mentor Bookings</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-lg"><Calendar className="h-4 w-4" />My Mentor Bookings</CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
+          <div className="flex justify-center py-6"><Loader2 className="h-4 w-4 animate-spin text-primary" /></div>
         ) : upcoming.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">No upcoming bookings.</p>
         ) : (

@@ -43,7 +43,7 @@ const Mentors = () => {
       <Header />
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-6 md:py-10">
-          <div className="container mx-auto px-4 relative z-10">
+          <div className="container mx-auto px-4 relative z-8">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-5xl text-center">
                 <Badge variant="accent" className="mb-4"><Users className="mr-1 h-3 w-3" />Connect with Industry Experts</Badge>

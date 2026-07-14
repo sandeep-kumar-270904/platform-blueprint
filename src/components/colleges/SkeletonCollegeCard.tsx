@@ -11,10 +11,10 @@ export const SkeletonCollegeCard = () => {
         </div>
         <Skeleton className="h-12 w-12 rounded-full mb-4" />
         <div className="flex items-center gap-2 mb-1">
-          <Skeleton className="h-5 w-16" />
-          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-4 w-24" />
         </div>
-        <Skeleton className="h-7 w-3/4 mt-1 mb-2" />
+        <Skeleton className="h-6 w-3/4 mt-1 mb-2" />
         <div className="flex items-center gap-2 mt-1">
           <Skeleton className="h-4 w-4" />
           <Skeleton className="h-4 w-32" />
@@ -24,7 +24,7 @@ export const SkeletonCollegeCard = () => {
         <div className="flex items-center gap-1">
           <Skeleton className="h-4 w-4" />
           <Skeleton className="h-4 w-8" />
-          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-4 w-24" />
         </div>
         <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-muted/30">
           <div className="space-y-2">
@@ -32,7 +32,7 @@ export const SkeletonCollegeCard = () => {
             <Skeleton className="h-4 w-16" />
           </div>
           <div className="space-y-2">
-            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-3 w-24" />
             <Skeleton className="h-4 w-16" />
           </div>
         </div>
@@ -42,7 +42,7 @@ export const SkeletonCollegeCard = () => {
         </div>
       </CardContent>
       <CardFooter className="pt-0">
-        <Skeleton className="h-10 w-full rounded-md" />
+        <Skeleton className="h-8 w-full rounded-md" />
       </CardFooter>
     </Card>
   );

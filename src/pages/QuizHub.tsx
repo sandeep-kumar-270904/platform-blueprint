@@ -46,7 +46,7 @@ const QuizHub = () => {
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-20 md:py-32">
           
-          <div className="container mx-auto px-4 relative z-10">
+          <div className="container mx-auto px-4 relative z-8">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
                 <div className="flex justify-center mb-4">
@@ -165,8 +165,8 @@ const CreateQuizDialog = ({ onClose }: { onClose: () => void }) => {
     <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
       <DialogHeader><DialogTitle>Create a Quiz</DialogTitle></DialogHeader>
       <div className="space-y-4">
-        <div><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} /></div>
-        <div><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} /></div>
+        <div><Label htmlFor="title">Title</Label><Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} /></div>
+        <div><Label htmlFor="description">Description</Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} /></div>
         <div className="grid grid-cols-3 gap-3">
           <div>
             <Label>Category</Label>
@@ -182,7 +182,7 @@ const CreateQuizDialog = ({ onClose }: { onClose: () => void }) => {
               <SelectContent>{DIFFS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div><Label>Duration (min)</Label><Input type="number" min={1} max={300} value={duration} onChange={(e) => setDuration(parseInt(e.target.value) || 30)} /></div>
+          <div><Label htmlFor="duration-min">Duration (min)</Label><Input id="duration-min" type="number" min={1} max={300} value={duration} onChange={(e) => setDuration(parseInt(e.target.value) || 30)} /></div>
         </div>
         <div className="space-y-3">
           <div className="flex justify-between items-center">

@@ -121,7 +121,7 @@ export const TeamDashboard = ({ teamId }: TeamDashboardProps) => {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10">
-                  <Users className="h-5 w-5 text-primary" />
+                  <Users className="h-4 w-4 text-primary" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{members.length}</p>
@@ -137,7 +137,7 @@ export const TeamDashboard = ({ teamId }: TeamDashboardProps) => {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-accent/10">
-                  <Lightbulb className="h-5 w-5 text-accent" />
+                  <Lightbulb className="h-4 w-4 text-accent" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.ideas}</p>
@@ -153,7 +153,7 @@ export const TeamDashboard = ({ teamId }: TeamDashboardProps) => {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-success/10">
-                  <CheckSquare className="h-5 w-5 text-success" />
+                  <CheckSquare className="h-4 w-4 text-success" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
@@ -171,7 +171,7 @@ export const TeamDashboard = ({ teamId }: TeamDashboardProps) => {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-warning/10">
-                  <MessageSquare className="h-5 w-5 text-warning" />
+                  <MessageSquare className="h-4 w-4 text-warning" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.messages}</p>

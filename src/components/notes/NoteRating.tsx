@@ -103,7 +103,7 @@ export const NoteRating = ({ noteId, currentRating, compact = false, onRated }: 
               className="p-0.5 hover:scale-125 transition-transform"
             >
               <Star className={cn(
-                "h-5 w-5 transition-colors",
+                "h-4 w-4 transition-colors",
                 (hoverRating || userRating) >= star
                   ? "fill-warning text-warning"
                   : "text-muted-foreground/30"

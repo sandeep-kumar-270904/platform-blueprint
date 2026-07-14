@@ -113,7 +113,7 @@ export const JoinRequestsManager = ({ userId }: { userId: string }) => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <UserPlus className="h-5 w-5 text-primary" />
+          <UserPlus className="h-4 w-4 text-primary" />
           Join Requests ({requests.length})
         </CardTitle>
       </CardHeader>
@@ -124,7 +124,7 @@ export const JoinRequestsManager = ({ userId }: { userId: string }) => {
           </p>
         ) : requests.length === 0 ? (
           <div className="text-center py-8">
-            <UserPlus className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <UserPlus className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground mb-3">
               No pending join requests
             </p>

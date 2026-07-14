@@ -20,16 +20,20 @@ router.get('/', async (req, res) => {
     }
     
     if (search) {
-      query.title = { $regex: search, $options: 'i' };
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { tags: { $regex: search, $options: 'i' } }
+      ];
     }
     
     if (filter === 'upcoming') {
-      query.startDate = { $gte: new Date() };
+      query.endDate = { $gte: new Date() };
     } else if (filter === 'past') {
-      query.startDate = { $lt: new Date() };
+      query.endDate = { $lt: new Date() };
     } else if (filter === 'this_week') {
       const now = new Date();
-      const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const in7Days = new Date();
+      in7Days.setDate(in7Days.getDate() + 7);
       query.startDate = { $gte: now, $lte: in7Days };
     }
     
@@ -46,11 +50,42 @@ router.get('/', async (req, res) => {
     if (sort === 'oldest') sortObj = { createdAt: 1 };
     if (sort === 'date_desc') sortObj = { startDate: -1 };
     
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
     const events = await Event.find(query)
       .sort(sortObj)
+      .skip(skip)
+      .limit(limit)
       .populate('hostedBy', 'username full_name avatar_url')
-      .populate('hostCollegeId', 'name');
-    res.json(events);
+      .populate('hostCollegeId', 'name')
+      .lean();
+      
+    const total = await Event.countDocuments(query);
+      
+    // Append registrationCount
+    const eventIds = events.map(e => e._id);
+    const regCounts = await EventRegistration.aggregate([
+      { $match: { eventId: { $in: eventIds }, status: { $in: ['registered', 'waitlisted'] } } },
+      { $group: { _id: '$eventId', count: { $sum: 1 } } }
+    ]);
+    
+    const countMap = {};
+    regCounts.forEach(rc => { countMap[rc._id.toString()] = rc.count; });
+    
+    const eventsWithCount = events.map(e => ({
+      ...e,
+      id: e._id,
+      registrationCount: countMap[e._id.toString()] || 0
+    }));
+    
+    res.json({
+      events: eventsWithCount,
+      total,
+      page,
+      pages: Math.ceil(total / limit)
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -211,6 +246,17 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/events/:id/registrations/me
+router.get('/:id/registrations/me', authMiddleware, async (req, res) => {
+  try {
+    const reg = await EventRegistration.findOne({ eventId: req.params.id, userId: req.user.id });
+    if (!reg) return res.status(404).json({ message: 'Not registered' });
+    res.json(reg);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // POST /api/events/:id/register
 router.post('/:id/register', authMiddleware, async (req, res) => {
   try {
@@ -234,15 +280,39 @@ router.post('/:id/register', authMiddleware, async (req, res) => {
       status = 'waitlisted';
     }
     
+    const teamName = req.body.teamName || null;
+    const lookingForTeammates = req.body.lookingForTeammates || false;
+    const skills = req.body.skills || '';
+    
+    if (event.eventType === 'hackathon' || event.eventType === 'competition') {
+      const min = event.teamSize?.min || 1;
+      const max = event.teamSize?.max || 1;
+      
+      if (teamName) {
+        const existingTeamMembers = await EventRegistration.countDocuments({ eventId: event._id, teamName });
+        if (existingTeamMembers + 1 > max) {
+          return res.status(400).json({ message: `Team '${teamName}' is already full (max ${max} members).` });
+        }
+      } else if (!lookingForTeammates && min > 1) {
+        return res.status(400).json({ message: `You must provide a Team Name to team up, or mark as looking for teammates.` });
+      }
+    }
+
     const reg = new EventRegistration({
       eventId: event._id,
       userId: req.user.id,
       status,
       teamName: req.body.teamName || null,
-      teamMembers: req.body.teamMembers || []
+      lookingForTeammates,
+      skills
     });
     
     await reg.save();
+    
+    if (req.io) {
+      req.io.emit('event_updated', { eventId: event._id });
+    }
+    
     res.json({ message: 'Registration successful', status });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -272,6 +342,10 @@ router.delete('/:id/register', authMiddleware, async (req, res) => {
           message: `Good news! A spot opened up for "${event.title}" and you are now officially registered.`
         });
       }
+    }
+    
+    if (req.io) {
+      req.io.emit('event_updated', { eventId: req.params.id });
     }
     
     res.json({ message: 'Registration cancelled' });
@@ -435,6 +509,241 @@ router.delete('/:id/feedback/:feedbackId', authMiddleware, async (req, res) => {
     res.json({ message: 'Feedback deleted' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/events/:id/teammates
+router.get('/:id/teammates', authMiddleware, async (req, res) => {
+  try {
+    const teammates = await EventRegistration.find({ 
+      eventId: req.params.id, 
+      lookingForTeammates: true,
+      userId: { $ne: req.user.id } // exclude self
+    }).populate('userId', 'username full_name avatar_url email');
+    
+    // Get incoming and outgoing team requests for the current user
+    const TeamRequest = require('../models/TeamRequest');
+    const incomingRequests = await TeamRequest.find({ eventId: req.params.id, toUserId: req.user.id, status: 'pending' }).populate('fromUserId', 'username full_name avatar_url');
+    const outgoingRequests = await TeamRequest.find({ eventId: req.params.id, fromUserId: req.user.id, status: 'pending' });
+
+    res.json({ teammates, incomingRequests, outgoingRequests });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/events/:id/team-request
+router.post('/:id/team-request', authMiddleware, async (req, res) => {
+  try {
+    const { toUserId } = req.body;
+    if (!toUserId) return res.status(400).json({ message: 'Target user ID is required' });
+
+    const TeamRequest = require('../models/TeamRequest');
+    
+    const existing = await TeamRequest.findOne({ eventId: req.params.id, fromUserId: req.user.id, toUserId });
+    if (existing) return res.status(400).json({ message: 'Request already sent' });
+
+    const reqDoc = new TeamRequest({
+      eventId: req.params.id,
+      fromUserId: req.user.id,
+      toUserId
+    });
+    await reqDoc.save();
+
+    const event = await Event.findById(req.params.id);
+    await notificationService.createNotification({
+      userId: toUserId,
+      type: 'team_request',
+      relatedContentId: event._id,
+      message: `Someone wants to team up with you for ${event.title}!`
+    });
+
+    res.json(reqDoc);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/events/:id/team-requests/:reqId/accept
+router.post('/:id/team-requests/:reqId/accept', authMiddleware, async (req, res) => {
+  try {
+    const TeamRequest = require('../models/TeamRequest');
+    const teamReq = await TeamRequest.findById(req.params.reqId).populate('fromUserId');
+    if (!teamReq) return res.status(404).json({ message: 'Request not found' });
+    
+    if (teamReq.toUserId.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to accept this request' });
+    }
+
+    teamReq.status = 'accepted';
+    await teamReq.save();
+
+    // Update registrations
+    const myReg = await EventRegistration.findOne({ eventId: req.params.id, userId: req.user.id });
+    const theirReg = await EventRegistration.findOne({ eventId: req.params.id, userId: teamReq.fromUserId._id });
+    
+    if (myReg && theirReg) {
+      // Ensure there is a team name
+      if (!myReg.teamName && !theirReg.teamName) {
+        myReg.teamName = 'Team ' + myReg._id.toString().slice(-6).toUpperCase();
+      } else if (!myReg.teamName) {
+        myReg.teamName = theirReg.teamName;
+      }
+      
+      myReg.lookingForTeammates = false;
+      await myReg.save();
+
+      // Update their reg
+      theirReg.lookingForTeammates = false;
+      theirReg.teamName = myReg.teamName;
+      await theirReg.save();
+    }
+
+    const event = await Event.findById(req.params.id);
+    await notificationService.createNotification({
+      userId: teamReq.fromUserId._id,
+      type: 'team_request_accepted',
+      relatedContentId: event._id,
+      message: `Your team request for ${event.title} was accepted!`
+    });
+
+    res.json({ message: 'Request accepted' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/events/:id/checkin
+router.post('/:id/checkin', authMiddleware, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+    
+    if (event.hostedBy.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only the host can check in attendees' });
+    }
+
+    const { registrationId } = req.body;
+    if (!registrationId) return res.status(400).json({ message: 'Registration ID required' });
+
+    const reg = await EventRegistration.findById(registrationId);
+    if (!reg) return res.status(404).json({ message: 'Registration not found' });
+    if (reg.eventId.toString() !== req.params.id) return res.status(400).json({ message: 'Registration does not belong to this event' });
+
+    reg.checkedIn = true;
+    reg.checkedInAt = new Date();
+    await reg.save();
+
+    res.json({ message: 'Attendee checked in', registration: reg });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/events/:id/teammates
+router.get('/:id/teammates', authMiddleware, async (req, res) => {
+  try {
+    const EventRegistration = require('../models/EventRegistration');
+    const TeamRequest = require('../models/TeamRequest');
+
+    const teammates = await EventRegistration.find({ 
+      eventId: req.params.id, 
+      status: 'registered',
+      lookingForTeammates: true,
+      userId: { $ne: req.user.id }
+    }).populate('userId', 'username full_name avatar_url');
+
+    const incomingRequests = await TeamRequest.find({
+      eventId: req.params.id,
+      toUserId: req.user.id,
+      status: 'pending'
+    }).populate('fromUserId', 'username full_name avatar_url');
+
+    const outgoingRequests = await TeamRequest.find({
+      eventId: req.params.id,
+      fromUserId: req.user.id,
+      status: 'pending'
+    });
+    
+    res.json({ teammates, incomingRequests, outgoingRequests });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// POST /api/events/:id/team-request
+router.post('/:id/team-request', authMiddleware, async (req, res) => {
+  try {
+    const { toUserId } = req.body;
+    const event = await Event.findById(req.params.id);
+    const TeamRequest = require('../models/TeamRequest');
+    
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+    
+    const existingReq = await TeamRequest.findOne({
+      eventId: event._id,
+      fromUserId: req.user.id,
+      toUserId
+    });
+
+    if (existingReq) return res.status(400).json({ message: 'Request already sent' });
+
+    const newReq = new TeamRequest({
+      eventId: event._id,
+      fromUserId: req.user.id,
+      toUserId
+    });
+    await newReq.save();
+
+    const sender = await User.findById(req.user.id);
+    
+    await notificationService.createNotification({
+      userId: toUserId,
+      type: 'team_invite',
+      relatedContentId: event._id,
+      message: `${sender?.full_name || sender?.username} sent you a request to join their team for "${event.title}".`
+    });
+    
+    res.json({ message: 'Team request sent successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// POST /api/events/:id/team-requests/:reqId/accept
+router.post('/:id/team-requests/:reqId/accept', authMiddleware, async (req, res) => {
+  try {
+    const TeamRequest = require('../models/TeamRequest');
+    const EventRegistration = require('../models/EventRegistration');
+    
+    const teamReq = await TeamRequest.findById(req.params.reqId).populate('fromUserId');
+    if (!teamReq) return res.status(404).json({ message: 'Request not found' });
+    if (teamReq.toUserId.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+
+    teamReq.status = 'accepted';
+    await teamReq.save();
+
+    // Group them up by giving them a teamName
+    const teamName = `Team ${teamReq.fromUserId.full_name || teamReq.fromUserId.username}`;
+
+    await EventRegistration.updateMany(
+      { eventId: req.params.id, userId: { $in: [teamReq.fromUserId._id, teamReq.toUserId] } },
+      { $set: { teamName, lookingForTeammates: false } }
+    );
+
+    const event = await Event.findById(req.params.id);
+    const acceptor = await User.findById(req.user.id);
+
+    await notificationService.createNotification({
+      userId: teamReq.fromUserId._id,
+      type: 'team_accept',
+      relatedContentId: event._id,
+      message: `${acceptor?.full_name || acceptor?.username} accepted your team request for "${event.title}".`
+    });
+
+    res.json({ message: 'Team request accepted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

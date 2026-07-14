@@ -57,6 +57,11 @@ const UserSchema = new mongoose.Schema({
   avatar_url: {
     type: String
   },
+  learningStreak: {
+    current: { type: Number, default: 0 },
+    longest: { type: Number, default: 0 },
+    lastActiveDate: { type: Date, default: null }
+  },
   role: {
     type: String,
     enum: ['user', 'admin'],

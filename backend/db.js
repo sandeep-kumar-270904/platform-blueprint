@@ -12,9 +12,19 @@ const connectDB = async () => {
       console.log('Attempting to connect to MongoDB Atlas...');
       const conn = await mongoose.connect(mongoUri, { 
         family: 4,
-        serverSelectionTimeoutMS: 5000 
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000
       });
       console.log(`MongoDB Connected: ${conn.connection.host}`);
+      
+      mongoose.connection.on('error', err => {
+        console.error('MongoDB connection error:', err);
+      });
+      
+      mongoose.connection.on('disconnected', () => {
+        console.warn('MongoDB disconnected. Attempting to reconnect...');
+      });
+
       return;
     } catch (atlasErr) {
       console.log(`Failed to connect to Atlas (${atlasErr.message}). Falling back to in-memory MongoDB...`);

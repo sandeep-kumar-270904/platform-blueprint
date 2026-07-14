@@ -61,7 +61,7 @@ const InviteAccept = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" /> Group Invitation
+              <Users className="h-4 w-4 text-primary" /> Group Invitation
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -69,13 +69,13 @@ const InviteAccept = () => {
               <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
             ) : state === "invalid" ? (
               <div className="text-center py-4">
-                <AlertTriangle className="h-10 w-10 mx-auto text-destructive mb-2" />
+                <AlertTriangle className="h-8 w-8 mx-auto text-destructive mb-2" />
                 <p className="font-semibold">{error}</p>
                 <Link to="/study-groups"><Button variant="outline" className="mt-4">Browse groups</Button></Link>
               </div>
             ) : state === "done" ? (
               <div className="text-center py-4">
-                <CheckCircle2 className="h-10 w-10 mx-auto text-green-500 mb-2" />
+                <CheckCircle2 className="h-8 w-8 mx-auto text-green-500 mb-2" />
                 <p className="font-semibold">You joined {group?.name}!</p>
                 <p className="text-sm text-muted-foreground">Taking you to the group...</p>
               </div>

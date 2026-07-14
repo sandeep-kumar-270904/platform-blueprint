@@ -8,41 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Briefcase, Star, MapPin, DollarSign, Clock } from "lucide-react";
 
-const mockServices = [
-  {
-    id: 1,
-    provider: "Priya Sharma",
-    service: "Web Development",
-    description: "Full-stack MERN developer with 3 years experience",
-    rate: "₹500/hour",
-    rating: 4.9,
-    reviews: 45,
-    location: "Remote",
-    availability: "Available"
-  },
-  {
-    id: 2,
-    provider: "Arjun Patel",
-    service: "UI/UX Design",
-    description: "Create stunning interfaces and user experiences",
-    rate: "₹400/hour",
-    rating: 4.8,
-    reviews: 32,
-    location: "Bangalore",
-    availability: "Busy"
-  },
-  {
-    id: 3,
-    provider: "Sneha Reddy",
-    service: "Content Writing",
-    description: "SEO-optimized content for websites and blogs",
-    rate: "₹300/hour",
-    rating: 5.0,
-    reviews: 28,
-    location: "Remote",
-    availability: "Available"
-  }
-];
+const mockServices = [];
 
 const PostSkill = () => {
   const [searchTerm, setSearchTerm] = useState("");

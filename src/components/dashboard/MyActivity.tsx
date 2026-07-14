@@ -3,11 +3,13 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MoreVertical, Edit2, Trash2, ExternalLink, Star, Calendar } from "lucide-react";
+import { MoreVertical, Edit2, Trash2, ExternalLink, Star, Calendar, MessageCircle, MessageSquare, Ticket } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { ReviewFormDialog } from "@/components/colleges/ReviewFormDialog";
+import { QRScanner } from "@/components/events/QRScanner";
+import { EditEventDialog } from "@/components/events/EditEventDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -20,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import QRCode from "react-qr-code";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -32,9 +35,19 @@ export const MyActivity = () => {
   const [registeredPast, setRegisteredPast] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // QR Ticket States
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrRegId, setQrRegId] = useState("");
+  const [qrEventTitle, setQrEventTitle] = useState("");
+
   // Edit Q&A States
   const [editItem, setEditItem] = useState<{ type: 'question' | 'answer', data: any } | null>(null);
   const [editText, setEditText] = useState("");
+  const [editEventItem, setEditEventItem] = useState<any>(null);
+
+  // QR Checkin State
+  const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [scanEventId, setScanEventId] = useState("");
 
   // Delete States
   const [deleteItem, setDeleteItem] = useState<{ id: string, type: 'review' | 'question' | 'answer' | 'event' } | null>(null);
@@ -185,7 +198,9 @@ export const MyActivity = () => {
 
           <TabsContent value="reviews" className="space-y-4">
             {reviews.length === 0 ? (
-              <div className="text-center py-12 bg-muted/30 rounded-lg">
+              <div className="text-center py-12 border border-dashed bg-muted/10 rounded-xl">
+                <Star className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Reviews Yet</h3>
                 <p className="text-muted-foreground mb-4">You haven't written any reviews yet.</p>
                 <Link to="/college-insights">
                   <Button variant="outline">Browse Colleges</Button>
@@ -248,7 +263,9 @@ export const MyActivity = () => {
 
           <TabsContent value="questions" className="space-y-4">
             {questions.length === 0 ? (
-              <div className="text-center py-12 bg-muted/30 rounded-lg">
+              <div className="text-center py-12 border border-dashed bg-muted/10 rounded-xl">
+                <MessageCircle className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Questions Yet</h3>
                 <p className="text-muted-foreground mb-4">You haven't asked any questions yet.</p>
                 <Link to="/college-insights">
                   <Button variant="outline">Browse Colleges</Button>
@@ -301,7 +318,9 @@ export const MyActivity = () => {
 
           <TabsContent value="answers" className="space-y-4">
             {answers.length === 0 ? (
-              <div className="text-center py-12 bg-muted/30 rounded-lg">
+              <div className="text-center py-12 border border-dashed bg-muted/10 rounded-xl">
+                <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Answers Yet</h3>
                 <p className="text-muted-foreground mb-4">You haven't answered any questions yet.</p>
                 <Link to="/college-insights">
                   <Button variant="outline">Browse Colleges</Button>
@@ -363,7 +382,9 @@ export const MyActivity = () => {
               
               <TabsContent value="hosting" className="space-y-4">
                 {hostedEvents.length === 0 ? (
-                  <div className="text-center py-12 bg-muted/30 rounded-lg">
+                  <div className="text-center py-12 border border-dashed bg-muted/10 rounded-xl">
+                    <Calendar className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Events Hosted</h3>
                     <p className="text-muted-foreground mb-4">You haven't hosted any events yet.</p>
                     <Link to="/events">
                       <Button variant="outline">Host an Event</Button>
@@ -389,6 +410,12 @@ export const MyActivity = () => {
                             }`}>
                               {ev.status.replace('_', ' ')}
                             </span>
+                            {ev.avgRating && (
+                              <span className="flex items-center text-xs font-medium bg-secondary text-secondary-foreground px-2 py-0.5 rounded-full">
+                                {ev.avgRating.toFixed(1)} <Star className="h-3 w-3 fill-warning text-warning ml-1" />
+                                <span className="ml-1 text-[10px] text-muted-foreground">({ev.totalFeedbackCount || 0})</span>
+                              </span>
+                            )}
                           </div>
                           <h4 className="font-semibold text-lg">{ev.title}</h4>
                           <Link 
@@ -404,12 +431,18 @@ export const MyActivity = () => {
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link to={`/events/${ev._id}/edit`}>
+                            <DropdownMenuContent align="end">
+                              {ev.status === 'approved' && !ev.isVirtual && (
+                                <DropdownMenuItem onClick={() => {
+                                  setScanEventId(ev._id);
+                                  setScanModalOpen(true);
+                                }}>
+                                  <Ticket className="mr-2 h-4 w-4" /> Scan Tickets
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => setEditEventItem(ev)}>
                                 <Edit2 className="mr-2 h-4 w-4" /> Edit
-                              </Link>
-                            </DropdownMenuItem>
+                              </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="text-destructive focus:text-destructive"
                               onClick={() => setDeleteItem({ id: ev._id, type: 'event' })}
@@ -461,15 +494,50 @@ export const MyActivity = () => {
                               <span className="flex items-center"><Calendar className="mr-1 h-3 w-3" /> {new Date(ev.startDate).toLocaleDateString()} at {ev.startTime}</span>
                               <span>•</span>
                               <span className="capitalize">{ev.eventType}</span>
+                              <div className="flex gap-2">
+                                {!ev.event.isVirtual && ev.status === 'registered' && (
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => {
+                                      setQrRegId(ev._id);
+                                      setQrEventTitle(ev.event.title);
+                                      setQrModalOpen(true);
+                                    }}
+                                  >
+                                    View QR Ticket
+                                  </Button>
+                                )}
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive" 
+                                  onClick={() => setCancelRegItem({ id: ev.event._id })}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                          <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setCancelRegItem({ id: ev._id })}>
-                            Cancel RSVP
-                          </Button>
                         </div>
                       ))}
                     </div>
                   )}
+
+                  <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
+                    <DialogContent className="sm:max-w-md text-center">
+                      <DialogHeader>
+                        <DialogTitle>Your Ticket for {qrEventTitle}</DialogTitle>
+                      </DialogHeader>
+                      <div className="flex flex-col items-center justify-center p-6 space-y-4">
+                        <div className="bg-white p-4 rounded-xl shadow-sm border">
+                          {qrRegId && <QRCode value={qrRegId} size={200} />}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-4">
+                          Show this QR code to the host when checking in at the venue.
+                        </p>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
 
                 {/* Past */}
@@ -504,6 +572,50 @@ export const MyActivity = () => {
           </TabsContent>
         </Tabs>
       </CardContent>
+
+      <EditEventDialog 
+        event={editEventItem} 
+        open={!!editEventItem} 
+        onOpenChange={(open) => !open && setEditEventItem(null)} 
+        onSuccess={fetchActivity} 
+      />
+
+      <Dialog open={scanModalOpen} onOpenChange={setScanModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Scan Attendee Ticket</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {scanModalOpen && (
+              <QRScanner 
+                onScan={async (decodedText) => {
+                  try {
+                    toast.loading("Checking in...", { id: "checkin" });
+                    const token = localStorage.getItem("token");
+                    const res = await fetch(`${API_URL}/api/events/${scanEventId}/checkin`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                      },
+                      body: JSON.stringify({ registrationId: decodedText })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                      toast.success(`Checked in successfully!`, { id: "checkin" });
+                      setScanModalOpen(false);
+                    } else {
+                      throw new Error(data.message || "Invalid ticket");
+                    }
+                  } catch (err: any) {
+                    toast.error(err.message, { id: "checkin" });
+                  }
+                }}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Q&A Dialog */}
       <Dialog open={!!editItem} onOpenChange={(open) => !open && setEditItem(null)}>

@@ -37,7 +37,7 @@ export const NoteCard = ({
       {/* Dog-ear fold detail */}
       <div className="absolute top-0 right-0 w-8 h-8 bg-gradient-to-bl from-transparent via-transparent to-[var(--color-border)] dark:to-[var(--color-border-dark)] opacity-0 group-hover:opacity-100 transition-opacity" style={{ clipPath: "polygon(100% 0, 0 0, 100% 100%)" }} />
 
-      <CardHeader className="p-[20px] pb-3 relative z-10">
+      <CardHeader className="p-[20px] pb-3 relative z-8">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0 pr-3">
             <h3
@@ -66,10 +66,10 @@ export const NoteCard = ({
             <NoteBookmarkButton noteId={note.id} aria-label="Bookmark this note" />
             {isOwner && (
               <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onEdit?.(note); }} aria-label="Edit note">
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onEdit?.(note); }} aria-label="Edit note">
                   <Pencil className="h-3 w-3" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); onDelete?.(note); }} aria-label="Delete note">
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); onDelete?.(note); }} aria-label="Delete note">
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>

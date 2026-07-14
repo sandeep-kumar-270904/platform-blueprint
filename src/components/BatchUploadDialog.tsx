@@ -171,8 +171,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <Label>Subject</Label>
-              <Input
+              <Label htmlFor="subject">Subject</Label><Input id="subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="e.g., Physics"
@@ -180,8 +179,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
               />
             </div>
             <div>
-              <Label>Branch</Label>
-              <Input
+              <Label htmlFor="branch">Branch</Label><Input id="branch"
                 value={branch}
                 onChange={(e) => setBranch(e.target.value)}
                 placeholder="e.g., CSE"
@@ -189,8 +187,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
               />
             </div>
             <div>
-              <Label>Semester</Label>
-              <Input
+              <Label htmlFor="semester">Semester</Label><Input id="semester"
                 value={semester}
                 onChange={(e) => setSemester(e.target.value)}
                 placeholder="e.g., 3"

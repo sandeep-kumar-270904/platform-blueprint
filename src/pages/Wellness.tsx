@@ -25,7 +25,7 @@ const Wellness = () => {
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-20 md:py-32">
           
-          <div className="container mx-auto px-4 relative z-10">
+          <div className="container mx-auto px-4 relative z-8">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
                 <Badge variant="accent" className="mb-6">

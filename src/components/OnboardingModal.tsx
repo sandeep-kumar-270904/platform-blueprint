@@ -139,7 +139,7 @@ export const OnboardingModal = ({ onComplete }: OnboardingModalProps) => {
             >
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-lg bg-primary/10">
-                  <currentQuestion.icon className="h-5 w-5 text-primary" />
+                  <currentQuestion.icon className="h-4 w-4 text-primary" />
                 </div>
                 <h3 className="text-lg font-semibold">{currentQuestion.title}</h3>
               </div>
@@ -169,7 +169,7 @@ export const OnboardingModal = ({ onComplete }: OnboardingModalProps) => {
                         <p className="text-sm text-muted-foreground">{option.description}</p>
                       </div>
                       {answers[currentQuestion.id] === option.value && (
-                        <Check className="h-5 w-5 text-primary" />
+                        <Check className="h-4 w-4 text-primary" />
                       )}
                     </Label>
                   </motion.div>

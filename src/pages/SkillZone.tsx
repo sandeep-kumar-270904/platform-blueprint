@@ -7,35 +7,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress";
 import { Zap, Award, PlayCircle, CheckCircle2 } from "lucide-react";
 
-const mockSkills = [
-  {
-    id: 1,
-    name: "Communication Skills",
-    category: "Soft Skills",
-    progress: 65,
-    modules: 8,
-    completed: 5,
-    duration: "4 hours",
-  },
-  {
-    id: 2,
-    name: "Leadership & Management",
-    category: "Soft Skills",
-    progress: 30,
-    modules: 10,
-    completed: 3,
-    duration: "6 hours",
-  },
-  {
-    id: 3,
-    name: "Time Management",
-    category: "Productivity",
-    progress: 90,
-    modules: 6,
-    completed: 5,
-    duration: "3 hours",
-  },
-];
+const mockSkills = [];
 
 const SkillZone = () => {
   return (

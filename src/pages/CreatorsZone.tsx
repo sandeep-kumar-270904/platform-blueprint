@@ -8,41 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sparkles, Upload, Video, FileText, Image, TrendingUp, Eye, Heart } from "lucide-react";
 
-const mockContent = [
-  {
-    id: 1,
-    creator: "Priya Sharma",
-    title: "React Performance Optimization",
-    type: "video",
-    thumbnail: "🎥",
-    views: 12400,
-    likes: 890,
-    duration: "15:30",
-    uploadedAt: "2 days ago"
-  },
-  {
-    id: 2,
-    creator: "Arjun Patel",
-    title: "Python for Data Science - Complete Guide",
-    type: "article",
-    thumbnail: "📝",
-    views: 8900,
-    likes: 567,
-    readTime: "12 min",
-    uploadedAt: "5 days ago"
-  },
-  {
-    id: 3,
-    creator: "Sneha Reddy",
-    title: "UI Design Principles",
-    type: "gallery",
-    thumbnail: "🎨",
-    views: 6700,
-    likes: 423,
-    images: 24,
-    uploadedAt: "1 week ago"
-  }
-];
+const mockContent = [];
 
 const CreatorsZone = () => {
   const [selectedTab, setSelectedTab] = useState("browse");

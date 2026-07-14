@@ -18,14 +18,31 @@ import { useNavigate } from "react-router-dom";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { EventCard } from "@/components/events/EventCard";
+import { useSearchParams } from "react-router-dom";
 
 const Events = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [selectedType, setSelectedType] = useState("all");
-  const [timeFilter, setTimeFilter] = useState("upcoming");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const selectedType = searchParams.get("type") || "all";
+  const timeFilter = searchParams.get("time") || "upcoming";
+  const searchQuery = searchParams.get("search") || "";
+  const viewMode = (searchParams.get("view") as "list" | "calendar") || "list";
+
+  const updateParam = (key: string, value: string, defaultValue: string) => {
+    setSearchParams(prev => {
+      if (value === defaultValue || !value) prev.delete(key);
+      else prev.set(key, value);
+      return prev;
+    }, { replace: true });
+  };
+
+  const setSelectedType = (v: string) => updateParam("type", v, "all");
+  const setTimeFilter = (v: string) => updateParam("time", v, "upcoming");
+  const setSearchQuery = (v: string) => updateParam("search", v, "");
+  const setViewMode = (v: "list" | "calendar") => updateParam("view", v, "list");
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   
   const { events, thisWeekEvents, myRegistrations, loading, status, createEvent } = useEvents(
@@ -62,14 +79,19 @@ const Events = () => {
   };
 
   const handleCreate = async () => {
-    if (!form.title || !form.startDate || !form.endDate || !form.startTime || !form.endTime || (!form.isVirtual && !form.venue)) return;
-    
+    if (!form.title) return toast.error("Event title is required");
+    if (!form.startDate) return toast.error("Start date is required");
+    if (!form.endDate) return toast.error("End date is required");
+    if (!form.startTime) return toast.error("Start time is required");
+    if (!form.endTime) return toast.error("End time is required");
+    if (!form.isVirtual && !form.venue) return toast.error("Venue is required for in-person events");
     await createEvent({
       ...form,
       venue: form.isVirtual ? (form.venue || "Virtual") : form.venue,
       hostCollegeId: form.hostCollegeId || null,
-      tags: form.tags ? form.tags.split(",").map((t: string) => t.trim()) : [],
-      prizes: form.prizes ? form.prizes.split(",").map((p: string) => p.trim()) : [],
+      tags: form.tags ? (typeof form.tags === 'string' ? form.tags.split(",").map((t: string) => t.trim()) : form.tags) : [],
+      prizes: form.prizes ? (typeof form.prizes === 'string' ? form.prizes.split(",").map((p: string) => p.trim()) : form.prizes) : [],
+      agenda: form.agenda ? [{ time: 'TBD', title: 'Agenda', description: form.agenda }] : [],
       hostName: form.hostName || user?.full_name || user?.username || "Community Member"
     });
     setSubmitted(true);
@@ -149,12 +171,10 @@ const Events = () => {
                       <DialogHeader><DialogTitle>Host an Event</DialogTitle></DialogHeader>
                       <div className="space-y-4 py-2">
                         <div>
-                          <Label>Title</Label>
-                          <Input value={form.title || ""} onChange={e => setForm({ ...form, title: e.target.value })} required />
+                          <Label htmlFor="title">Title</Label><Input id="title" value={form.title || ""} onChange={e => setForm({ ...form, title: e.target.value })} required />
                         </div>
                         <div>
-                          <Label>Description</Label>
-                          <Textarea rows={3} value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} required />
+                          <Label htmlFor="description">Description</Label><Textarea id="description" rows={3} value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} required />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
@@ -170,8 +190,7 @@ const Events = () => {
                             </Select>
                           </div>
                           <div>
-                            <Label>Host Organization / Name</Label>
-                            <Input value={form.hostName || ""} onChange={e => setForm({ ...form, hostName: e.target.value })} placeholder="e.g. Computer Science Club" required />
+                            <Label htmlFor="host-organization-name">Host Organization / Name</Label><Input id="host-organization-name" value={form.hostName || ""} onChange={e => setForm({ ...form, hostName: e.target.value })} placeholder="e.g. Computer Science Club" required />
                           </div>
                         </div>
                         
@@ -198,8 +217,7 @@ const Events = () => {
                         </div>
                         
                         <div>
-                          <Label>{form.isVirtual ? "Meeting Link / Platform" : "Venue Location"}</Label>
-                          <Input 
+                          <Label htmlFor="form-isvirtual-meeting-link-platform-venue-location">{form.isVirtual ? "Meeting Link / Platform" : "Venue Location"}</Label><Input id="form-isvirtual-meeting-link-platform-venue-location" 
                             value={form.venue || ""} 
                             onChange={e => setForm({ ...form, venue: e.target.value })} 
                             placeholder={form.isVirtual ? "e.g. Zoom link or 'Discord'" : "e.g. Room 304, Building A"} 
@@ -209,20 +227,16 @@ const Events = () => {
 
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label>Start Date</Label>
-                            <Input type="date" onChange={e => setForm({ ...form, startDate: e.target.value })} required />
+                            <Label htmlFor="start-date">Start Date</Label><Input id="start-date" type="date" onChange={e => setForm({ ...form, startDate: e.target.value })} required />
                           </div>
                           <div>
-                            <Label>End Date</Label>
-                            <Input type="date" onChange={e => setForm({ ...form, endDate: e.target.value })} required />
+                            <Label htmlFor="end-date">End Date</Label><Input id="end-date" type="date" onChange={e => setForm({ ...form, endDate: e.target.value })} required />
                           </div>
                           <div>
-                            <Label>Start Time</Label>
-                            <Input type="time" onChange={e => setForm({ ...form, startTime: e.target.value })} required />
+                            <Label htmlFor="start-time">Start Time</Label><Input id="start-time" type="time" onChange={e => setForm({ ...form, startTime: e.target.value })} required />
                           </div>
                           <div>
-                            <Label>End Time</Label>
-                            <Input type="time" onChange={e => setForm({ ...form, endTime: e.target.value })} required />
+                            <Label htmlFor="end-time">End Time</Label><Input id="end-time" type="time" onChange={e => setForm({ ...form, endTime: e.target.value })} required />
                           </div>
                         </div>
 
@@ -238,12 +252,10 @@ const Events = () => {
                         {form.registrationRequired && (
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <Label>Capacity (Leave empty for unlimited)</Label>
-                              <Input type="number" value={form.capacity || ""} onChange={e => setForm({ ...form, capacity: e.target.value ? +e.target.value : null })} />
+                              <Label htmlFor="capacity-leave-empty-for-unlimited">Capacity (Leave empty for unlimited)</Label><Input id="capacity-leave-empty-for-unlimited" type="number" value={form.capacity || ""} onChange={e => setForm({ ...form, capacity: e.target.value ? +e.target.value : null })} />
                             </div>
                             <div>
-                              <Label>Registration Deadline</Label>
-                              <Input type="date" onChange={e => setForm({ ...form, registrationDeadline: e.target.value })} />
+                              <Label htmlFor="registration-deadline">Registration Deadline</Label><Input id="registration-deadline" type="date" onChange={e => setForm({ ...form, registrationDeadline: e.target.value })} />
                             </div>
                           </div>
                         )}
@@ -252,23 +264,46 @@ const Events = () => {
                         {(form.eventType === "hackathon" || form.eventType === "competition") && (
                           <>
                             <div className="grid grid-cols-2 gap-4">
-                              <div><Label>Min Team Size</Label><Input type="number" defaultValue={1} onChange={e => setForm({ ...form, teamSize: { ...form.teamSize, min: +e.target.value }})} /></div>
-                              <div><Label>Max Team Size</Label><Input type="number" defaultValue={4} onChange={e => setForm({ ...form, teamSize: { ...form.teamSize, max: +e.target.value }})} /></div>
+                              <div><Label htmlFor="min-team-size">Min Team Size</Label><Input id="min-team-size" type="number" defaultValue={1} onChange={e => setForm({ ...form, teamSize: { ...form.teamSize, min: +e.target.value }})} /></div>
+                              <div><Label htmlFor="max-team-size">Max Team Size</Label><Input id="max-team-size" type="number" defaultValue={4} onChange={e => setForm({ ...form, teamSize: { ...form.teamSize, max: +e.target.value }})} /></div>
                             </div>
                             <div>
-                              <Label>Prizes (Comma separated)</Label>
-                              <Input value={form.prizes || ""} onChange={e => setForm({ ...form, prizes: e.target.value })} placeholder="e.g. $1000, MacBook, Swag" />
+                              <Label htmlFor="prizes-comma-separated">Prizes (Comma separated)</Label><Input id="prizes-comma-separated" value={form.prizes || ""} onChange={e => setForm({ ...form, prizes: e.target.value })} placeholder="e.g. $1000, MacBook, Swag" />
                             </div>
                           </>
                         )}
+                        {(form.eventType === "workshop" || form.eventType === "seminar") && (
+                            <div>
+                              <Label htmlFor="agenda-schedule-description">Agenda/Schedule Description</Label><Textarea id="agenda-schedule-description" value={form.agenda || ""} onChange={e => setForm({ ...form, agenda: e.target.value })} placeholder="Describe the schedule or agenda for this event..." />
+                            </div>
+                        )}
 
                         <div>
-                          <Label>Tags (comma separated)</Label>
-                          <Input value={form.tags || ""} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="e.g. AI, Web Dev, Beginner" />
+                          <Label htmlFor="tags-comma-separated">Tags (comma separated)</Label><Input id="tags-comma-separated" value={form.tags || ""} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="e.g. AI, Web Dev, Beginner" />
                         </div>
                         <div>
-                          <Label>Banner Image URL (Optional)</Label>
-                          <Input value={form.bannerImage || ""} onChange={e => setForm({ ...form, bannerImage: e.target.value })} placeholder="https://..." />
+                          <Label htmlFor="banner-image">Banner Image</Label><Input id="banner-image" type="file" accept="image/*" onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const formData = new FormData();
+                              formData.append('file', file);
+                              try {
+                                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                                const res = await fetch(`${API_URL}/api/uploads`, {
+                                  method: 'POST',
+                                  headers: { Authorization: `Bearer ${token}` },
+                                  body: formData
+                                });
+                                if (res.ok) {
+                                  const data = await res.json();
+                                  setForm({ ...form, bannerImage: data.url });
+                                }
+                              } catch (err) {
+                                console.error("Upload failed", err);
+                              }
+                            }
+                          }} />
+                          {form.bannerImage && <p className="text-xs text-muted-foreground mt-1">Image uploaded successfully.</p>}
                         </div>
                       </div>
                       <DialogFooter>
@@ -286,9 +321,17 @@ const Events = () => {
         </div>
 
         {/* This Week Highlight Strip */}
-        {viewMode === 'list' && thisWeekEvents.length > 0 && timeFilter === 'upcoming' && !searchQuery && (
+        {(() => {
+          const showThisWeek = viewMode === 'list' && thisWeekEvents.length > 0 && timeFilter === 'upcoming' && !searchQuery;
+          const filteredGridEvents = showThisWeek 
+            ? events.filter(e => !thisWeekEvents.some(twe => twe.id === e.id)) 
+            : events;
+            
+          return (
+            <>
+              {showThisWeek && (
           <div className="mb-8">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Clock className="h-5 w-5 text-primary" /> Happening This Week</h3>
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Clock className="h-4 w-4 text-primary" /> Happening This Week</h3>
             <div className="flex overflow-x-auto gap-4 pb-4 snap-x">
               {thisWeekEvents.map(event => (
                 <div key={event.id} className="min-w-[300px] w-[300px] snap-start">
@@ -333,8 +376,12 @@ const Events = () => {
           </div>
         ) : (
           viewMode === 'list' ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {events.map(event => (
+            <>
+              {filteredGridEvents.length > 0 && showThisWeek && (
+                <h3 className="text-lg font-semibold mb-4 mt-8">All Upcoming Events</h3>
+              )}
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {filteredGridEvents.map(event => (
                 <EventCard 
                   key={event.id} 
                   event={event} 
@@ -345,6 +392,7 @@ const Events = () => {
                 />
               ))}
             </div>
+            </>
           ) : (
             <CalendarView 
               currentMonth={currentMonth} 
@@ -355,6 +403,9 @@ const Events = () => {
             />
           )
         )}
+            </>
+          );
+        })()}
       </div>
     </div>
   );

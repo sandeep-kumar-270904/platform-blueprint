@@ -47,6 +47,10 @@ const CollegeInsights = () => {
 
   const [localSearch, setLocalSearch] = useState(filters.search);
 
+  useEffect(() => {
+    setLocalSearch(filters.search);
+  }, [filters.search]);
+
   // Debounce search input
   const debouncedSetSearch = useCallback(
     debounce((value) => setSearch(value), 300),
@@ -145,7 +149,7 @@ const CollegeInsights = () => {
 
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden pt-0 pb-8 -mt-2">
-          <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 relative z-8">
             <ScrollReveal direction="down">
               <div className="flex flex-col items-center justify-center text-center max-w-3xl mx-auto">
                 
@@ -255,7 +259,7 @@ const CollegeInsights = () => {
                   
                   {/* Left: Search Bar */}
                   <div className="relative w-full xl:w-[380px] shrink-0">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search for colleges..."
                       value={localSearch}

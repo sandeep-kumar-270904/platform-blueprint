@@ -65,7 +65,7 @@ export const MyIdeas = ({ userId }: { userId: string }) => {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Lightbulb className="h-5 w-5 text-primary" />
+          <Lightbulb className="h-4 w-4 text-primary" />
           My Ideas ({ideas.length})
         </CardTitle>
         <Link to="/innovation-hub">
@@ -89,7 +89,7 @@ export const MyIdeas = ({ userId }: { userId: string }) => {
           </div>
         ) : ideas.length === 0 ? (
           <div className="text-center py-8">
-            <Lightbulb className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <Lightbulb className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground mb-3">No ideas yet. Start innovating!</p>
             <Link to="/innovation-hub">
               <Button variant="outline" size="sm" className="gap-1">

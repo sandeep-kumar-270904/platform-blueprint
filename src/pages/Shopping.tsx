@@ -8,52 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ShoppingBag, Star, MapPin, Clock, Phone } from "lucide-react";
 
-const mockShops = [
-  {
-    id: 1,
-    name: "Student Xerox Center",
-    category: "Xerox",
-    rating: 4.6,
-    reviews: 234,
-    location: "Near Main Gate",
-    hours: "8 AM - 10 PM",
-    phone: "+91 98765 43213",
-    offers: ["Bulk discounts", "Fast service"]
-  },
-  {
-    id: 2,
-    name: "Quick Stitch Tailors",
-    category: "Tailor",
-    rating: 4.8,
-    reviews: 189,
-    location: "Market Complex",
-    hours: "9 AM - 8 PM",
-    phone: "+91 98765 43214",
-    offers: ["Student discount", "Same day service"]
-  },
-  {
-    id: 3,
-    name: "Style Hub Salon",
-    category: "Salon",
-    rating: 4.5,
-    reviews: 156,
-    location: "Main Street",
-    hours: "10 AM - 9 PM",
-    phone: "+91 98765 43215",
-    offers: ["Student packages", "Expert stylists"]
-  },
-  {
-    id: 4,
-    name: "Campus Cafe",
-    category: "Cafe",
-    rating: 4.7,
-    reviews: 312,
-    location: "College Road",
-    hours: "7 AM - 11 PM",
-    phone: "+91 98765 43216",
-    offers: ["Free WiFi", "Study space"]
-  }
-];
+const mockShops = [];
 
 const Shopping = () => {
   const [selectedTab, setSelectedTab] = useState("all");

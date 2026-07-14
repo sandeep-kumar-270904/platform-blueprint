@@ -7,30 +7,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Home, MapPin, DollarSign, Heart, MessageSquare } from "lucide-react";
 
-const mockProfiles = [
-  {
-    id: 1,
-    name: "Priya S.",
-    age: 21,
-    course: "Computer Science",
-    budget: "₹8-10k",
-    location: "Near Campus",
-    bio: "Clean, organized, and respectful. Looking for a study-friendly environment.",
-    interests: ["Coding", "Reading", "Yoga"],
-    matchScore: 92,
-  },
-  {
-    id: 2,
-    name: "Rahul M.",
-    age: 22,
-    course: "Mechanical Eng.",
-    budget: "₹6-8k",
-    location: "City Center",
-    bio: "Easy-going person who loves cooking. Prefer non-smoking roommates.",
-    interests: ["Sports", "Cooking", "Music"],
-    matchScore: 85,
-  },
-];
+const mockProfiles = [];
 
 const RoommateFind = () => {
   return (

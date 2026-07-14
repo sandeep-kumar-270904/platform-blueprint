@@ -33,7 +33,7 @@ const JobsPortal = () => {
 
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-6 md:py-10">
-          <div className="container mx-auto px-4 relative z-10">
+          <div className="container mx-auto px-4 relative z-8">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-5xl text-center">
                 <Badge variant="accent" className="mb-4">
@@ -48,7 +48,7 @@ const JobsPortal = () => {
                 </p>
                 <Dialog open={isPostOpen} onOpenChange={setIsPostOpen}>
                   <DialogTrigger asChild>
-                    <Button size="lg" className="gap-2"><Plus className="h-5 w-5"/> Post a Job</Button>
+                    <Button size="lg" className="gap-2"><Plus className="h-4 w-4"/> Post a Job</Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader><DialogTitle>Post a new Job</DialogTitle></DialogHeader>
@@ -71,7 +71,7 @@ const JobsPortal = () => {
         <ScrollReveal delay={0.1}>
           <div className="mb-8">
             <div className="relative max-w-2xl mx-auto">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search jobs, companies..."
                 value={searchQuery}

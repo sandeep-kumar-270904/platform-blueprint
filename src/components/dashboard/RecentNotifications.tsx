@@ -40,7 +40,7 @@ export const RecentNotifications = ({ onNavigate }: { onNavigate?: () => void })
     <Card className="border-border">
       <CardHeader className="pb-3 flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Bell className="h-5 w-5" /> Recent Notifications
+          <Bell className="h-4 w-4" /> Recent Notifications
         </CardTitle>
         <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={onNavigate}>
           View All <ArrowRight className="h-3 w-3" />

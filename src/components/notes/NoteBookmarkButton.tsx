@@ -69,7 +69,7 @@ export const NoteBookmarkButton = ({ noteId, size = "icon", className }: NoteBoo
     <Button
       variant="ghost"
       size={size}
-      className={cn("h-7 w-7", className)}
+      className={cn("h-6 w-6", className)}
       onClick={(e) => { e.stopPropagation(); toggle(); }}
       aria-label={bookmarked ? "Remove bookmark" : "Bookmark note"}
     >

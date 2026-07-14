@@ -1,35 +1,44 @@
 const mongoose = require('mongoose');
 
-const CollegeAnswerSchema = new mongoose.Schema({
-  questionId: { 
-    type: mongoose.Schema.Types.ObjectId, 
+const collegeAnswerSchema = new mongoose.Schema({
+  questionId: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'CollegeQuestion',
-    required: true 
+    required: true
   },
-  answeredBy: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true 
+    required: true
   },
-  answerText: { 
-    type: String, 
+  answerText: {
+    type: String,
     required: true,
-    trim: true
+    trim: true,
+    maxlength: 2000
   },
-  isCurrentStudent: { 
-    type: Boolean, 
-    default: false 
+  upvotes: {
+    type: Number,
+    default: 0
   },
-  upvotes: { 
-    type: Number, 
-    default: 0 
+  upvotedBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  status: {
+    type: String,
+    enum: ['public', 'hidden'],
+    default: 'public'
   },
-  upvotedBy: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User' 
+  flaggedCount: {
+    type: Number,
+    default: 0
+  },
+  flagReasons: [{
+    reason: String,
+    reportedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    createdAt: { type: Date, default: Date.now }
   }]
-}, {
-  timestamps: true
-});
+}, { timestamps: true });
 
-module.exports = mongoose.model('CollegeAnswer', CollegeAnswerSchema);
+module.exports = mongoose.model('CollegeAnswer', collegeAnswerSchema);

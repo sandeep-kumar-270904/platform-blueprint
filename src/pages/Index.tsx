@@ -261,7 +261,7 @@ const Index = () => {
             <div>
               <div className="mb-4 flex items-center gap-2">
                 <div className="icon-box bg-[var(--canvas)] text-[var(--ink)]">
-                  <GraduationCap className="h-5 w-5" />
+                  <GraduationCap className="h-4 w-4" />
                 </div>
                 <span className="font-fraunces font-bold text-xl">StudentHub</span>
               </div>

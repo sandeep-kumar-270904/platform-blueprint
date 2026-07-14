@@ -138,7 +138,7 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" />
+            <BookOpen className="h-4 w-4 text-primary" />
             Upload Note
           </DialogTitle>
           <DialogDescription>

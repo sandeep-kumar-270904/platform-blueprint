@@ -1,48 +1,45 @@
 const express = require('express');
 const router = express.Router();
+const authMiddleware = require('../middleware/auth');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Mock Edge Function: process-note-metadata
-router.post('/process-note', async (req, res) => {
-  try {
-    const { title, fileUrl } = req.body;
-    
-    // Mock processing logic
-    const enhancedData = {
-      title: title || "Processed Note",
-      description: "Auto-generated description from AI based on the uploaded file.",
-      tags: ["AI", "Processed"],
-      subject: "Computer Science"
-    };
-    
-    // Simulate delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    res.json(enhancedData);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error in AI processing' });
-  }
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy_key');
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-// Mock Edge Function: generate-note-content
-router.post('/generate-content', async (req, res) => {
+// POST /api/ai/review-helper
+router.post('/review-helper', authMiddleware, async (req, res) => {
   try {
-    const { prompt, currentContent } = req.body;
-    
-    // Mock content generation
-    let generatedContent = "";
-    
-    if (prompt) {
-      generatedContent = `\n\n## AI Generated Section\n\nBased on your prompt: "${prompt}", here is some auto-generated content. This simulates the Supabase Edge Function that calls OpenAI.`;
-    } else {
-      generatedContent = `\n\n## AI Continued\n\nContinuing your thoughts... The fundamental principles of this topic suggest that we must analyze the core assumptions before proceeding.`;
+    const { bulletPoints, pros, cons } = req.body;
+    if (!bulletPoints && (!pros || !cons)) {
+      return res.status(400).json({ message: 'Please provide some bullet points or pros/cons to expand.' });
     }
-    
-    // Simulate delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    res.json({ content: (currentContent || '') + generatedContent });
+
+    if (!process.env.GEMINI_API_KEY) {
+      // Provide a mock response if no key is set so the UI doesn't break
+      return res.json({
+        reviewText: `This is a generated review based on your points: \nPros: ${pros}\nCons: ${cons}\n${bulletPoints}\n\n(Note: This is a placeholder because GEMINI_API_KEY is not set in the backend .env)`
+      });
+    }
+
+    const prompt = `
+      You are an AI assistant helping a student write a review for their college. 
+      Please convert the following raw thoughts, pros, and cons into a well-structured, professional, and helpful review paragraph (max 150 words). Do not add any new information that wasn't implied by the user's input.
+      
+      Bullet Points/Thoughts: ${bulletPoints || 'None'}
+      Pros: ${pros || 'None'}
+      Cons: ${cons || 'None'}
+      
+      Review:
+    `;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const reviewText = response.text().trim();
+
+    res.json({ reviewText });
   } catch (error) {
-    res.status(500).json({ message: 'Server error in AI generation' });
+    console.error("Gemini AI Error:", error);
+    res.status(500).json({ message: 'Error generating review text', error: error.message });
   }
 });
 

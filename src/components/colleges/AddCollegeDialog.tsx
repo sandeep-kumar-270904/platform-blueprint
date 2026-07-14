@@ -85,8 +85,7 @@ export const AddCollegeDialog = ({ onSuccess }: AddCollegeDialogProps) => {
             )}
             
             <div className="space-y-2">
-              <Label>College Name *</Label>
-              <Input 
+              <Label htmlFor="college-name">College Name *</Label><Input id="college-name" 
                 required 
                 placeholder="e.g. IIT Delhi" 
                 value={formData.name}
@@ -96,8 +95,7 @@ export const AddCollegeDialog = ({ onSuccess }: AddCollegeDialogProps) => {
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>City *</Label>
-                <Input 
+                <Label htmlFor="city">City *</Label><Input id="city" 
                   required 
                   placeholder="e.g. New Delhi" 
                   value={formData.location.city}
@@ -105,8 +103,7 @@ export const AddCollegeDialog = ({ onSuccess }: AddCollegeDialogProps) => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>State *</Label>
-                <Input 
+                <Label htmlFor="state">State *</Label><Input id="state" 
                   required 
                   placeholder="e.g. Delhi" 
                   value={formData.location.state}
@@ -116,8 +113,7 @@ export const AddCollegeDialog = ({ onSuccess }: AddCollegeDialogProps) => {
             </div>
 
             <div className="space-y-2">
-              <Label>Institution Type *</Label>
-              <Input 
+              <Label htmlFor="institution-type">Institution Type *</Label><Input id="institution-type" 
                 required 
                 placeholder="IIT, NIT, Private, State, etc." 
                 value={formData.type}

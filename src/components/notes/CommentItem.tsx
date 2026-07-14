@@ -92,7 +92,7 @@ export const CommentItem = ({
               <span className="text-xs text-muted-foreground italic">(edited)</span>
             )}
             {comment.is_helpful && (
-              <Badge variant="default" className="text-[10px] h-5 gap-1 bg-emerald-600 hover:bg-emerald-700">
+              <Badge variant="default" className="text-[10px] h-4 gap-1 bg-emerald-600 hover:bg-emerald-700">
                 <CheckCircle2 className="h-3 w-3" /> Helpful
               </Badge>
             )}
@@ -127,7 +127,7 @@ export const CommentItem = ({
               {!isReply && (
                 <Button
                   variant="ghost" size="sm"
-                  className="h-7 px-2 text-xs text-muted-foreground"
+                  className="h-6 px-2 text-xs text-muted-foreground"
                   onClick={() => setReplyOpen(!replyOpen)}
                 >
                   <Reply className="h-3 w-3 mr-1" /> Reply
@@ -137,7 +137,7 @@ export const CommentItem = ({
               {isReply && (
                 <Button
                   variant="ghost" size="sm"
-                  className="h-7 px-2 text-xs text-muted-foreground"
+                  className="h-6 px-2 text-xs text-muted-foreground"
                   onClick={() => setReplyOpen(!replyOpen)}
                 >
                   <Reply className="h-3 w-3 mr-1" /> Reply
@@ -146,7 +146,7 @@ export const CommentItem = ({
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground">
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground">
                     <MoreHorizontal className="h-3.5 w-3.5" />
                   </Button>
                 </DropdownMenuTrigger>

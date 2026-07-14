@@ -42,7 +42,7 @@ export const NotesFilterBar = ({
           <Input
             id="search-notes"
             placeholder="Search notes by title, subject, tags..."
-            className="pl-10 h-10 w-full md:max-w-xl border-[var(--color-border)] focus-visible:ring-[var(--color-accent)]"
+            className="pl-10 h-8 w-full md:max-w-xl border-[var(--color-border)] focus-visible:ring-[var(--color-accent)]"
             value={filters.searchQuery}
             onChange={(e) => onFilterChange("searchQuery", e.target.value)}
           />
@@ -52,7 +52,7 @@ export const NotesFilterBar = ({
           <div className="flex items-center gap-2 shrink-0">
             <label htmlFor="sort-notes" className="sr-only">Sort notes</label>
             <Select value={filters.sortBy} onValueChange={(v) => onFilterChange("sortBy", v)}>
-              <SelectTrigger id="sort-notes" className="w-[150px] h-10 text-xs border-[var(--color-border)]">
+              <SelectTrigger id="sort-notes" className="w-[150px] h-8 text-xs border-[var(--color-border)]">
                 <TrendingUp className="h-3 w-3 mr-1" aria-hidden="true" />
                 <SelectValue />
               </SelectTrigger>
@@ -64,10 +64,10 @@ export const NotesFilterBar = ({
                 <SelectItem value="most-downloaded">Most Downloaded</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant={viewMode === "grid" ? "default" : "ghost"} size="icon" className="h-10 w-10 shrink-0" onClick={() => onViewModeChange("grid")} aria-label="Grid view">
+            <Button variant={viewMode === "grid" ? "default" : "ghost"} size="icon" className="h-8 w-8 shrink-0" onClick={() => onViewModeChange("grid")} aria-label="Grid view">
               <Grid3x3 className="h-4 w-4" aria-hidden="true" />
             </Button>
-            <Button variant={viewMode === "list" ? "default" : "ghost"} size="icon" className="h-10 w-10 shrink-0" onClick={() => onViewModeChange("list")} aria-label="List view">
+            <Button variant={viewMode === "list" ? "default" : "ghost"} size="icon" className="h-8 w-8 shrink-0" onClick={() => onViewModeChange("list")} aria-label="List view">
               <List className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
@@ -75,12 +75,12 @@ export const NotesFilterBar = ({
           {/* Group B: Actions */}
           <div className="flex items-center gap-2 shrink-0">
             <div title={!user ? "Please sign in to upload notes" : undefined}>
-              <Button onClick={onUploadClick} disabled={!user} size="sm" className="h-10 px-4 bg-[var(--color-accent)] hover:bg-[var(--color-accent)]/90 text-[var(--color-text-inverse)]">
+              <Button onClick={onUploadClick} disabled={!user} size="sm" className="h-8 px-4 bg-[var(--color-accent)] hover:bg-[var(--color-accent)]/90 text-[var(--color-text-inverse)]">
                 <Upload className="mr-2 h-4 w-4" aria-hidden="true" />Upload
               </Button>
             </div>
             <div title={!user ? "Please sign in to batch upload" : undefined}>
-              <Button onClick={onBatchUploadClick} disabled={!user} variant="outline" size="sm" className="h-10 px-4 border-[var(--color-border)] text-[var(--color-text-primary)]">
+              <Button onClick={onBatchUploadClick} disabled={!user} variant="outline" size="sm" className="h-8 px-4 border-[var(--color-border)] text-[var(--color-text-primary)]">
                 <Upload className="mr-2 h-4 w-4" aria-hidden="true" />Batch
               </Button>
             </div>
@@ -164,7 +164,7 @@ export const NotesFilterBar = ({
           <Button 
             variant={!filters.selectedCategory ? "secondary" : "outline"} 
             size="sm" 
-            className={`h-7 px-3 chip-label ${!filters.selectedCategory ? 'bg-[var(--color-accent)] text-[var(--color-text-inverse)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]'}`}
+            className={`h-6 px-3 chip-label ${!filters.selectedCategory ? 'bg-[var(--color-accent)] text-[var(--color-text-inverse)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]'}`}
             onClick={() => onFilterChange("selectedCategory", null)}
           >
             All Categories
@@ -174,7 +174,7 @@ export const NotesFilterBar = ({
               key={cat}
               variant={filters.selectedCategory === cat ? "secondary" : "outline"}
               size="sm"
-              className={`h-7 px-3 chip-label ${filters.selectedCategory === cat ? 'bg-[var(--color-accent)] text-[var(--color-text-inverse)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]'}`}
+              className={`h-6 px-3 chip-label ${filters.selectedCategory === cat ? 'bg-[var(--color-accent)] text-[var(--color-text-inverse)]' : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]'}`}
               onClick={() => onFilterChange("selectedCategory", filters.selectedCategory === cat ? null : (cat as string))}
             >
               {filters.selectedCategory === cat && <div className="mr-1.5 h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />}

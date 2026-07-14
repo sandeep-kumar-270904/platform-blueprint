@@ -233,28 +233,22 @@ const AdminCollegePanel = () => {
               <form onSubmit={handleSubmit} className="space-y-6 pt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>College Name *</Label>
-                    <Input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                    <Label htmlFor="college-name">College Name *</Label><Input id="college-name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Type *</Label>
-                    <Input required placeholder="IIT, NIT, Private, etc" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} />
+                    <Label htmlFor="type">Type *</Label><Input id="type" required placeholder="IIT, NIT, Private, etc" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <Label>City *</Label>
-                    <Input required value={formData.location.city} onChange={e => setFormData({...formData, location: {...formData.location, city: e.target.value}})} />
+                    <Label htmlFor="city">City *</Label><Input id="city" required value={formData.location.city} onChange={e => setFormData({...formData, location: {...formData.location, city: e.target.value}})} />
                   </div>
                   <div className="space-y-2">
-                    <Label>State *</Label>
-                    <Input required value={formData.location.state} onChange={e => setFormData({...formData, location: {...formData.location, state: e.target.value}})} />
+                    <Label htmlFor="state">State *</Label><Input id="state" required value={formData.location.state} onChange={e => setFormData({...formData, location: {...formData.location, state: e.target.value}})} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Established Year</Label>
-                    <Input type="number" min="1800" max={new Date().getFullYear()} value={formData.establishedYear} onChange={e => setFormData({...formData, establishedYear: Number(e.target.value)})} />
+                    <Label htmlFor="established-year">Established Year</Label><Input id="established-year" type="number" min="1800" max={new Date().getFullYear()} value={formData.establishedYear} onChange={e => setFormData({...formData, establishedYear: Number(e.target.value)})} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Website URL</Label>
-                    <Input type="url" value={formData.website} onChange={e => setFormData({...formData, website: e.target.value})} />
+                    <Label htmlFor="website-url">Website URL</Label><Input id="website-url" type="url" value={formData.website} onChange={e => setFormData({...formData, website: e.target.value})} />
                   </div>
                 </div>
 
@@ -262,32 +256,26 @@ const AdminCollegePanel = () => {
                   <h4 className="font-semibold text-sm">Fees (Per Year)</h4>
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label>Tuition</Label>
-                      <Input type="number" min="0" required value={formData.fees.tuition} onChange={e => setFormData({...formData, fees: {...formData.fees, tuition: Number(e.target.value)}})} />
+                      <Label htmlFor="tuition">Tuition</Label><Input id="tuition" type="number" min="0" required value={formData.fees.tuition} onChange={e => setFormData({...formData, fees: {...formData.fees, tuition: Number(e.target.value)}})} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Hostel</Label>
-                      <Input type="number" min="0" required value={formData.fees.hostel} onChange={e => setFormData({...formData, fees: {...formData.fees, hostel: Number(e.target.value)}})} />
+                      <Label htmlFor="hostel">Hostel</Label><Input id="hostel" type="number" min="0" required value={formData.fees.hostel} onChange={e => setFormData({...formData, fees: {...formData.fees, hostel: Number(e.target.value)}})} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Other</Label>
-                      <Input type="number" min="0" required value={formData.fees.other} onChange={e => setFormData({...formData, fees: {...formData.fees, other: Number(e.target.value)}})} />
+                      <Label htmlFor="other">Other</Label><Input id="other" type="number" min="0" required value={formData.fees.other} onChange={e => setFormData({...formData, fees: {...formData.fees, other: Number(e.target.value)}})} />
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 border p-4 rounded-lg">
                   <div className="space-y-2">
-                    <Label>Placement Percentage</Label>
-                    <Input type="number" min="0" max="100" value={formData.placementPercentage} onChange={e => setFormData({...formData, placementPercentage: Number(e.target.value)})} />
+                    <Label htmlFor="placement-percentage">Placement Percentage</Label><Input id="placement-percentage" type="number" min="0" max="100" value={formData.placementPercentage} onChange={e => setFormData({...formData, placementPercentage: Number(e.target.value)})} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Average Package</Label>
-                    <Input placeholder="e.g. 12 LPA" value={formData.avgPackage} onChange={e => setFormData({...formData, avgPackage: e.target.value})} />
+                    <Label htmlFor="average-package">Average Package</Label><Input id="average-package" placeholder="e.g. 12 LPA" value={formData.avgPackage} onChange={e => setFormData({...formData, avgPackage: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Highest Package</Label>
-                    <Input placeholder="e.g. 50 LPA" value={formData.highestPackage} onChange={e => setFormData({...formData, highestPackage: e.target.value})} />
+                    <Label htmlFor="highest-package">Highest Package</Label><Input id="highest-package" placeholder="e.g. 50 LPA" value={formData.highestPackage} onChange={e => setFormData({...formData, highestPackage: e.target.value})} />
                   </div>
                   <div className="space-y-2 flex flex-col justify-end">
                     <div className="flex items-center space-x-2 border p-2 rounded-md">

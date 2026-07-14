@@ -74,7 +74,7 @@ export const ReportDialog = ({ open, onOpenChange, contentType, contentId }: Rep
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Flag className="h-5 w-5 text-destructive" />
+            <Flag className="h-4 w-4 text-destructive" />
             Report {contentType}
           </DialogTitle>
         </DialogHeader>
@@ -91,8 +91,7 @@ export const ReportDialog = ({ open, onOpenChange, contentType, contentId }: Rep
             </Select>
           </div>
           <div>
-            <Label>Additional details (optional)</Label>
-            <Textarea
+            <Label htmlFor="additional-details-optional">Additional details (optional)</Label><Textarea id="additional-details-optional"
               placeholder="Provide more context..."
               value={details}
               onChange={(e) => setDetails(e.target.value)}
