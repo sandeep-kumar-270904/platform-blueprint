@@ -3,19 +3,38 @@ import { useState } from "react";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
 
+import { useSearchParams } from "react-router-dom";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export const useColleges = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   
-  const [search, setSearch] = useState("");
-  const [type, setType] = useState("All");
-  const [feeRange, setFeeRange] = useState("");
-  const [ratingMin, setRatingMin] = useState("");
-  const [location, setLocation] = useState("All");
-  const [course, setCourse] = useState("All");
-  const [sort, setSort] = useState("rating");
+  const search = searchParams.get("search") || "";
+  const type = searchParams.get("type") || "All";
+  const feeRange = searchParams.get("feeRange") || "";
+  const ratingMin = searchParams.get("ratingMin") || "";
+  const location = searchParams.get("location") || "All";
+  const course = searchParams.get("course") || "All";
+  const sort = searchParams.get("sort") || "rating";
+
+  const updateParam = (key: string, value: string, defaultValue: string = "") => {
+    setSearchParams(prev => {
+      if (value === defaultValue || !value) prev.delete(key);
+      else prev.set(key, value);
+      return prev;
+    }, { replace: true });
+  };
+
+  const setSearch = (v: string) => updateParam("search", v);
+  const setType = (v: string) => updateParam("type", v, "All");
+  const setFeeRange = (v: string) => updateParam("feeRange", v);
+  const setRatingMin = (v: string) => updateParam("ratingMin", v);
+  const setLocation = (v: string) => updateParam("location", v, "All");
+  const setCourse = (v: string) => updateParam("course", v, "All");
+  const setSort = (v: string) => updateParam("sort", v, "rating");
 
   // Fetch all colleges with filters
   const getColleges = async (page = 1, limit = 12) => {

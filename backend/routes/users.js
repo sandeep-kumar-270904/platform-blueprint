@@ -164,4 +164,125 @@ router.put('/me/notification-preferences', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/users/me/courses
+router.get('/me/courses', authMiddleware, async (req, res) => {
+  try {
+    const CourseEnrollment = require('../models/CourseEnrollment');
+    const Notification = require('../models/Notification');
+    const User = require('../models/User');
+
+    const user = await User.findById(req.user.id).select('learningStreak');
+
+    const enrollments = await CourseEnrollment.find({ userId: req.user.id })
+      .populate('courseId')
+      .sort({ updatedAt: -1 });
+
+    const result = {
+      enrolled: [],
+      in_progress: [],
+      completed: [],
+      learningStreak: user?.learningStreak || { current: 0, longest: 0, lastActiveDate: null }
+    };
+
+    const now = new Date();
+    const msPerDay = 1000 * 60 * 60 * 24;
+
+    for (let enrollment of enrollments) {
+      // Logic for stalled and 5-day reminders
+      if (enrollment.status === 'in_progress') {
+        const lastUpdate = enrollment.lastProgressUpdateAt ? new Date(enrollment.lastProgressUpdateAt) : new Date(enrollment.updatedAt);
+        const diffDays = Math.floor(Math.abs(now - lastUpdate) / msPerDay);
+        
+        enrollment = enrollment.toObject();
+        enrollment.daysSinceUpdate = diffDays;
+        
+        if (diffDays >= 30) {
+          enrollment.isStalled = true;
+        }
+
+        // 5-day gentle reminder logic
+        // If it's been exactly 5 days (or 6, to give a buffer), we notify. 
+        // We ensure we don't spam by checking if a notification for this course already exists recently.
+        if (diffDays === 5 || diffDays === 6) {
+          const recentNotification = await Notification.findOne({
+            userId: req.user.id,
+            type: 'course_reminder',
+            relatedContentId: enrollment.courseId._id,
+            createdAt: { $gte: new Date(now.getTime() - 3 * msPerDay) } // within last 3 days
+          });
+
+          if (!recentNotification) {
+            await Notification.create({
+              userId: req.user.id,
+              type: 'course_reminder',
+              relatedContentId: enrollment.courseId._id,
+              message: `Pick up where you left off in ${enrollment.courseId.title}. You've got this!`
+            });
+          }
+        }
+      } else {
+        enrollment = enrollment.toObject();
+      }
+
+      if (enrollment.status === 'enrolled') result.enrolled.push(enrollment);
+      else if (enrollment.status === 'in_progress') result.in_progress.push(enrollment);
+      else if (enrollment.status === 'completed') result.completed.push(enrollment);
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching user courses:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/users/me/learning-paths
+router.get('/me/learning-paths', authMiddleware, async (req, res) => {
+  try {
+    const LearningPathEnrollment = require('../models/LearningPathEnrollment');
+    const CourseEnrollment = require('../models/CourseEnrollment');
+    
+    const enrollments = await LearningPathEnrollment.find({ userId: req.user.id })
+      .populate('pathId')
+      .sort({ createdAt: -1 });
+
+    const results = [];
+
+    // Calculate progress for each path
+    for (let enrollment of enrollments) {
+      if (!enrollment.pathId) continue;
+      const path = enrollment.pathId;
+      const courseIds = path.courseIds || [];
+      
+      let completedCount = 0;
+      if (courseIds.length > 0) {
+        const completedCourses = await CourseEnrollment.countDocuments({
+          userId: req.user.id,
+          courseId: { $in: courseIds },
+          status: 'completed'
+        });
+        completedCount = completedCourses;
+      }
+
+      const progressPercent = courseIds.length > 0 
+        ? Math.round((completedCount / courseIds.length) * 100) 
+        : 0;
+
+      results.push({
+        _id: enrollment._id,
+        path: path,
+        progressPercent,
+        completedCourses: completedCount,
+        totalCourses: courseIds.length,
+        enrolledAt: enrollment.enrolledAt
+      });
+    }
+
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching user learning paths:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

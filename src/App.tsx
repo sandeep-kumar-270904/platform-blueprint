@@ -27,6 +27,8 @@ import CompareColleges from "./pages/CompareColleges";
 import InnovationHub from "./pages/InnovationHub";
 import Scholarships from "./pages/Scholarships";
 import Courses from "./pages/Courses";
+import CourseDetail from "./pages/CourseDetail";
+import LearningPathDetail from "./pages/LearningPathDetail";
 import JobsPortal from "./pages/JobsPortal";
 import QuizHub from "./pages/QuizHub";
 import SkillZone from "./pages/SkillZone";
@@ -91,6 +93,8 @@ const App = () => (
           <Route path="/innovation-hub" element={<ProtectedRoute><InnovationHub /></ProtectedRoute>} />
           <Route path="/scholarships" element={<ProtectedRoute><Scholarships /></ProtectedRoute>} />
           <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
+          <Route path="/courses/:id" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
+          <Route path="/learning-paths/:id" element={<ProtectedRoute><LearningPathDetail /></ProtectedRoute>} />
           <Route path="/jobs" element={<ProtectedRoute><JobsPortal /></ProtectedRoute>} />
           <Route path="/quiz" element={<ProtectedRoute><QuizHub /></ProtectedRoute>} />
           <Route path="/skills" element={<ProtectedRoute><SkillZone /></ProtectedRoute>} />

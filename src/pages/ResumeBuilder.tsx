@@ -49,7 +49,7 @@ const ResumeBuilder = () => {
 
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-6 md:py-10">
-          <div className="container mx-auto px-4 relative z-10">
+          <div className="container mx-auto px-4 relative z-8">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-5xl text-center">
                 <Badge variant="accent" className="mb-4">
@@ -110,7 +110,7 @@ const ResumeBuilder = () => {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-primary" />
+                      <Sparkles className="h-4 w-4 text-primary" />
                       ATS Score
                     </CardTitle>
                   </CardHeader>
@@ -140,9 +140,9 @@ const ResumeBuilder = () => {
                       atsTips.map((tip, index) => (
                         <div key={index} className="flex gap-3 p-3 rounded-lg bg-muted/50">
                           {tip.severity === "high" ? (
-                            <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+                            <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
                           ) : (
-                            <CheckCircle2 className="h-5 w-5 text-warning flex-shrink-0" />
+                            <CheckCircle2 className="h-4 w-4 text-warning flex-shrink-0" />
                           )}
                           <div>
                             <p className="font-medium text-sm">{tip.issue}</p>

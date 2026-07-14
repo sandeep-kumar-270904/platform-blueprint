@@ -183,8 +183,7 @@ export const TaskBoard = ({ teamId }: TaskBoardProps) => {
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <div>
-                <Label>Title</Label>
-                <Input
+                <Label htmlFor="title">Title</Label><Input id="title"
                   value={newTask.title}
                   onChange={(e) =>
                     setNewTask((prev) => ({ ...prev, title: e.target.value }))
@@ -193,8 +192,7 @@ export const TaskBoard = ({ teamId }: TaskBoardProps) => {
                 />
               </div>
               <div>
-                <Label>Description</Label>
-                <Textarea
+                <Label htmlFor="description">Description</Label><Textarea id="description"
                   value={newTask.description}
                   onChange={(e) =>
                     setNewTask((prev) => ({
@@ -355,7 +353,7 @@ export const TaskBoard = ({ teamId }: TaskBoardProps) => {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="flex-1 text-xs h-7"
+                              className="flex-1 text-xs h-6"
                               onClick={() => updateTaskStatus(task.id, "doing")}
                             >
                               Start
@@ -365,7 +363,7 @@ export const TaskBoard = ({ teamId }: TaskBoardProps) => {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="flex-1 text-xs h-7"
+                              className="flex-1 text-xs h-6"
                               onClick={() => updateTaskStatus(task.id, "done")}
                             >
                               Complete

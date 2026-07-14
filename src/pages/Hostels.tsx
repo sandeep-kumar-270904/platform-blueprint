@@ -8,41 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Home, Star, MapPin, Users, Wifi, Utensils } from "lucide-react";
 
-const mockHostels = [
-  {
-    id: 1,
-    name: "Green Valley Hostel",
-    type: "Boys",
-    rating: 4.5,
-    reviews: 89,
-    distance: "2 km from campus",
-    rent: "₹6,000/month",
-    facilities: ["WiFi", "Mess", "Laundry", "24/7 Security"],
-    available: 12
-  },
-  {
-    id: 2,
-    name: "Sunrise Girls Hostel",
-    type: "Girls",
-    rating: 4.8,
-    reviews: 124,
-    distance: "1.5 km from campus",
-    rent: "₹7,500/month",
-    facilities: ["WiFi", "Mess", "AC Rooms", "CCTV"],
-    available: 5
-  },
-  {
-    id: 3,
-    name: "University Heights",
-    type: "Co-ed",
-    rating: 4.3,
-    reviews: 67,
-    distance: "0.5 km from campus",
-    rent: "₹8,000/month",
-    facilities: ["WiFi", "Cafeteria", "Gym", "Study Room"],
-    available: 8
-  }
-];
+const mockHostels = [];
 
 const Hostels = () => {
   const [searchTerm, setSearchTerm] = useState("");

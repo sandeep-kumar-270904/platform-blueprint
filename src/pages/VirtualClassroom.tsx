@@ -40,7 +40,8 @@ const VirtualClassroom = () => {
   }, []);
 
   const handleCreate = async () => {
-    if (!form.title || !form.scheduled_at) return;
+    if (!form.title) return toast.error("Class title is required");
+    if (!form.scheduled_at) return toast.error("Schedule time is required");
     await create(form);
     setOpen(false);
     setForm({ duration_minutes: 60, max_participants: 50, visibility: "public", type: "interactive" });
@@ -116,13 +117,13 @@ const VirtualClassroom = () => {
       <div className="container mx-auto px-4 pt-24 pb-12">
         {isOffline && (
           <div className="bg-yellow-500/20 text-yellow-600 border border-yellow-500/30 p-3 rounded-lg mb-6 flex items-center justify-center gap-2 font-medium">
-            <AlertTriangle className="h-5 w-5" />
+            <AlertTriangle className="h-4 w-4" />
             You are offline. Showing cached upcoming sessions.
           </div>
         )}
         <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2"><Video className="h-7 w-7 text-primary" />{t("Virtual Classroom")}</h1>
+            <h1 className="text-3xl font-bold flex items-center gap-2"><Video className="h-6 w-6 text-primary" />{t("Virtual Classroom")}</h1>
             <p className="text-muted-foreground">{t("Live and scheduled learning sessions.")}</p>
           </div>
           <div className="flex items-center gap-3">
@@ -138,13 +139,13 @@ const VirtualClassroom = () => {
                 <DialogContent>
                   <DialogHeader><DialogTitle>Schedule a Classroom</DialogTitle></DialogHeader>
                   <div className="space-y-3">
-                    <div><Label>Title</Label><Input value={form.title || ""} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
-                    <div><Label>Subject</Label><Input value={form.subject || ""} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
-                    <div><Label>Description</Label><Textarea value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
-                    <div><Label>Scheduled At</Label><Input type="datetime-local" onChange={e => setForm({ ...form, scheduled_at: new Date(e.target.value).toISOString() })} /></div>
+                    <div><Label htmlFor="title">Title</Label><Input id="title" value={form.title || ""} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
+                    <div><Label htmlFor="subject">Subject</Label><Input id="subject" value={form.subject || ""} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
+                    <div><Label htmlFor="description">Description</Label><Textarea id="description" value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
+                    <div><Label htmlFor="scheduled-at">Scheduled At</Label><Input id="scheduled-at" type="datetime-local" onChange={e => setForm({ ...form, scheduled_at: new Date(e.target.value).toISOString() })} /></div>
                     <div className="grid grid-cols-2 gap-3">
-                      <div><Label>Duration (min)</Label><Input type="number" value={form.duration_minutes} onChange={e => setForm({ ...form, duration_minutes: +e.target.value })} /></div>
-                      <div><Label>Max Participants</Label><Input type="number" value={form.max_participants} onChange={e => setForm({ ...form, max_participants: +e.target.value })} /></div>
+                      <div><Label htmlFor="duration-min">Duration (min)</Label><Input id="duration-min" type="number" value={form.duration_minutes} onChange={e => setForm({ ...form, duration_minutes: +e.target.value })} /></div>
+                      <div><Label htmlFor="max-participants">Max Participants</Label><Input id="max-participants" type="number" value={form.max_participants} onChange={e => setForm({ ...form, max_participants: +e.target.value })} /></div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -181,8 +182,7 @@ const VirtualClassroom = () => {
                         <Label htmlFor="is_paid">Paid Session</Label>
                       </div>
                       <div>
-                        <Label>Price ($)</Label>
-                        <Input 
+                        <Label htmlFor="price">Price ($)</Label><Input id="price" 
                           type="number" 
                           min="1" 
                           disabled={!form.is_paid} 
@@ -237,7 +237,7 @@ const VirtualClassroom = () => {
           <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
         ) : classrooms.length === 0 ? (
           <div className="text-center py-16">
-            <Video className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <Video className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground">No classrooms scheduled yet.</p>
           </div>
         ) : (
@@ -281,11 +281,11 @@ const VirtualClassroom = () => {
                     {/* Social Proof & Invites */}
                     <div className="pt-2 flex flex-wrap gap-2">
                       {c.visibility !== 'invite-only' && (
-                        <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleShare(c)}>
+                        <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => handleShare(c)}>
                           <Share2 className="h-3 w-3 mr-1" /> Share
                         </Button>
                       )}
-                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleFollow(c.host_id)}>
+                      <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => handleFollow(c.host_id)}>
                         <UserPlus className="h-3 w-3 mr-1" /> Follow Host
                       </Button>
                     </div>

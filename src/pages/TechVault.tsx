@@ -8,44 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Folder, File, Code, Download, Star, Eye } from "lucide-react";
 
-const mockResources = [
-  {
-    id: 1,
-    name: "React Hooks Documentation",
-    type: "folder",
-    category: "React",
-    files: 15,
-    views: 2340,
-    stars: 89
-  },
-  {
-    id: 2,
-    name: "Python Algorithms Collection",
-    type: "folder",
-    category: "Python",
-    files: 42,
-    views: 5670,
-    stars: 234
-  },
-  {
-    id: 3,
-    name: "authentication.js",
-    type: "file",
-    category: "Code Snippet",
-    size: "2.4 KB",
-    downloads: 456,
-    stars: 67
-  },
-  {
-    id: 4,
-    name: "API Integration Guide",
-    type: "file",
-    category: "Tutorial",
-    size: "5.1 MB",
-    downloads: 890,
-    stars: 123
-  }
-];
+const mockResources = [];
 
 const TechVault = () => {
   const [searchTerm, setSearchTerm] = useState("");

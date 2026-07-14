@@ -45,7 +45,7 @@ export const MyTeams = ({ userId }: { userId: string }) => {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Users className="h-5 w-5 text-primary" />
+          <Users className="h-4 w-4 text-primary" />
           My Teams ({teams.length})
         </CardTitle>
         <Link to="/team-hunt">
@@ -59,7 +59,7 @@ export const MyTeams = ({ userId }: { userId: string }) => {
           <p className="text-sm text-muted-foreground text-center py-6">Loading...</p>
         ) : teams.length === 0 ? (
           <div className="text-center py-8">
-            <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <Users className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground mb-3">You haven't joined any teams yet</p>
             <Link to="/team-hunt">
               <Button variant="outline" size="sm" className="gap-1">
@@ -85,7 +85,7 @@ export const MyTeams = ({ userId }: { userId: string }) => {
                 </div>
                 <div className="flex items-center gap-1">
                   {team.members.slice(0, 5).map((m) => (
-                    <Avatar key={m.user_id} className="h-7 w-7 border-2 border-background -ml-1 first:ml-0">
+                    <Avatar key={m.user_id} className="h-6 w-6 border-2 border-background -ml-1 first:ml-0">
                       <AvatarFallback className="text-[10px] bg-muted">
                         {(m.username || "U")[0].toUpperCase()}
                       </AvatarFallback>

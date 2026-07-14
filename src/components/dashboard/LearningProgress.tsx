@@ -24,7 +24,7 @@ export const LearningProgress = () => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <GraduationCap className="h-5 w-5 text-primary" />
+          <GraduationCap className="h-4 w-4 text-primary" />
           Learning Progress
         </CardTitle>
       </CardHeader>

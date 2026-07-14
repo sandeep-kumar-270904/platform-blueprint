@@ -6,32 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Newspaper, Clock, Bookmark, Share2, TrendingUp } from "lucide-react";
 
-const mockNews = [
-  {
-    id: 1,
-    title: "GPT-5 Rumors: What to Expect from OpenAI's Next Model",
-    category: "AI",
-    readTime: "5 min",
-    publishedAt: "2 hours ago",
-    excerpt: "Latest speculation and leaked information about GPT-5 capabilities and release timeline...",
-  },
-  {
-    id: 2,
-    title: "Quantum Computing Breakthrough at Google",
-    category: "Quantum",
-    readTime: "7 min",
-    publishedAt: "5 hours ago",
-    excerpt: "Google's quantum team announces major advancement in error correction...",
-  },
-  {
-    id: 3,
-    title: "The Rise of Edge AI: Processing Power at the Source",
-    category: "Edge Computing",
-    readTime: "6 min",
-    publishedAt: "1 day ago",
-    excerpt: "How edge AI is transforming IoT devices and reducing latency in real-time applications...",
-  },
-];
+const mockNews = [];
 
 const TechNews = () => {
   return (

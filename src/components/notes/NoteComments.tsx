@@ -86,7 +86,7 @@ export const NoteComments = ({ noteId, noteOwnerId }: NoteCommentsProps) => {
       {/* Comments list */}
       {loading ? (
         <div className="flex justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
       ) : topLevel.length > 0 ? (
         <div className="space-y-1">

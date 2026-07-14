@@ -8,32 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { DollarSign, Calendar, CheckCircle2, Search, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
-const mockScholarships = [
-  {
-    id: 1,
-    name: "Merit-Based Engineering Scholarship",
-    amount: "₹50,000",
-    deadline: "Dec 31, 2025",
-    eligibility: "CGPA > 8.0",
-    type: "Merit-based",
-  },
-  {
-    id: 2,
-    name: "Need-Based Education Grant",
-    amount: "₹1,00,000",
-    deadline: "Jan 15, 2026",
-    eligibility: "Family income < ₹5L",
-    type: "Need-based",
-  },
-  {
-    id: 3,
-    name: "Women in STEM Scholarship",
-    amount: "₹75,000",
-    deadline: "Feb 28, 2026",
-    eligibility: "Female students in STEM",
-    type: "Category-based",
-  },
-];
+const mockScholarships = [];
 
 const Scholarships = () => {
   const [searchQuery, setSearchQuery] = useState("");

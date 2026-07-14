@@ -171,10 +171,43 @@ export const ReviewFormDialog = ({ collegeId, onSuccess, review, trigger }: Revi
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Review</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Review</label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 text-xs bg-gradient-to-r from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20 border-blue-200"
+                  onClick={async () => {
+                    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+                    const token = localStorage.getItem("token");
+                    if (!token) return toast.error("Please login first");
+                    toast.loading("Polishing with AI...", { id: "ai-polish" });
+                    try {
+                      const res = await fetch(`${API_URL}/api/ai/review-helper`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ bulletPoints: formData.reviewText, pros: formData.pros, cons: formData.cons })
+                      });
+                      const data = await res.json();
+                      if (res.ok) {
+                        setFormData({ ...formData, reviewText: data.reviewText });
+                        toast.success("AI Polish complete!", { id: "ai-polish" });
+                      } else {
+                        throw new Error(data.message || "Failed to polish review");
+                      }
+                    } catch (error: any) {
+                      toast.error(error.message, { id: "ai-polish" });
+                    }
+                  }}
+                >
+                  <Star className="h-3 w-3 mr-1 text-blue-500" />
+                  Magic AI Polish
+                </Button>
+              </div>
               <Textarea 
                 required 
-                placeholder="Share the details of your experience..." 
+                placeholder="Share the details of your experience... (Or write bullet points and use Magic AI Polish)" 
                 className="min-h-[100px]"
                 value={formData.reviewText}
                 onChange={(e) => setFormData({...formData, reviewText: e.target.value})}

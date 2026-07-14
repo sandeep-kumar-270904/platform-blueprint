@@ -84,7 +84,7 @@ export const NotificationsPanel = ({ userId }: { userId: string }) => {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Bell className="h-5 w-5 text-primary" />
+          <Bell className="h-4 w-4 text-primary" />
           Notifications
           {unread > 0 && (
             <Badge className="bg-red-500 text-white text-[10px] px-1.5">{unread}</Badge>
@@ -101,7 +101,7 @@ export const NotificationsPanel = ({ userId }: { userId: string }) => {
           <p className="text-sm text-muted-foreground text-center py-6">Loading...</p>
         ) : notifications.length === 0 ? (
           <div className="text-center py-8">
-            <Bell className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <Bell className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground">No notifications yet</p>
           </div>
         ) : (

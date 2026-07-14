@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
+import { MyCourses } from "@/components/dashboard/MyCourses";
 import { MyIdeas } from "@/components/dashboard/MyIdeas";
 import { MyCollaborations } from "@/components/dashboard/MyCollaborations";
 import { MyTeams } from "@/components/dashboard/MyTeams";
@@ -34,10 +35,11 @@ import { SavedColleges } from "@/components/dashboard/SavedColleges";
 import { MyActivity } from "@/components/dashboard/MyActivity";
 import { NotificationSettings } from "@/components/dashboard/NotificationSettings";
 
-type Section = "overview" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "notification-settings" | "live" | "analytics" | "profile" | "security" | "links" | "saved-colleges" | "activity";
+type Section = "overview" | "courses" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "notification-settings" | "live" | "analytics" | "profile" | "security" | "links" | "saved-colleges" | "activity";
 
 const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "courses", label: "My Learning", icon: BookOpen },
   { id: "ideas", label: "My Ideas", icon: Lightbulb },
   { id: "collaborations", label: "Collaborations", icon: Handshake },
   { id: "requests", label: "Join Requests", icon: UserPlus },
@@ -117,6 +119,8 @@ const Dashboard = () => {
     if (!user) return null;
 
     switch (activeSection) {
+      case "courses":
+        return <MyCourses />;
       case "overview":
         return (
           <div className="space-y-6">
@@ -137,7 +141,7 @@ const Dashboard = () => {
                 <Card className="border-border bg-card">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
-                      <TrendingUp className="h-5 w-5" /> Weekly Progress
+                      <TrendingUp className="h-4 w-4" /> Weekly Progress
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -161,7 +165,7 @@ const Dashboard = () => {
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
-                      <Award className="h-5 w-5" /> Achievements
+                      <Award className="h-4 w-4" /> Achievements
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -229,8 +233,8 @@ const Dashboard = () => {
                 <Link to={link.href}>
                   <Card className="hover:shadow-md transition-all cursor-pointer hover:-translate-y-1">
                     <CardContent className="p-6 text-center">
-                      <div className={`mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-muted ${link.color}`}>
-                        <link.icon className="h-7 w-7" />
+                      <div className={`mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-muted ${link.color}`}>
+                        <link.icon className="h-6 w-6" />
                       </div>
                       <h3 className="font-semibold text-sm">{link.title}</h3>
                       <p className="text-xs text-muted-foreground mt-1">{link.desc}</p>

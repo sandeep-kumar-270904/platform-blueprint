@@ -54,20 +54,23 @@ export const useEvents = (typeFilter: string = "all", timeFilter: string = "upco
       ]);
       
       let data = await res.json();
-      data = data.map((e: any) => ({ ...e, id: e._id }));
-      setEvents(data);
+      const eventsArray = data.events || data;
+      const mappedEvents = eventsArray.map((e: any) => ({ ...e, id: e._id }));
+      setEvents(mappedEvents);
 
       let twData = await twRes.json();
-      twData = twData.map((e: any) => ({ ...e, id: e._id }));
-      setThisWeekEvents(twData);
+      const twEventsArray = twData.events || twData;
+      const mappedTwEvents = twEventsArray.map((e: any) => ({ ...e, id: e._id }));
+      setThisWeekEvents(mappedTwEvents);
 
       if (token) {
-        const regsRes = await fetch(`${API_URL}/api/events/registrations/me`, {
+        const regsRes = await fetch(`${API_URL}/api/users/me/events/registered`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (regsRes.ok) {
-          const regs = await regsRes.json();
-          setMyRegistrations(new Set(regs.map((r: any) => r.event_id)));
+          const data = await regsRes.json();
+          const allRegs = [...(data.upcoming || []), ...(data.past || [])];
+          setMyRegistrations(new Set(allRegs.map((r: any) => r._id)));
         }
       }
     } catch (err) {

@@ -155,7 +155,7 @@ const Auth = () => {
     <div className="min-h-screen w-full flex flex-col md:flex-row bg-[var(--cover)] text-[var(--cream-text)] font-sans m-0 p-0 overflow-hidden">
       
       {/* LEFT PANEL (COVER) */}
-      <div className="w-full md:w-[58%] flex flex-col justify-between p-8 md:px-[64px] md:pt-[32px] md:pb-[64px] min-h-[40vh] md:min-h-screen relative z-10 shrink-0">
+      <div className="w-full md:w-[58%] flex flex-col justify-between p-8 md:px-[64px] md:pt-[32px] md:pb-[64px] min-h-[40vh] md:min-h-screen relative z-8 shrink-0">
         <div>
           {/* Logo Row */}
           <div 
@@ -166,7 +166,7 @@ const Auth = () => {
             aria-label="Go to homepage" 
             onKeyDown={(e) => { if(e.key === 'Enter') navigate("/") }}
           >
-            <div className="w-10 h-10 bg-[var(--cover-line)] rounded-[8px] flex items-center justify-center transition-colors">
+            <div className="w-8 h-8 bg-[var(--cover-line)] rounded-[8px] flex items-center justify-center transition-colors">
               <BookOpen className="h-6 w-6 text-[var(--gold)]" />
             </div>
             <span className="font-serif font-semibold text-[20px] text-[var(--cream-text)] tracking-tight">NotesHub</span>
@@ -222,7 +222,7 @@ const Auth = () => {
       <div className="w-full md:w-[42%] bg-[var(--paper)] text-[var(--ink)] flex items-center justify-center relative p-6 md:p-8 shrink-0 min-h-[60vh] md:min-h-screen">
         
         {/* Deckled Edge Mask (Only visible on desktop where the seam is vertical) */}
-        <div className="hidden md:block absolute top-0 left-[-16px] w-[16px] h-full bg-[var(--paper)] deckled-mask z-20 pointer-events-none" />
+        <div className="hidden md:block absolute top-0 left-[-16px] w-[16px] h-full bg-[var(--paper)] deckled-mask z-24 pointer-events-none" />
 
         <div 
           className="w-full max-w-[440px] relative transition-opacity duration-300 ease-out"

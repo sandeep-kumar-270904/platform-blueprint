@@ -200,7 +200,7 @@ export const TeamChat = ({ teamId }: TeamChatProps) => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-5 w-5 opacity-0 group-hover:opacity-100"
+                        className="h-4 w-4 opacity-0 group-hover:opacity-100"
                         onClick={() => setReplyTo(message)}
                       >
                         <Reply className="h-3 w-3" />
@@ -236,7 +236,7 @@ export const TeamChat = ({ teamId }: TeamChatProps) => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5"
+                className="h-4 w-4"
                 onClick={() => setReplyTo(null)}
               >
                 ×

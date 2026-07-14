@@ -12,11 +12,6 @@ dotenv.config();
 connectDB().then(async () => {
   try {
     const Event = require('./models/Event');
-    const count = await Event.countDocuments();
-    if (count === 0) {
-      const seedEvents = require('./seedEvents');
-      await seedEvents();
-    }
 
     // --- 24-Hour Event Reminder Cron Job ---
     // Runs every hour (3600000 ms)
@@ -108,7 +103,7 @@ if (process.env.FRONTEND_URL) {
 }
 app.use(cors({
   origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -118,8 +113,10 @@ app.use(cors({
 }));
 app.use(express.json());
 const cookieParser = require('cookie-parser');
-// const xss = require('xss-clean');
-// app.use(xss()); // Temporarily disabled for audit due to IncomingMessage getter crash
+const sanitizeMiddleware = require('./middleware/sanitize');
+
+// Security middlewares
+app.use(sanitizeMiddleware);
 const session = require('express-session');
 const passport = require('./auth/passport');
 
@@ -154,10 +151,17 @@ const settingsRoutes = require('./routes/settings');
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10000, // limit each IP to 10000 requests per windowMs during dev
-  message: { message: 'Too many requests from this IP, please try again after 15 minutes' }
+  max: 100, // stricter limit for auth routes
+  message: { message: 'Too many auth requests from this IP, please try again after 15 minutes' }
 });
 
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // limit each IP to 1000 requests per windowMs
+  message: { message: 'Too many requests from this IP, please try again later' }
+});
+
+app.use('/api/', globalLimiter);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/settings', authLimiter, settingsRoutes);
 app.use('/api/notes', require('./routes/notes'));
@@ -189,6 +193,8 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/study-sessions', require('./routes/studySessions'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/courses', require('./routes/courses'));
+app.use('/api/learning-paths', require('./routes/learningPaths'));
 
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -250,6 +256,17 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });
+});
+
+// Global Error Handler (Item 6 & 7)
+app.use((err, req, res, next) => {
+  console.error('Unhandled Error:', err); // Server-side logging
+  
+  if (process.env.NODE_ENV === 'production') {
+    res.status(500).json({ message: 'Internal Server Error' });
+  } else {
+    res.status(500).json({ message: err.message, stack: err.stack });
+  }
 });
 
 const PORT = process.env.PORT || 5000;

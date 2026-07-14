@@ -8,41 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Wrench, Star, Phone, MapPin, Clock } from "lucide-react";
 
-const mockServices = [
-  {
-    id: 1,
-    name: "Quick Fix Electronics",
-    category: "Electronics",
-    rating: 4.7,
-    reviews: 156,
-    location: "Sector 21",
-    phone: "+91 98765 43210",
-    hours: "9 AM - 8 PM",
-    services: ["Laptop Repair", "Mobile Repair", "Tablet Repair"]
-  },
-  {
-    id: 2,
-    name: "City Plumbing Services",
-    category: "Plumbing",
-    rating: 4.9,
-    reviews: 234,
-    location: "Main Market",
-    phone: "+91 98765 43211",
-    hours: "24/7",
-    services: ["Pipe Repair", "Tap Fix", "Drainage"]
-  },
-  {
-    id: 3,
-    name: "Bright Light Electricians",
-    category: "Electrical",
-    rating: 4.5,
-    reviews: 89,
-    location: "Near College Gate",
-    phone: "+91 98765 43212",
-    hours: "8 AM - 9 PM",
-    services: ["Wiring", "Fan Repair", "Appliance Fix"]
-  }
-];
+const mockServices = [];
 
 const Repair = () => {
   const [selectedTab, setSelectedTab] = useState("all");

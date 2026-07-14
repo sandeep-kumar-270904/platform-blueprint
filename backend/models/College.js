@@ -49,4 +49,7 @@ const CollegeSchema = new mongoose.Schema({
   timestamps: true
 });
 
+CollegeSchema.index({ name: 'text', location: 'text' });
+CollegeSchema.index({ rating: -1 });
+
 module.exports = mongoose.model('College', CollegeSchema);

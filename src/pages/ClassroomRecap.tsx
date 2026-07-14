@@ -72,16 +72,9 @@ const ClassroomRecap = () => {
     setTimeout(async () => {
       const summary = `During this session, we discussed the core concepts outlined in the curriculum. Key takeaways include mastering the foundations of the topic, understanding best practices for implementation, and avoiding common pitfalls. The Q&A portion clarified several ambiguities regarding deployment strategies.`;
       
-      const actionItems = [
-        "Review the shared resources before next week.",
-        "Complete the practice exercises.",
-        "Join the follow-up study group."
-      ];
+      const actionItems = [];
       
-      const flashcards = [
-        { q: "What was the main topic?", a: classroom.title },
-        { q: "What is the primary best practice?", a: "Consistency in implementation." }
-      ];
+      const flashcards = [];
 
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';

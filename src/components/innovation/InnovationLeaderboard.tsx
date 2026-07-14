@@ -34,10 +34,10 @@ interface Stats {
 }
 
 const getRankIcon = (rank: number) => {
-  if (rank === 1) return <Crown className="h-5 w-5 text-yellow-500" />;
-  if (rank === 2) return <Medal className="h-5 w-5 text-gray-400" />;
-  if (rank === 3) return <Medal className="h-5 w-5 text-amber-600" />;
-  return <span className="text-sm font-bold text-muted-foreground w-5 text-center">#{rank}</span>;
+  if (rank === 1) return <Crown className="h-4 w-4 text-yellow-500" />;
+  if (rank === 2) return <Medal className="h-4 w-4 text-gray-400" />;
+  if (rank === 3) return <Medal className="h-4 w-4 text-amber-600" />;
+  return <span className="text-sm font-bold text-muted-foreground w-4 text-center">#{rank}</span>;
 };
 
 const getRankBg = (rank: number) => {
@@ -89,7 +89,7 @@ export const InnovationLeaderboard = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <Trophy className="h-7 w-7 text-primary" />
+          <Trophy className="h-6 w-6 text-primary" />
           <div>
             <h2 className="text-2xl font-bold">Innovation Leaderboard</h2>
             <p className="text-muted-foreground">Top performers across the Innovation Hub</p>
@@ -168,7 +168,7 @@ export const InnovationLeaderboard = () => {
                 <Card className={`${getRankBg(idea.rank)} transition-all hover:shadow-md`}>
                   <CardContent className="p-4 flex items-center gap-4">
                     {getRankIcon(idea.rank)}
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-8 w-8">
                       <AvatarFallback>{idea.author[0]}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
@@ -199,7 +199,7 @@ export const InnovationLeaderboard = () => {
                   <Card className={`${getRankBg(creator.rank)} transition-all hover:shadow-md`}>
                     <CardContent className="p-4 flex items-center gap-4">
                       {getRankIcon(creator.rank)}
-                      <Avatar className="h-10 w-10">
+                      <Avatar className="h-8 w-8">
                         <AvatarFallback>{creator.name[0]}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">

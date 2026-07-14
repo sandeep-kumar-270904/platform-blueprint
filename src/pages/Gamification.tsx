@@ -19,28 +19,11 @@ const mockUserStats = {
   badges: 15
 };
 
-const mockBadges = [
-  { id: 1, name: "Early Bird", icon: "🌅", description: "Login 5 days in a row", earned: true, rarity: "gold" },
-  { id: 2, name: "Knowledge Seeker", icon: "📚", description: "Complete 10 courses", earned: true, rarity: "silver" },
-  { id: 3, name: "Helper", icon: "🤝", description: "Answer 20 questions", earned: true, rarity: "bronze" },
-  { id: 4, name: "Code Master", icon: "💻", description: "Solve 50 coding problems", earned: false, rarity: "gold" },
-  { id: 5, name: "Team Player", icon: "👥", description: "Join 5 study groups", earned: true, rarity: "silver" },
-  { id: 6, name: "Innovator", icon: "💡", description: "Submit 3 project ideas", earned: false, rarity: "platinum" },
-];
+const mockBadges = [];
 
-const mockLeaderboard = [
-  { rank: 1, name: "Arjun Patel", points: 15420, level: 18, avatar: "👨‍💻" },
-  { rank: 2, name: "Sneha Reddy", points: 14850, level: 17, avatar: "👩‍💼" },
-  { rank: 3, name: "Vikram Singh", points: 13200, level: 16, avatar: "🧑‍🎓" },
-  { rank: 4, name: "Priya Kumar", points: 11500, level: 15, avatar: "👩‍🔬" },
-  { rank: 5, name: "Rohan Sharma", points: 10200, level: 14, avatar: "🧑‍💻" },
-];
+const mockLeaderboard = [];
 
-const mockChallenges = [
-  { id: 1, title: "Weekly Coding Sprint", reward: 500, progress: 60, total: 100, type: "coding" },
-  { id: 2, title: "Study 5 Hours", reward: 200, progress: 3, total: 5, type: "study" },
-  { id: 3, title: "Help 10 Peers", reward: 300, progress: 7, total: 10, type: "community" },
-];
+const mockChallenges = [];
 
 const Gamification = () => {
   const [selectedTab, setSelectedTab] = useState("overview");

@@ -256,8 +256,12 @@ router.put('/events/:id/reject', authMiddleware, async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Event not found' });
     
+    if (!req.body.reason || req.body.reason.trim() === '') {
+      return res.status(400).json({ message: 'Rejection reason is required' });
+    }
+    
     event.status = 'rejected';
-    event.rejectionReason = req.body.reason || 'No reason provided';
+    event.rejectionReason = req.body.reason;
     await event.save();
     
     // Notify host

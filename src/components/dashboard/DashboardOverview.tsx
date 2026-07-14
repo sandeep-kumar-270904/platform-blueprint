@@ -75,8 +75,8 @@ export const DashboardOverview = ({ stats, setActiveSection }: { stats: Stats, s
                 <Link to={links[i]}>
                   <Card className="hover:shadow-md transition-all cursor-pointer">
                     <CardContent className="flex items-center gap-3 p-4">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colors[i]}`}>
-                        <Icon className="h-5 w-5" />
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${colors[i]}`}>
+                        <Icon className="h-4 w-4" />
                       </div>
                       <div>
                         <div

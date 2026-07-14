@@ -187,9 +187,9 @@ const CollegeDetail = () => {
       <div className="min-h-screen bg-background">
         <Header />
         <div className="h-64 w-full bg-muted animate-pulse" />
-        <div className="container mx-auto px-4 -mt-16 relative z-10 space-y-8">
+        <div className="container mx-auto px-4 -mt-16 relative z-8 space-y-8">
           <Skeleton className="h-32 w-32 rounded-xl" />
-          <Skeleton className="h-10 w-1/3" />
+          <Skeleton className="h-8 w-1/3" />
           <Skeleton className="h-24 w-full" />
         </div>
       </div>
@@ -220,11 +220,11 @@ const CollegeDetail = () => {
 
       {/* Banner */}
       <div className="h-64 md:h-80 w-full relative">
-        <div className="absolute inset-0 bg-black/40 z-10" />
+        <div className="absolute inset-0 bg-black/40 z-8" />
         <img src={bannerImg} alt={college.name} className="w-full h-full object-cover" />
       </div>
 
-      <div className="container mx-auto px-4 -mt-20 relative z-20 flex-1 mb-16">
+      <div className="container mx-auto px-4 -mt-20 relative z-24 flex-1 mb-16">
         {/* Header Section */}
         <div className="bg-card border border-border rounded-xl p-6 shadow-xl flex flex-col md:flex-row gap-6 items-start md:items-end mb-8">
           <div className="h-24 w-24 md:h-32 md:w-32 bg-background border border-border rounded-xl flex items-center justify-center text-5xl md:text-6xl shrink-0 shadow-sm -mt-12 md:-mt-16">
@@ -425,9 +425,9 @@ const CollegeDetail = () => {
                         <div className="flex border border-border rounded-xl overflow-hidden hover:border-primary transition-colors h-32 group cursor-pointer">
                           <div className="w-1/3 relative bg-muted shrink-0">
                             {event.bannerImage ? (
-                              <img src={event.bannerImage} className="w-full h-full object-cover" />
+                              <img src={event.bannerImage} alt={event.title} className="w-full h-full object-cover" />
                             ) : (
-                              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30"><Calendar className="h-10 w-10" /></div>
+                              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30"><Calendar className="h-8 w-8" /></div>
                             )}
                           </div>
                           <div className="p-4 flex flex-col justify-center overflow-hidden w-full bg-card">
@@ -462,7 +462,7 @@ const CollegeDetail = () => {
                       <Link to={`/events/${event._id}`} key={event._id}>
                         <div className="flex items-center gap-4 p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors">
                           <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
-                            {event.bannerImage ? <img src={event.bannerImage} className="w-full h-full object-cover" /> : <Calendar className="h-5 w-5 text-muted-foreground" />}
+                            {event.bannerImage ? <img src={event.bannerImage} alt={event.title} className="w-full h-full object-cover" /> : <Calendar className="h-4 w-4 text-muted-foreground" />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <h5 className="font-medium text-sm truncate">{event.title}</h5>
@@ -489,7 +489,7 @@ const CollegeDetail = () => {
                     <div className="text-5xl font-bold mb-2">{college.rating?.toFixed(1) || "0.0"}</div>
                     <div className="flex items-center gap-1 mb-2">
                       {[1,2,3,4,5].map(s => (
-                        <Star key={s} className={`h-5 w-5 ${s <= (college.rating||0) ? 'fill-warning text-warning' : 'text-muted-foreground/30'}`} />
+                        <Star key={s} className={`h-4 w-4 ${s <= (college.rating||0) ? 'fill-warning text-warning' : 'text-muted-foreground/30'}`} />
                       ))}
                     </div>
                     <div className="text-sm text-muted-foreground">{college.totalReviews} total reviews</div>
@@ -578,10 +578,10 @@ const CollegeDetail = () => {
                   <div className="space-y-4">
                     {reviewsData.reviews.map((review: any) => (
                       <Card key={review._id} className="border-border">
-                        <CardContent className="p-5">
+                        <CardContent className="p-4">
                           <div className="flex justify-between items-start mb-4">
                             <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
+                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
                                 {review.userId?.full_name?.charAt(0) || 'U'}
                               </div>
                               <div>
@@ -650,7 +650,7 @@ const CollegeDetail = () => {
                           
                           <div className="flex items-center gap-2 pt-2 border-t border-border mt-2">
                             <span className="text-xs text-muted-foreground">Was this helpful?</span>
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => handleHelpful(review._id)}>
+                            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => handleHelpful(review._id)}>
                               <ThumbsUp className="mr-1 h-3 w-3" /> {review.helpfulVotes || 0}
                             </Button>
                           </div>

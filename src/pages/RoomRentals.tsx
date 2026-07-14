@@ -6,26 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Home, MapPin, DollarSign, Wifi, Utensils, Bed } from "lucide-react";
 
-const mockRooms = [
-  {
-    id: 1,
-    title: "Cozy Single Room near Campus",
-    rent: "₹8,000/month",
-    location: "500m from Main Gate",
-    amenities: ["WiFi", "Furnished", "Kitchen"],
-    type: "Single",
-    available: "Immediately",
-  },
-  {
-    id: 2,
-    title: "Shared Room for 2",
-    rent: "₹5,000/month",
-    location: "1km from Campus",
-    amenities: ["WiFi", "AC", "Meals"],
-    type: "Shared",
-    available: "From Dec 1",
-  },
-];
+const mockRooms = [];
 
 const RoomRentals = () => {
   return (

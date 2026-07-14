@@ -6,26 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Users, Code, Palette, Database, CheckCircle2 } from "lucide-react";
 
-const mockProjects = [
-  {
-    id: 1,
-    title: "E-Commerce Platform",
-    description: "Looking for backend and frontend developers to build a scalable e-commerce solution",
-    neededRoles: ["Backend Dev", "Frontend Dev", "Designer"],
-    skills: ["React", "Node.js", "MongoDB"],
-    teamSize: "3-5 members",
-    matchScore: 85,
-  },
-  {
-    id: 2,
-    title: "AI Chatbot for Education",
-    description: "Building an AI-powered tutoring chatbot. Need ML engineers and full-stack developers",
-    neededRoles: ["ML Engineer", "Full Stack Dev"],
-    skills: ["Python", "TensorFlow", "React"],
-    teamSize: "2-4 members",
-    matchScore: 72,
-  },
-];
+const mockProjects = [];
 
 const TeamHunt = () => {
   return (

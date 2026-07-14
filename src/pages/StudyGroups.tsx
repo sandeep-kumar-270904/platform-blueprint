@@ -23,7 +23,7 @@ const StudyGroups = () => {
   const [form, setForm] = useState<any>({ privacy: "public", member_limit: 50 });
 
   const handleCreate = async () => {
-    if (!form.name) return;
+    if (!form.name) return toast.error("Study group name is required");
     await createGroup(form);
     setOpen(false);
     setForm({ privacy: "public", member_limit: 50 });
@@ -46,9 +46,9 @@ const StudyGroups = () => {
                 <DialogContent>
                   <DialogHeader><DialogTitle>Create Study Group</DialogTitle></DialogHeader>
                   <div className="space-y-3">
-                    <div><Label>Name</Label><Input value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
-                    <div><Label>Description</Label><Textarea value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
-                    <div><Label>Category</Label><Input value={form.category || ""} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="DSA, Web Dev, AI..." /></div>
+                    <div><Label htmlFor="name">Name</Label><Input id="name" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
+                    <div><Label htmlFor="description">Description</Label><Textarea id="description" value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
+                    <div><Label htmlFor="category">Category</Label><Input id="category" value={form.category || ""} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="DSA, Web Dev, AI..." /></div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label>Privacy</Label>
@@ -60,7 +60,7 @@ const StudyGroups = () => {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div><Label>Member Limit</Label><Input type="number" value={form.member_limit} onChange={e => setForm({ ...form, member_limit: +e.target.value })} /></div>
+                      <div><Label htmlFor="member-limit">Member Limit</Label><Input id="member-limit" type="number" value={form.member_limit} onChange={e => setForm({ ...form, member_limit: +e.target.value })} /></div>
                     </div>
                   </div>
                   <DialogFooter><Button onClick={handleCreate}>Create</Button></DialogFooter>
@@ -74,7 +74,7 @@ const StudyGroups = () => {
           <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
         ) : groups.length === 0 ? (
           <div className="text-center py-16">
-            <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <Users className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground">No groups yet — create the first one!</p>
           </div>
         ) : (

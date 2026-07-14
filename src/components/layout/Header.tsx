@@ -162,7 +162,7 @@ export const Header = () => {
         <div className="flex-1 flex justify-start min-w-max">
           <Link to="/" className="flex items-center gap-2 group">
             <div className="icon-box bg-[var(--ink)] text-white shadow-sm transition-all group-hover:scale-110">
-              <GraduationCap className="h-5 w-5" />
+              <GraduationCap className="h-4 w-4" />
             </div>
             <span className="text-xl font-bold text-foreground display-font tracking-tight">
               StudentHub
@@ -176,7 +176,7 @@ export const Header = () => {
             <NavigationMenuList className="flex gap-6 lg:gap-8">
               {navigationGroups.map((group) => (
                 <NavigationMenuItem key={group.title}>
-                  <NavigationMenuTrigger className="text-sm font-medium h-10 bg-transparent">
+                  <NavigationMenuTrigger className="text-sm font-medium h-8 bg-transparent">
                     {group.title}
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
@@ -232,7 +232,7 @@ export const Header = () => {
             {showSearchDropdown && searchQuery && (
               <div className="absolute top-full mt-2 w-80 lg:w-96 right-0 bg-popover text-popover-foreground rounded-lg shadow-lg border p-2 z-50 flex flex-col gap-2">
                 {isSearching ? (
-                  <div className="p-4 flex justify-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                  <div className="p-4 flex justify-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /></div>
                 ) : (
                   <>
                     {searchResults.colleges.length > 0 && (
@@ -319,9 +319,9 @@ export const Header = () => {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? (
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             ) : (
-              <Menu className="h-5 w-5" />
+              <Menu className="h-4 w-4" />
             )}
           </Button>
         </div>

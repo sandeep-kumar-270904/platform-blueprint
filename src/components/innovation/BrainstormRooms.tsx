@@ -37,14 +37,7 @@ interface RoomMessage {
 }
 
 // Seed rooms to ensure at least some exist
-const defaultRoomSeeds = [
-  { name: "AI Startups", topic: "ai-startups", description: "Discuss AI/ML startup ideas, tools, and trends", icon: "🤖" },
-  { name: "App Ideas", topic: "app-ideas", description: "Share and refine mobile & web app concepts", icon: "📱" },
-  { name: "EdTech", topic: "edtech", description: "Innovation in education technology", icon: "📚" },
-  { name: "Web3 & Crypto", topic: "web3", description: "Blockchain, DeFi, and decentralized apps", icon: "⛓️" },
-  { name: "UI/UX Design", topic: "ui-ux", description: "Design thinking, prototyping, and user research", icon: "🎨" },
-  { name: "Social Impact", topic: "social-impact", description: "Tech for good — sustainability, health, accessibility", icon: "🌍" },
-];
+const defaultRoomSeeds = [];
 
 export const BrainstormRooms = () => {
   const { user } = useAuth();

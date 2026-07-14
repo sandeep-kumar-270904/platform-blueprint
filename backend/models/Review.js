@@ -34,4 +34,6 @@ const ReviewSchema = new mongoose.Schema({
   timestamps: true
 });
 
+ReviewSchema.index({ collegeId: 1, isApproved: 1 });
+
 module.exports = mongoose.model('Review', ReviewSchema);

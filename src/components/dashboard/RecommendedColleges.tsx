@@ -37,7 +37,7 @@ export const RecommendedColleges = () => {
     <div className="mt-8">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
+          <Sparkles className="h-4 w-4 text-primary" />
           <h3 className="font-semibold text-lg">Recommended For You</h3>
         </div>
         <Link to="/college-insights">

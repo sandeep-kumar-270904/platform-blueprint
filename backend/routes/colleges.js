@@ -540,13 +540,10 @@ router.post('/recommend', async (req, res) => {
   try {
     const { scores, course, budget, location, priorities } = req.body;
     
-    // Simulate AI processing delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
     // Fetch all colleges to process
-    let colleges = await College.find();
+    let colleges = await College.find({ draft: { $ne: true } });
     
-    // Filter by course if provided
+    // Initial filtering to reduce token usage
     if (course) {
       const courseRegex = new RegExp(course, 'i');
       const filtered = colleges.filter(c => 
@@ -555,51 +552,88 @@ router.post('/recommend', async (req, res) => {
       if (filtered.length > 0) colleges = filtered;
     }
 
-    // Process and score colleges
-    const scoredColleges = colleges.map(college => {
-      let score = 70 + Math.floor(Math.random() * 20); // Base score 70-89
-      let reason = "Good overall fit based on your preferences.";
+    // Limit to top 20 for AI processing
+    colleges = colleges.slice(0, 20);
 
-      // Adjust based on budget
-      const totalFees = (college.fees.tuition || 0) + (college.fees.hostel || 0);
-      if (budget && totalFees <= parseInt(budget)) {
-        score += 10;
-        reason = `Great financial fit, well under your ${budget} budget.`;
-      } else if (budget && totalFees > parseInt(budget)) {
-        score -= 10;
-        reason = `Slightly above your budget, but offers great ROI.`;
+    const collegeDataForPrompt = colleges.map(c => ({
+      id: c._id,
+      name: c.name,
+      location: `${c.location.city}, ${c.location.state}`,
+      fees: (c.fees.tuition || 0) + (c.fees.hostel || 0),
+      rating: c.rating
+    }));
+
+    if (!process.env.GEMINI_API_KEY) {
+      // Fallback if no API key
+      const result = { reach: [], target: [], safe: [] };
+      colleges.forEach((c, index) => {
+        const cObj = { ...c.toObject(), matchScore: 85, matchReason: "Good fit (Fallback without API Key)" };
+        if (index < 2) result.reach.push(cObj);
+        else if (index < 5) result.target.push(cObj);
+        else if (index < 9) result.safe.push(cObj);
+      });
+      return res.json(result);
+    }
+
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const prompt = `
+      You are an expert college admissions counselor AI. 
+      Given the student's profile:
+      - Scores: ${JSON.stringify(scores)}
+      - Course preference: ${course || 'Any'}
+      - Budget (total fees): ${budget || 'Any'}
+      - Location preference: ${location || 'Any'}
+      - Priorities: ${priorities ? priorities.join(', ') : 'None'}
+
+      And given these available colleges:
+      ${JSON.stringify(collegeDataForPrompt)}
+
+      Please select the best colleges and classify them into three arrays: "reach" (ambitious), "target" (good fit), and "safe" (very likely).
+      For each selected college, provide:
+      - "id": The exact college ID.
+      - "matchReason": A short 1-sentence reason why it fits this specific student profile.
+      - "matchScore": A number from 1 to 99 indicating match quality.
+
+      Return ONLY a valid JSON object matching this schema:
+      {
+        "reach": [ { "id": "...", "matchReason": "...", "matchScore": 90 } ],
+        "target": [ ... ],
+        "safe": [ ... ]
       }
+    `;
 
-      // Adjust based on location
-      if (location && (location.toLowerCase() === college.location.state.toLowerCase() || location.toLowerCase() === college.location.city.toLowerCase())) {
-        score += 5;
-        reason += ` Matches your location preference in ${college.location.city}.`;
+    const aiResult = await model.generateContent(prompt);
+    const responseText = await aiResult.response.text();
+    
+    // Extract JSON block
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("AI did not return JSON");
+    
+    const parsedData = JSON.parse(jsonMatch[0]);
+    
+    const result = { reach: [], target: [], safe: [] };
+    
+    const populateCategory = (categoryName) => {
+      if (Array.isArray(parsedData[categoryName])) {
+        parsedData[categoryName].forEach(aiCol => {
+          const matchedDbCol = colleges.find(c => c._id.toString() === aiCol.id);
+          if (matchedDbCol) {
+            result[categoryName].push({
+              ...matchedDbCol.toObject(),
+              matchReason: aiCol.matchReason || "Recommended by AI",
+              matchScore: aiCol.matchScore || 85
+            });
+          }
+        });
       }
-
-      const collegeObj = college.toObject();
-      return { ...collegeObj, matchScore: Math.min(score, 99), matchReason: reason };
-    });
-
-    // Sort by score
-    scoredColleges.sort((a, b) => b.matchScore - a.matchScore);
-
-    // Group into Reach, Target, Safe (simulated logic)
-    const result = {
-      reach: [],
-      target: [],
-      safe: []
     };
 
-    scoredColleges.forEach((c, index) => {
-      // Top 20% are Reach, next 40% are Target, rest are Safe (or similar split based on count)
-      if (index < 2) {
-        result.reach.push(c);
-      } else if (index < 5) {
-        result.target.push(c);
-      } else if (index < 9) {
-        result.safe.push(c);
-      }
-    });
+    populateCategory('reach');
+    populateCategory('target');
+    populateCategory('safe');
 
     res.json(result);
   } catch (error) {

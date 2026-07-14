@@ -49,7 +49,7 @@ export const LiveActivity = () => {
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-lg">
           <div className="flex items-center gap-2">
-            <Radio className="h-5 w-5 text-green-500 animate-pulse" />
+            <Radio className="h-4 w-4 text-green-500 animate-pulse" />
             My Recent Activity
           </div>
           <Badge className="bg-red-500/10 text-red-500 border-none">LIVE</Badge>
@@ -60,7 +60,7 @@ export const LiveActivity = () => {
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
               <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-border/50">
-                <Skeleton className="h-5 w-5 rounded-full" />
+                <Skeleton className="h-4 w-4 rounded-full" />
                 <div className="flex-1 space-y-2">
                   <Skeleton className="h-3 w-1/3" />
                   <Skeleton className="h-3 w-2/3" />
@@ -70,16 +70,16 @@ export const LiveActivity = () => {
           </div>
         ) : activities.length === 0 ? (
           <div className="text-center py-8">
-            <Clock className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <Clock className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground">No recent activity found.</p>
           </div>
         ) : (
           <div className="space-y-3">
             {activities.map((item, idx) => (
               <div key={idx} className="flex items-start gap-3 p-3 rounded-lg border border-primary/10 bg-primary/5 hover:bg-primary/10 transition-colors">
-                {item.activity_type === "note" && <BookOpen className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />}
-                {item.activity_type === "idea" && <Lightbulb className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />}
-                {item.activity_type === "classroom_message" && <MessageSquare className="h-5 w-5 text-purple-500 shrink-0 mt-0.5" />}
+                {item.activity_type === "note" && <BookOpen className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />}
+                {item.activity_type === "idea" && <Lightbulb className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />}
+                {item.activity_type === "classroom_message" && <MessageSquare className="h-4 w-4 text-purple-500 shrink-0 mt-0.5" />}
                 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">

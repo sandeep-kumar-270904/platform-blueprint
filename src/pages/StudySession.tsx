@@ -322,7 +322,7 @@ const StudySession = () => {
             {/* Participants */}
             <Card className="p-4">
               <div className="flex items-center gap-2 mb-4">
-                <Users className="h-5 w-5" />
+                <Users className="h-4 w-4" />
                 <h3 className="font-semibold">Participants ({participants.length})</h3>
               </div>
               <div className="space-y-2">
@@ -347,7 +347,7 @@ const StudySession = () => {
             {/* Chat */}
             <Card className="p-4">
               <div className="flex items-center gap-2 mb-4">
-                <MessageCircle className="h-5 w-5" />
+                <MessageCircle className="h-4 w-4" />
                 <h3 className="font-semibold">Chat</h3>
               </div>
               <ScrollArea className="h-[300px] mb-4">

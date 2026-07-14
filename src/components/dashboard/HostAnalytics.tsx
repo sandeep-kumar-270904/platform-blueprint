@@ -51,7 +51,7 @@ export const HostAnalytics = ({ userId }: { userId: string }) => {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-bold flex items-center gap-2 mb-1">
-          <TrendingUp className="h-5 w-5 text-primary" /> Hosting Performance Overview
+          <TrendingUp className="h-4 w-4 text-primary" /> Hosting Performance Overview
         </h2>
         <p className="text-sm text-muted-foreground">Aggregate statistics across all your hosted sessions.</p>
       </div>

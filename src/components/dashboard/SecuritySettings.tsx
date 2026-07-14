@@ -156,7 +156,7 @@ export const SecuritySettings = () => {
       <Card className="bg-[#FDFBF7] border-zinc-200 shadow-sm rounded-none">
         <CardHeader className="border-b border-zinc-100 pb-4">
           <CardTitle className="text-xl font-serif text-zinc-900 flex items-center gap-2">
-            <Mail className="h-5 w-5 text-amber-600" />
+            <Mail className="h-4 w-4 text-amber-600" />
             Change email
           </CardTitle>
         </CardHeader>
@@ -229,7 +229,7 @@ export const SecuritySettings = () => {
       <Card className="bg-[#FDFBF7] border-zinc-200 shadow-sm rounded-none">
         <CardHeader className="border-b border-zinc-100 pb-4">
           <CardTitle className="text-xl font-serif text-zinc-900 flex items-center gap-2">
-            <Shield className="h-5 w-5 text-amber-600" />
+            <Shield className="h-4 w-4 text-amber-600" />
             {isSocialOnly ? "Set a password" : "Change password"}
           </CardTitle>
         </CardHeader>
@@ -332,7 +332,7 @@ export const SecuritySettings = () => {
       <Card className="bg-[#FDFBF7] border-zinc-200 shadow-sm rounded-none">
         <CardHeader className="border-b border-zinc-100 pb-4">
           <CardTitle className="text-xl font-serif text-zinc-900 flex items-center gap-2">
-            <Download className="h-5 w-5 text-zinc-600" />
+            <Download className="h-4 w-4 text-zinc-600" />
             Data export
           </CardTitle>
         </CardHeader>
@@ -354,7 +354,7 @@ export const SecuritySettings = () => {
       <Card className="bg-[#FDFBF7] border-red-200 shadow-sm rounded-none">
         <CardHeader className="border-b border-red-100 pb-4">
           <CardTitle className="text-xl font-serif text-red-800 flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
+            <AlertTriangle className="h-4 w-4 text-red-600" />
             Delete account
           </CardTitle>
         </CardHeader>

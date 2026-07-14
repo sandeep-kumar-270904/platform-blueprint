@@ -54,7 +54,7 @@ const Flashcards = () => {
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-20 md:py-32">
           
-          <div className="container mx-auto px-4 relative z-10">
+          <div className="container mx-auto px-4 relative z-8">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
                 <div className="flex justify-center mb-4"><SyncStatusIndicator status={status} /></div>
@@ -175,9 +175,9 @@ const CreateDeckDialog = ({ onClose }: { onClose: () => void }) => {
     <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
       <DialogHeader><DialogTitle>Create a Deck</DialogTitle></DialogHeader>
       <div className="space-y-4">
-        <div><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} /></div>
-        <div><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} /></div>
-        <div><Label>Category</Label><Input value={category} onChange={(e) => setCategory(e.target.value)} maxLength={50} /></div>
+        <div><Label htmlFor="title">Title</Label><Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} /></div>
+        <div><Label htmlFor="description">Description</Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} /></div>
+        <div><Label htmlFor="category">Category</Label><Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} maxLength={50} /></div>
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <Label>Cards</Label>

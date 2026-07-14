@@ -5,8 +5,8 @@ export const HeroOrbit = () => {
   return (
     <div className="relative w-64 h-64 mx-auto mt-12 md:mt-16">
       {/* Central Hub */}
-      <div className="absolute inset-0 m-auto w-20 h-20 bg-background rounded-full border-2 border-primary/20 shadow-sm flex items-center justify-center z-10">
-        <GraduationCap className="w-10 h-10 text-primary" />
+      <div className="absolute inset-0 m-auto w-24 h-24 bg-background rounded-full border-2 border-primary/20 shadow-sm flex items-center justify-center z-8">
+        <GraduationCap className="w-8 h-8 text-primary" />
       </div>
 
       {/* Orbit Rings */}

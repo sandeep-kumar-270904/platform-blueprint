@@ -46,7 +46,7 @@ export const ClassroomChat = ({ classroomId }: { classroomId: string }) => {
       </div>
       <ScrollArea className="flex-1 px-4 py-3" ref={scrollRef as any}>
         {loading ? (
-          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          <div className="flex justify-center py-8"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
         ) : messages.length === 0 ? (
           <p className="text-sm text-center text-muted-foreground py-8">Be the first to say hello 👋</p>
         ) : (
@@ -59,7 +59,7 @@ export const ClassroomChat = ({ classroomId }: { classroomId: string }) => {
               const isMine = m.user_id === user?.id;
               return (
                 <div key={m.id} className="group flex gap-2 items-start">
-                  <Avatar className="h-7 w-7 shrink-0">
+                  <Avatar className="h-6 w-6 shrink-0">
                     <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">

@@ -16,7 +16,11 @@ const notificationSchema = new mongoose.Schema({
       'event_updated',
       'event_cancelled',
       'waitlist_confirmed',
-      'event_feedback_request'
+      'event_feedback_request',
+      'team_request',
+      'team_request_accepted',
+      'course_reminder',
+      'course_streak_milestone'
     ],
     required: true
   },
@@ -25,5 +29,7 @@ const notificationSchema = new mongoose.Schema({
   message: { type: String, required: true },
   isRead: { type: Boolean, default: false }
 }, { timestamps: true });
+
+notificationSchema.index({ userId: 1, isRead: 1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

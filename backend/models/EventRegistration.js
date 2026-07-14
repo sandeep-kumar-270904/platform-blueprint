@@ -10,10 +10,19 @@ const eventRegistrationSchema = new mongoose.Schema({
   },
   teamName: { type: String, default: null },
   teamMembers: [{ type: String }], // array of names/emails
-  registeredAt: { type: Date, default: Date.now }
+  lookingForTeammates: { type: Boolean, default: false },
+  skills: { type: String, default: "" },
+  checkedIn: { type: Boolean, default: false },
+  checkedInAt: { type: Date, default: null },
+  registeredAt: { type: Date, default: Date.now },
+  lookingForTeammates: {
+    type: Boolean,
+    default: false
+  }
 }, { timestamps: true });
 
-// Ensure a user can only register once for an event
+// Ensure a user can only register for an event once
 eventRegistrationSchema.index({ eventId: 1, userId: 1 }, { unique: true });
+eventRegistrationSchema.index({ userId: 1 }); // For querying user's registrations
 
 module.exports = mongoose.model('EventRegistration', eventRegistrationSchema);

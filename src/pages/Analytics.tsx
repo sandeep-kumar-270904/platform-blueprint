@@ -126,7 +126,7 @@ const Analytics = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
+                <TrendingUp className="h-4 w-4" />
                 Top Performing Notes
               </CardTitle>
             </CardHeader>
@@ -172,7 +172,7 @@ const Analytics = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
+                <BarChart3 className="h-4 w-4" />
                 Recent Activity
               </CardTitle>
             </CardHeader>

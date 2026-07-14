@@ -34,7 +34,7 @@ export const BookTransition: React.FC<BookTransitionProps> = ({ status, leftPane
       </motion.div>
 
       {/* The Book Covers */}
-      <div className="min-h-screen flex flex-col-reverse md:flex-row relative z-10" style={{ transformStyle: "preserve-3d" }}>
+      <div className="min-h-screen flex flex-col-reverse md:flex-row relative z-8" style={{ transformStyle: "preserve-3d" }}>
         <motion.div 
           className="w-full md:w-[55%] origin-left"
           animate={status !== 'idle' ? { 

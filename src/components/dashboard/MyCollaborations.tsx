@@ -64,7 +64,7 @@ export const MyCollaborations = ({ userId }: { userId: string }) => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Handshake className="h-5 w-5 text-primary" />
+          <Handshake className="h-4 w-4 text-primary" />
           My Collaborations ({collabs.length})
         </CardTitle>
       </CardHeader>
@@ -73,7 +73,7 @@ export const MyCollaborations = ({ userId }: { userId: string }) => {
           <p className="text-sm text-muted-foreground text-center py-6">Loading...</p>
         ) : collabs.length === 0 ? (
           <div className="text-center py-8">
-            <Handshake className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <Handshake className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground mb-3">Not collaborating on any ideas yet</p>
             <Link to="/team-hunt">
               <Button variant="outline" size="sm" className="gap-1">

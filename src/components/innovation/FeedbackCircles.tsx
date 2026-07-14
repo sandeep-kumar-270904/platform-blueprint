@@ -280,7 +280,7 @@ export const FeedbackCircles = () => {
               { step: "4", title: "Improve", desc: "Apply insights to your project" },
             ].map((item) => (
               <div key={item.step} className="text-center">
-                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm">
+                <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm">
                   {item.step}
                 </div>
                 <h4 className="text-sm font-semibold">{item.title}</h4>
@@ -394,7 +394,7 @@ export const FeedbackCircles = () => {
                         <Card className="bg-muted/30">
                           <CardContent className="p-4">
                             <div className="flex items-start gap-3">
-                              <Avatar className="h-10 w-10">
+                              <Avatar className="h-8 w-8">
                                 <AvatarFallback>
                                   {(member.profile?.username || "U")[0].toUpperCase()}
                                 </AvatarFallback>
@@ -417,7 +417,7 @@ export const FeedbackCircles = () => {
                                         <Button
                                           size="sm"
                                           variant="outline"
-                                          className="text-xs gap-1 h-7"
+                                          className="text-xs gap-1 h-6"
                                           onClick={() => setFeedbackTarget(member)}
                                         >
                                           <MessageSquare className="h-3 w-3" />

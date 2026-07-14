@@ -156,7 +156,7 @@ const AdminPanel = () => {
           ].map((s) => (
             <Card key={s.label}>
               <CardContent className="pt-4 pb-3">
-                <s.icon className={`h-5 w-5 mb-1 ${s.color}`} />
+                <s.icon className={`h-4 w-4 mb-1 ${s.color}`} />
                 <p className="text-2xl font-bold">{s.value}</p>
                 <p className="text-xs text-muted-foreground">{s.label}</p>
               </CardContent>
@@ -271,7 +271,7 @@ const AdminPanel = () => {
                     {[...users].sort((a, b) => b.notes_count - a.notes_count).slice(0, 5).map((u, i) => (
                       <div key={u.id} className="flex items-center justify-between p-2 rounded border border-border/50">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-muted-foreground w-5">{i + 1}</span>
+                          <span className="text-sm font-bold text-muted-foreground w-4">{i + 1}</span>
                           <span className="text-sm font-medium">{u.full_name || u.username || "Anonymous"}</span>
                         </div>
                         <div className="flex gap-2 text-xs text-muted-foreground">

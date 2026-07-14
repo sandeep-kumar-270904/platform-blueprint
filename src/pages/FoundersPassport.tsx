@@ -125,7 +125,7 @@ const FoundersPassport = () => {
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-16 md:py-24">
           
-          <div className="container mx-auto px-4 relative z-10">
+          <div className="container mx-auto px-4 relative z-8">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
                 <Badge variant="accent" className="mb-6">
@@ -223,7 +223,7 @@ const FoundersPassport = () => {
                     transition={{ delay: 0.1 + index * 0.05 }}
                   >
                     <Card className="bg-card/50 backdrop-blur-sm hover:shadow-md transition-all">
-                      <CardContent className="p-5 text-center">
+                      <CardContent className="p-4 text-center">
                         <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground${stat.color} mb-3`}>
                           <stat.icon className="h-6 w-6" />
                         </div>
@@ -241,7 +241,7 @@ const FoundersPassport = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Award className="h-5 w-5 text-primary" />
+                    <Award className="h-4 w-4 text-primary" />
                     Badges Earned ({earnedCount}/{badges.length})
                   </CardTitle>
                 </CardHeader>
@@ -275,7 +275,7 @@ const FoundersPassport = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
+                    <TrendingUp className="h-4 w-4 text-primary" />
                     Innovation Journey
                   </CardTitle>
                 </CardHeader>
@@ -291,8 +291,8 @@ const FoundersPassport = () => {
                     ].map((milestone, index) => (
                       <div key={index} className="flex items-start gap-4">
                         <div className="flex flex-col items-center">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20">
-                            <milestone.icon className="h-5 w-5 text-primary" />
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20">
+                            <milestone.icon className="h-4 w-4 text-primary" />
                           </div>
                           {index < 5 && <div className="w-0.5 h-8 bg-border mt-1" />}
                         </div>
@@ -319,7 +319,7 @@ const FoundersPassport = () => {
                 ].map((action) => (
                   <Link key={action.label} to={action.href}>
                     <Button variant="outline" className="w-full gap-2 h-auto py-4 flex-col">
-                      <action.icon className="h-5 w-5" />
+                      <action.icon className="h-4 w-4" />
                       <span className="text-xs">{action.label}</span>
                     </Button>
                   </Link>

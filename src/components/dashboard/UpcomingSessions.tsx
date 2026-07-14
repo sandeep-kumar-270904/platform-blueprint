@@ -46,7 +46,7 @@ export const UpcomingSessions = ({ userId }: { userId: string }) => {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-lg">
           <div className="flex items-center gap-2">
-            <Video className="h-5 w-5 text-primary" /> Session Hub
+            <Video className="h-4 w-4 text-primary" /> Session Hub
           </div>
           <Link to="/virtual-classroom">
             <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
@@ -64,7 +64,7 @@ export const UpcomingSessions = ({ userId }: { userId: string }) => {
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-3 w-1/2" />
                 </div>
-                <Skeleton className="h-5 w-16 ml-2" />
+                <Skeleton className="h-4 w-16 ml-2" />
               </div>
             ))}
           </div>

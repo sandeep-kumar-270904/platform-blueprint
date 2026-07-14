@@ -120,7 +120,7 @@ export const PollsTab = ({ classroomId, isHost }: { classroomId: string, isHost:
                         ) : (
                           <div className="w-full relative border rounded overflow-hidden p-2 text-sm z-0 bg-muted/30">
                             <div className="absolute inset-0 bg-primary/20 origin-left z-[-1]" style={{ width: `${percent}%` }} />
-                            <div className="flex justify-between relative z-10 gap-2">
+                            <div className="flex justify-between relative z-8 gap-2">
                               <span className="font-medium flex items-center gap-1.5">
                                 {opt} {iVoted && <CheckCircle2 className="h-3 w-3 text-primary" />}
                               </span>
@@ -134,7 +134,7 @@ export const PollsTab = ({ classroomId, isHost }: { classroomId: string, isHost:
                 </div>
                 
                 {isHost && !isClosed && (
-                  <Button variant="ghost" size="sm" className="w-full h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => closePoll(poll.id)}>
+                  <Button variant="ghost" size="sm" className="w-full h-6 text-xs text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => closePoll(poll.id)}>
                     Close Poll
                   </Button>
                 )}

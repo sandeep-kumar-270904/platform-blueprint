@@ -269,7 +269,7 @@ export const CollegeQA = ({ collegeId }: { collegeId: string }) => {
                   <div className="flex-1">
                     <h4 className="font-semibold text-lg mb-2">{q.questionText}</h4>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
+                      <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary">
                         {q.askedBy?.full_name?.charAt(0) || 'U'}
                       </div>
                       <span>{q.askedBy?.full_name || 'Anonymous User'}</span>
@@ -281,7 +281,7 @@ export const CollegeQA = ({ collegeId }: { collegeId: string }) => {
                   </div>
                   
                   <div className="shrink-0 pt-2">
-                    {expandedQs[q._id] ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+                    {expandedQs[q._id] ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                   </div>
                 </div>
               </div>
