@@ -10,6 +10,7 @@ const mentorProfileSchema = new mongoose.Schema({
   languages: [{ type: String, trim: true }],
   pricePerHour: { type: Number, default: 0 }, // 0 means free
   currency: { type: String, default: 'INR' },
+  timezone: { type: String, default: 'UTC' }, // Phase 5
   sessionTypes: [{ type: String, enum: ['1-on-1', 'AMA'], default: ['1-on-1'] }],
   availabilityRules: {
     // Array of available days/times (e.g. { day: 'Monday', startTime: '18:00', endTime: '20:00' })
@@ -23,8 +24,20 @@ const mentorProfileSchema = new mongoose.Schema({
   rating: { type: Number, default: 0 },
   reviewsCount: { type: Number, default: 0 },
   totalSessions: { type: Number, default: 0 },
-  verificationStatus: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  
+  // Phase 4: Badges and Tiers
+  tier: { type: String, enum: ['new', 'rising', 'top-rated', 'elite'], default: 'new' },
+  badges: [{
+    badgeId: { type: mongoose.Schema.Types.ObjectId, ref: 'MentorBadge' },
+    earnedAt: { type: Date, default: Date.now }
+  }],
+  
+  // Phase 5: No-show tracking
+  noShowCount: { type: Number, default: 0 },
+  
+  verificationStatus: { type: String, enum: ['pending', 'approved', 'rejected', 'suspended'], default: 'pending' },
   rejectionReason: { type: String, default: null },
+  suspensionReason: { type: String, default: null },
   socialLinks: {
     linkedin: String,
     portfolio: String,

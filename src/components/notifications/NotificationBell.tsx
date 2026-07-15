@@ -123,10 +123,24 @@ export const NotificationBell = () => {
   };
 
   const getNotificationLink = (n: Notification) => {
+    if (n.type.startsWith('ama_')) {
+      if (n.type === 'ama_cancelled') return '/mentors/amas';
+      return n.relatedContentId ? `/mentors/amas/${n.relatedContentId}` : '/mentors/amas';
+    }
+    if (n.type === 'session_reminder') {
+      return n.relatedContentId ? `/mentors/amas/${n.relatedContentId}` : '/dashboard';
+    }
+    if (n.type.startsWith('mentor_booking_')) {
+      return '/dashboard'; // assuming mentor bookings are on the dashboard
+    }
+    if (n.type === 'mentor_application_status' || n.type === 'mentor_application_rejected') {
+      return '/dashboard';
+    }
+    
     if (n.relatedCollegeId) {
       return `/colleges/${n.relatedCollegeId}`;
     }
-    // Fallback if no college ID
+    // Fallback
     return "/dashboard";
   };
 

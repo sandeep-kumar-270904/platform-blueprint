@@ -9,6 +9,41 @@ const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
 const mongoose = require('mongoose');
 const notificationService = require('../services/notificationService');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || 'sk_test_mock');
+const moment = require('moment-timezone');
+const rateLimit = require('express-rate-limit');
+
+// Rate Limiters
+// Booking attempts: 10 per hour per user
+const bookingLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: { message: 'Too many booking attempts. Please try again later.' }
+});
+
+// Search & API access: 100 per minute
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  message: { message: 'Too many requests. Slow down.' }
+});
+
+// Mentor application: 3 per day
+const applyLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 3,
+  message: { message: 'Too many application attempts today.' }
+});
+
+// Review limit: 5 per hour
+const reviewLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: { message: 'Too many reviews submitted.' }
+});
+
+// Apply apiLimiter generally to get routes
+router.use('/', apiLimiter);
 
 // ==========================================
 // 1. PUBLIC MENTOR LISTING & BROWSE
@@ -48,19 +83,35 @@ router.get('/', async (req, res) => {
     if (sort === 'price_asc') sortObj = { pricePerHour: 1 };
     if (sort === 'newest') sortObj = { createdAt: -1 };
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const { expertise, minRating, maxPrice, search, page = 1, limit = 10 } = req.query;
+    let query = { verificationStatus: 'approved', isActive: true };
+
+    if (expertise) query.expertise = { $in: expertise.split(',') };
+    if (minRating) query.rating = { $gte: Number(minRating) };
+    if (maxPrice) query.pricePerHour = { $lte: Number(maxPrice) };
 
     const mentors = await MentorProfile.find(query)
-      .sort(sortObj)
-      .skip(skip)
-      .limit(Number(limit))
-      .populate('user_id', 'full_name username avatar_url')
+      .populate('user_id', 'full_name username avatar_url bio')
       .lean();
 
-    const total = await MentorProfile.countDocuments(query);
+    // Filter out incomplete mentors (Onboarding Completion Gate) and apply search
+    const validMentors = mentors.filter(m => {
+      if (!isMentorBookingReady(m)) return false;
+      if (search) {
+        const searchTerm = search.toLowerCase();
+        const name = (m.user_id?.full_name || '').toLowerCase();
+        const title = (m.title || '').toLowerCase();
+        const company = (m.company || '').toLowerCase();
+        return name.includes(searchTerm) || title.includes(searchTerm) || company.includes(searchTerm);
+      }
+      return true;
+    });
 
-    // Format output to match frontend expectations
-    const formatted = mentors.map(m => ({
+    const total = validMentors.length;
+    const startIndex = (Number(page) - 1) * Number(limit);
+    const paginatedMentors = validMentors.slice(startIndex, startIndex + Number(limit));
+
+    const formatted = paginatedMentors.map(m => ({
       ...m,
       profile: m.user_id,
       user_id: m.user_id._id
@@ -87,6 +138,79 @@ router.get('/tags', async (req, res) => {
   }
 });
 
+// GET /api/mentors/recommendations - Personalized mentor matching
+router.get('/recommendations', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const interests = user.interestTags || [];
+    const myBlockedIds = user.blockedUsers || [];
+
+    // Find mentors that have matching expertise, are approved and active
+    let query = { 
+      verificationStatus: 'approved', 
+      isActive: true,
+      user_id: { $nin: myBlockedIds }
+    };
+    
+    if (interests.length > 0) {
+      query.expertise = { $in: interests };
+    }
+
+    // Rank by rating and totalSessions
+    const mentors = await MentorProfile.find(query)
+      .sort({ rating: -1, totalSessions: -1 })
+      .limit(10) // fetch a bit more in case we filter out some below
+      .populate('user_id', 'full_name username avatar_url blockedUsers')
+      .lean();
+      
+    // Filter mentors who have blocked the current user and are booking-ready
+    let validMentors = mentors.filter(m => {
+      if (!isMentorBookingReady(m)) return false;
+      const mentorUser = m.user_id;
+      if (!mentorUser) return false;
+      const theirBlockedIds = mentorUser.blockedUsers?.map(id => id.toString()) || [];
+      return !theirBlockedIds.includes(req.user.id);
+    }).slice(0, 5);
+
+    // If we didn't find any by interest, just return top rated
+    if (validMentors.length === 0) {
+      const backupMentors = await MentorProfile.find({ 
+        verificationStatus: 'approved', 
+        isActive: true,
+        user_id: { $nin: myBlockedIds }
+      })
+        .sort({ rating: -1, totalSessions: -1 })
+        .limit(20)
+        .populate('user_id', 'full_name username avatar_url blockedUsers bio')
+        .lean();
+        
+      validMentors = backupMentors.filter(m => {
+        if (!isMentorBookingReady(m)) return false;
+        const mentorUser = m.user_id;
+        if (!mentorUser) return false;
+        const theirBlockedIds = mentorUser.blockedUsers?.map(id => id.toString()) || [];
+        return !theirBlockedIds.includes(req.user.id);
+      }).slice(0, 5);
+    }
+
+    const formatted = validMentors.map(m => {
+      const profile = { ...m.user_id };
+      delete profile.blockedUsers;
+      return {
+        ...m,
+        profile,
+        user_id: m.user_id._id
+      };
+    });
+
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // GET single mentor profile by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -96,8 +220,9 @@ router.get('/:id', async (req, res) => {
 
     if (!mentor) return res.status(404).json({ message: 'Mentor not found' });
     
-    // Only allow public viewing if approved (or if the user themselves is viewing it)
-    // We'll just return it and let frontend handle if they are the owner
+    if (mentor.verificationStatus !== 'approved' || !mentor.isActive) {
+      return res.status(403).json({ message: 'Mentor profile is not available' });
+    }
     
     res.json({
       ...mentor,
@@ -112,7 +237,7 @@ router.get('/:id', async (req, res) => {
 // ==========================================
 // 2. MENTOR APPLICATION & PROFILE MANAGEMENT
 // ==========================================
-router.post('/apply', authMiddleware, async (req, res) => {
+router.post('/apply', authMiddleware, applyLimiter, async (req, res) => {
   try {
     const existing = await MentorProfile.findOne({ user_id: req.user.id });
     if (existing) {
@@ -199,13 +324,8 @@ router.get('/:id/availability', async (req, res) => {
     const mentor = await MentorProfile.findById(req.params.id);
     if (!mentor) return res.status(404).json({ message: 'Mentor not found' });
 
-    // Generate slots for the next 30 days based on availabilityRules
     const slots = [];
     const now = new Date();
-    // For now, we will just return some mock dynamic slots for the next 7 days 
-    // based on their weekly rules. 
-    // A robust implementation would iterate days, check rules, and subtract bookings.
-
     const daysMap = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     
     // Find all bookings for this mentor from now onwards
@@ -216,40 +336,50 @@ router.get('/:id/availability', async (req, res) => {
     }).select('scheduledAt durationMinutes').lean();
 
     const bookedTimes = bookings.map(b => b.scheduledAt.toISOString());
+    
+    // Fetch external calendar busy blocks (if connected)
+    const timeMax = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // 14 days
+    const calendarService = require('../services/calendarService');
+    const busyBlocks = await calendarService.getBusyBlocks(mentor.user_id, now, timeMax);
+
+    const mentorTz = mentor.timezone || 'UTC';
 
     for (let i = 1; i <= 14; i++) {
-      const date = new Date();
-      date.setDate(now.getDate() + i);
-      date.setHours(0,0,0,0);
+      const targetMoment = moment.tz(now, mentorTz).add(i, 'days').startOf('day');
+      const dayName = targetMoment.format('dddd');
 
-      const dayName = daysMap[date.getDay()];
-      
-      // Check if blackout date
       const isBlackout = mentor.availabilityRules?.blackoutDates?.some(bd => {
-        const bdate = new Date(bd);
-        return bdate.toDateString() === date.toDateString();
+        return moment.tz(bd, mentorTz).format('YYYY-MM-DD') === targetMoment.format('YYYY-MM-DD');
       });
 
       if (isBlackout) continue;
 
-      // Find rules for this day
       const dayRules = mentor.availabilityRules?.weekly?.filter(r => r.day === dayName) || [];
       
-      // Generate slots for each rule
       dayRules.forEach(rule => {
         if(!rule.startTime || !rule.endTime) return;
         
         let [sh, sm] = rule.startTime.split(':').map(Number);
         let [eh, em] = rule.endTime.split(':').map(Number);
         
-        // simple 1-hour intervals
         for (let h = sh; h < eh; h++) {
-          const slotTime = new Date(date);
-          slotTime.setHours(h, sm, 0, 0);
+          const slotMoment = targetMoment.clone().hour(h).minute(sm).second(0).millisecond(0);
+          if (slotMoment.valueOf() <= now.getTime()) continue;
           
-          if (slotTime <= now) continue;
+          const slotTime = slotMoment.toDate(); // native Date in UTC
+          const slotEnd = new Date(slotTime.getTime() + 60 * 60 * 1000);
           
-          const isBooked = bookedTimes.includes(slotTime.toISOString());
+          // Check internal bookings
+          let isBooked = bookedTimes.includes(slotTime.toISOString());
+          
+          // Check external calendar busy blocks
+          if (!isBooked) {
+            isBooked = busyBlocks.some(block => {
+              const blockStart = new Date(block.start);
+              const blockEnd = new Date(block.end);
+              return (slotTime < blockEnd && slotEnd > blockStart);
+            });
+          }
           
           slots.push({
             id: slotTime.toISOString(),
@@ -266,7 +396,7 @@ router.get('/:id/availability', async (req, res) => {
   }
 });
 
-router.post('/bookings', authMiddleware, async (req, res) => {
+router.post('/bookings', authMiddleware, bookingLimiter, async (req, res) => {
   try {
     const { mentorId, scheduledAt, menteeNotes } = req.body;
     
@@ -281,8 +411,36 @@ router.post('/bookings', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Cannot book in the past' });
     }
 
-    // Check race condition using DB unique index mentorId_scheduledAt
-    // It will throw a MongoError 11000 if someone else booked it
+    let checkoutUrl = null;
+    let stripeSessionId = null;
+    let paymentExpiresAt = null;
+
+    if (mentor.pricePerHour > 0) {
+      // Create Stripe Checkout Session
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Mentorship Session with ${mentor.title}`,
+              description: `1-on-1 session on ${slotDate.toLocaleString()}`
+            },
+            unit_amount: Math.round(mentor.pricePerHour * 100),
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/dashboard/mentee?payment=success`,
+        cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/mentors/${mentorId}?payment=cancelled`,
+        expires_at: Math.floor(Date.now() / 1000) + (30 * 60) // Stripe minimum is 30 minutes
+      });
+      
+      checkoutUrl = session.url;
+      stripeSessionId = session.id;
+      paymentExpiresAt = new Date(Date.now() + 15 * 60000); // 15 minute local hold
+    }
+
     const booking = new MentorBooking({
       mentorId,
       menteeId: req.user.id,
@@ -293,34 +451,63 @@ router.post('/bookings', authMiddleware, async (req, res) => {
       sessionType: '1-on-1',
       pricePaid: mentor.pricePerHour,
       paymentStatus: mentor.pricePerHour > 0 ? 'pending' : 'paid',
+      stripeSessionId,
+      paymentExpiresAt,
       meetingLink: mentor.pricePerHour === 0 ? `https://meet.studenthub.com/${new mongoose.Types.ObjectId()}` : null
     });
 
     await booking.save();
 
-    // Create notification for mentor
-    await notificationService.createNotification({
-      userId: mentor.user_id,
-      type: 'mentor_booking',
-      relatedContentId: booking._id,
-      message: mentor.pricePerHour > 0 
-        ? `New booking request pending payment for ${slotDate.toLocaleString()}`
-        : `New free session booked for ${slotDate.toLocaleString()}`
-    });
+    try {
+      // Provision Daily room if confirmed immediately (free session)
+      if (booking.status === 'confirmed') {
+        const room = await require('../services/videoService').createRoom(booking._id, slotDate, 60);
+        booking.dailyRoomId = room.name; // Daily.co uses 'name' as the unique identifier
+        booking.dailyRoomUrl = room.url;
+        
+        // Sync calendar for Mentor
+        const eventId = await require('../services/calendarService').createEvent(mentor.user_id, {
+          summary: `Mentorship Session with Mentee`,
+          description: `1-on-1 session.\nJoin: ${process.env.FRONTEND_URL || 'http://localhost:5173'}/video/${booking._id}`,
+          startTime: slotDate,
+          endTime: new Date(slotDate.getTime() + 60 * 60000)
+        });
+        if (eventId) booking.calendarEventId = eventId;
+      }
+      
+      // Create notification for mentor
+      await notificationService.createNotification({
+        userId: mentor.user_id,
+        type: 'mentor_booking',
+        relatedContentId: booking._id,
+        message: mentor.pricePerHour > 0 
+          ? `New booking request pending payment for ${slotDate.toLocaleString()}`
+          : `New free session booked for ${slotDate.toLocaleString()}`
+      });
 
-    // Increment mentor sessions if free and confirmed immediately
-    if (booking.status === 'confirmed') {
-      mentor.totalSessions += 1;
-      await mentor.save();
+      // Increment mentor sessions if free and confirmed immediately
+      if (booking.status === 'confirmed') {
+        mentor.totalSessions += 1;
+        await mentor.save();
+      }
+
+      if (req.io) {
+        req.io.emit('mentor_slots_updated', mentorId);
+        req.io.emit(`my_bookings_updated_${req.user.id}`);
+        req.io.emit(`mentor_dashboard_updated_${mentor.user_id}`);
+      }
+      // Convert Waitlist if applicable
+      const MentorWaitlist = require('../models/MentorWaitlist');
+      await MentorWaitlist.findOneAndUpdate(
+        { menteeId: req.user.id, mentorId, status: 'notified' },
+        { status: 'converted', convertedBookingId: booking._id }
+      );
+
+    } catch (sideErr) {
+      console.error('Non-critical side effect failed during booking:', sideErr);
     }
 
-    if (req.io) {
-      req.io.emit('mentor_slots_updated', mentorId);
-      req.io.emit(`my_bookings_updated_${req.user.id}`);
-      req.io.emit(`mentor_dashboard_updated_${mentor.user_id}`);
-    }
-
-    res.status(201).json(booking);
+    res.status(201).json({ booking, checkoutUrl });
   } catch (err) {
     if (err.code === 11000) {
       return res.status(409).json({ message: 'This slot was just booked by someone else. Please choose another slot.' });
@@ -347,8 +534,121 @@ router.post('/bookings/:id/cancel', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: `Cannot cancel a ${booking.status} booking` });
     }
 
+    // Refund Logic
+    const hoursUntilSession = (new Date(booking.scheduledAt) - new Date()) / (1000 * 60 * 60);
+    
     booking.status = 'cancelled';
     booking.cancellationReason = reason;
+    booking.cancelledBy = isMentee ? 'mentee' : 'mentor';
+
+    if (booking.paymentStatus === 'paid') {
+      let shouldRefund = false;
+      if (isMentor) {
+        shouldRefund = true; // Mentor cancelled, full refund always
+      } else if (isMentee && hoursUntilSession > 24) {
+        shouldRefund = true; // Mentee cancelled > 24h prior, full refund
+      }
+
+      if (shouldRefund) {
+        if (booking.stripePaymentIntentId) {
+          try {
+            await stripe.refunds.create({
+              payment_intent: booking.stripePaymentIntentId,
+            });
+            booking.refundStatus = 'full';
+            booking.paymentStatus = 'refunded';
+          } catch (refundErr) {
+            console.error('Stripe refund failed:', refundErr.message);
+            return res.status(500).json({ message: 'Refund failed, contact support' });
+          }
+        } else {
+          // Fallback if no payment intent (e.g. simulated payment)
+          booking.refundStatus = 'full';
+          booking.paymentStatus = 'refunded';
+        }
+      } else {
+        booking.refundStatus = 'none';
+      }
+    } else {
+      booking.paymentStatus = 'failed';
+    }
+    
+    // Clear expiration holds
+    booking.paymentExpiresAt = null;
+
+    await booking.save();
+
+    // Notify waitlist atomically
+    try {
+      const MentorWaitlist = require('../models/MentorWaitlist');
+      const waitlistEntry = await MentorWaitlist.findOneAndUpdate(
+        { mentorId: booking.mentorId._id, status: 'waiting' },
+        { 
+          status: 'notified', 
+          notifiedAt: new Date(), 
+          claimExpiresAt: new Date(Date.now() + 60 * 60 * 1000) // 1 hour to claim
+        },
+        { sort: { createdAt: 1 }, new: true }
+      );
+
+      if (waitlistEntry) {
+        await notificationService.createNotification({
+          userId: waitlistEntry.menteeId,
+          type: 'mentor_waitlist_open',
+          relatedContentId: booking.mentorId._id,
+          message: `A spot has opened up for ${booking.mentorId.title || 'your mentor'}! You have 1 hour to claim it.`
+        });
+      }
+    } catch (e) {
+      console.error('Failed to process waitlist on cancel:', e);
+    }
+
+    if (req.io) {
+      req.io.emit('mentor_slots_updated', booking.mentorId._id);
+      req.io.emit(`my_bookings_updated_${booking.menteeId}`);
+      req.io.emit(`mentor_dashboard_updated_${booking.mentorId.user_id}`);
+    }
+
+    res.json({ message: 'Booking cancelled successfully', refundStatus: booking.refundStatus });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+router.post('/bookings/:id/reschedule', authMiddleware, async (req, res) => {
+  try {
+    const { newDate, reason } = req.body;
+    const booking = await MentorBooking.findById(req.params.id).populate('mentorId');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+
+    const isMentee = booking.menteeId.toString() === req.user.id;
+    const isMentor = booking.mentorId.user_id.toString() === req.user.id;
+
+    if (!isMentee && !isMentor) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (['completed', 'cancelled'].includes(booking.status)) {
+      return res.status(400).json({ message: `Cannot reschedule a ${booking.status} booking` });
+    }
+
+    const slotDate = new Date(newDate);
+    if (slotDate <= new Date()) {
+      return res.status(400).json({ message: 'Cannot reschedule to a past date' });
+    }
+
+    // Note: A robust state machine would put it in a 'reschedule_proposed' state 
+    // and wait for the other party to accept. For simplicity in this iteration, 
+    // we assume the change is accepted immediately and the old slot is freed.
+    
+    booking.rescheduleHistory.push({
+      previousDate: booking.scheduledAt,
+      rescheduledBy: isMentee ? 'mentee' : 'mentor',
+      reason,
+      rescheduledAt: new Date()
+    });
+
+    booking.scheduledAt = slotDate;
     await booking.save();
 
     if (req.io) {
@@ -357,8 +657,11 @@ router.post('/bookings/:id/cancel', authMiddleware, async (req, res) => {
       req.io.emit(`mentor_dashboard_updated_${booking.mentorId.user_id}`);
     }
 
-    res.json({ message: 'Booking cancelled successfully' });
+    res.json({ message: 'Booking rescheduled successfully', booking });
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'The requested slot is already booked.' });
+    }
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
@@ -403,75 +706,58 @@ router.get('/dashboard/sessions', authMiddleware, async (req, res) => {
   }
 });
 
-// ==========================================
-// 4. PAYMENTS & WEBHOOKS (SIMULATED)
-// ==========================================
-// In a real app, this would receive a payload from Stripe/Razorpay
-router.post('/webhook/payment', async (req, res) => {
+// GET /api/mentors/analytics - Mentor Analytics Dashboard
+router.get('/analytics', authMiddleware, async (req, res) => {
   try {
-    const { bookingId, transactionId, status } = req.body;
-    // Idempotency check:
-    const booking = await MentorBooking.findById(bookingId).populate('mentorId');
-    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    const mentor = await MentorProfile.findOne({ user_id: req.user.id });
+    if (!mentor) return res.status(404).json({ message: 'Mentor profile not found' });
 
-    if (booking.paymentStatus === 'paid') {
-      return res.json({ message: 'Already processed' });
-    }
+    const bookings = await MentorBooking.find({ mentorId: mentor._id }).lean();
+    
+    // Calculate metrics
+    const totalEarnings = bookings
+      .filter(b => b.paymentStatus === 'paid' && b.status === 'completed')
+      .reduce((sum, b) => sum + (b.chargedAmount || b.pricePaid), 0);
+      
+    const totalBookings = bookings.length;
+    const completedBookings = bookings.filter(b => b.status === 'completed').length;
+    const noShows = bookings.filter(b => b.status === 'no-show').length;
+    const noShowRate = totalBookings > 0 ? (noShows / totalBookings) * 100 : 0;
+    
+    // Group by month for chart
+    const sessionsByMonth = {};
+    bookings.forEach(b => {
+      const month = new Date(b.scheduledAt).toLocaleString('default', { month: 'short', year: 'numeric' });
+      sessionsByMonth[month] = (sessionsByMonth[month] || 0) + 1;
+    });
 
-    if (status === 'success') {
-      booking.paymentStatus = 'paid';
-      booking.status = 'confirmed';
-      booking.meetingLink = `https://meet.studenthub.com/${new mongoose.Types.ObjectId()}`;
-      await booking.save();
-
-      booking.mentorId.totalSessions += 1;
-      await booking.mentorId.save();
-
-      // Track payout
-      const platformFeePercent = 0.10; // 10%
-      const amountEarned = booking.pricePaid * (1 - platformFeePercent);
-      const platformFee = booking.pricePaid * platformFeePercent;
-
-      await require('../models/PayoutTracking').create({
-        mentorId: booking.mentorId._id,
-        bookingId: booking._id,
-        amountEarned,
-        platformFee,
-        payoutStatus: 'pending',
-        transactionId
-      });
-
-      if (req.io) {
-        req.io.emit('mentor_slots_updated', booking.mentorId._id);
-        req.io.emit(`my_bookings_updated_${booking.menteeId}`);
-        req.io.emit(`mentor_dashboard_updated_${booking.mentorId.user_id}`);
-      }
-
-      await notificationService.createNotification({
-        userId: booking.mentorId.user_id,
-        type: 'mentor_booking',
-        relatedContentId: booking._id,
-        message: `Payment received! Confirmed session for ${booking.scheduledAt.toLocaleString()}`
-      });
-    }
-
-    res.json({ message: 'Webhook processed' });
+    res.json({
+      totalEarnings,
+      totalBookings,
+      completedBookings,
+      noShowRate,
+      rating: mentor.rating,
+      reviewsCount: mentor.reviewsCount,
+      sessionsByMonth: Object.keys(sessionsByMonth).map(k => ({ month: k, count: sessionsByMonth[k] }))
+    });
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(500).json({ message: 'Server error fetching analytics', error: err.message });
   }
 });
+
+// Webhooks removed: Moved to /routes/webhooks.js
 
 // ==========================================
 // 6. REVIEWS
 // ==========================================
-router.post('/bookings/:id/review', authMiddleware, async (req, res) => {
+router.post('/bookings/:id/review', authMiddleware, reviewLimiter, async (req, res) => {
   try {
     const { rating, writtenFeedback } = req.body;
     const booking = await MentorBooking.findById(req.params.id).populate('mentorId');
     
     if (!booking) return res.status(404).json({ message: 'Booking not found' });
     if (booking.menteeId.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
-    // if (booking.status !== 'completed') return res.status(400).json({ message: 'Can only review completed sessions' });
+    if (booking.status !== 'completed') return res.status(400).json({ message: 'Can only review completed sessions' });
 
     const existing = await MentorReview.findOne({ bookingId: booking._id });
     if (existing) return res.status(400).json({ message: 'You already reviewed this session' });
@@ -501,10 +787,97 @@ router.post('/bookings/:id/review', authMiddleware, async (req, res) => {
       relatedContentId: review._id,
       message: `You received a ${rating}-star review for a recent session!`
     });
+    
+    // Evaluate badges and tiers asynchronously
+    require('../services/badgeService').evaluateMentorBadges(mentor._id);
 
     res.status(201).json(review);
   } catch (err) {
     if (err.code === 11000) return res.status(409).json({ message: 'You already reviewed this session' });
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Edit Review
+router.put('/bookings/:id/review', authMiddleware, async (req, res) => {
+  try {
+    const { rating, writtenFeedback } = req.body;
+    const booking = await MentorBooking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    if (booking.menteeId.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+
+    const review = await MentorReview.findOne({ bookingId: booking._id });
+    if (!review) return res.status(404).json({ message: 'Review not found' });
+
+    // Enforce 48 hour edit window
+    const hoursSinceCreation = (Date.now() - new Date(review.createdAt).getTime()) / (1000 * 60 * 60);
+    if (hoursSinceCreation > 48) {
+      return res.status(400).json({ message: 'Reviews cannot be edited after 48 hours' });
+    }
+
+    const oldRating = review.rating;
+    review.rating = rating;
+    review.writtenFeedback = writtenFeedback;
+    review.editedAt = new Date();
+    await review.save();
+
+    // Recalculate mentor rating
+    if (oldRating !== rating) {
+      const mentor = await MentorProfile.findById(booking.mentorId);
+      // Remove old rating contribution and add new
+      const currentTotal = mentor.rating * mentor.reviewsCount;
+      const newTotal = currentTotal - oldRating + rating;
+      mentor.rating = newTotal / mentor.reviewsCount;
+      await mentor.save();
+    }
+
+    res.json({ message: 'Review updated', review });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Mentor Reply
+router.post('/bookings/:id/review/reply', authMiddleware, async (req, res) => {
+  try {
+    const { reply } = req.body;
+    const booking = await MentorBooking.findById(req.params.id).populate('mentorId');
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    
+    if (booking.mentorId.user_id.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const review = await MentorReview.findOne({ bookingId: booking._id });
+    if (!review) return res.status(404).json({ message: 'Review not found' });
+    
+    if (review.mentorReply) {
+      return res.status(400).json({ message: 'You have already replied to this review' });
+    }
+
+    review.mentorReply = reply;
+    await review.save();
+
+    res.json({ message: 'Reply posted', review });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Flag Review
+router.post('/reviews/:id/flag', authMiddleware, async (req, res) => {
+  try {
+    const review = await MentorReview.findById(req.params.id);
+    if (!review) return res.status(404).json({ message: 'Review not found' });
+
+    // Just mark as flagged for moderation. Admin will review it.
+    if (review.moderationStatus === 'public') {
+      review.moderationStatus = 'flagged';
+      await review.save();
+    }
+
+    res.json({ message: 'Review flagged for moderation' });
+  } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
@@ -516,6 +889,67 @@ router.get('/:id/reviews', async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
     res.json(reviews);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ==========================================
+// 7. WAITLIST
+// ==========================================
+router.post('/:id/notify-availability', authMiddleware, async (req, res) => {
+  try {
+    const MentorWaitlist = require('../models/MentorWaitlist');
+    
+    const existing = await MentorWaitlist.findOne({ 
+      mentorId: req.params.id, 
+      menteeId: req.user.id, 
+      status: { $in: ['waiting', 'notified'] } 
+    });
+
+    if (existing) {
+      return res.status(400).json({ message: 'You are already on the alert list for this mentor.' });
+    }
+
+    const waitlist = new MentorWaitlist({
+      mentorId: req.params.id,
+      menteeId: req.user.id,
+      anyAvailability: true,
+      status: 'waiting'
+    });
+
+    await waitlist.save();
+    res.status(201).json({ message: 'You will be notified when the mentor has new availability.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+router.post('/:id/waitlist', authMiddleware, async (req, res) => {
+  try {
+    const MentorWaitlist = require('../models/MentorWaitlist');
+    const { preferredStartTime, preferredEndTime, anyAvailability } = req.body;
+    
+    const existing = await MentorWaitlist.findOne({ 
+      mentorId: req.params.id, 
+      menteeId: req.user.id, 
+      status: { $in: ['waiting', 'notified'] } 
+    });
+
+    if (existing) {
+      return res.status(400).json({ message: 'You are already on the waitlist for this mentor.' });
+    }
+
+    const waitlist = new MentorWaitlist({
+      mentorId: req.params.id,
+      menteeId: req.user.id,
+      preferredStartTime,
+      preferredEndTime,
+      anyAvailability: anyAvailability !== undefined ? anyAvailability : true
+    });
+
+    await waitlist.save();
+    res.status(201).json({ message: 'Joined waitlist successfully', waitlist });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

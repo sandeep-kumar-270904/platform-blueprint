@@ -12,10 +12,43 @@ const mentorBookingSchema = new mongoose.Schema({
   },
   sessionType: { type: String, enum: ['1-on-1', 'AMA'], default: '1-on-1' },
   pricePaid: { type: Number, default: 0 },
-  paymentStatus: { type: String, enum: ['pending', 'paid', 'refunded'], default: 'pending' },
-  meetingLink: { type: String, default: null },
+  chargedAmount: { type: Number, default: 0 }, // Authoritative amount charged in chargedCurrency
+  chargedCurrency: { type: String, default: 'usd' }, // Authoritative currency charged
+  paymentStatus: { type: String, enum: ['pending', 'paid', 'failed', 'refunded'], default: 'pending' },
+  stripeSessionId: { type: String, default: null },
+  stripePaymentIntentId: { type: String, default: null },
+  paymentExpiresAt: { type: Date, default: null }, // Slot hold expiry
+  meetingLink: { type: String, default: null }, // Legacy
+  dailyRoomUrl: { type: String, default: null }, // Daily.co integration
+  dailyRoomId: { type: String, default: null },
+  calendarEventId: { type: String, default: null }, // Sync with external calendar
+  
+  // Phase 5: No-show tracking
+  mentorJoinedAt: { type: Date, default: null },
+  menteeJoinedAt: { type: Date, default: null },
+  noShowBy: { type: String, enum: ['mentee', 'mentor', 'both', null], default: null },
+  
+  // AI & Recording
+  recordingUrl: { type: String, default: null },
+  recordingStatus: { 
+    type: String, 
+    enum: ['not_started', 'processing', 'ready', 'failed'], 
+    default: 'not_started' 
+  },
+  transcriptText: { type: String, default: null },
+  aiSummary: { type: String, default: null },
+  aiActionItems: [{ type: String }],
+  
   menteeNotes: { type: String, default: null },
-  cancellationReason: { type: String, default: null }
+  cancellationReason: { type: String, default: null },
+  cancelledBy: { type: String, enum: ['mentee', 'mentor', 'system', null], default: null },
+  refundStatus: { type: String, enum: ['none', 'full', 'partial'], default: 'none' },
+  rescheduleHistory: [{
+    previousDate: Date,
+    rescheduledBy: { type: String, enum: ['mentee', 'mentor'] },
+    reason: String,
+    rescheduledAt: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
 
 // Prevent double bookings for a mentor at the exact same time

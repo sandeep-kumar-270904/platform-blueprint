@@ -8,8 +8,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "@/components/ui/calendar";
 import { useAuth } from "@/hooks/useAuth";
 import { BookingModal } from "@/components/BookingModal";
-import { Star, CheckCircle2, Calendar as CalendarIcon, Clock, DollarSign, Globe, ArrowLeft, Share2, Users, Loader2 } from "lucide-react";
+import { Star, CheckCircle2, Calendar as CalendarIcon, Clock, DollarSign, Globe, ArrowLeft, Share2, Users, Loader2, Flag, MessageSquare, Bell, MoreHorizontal, AlertTriangle, ShieldBan } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { type AvailabilitySlot } from "@/hooks/useMentors";
 import { io } from "socket.io-client";
 
@@ -25,6 +29,16 @@ export default function MentorProfilePage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [bookingOpen, setBookingOpen] = useState(false);
   const [pickedSlot, setPickedSlot] = useState<AvailabilitySlot | null>(null);
+
+  // Reply State
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const { user } = useAuth();
+  const [notifying, setNotifying] = useState(false);
+  const [hasBlocked, setHasBlocked] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportText, setReportText] = useState("");
+  const [submittingReport, setSubmittingReport] = useState(false);
 
   useEffect(() => {
     fetchMentor();
@@ -70,6 +84,116 @@ export default function MentorProfilePage() {
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     toast({ title: "Copied!", description: "Profile link copied to clipboard" });
+  };
+
+  const handleFlagReview = async (reviewId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast({ title: "Sign in required", description: "You must be signed in to flag a review", variant: "destructive" });
+        return;
+      }
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/mentors/reviews/${reviewId}/flag`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error((await res.json()).message);
+      toast({ title: "Review flagged", description: "This review has been flagged for moderation." });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleReplySubmit = async (reviewId: string, bookingId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/mentors/bookings/${bookingId}/review/reply`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reply: replyText })
+      });
+      if (!res.ok) throw new Error((await res.json()).message);
+      toast({ title: "Reply posted" });
+      setReplyingTo(null);
+      setReplyText("");
+      fetchReviews();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleNotifyAvailability = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast({ title: "Sign in required", description: "You must be signed in to receive alerts.", variant: "destructive" });
+        return;
+      }
+      setNotifying(true);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/mentors/${id}/notify-availability`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      toast({ title: "Subscribed", description: data.message });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setNotifying(false);
+    }
+  };
+
+  const handleBlockMentor = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast({ title: "Sign in required", description: "You must be signed in to block users.", variant: "destructive" });
+        return;
+      }
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/${mentor.user_id._id}/block`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      
+      setHasBlocked(data.blocked);
+      toast({ title: data.blocked ? "User blocked" : "User unblocked", description: data.message });
+      if (data.blocked) {
+        // Optionally redirect away
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleReport = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      setSubmittingReport(true);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/report`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content_type: 'mentor',
+          content_id: mentor._id,
+          reason: reportText
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      
+      toast({ title: "Report submitted", description: "Thank you for helping keep our community safe." });
+      setReportModalOpen(false);
+      setReportText("");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmittingReport(false);
+    }
   };
 
   if (loading) {
@@ -143,9 +267,28 @@ export default function MentorProfilePage() {
                   </div>
                 </div>
               </div>
-              <Button variant="outline" size="icon" onClick={handleShare}>
-                <Share2 className="h-4 w-4" />
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" size="icon" onClick={handleShare}>
+                  <Share2 className="h-4 w-4" />
+                </Button>
+                {user && user.id !== mentor.user_id._id && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setReportModalOpen(true)}>
+                        <AlertTriangle className="mr-2 h-4 w-4" /> Report Mentor
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleBlockMentor} className="text-destructive focus:text-destructive">
+                        <ShieldBan className="mr-2 h-4 w-4" /> {hasBlocked ? 'Unblock Mentor' : 'Block Mentor'}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             </div>
 
             <div className="prose dark:prose-invert max-w-none">
@@ -182,18 +325,45 @@ export default function MentorProfilePage() {
                               <div className="text-xs text-muted-foreground">{new Date(review.createdAt).toLocaleDateString()}</div>
                             </div>
                           </div>
-                          <div className="flex items-center">
-                            {[1,2,3,4,5].map(star => (
-                              <Star key={star} className={`h-3 w-3 ${star <= review.rating ? 'fill-warning text-warning' : 'text-muted'}`} />
-                            ))}
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center">
+                              {[1,2,3,4,5].map(star => (
+                                <Star key={star} className={`h-3 w-3 ${star <= review.rating ? 'fill-warning text-warning' : 'text-muted'}`} />
+                              ))}
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleFlagReview(review._id)} title="Flag as inappropriate">
+                              <Flag className="h-3 w-3" />
+                            </Button>
                           </div>
                         </div>
                         <p className="text-sm mt-3">{review.writtenFeedback}</p>
-                        {review.mentorReply && (
-                          <div className="mt-4 bg-muted/50 p-3 rounded-md text-sm">
+                        {review.mentorReply ? (
+                          <div className="mt-4 bg-muted/50 p-3 rounded-md text-sm border border-l-4 border-l-primary">
                             <span className="font-semibold block mb-1">Mentor Reply:</span>
                             {review.mentorReply}
                           </div>
+                        ) : (
+                          user?.id === mentor.user_id._id && (
+                            <div className="mt-4">
+                              {replyingTo === review._id ? (
+                                <div className="space-y-2">
+                                  <Textarea 
+                                    placeholder="Write your reply..." 
+                                    value={replyText} 
+                                    onChange={e => setReplyText(e.target.value)} 
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <Button size="sm" variant="outline" onClick={() => setReplyingTo(null)}>Cancel</Button>
+                                    <Button size="sm" onClick={() => handleReplySubmit(review._id, review.bookingId)}>Post Reply</Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <Button size="sm" variant="outline" onClick={() => setReplyingTo(review._id)}>
+                                  <MessageSquare className="mr-2 h-4 w-4" /> Reply
+                                </Button>
+                              )}
+                            </div>
+                          )
                         )}
                       </CardContent>
                     </Card>
@@ -245,15 +415,20 @@ export default function MentorProfilePage() {
                         </Button>
                       ))
                     ) : (
-                      <p className="col-span-2 text-sm text-center py-4 text-muted-foreground bg-muted/30 rounded-md">
-                        No available slots on this date
-                      </p>
+                      <div className="col-span-2 text-center py-4 text-muted-foreground bg-muted/30 rounded-md">
+                        <p className="text-sm mb-3">No available slots on this date</p>
+                        <Button variant="secondary" size="sm" onClick={handleNotifyAvailability} disabled={notifying}>
+                          {notifying ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bell className="h-4 w-4 mr-2" />}
+                          Notify me when available
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
 
-                <div className="text-xs text-center text-muted-foreground mt-4">
-                  Times are shown in your local timezone.
+                <div className="text-xs text-center text-muted-foreground mt-4 space-y-1">
+                  <p>Times are shown in your local timezone.</p>
+                  <p>Mentor's timezone: {mentor.timezone || 'UTC'}</p>
                 </div>
               </CardContent>
             </Card>
@@ -262,6 +437,29 @@ export default function MentorProfilePage() {
       </div>
 
       <BookingModal open={bookingOpen} onOpenChange={setBookingOpen} mentor={mentor} slot={pickedSlot} />
+      
+      {/* Report Modal */}
+      <Dialog open={reportModalOpen} onOpenChange={setReportModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report Mentor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Reason for reporting</Label>
+              <Textarea 
+                placeholder="Please provide details about why you are reporting this mentor..." 
+                value={reportText} 
+                onChange={e => setReportText(e.target.value)} 
+              />
+            </div>
+            <Button className="w-full" onClick={handleReport} disabled={!reportText || submittingReport}>
+              {submittingReport && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Submit Report
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
