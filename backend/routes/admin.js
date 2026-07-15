@@ -8,6 +8,11 @@ const User = require('../models/User');
 const Review = require('../models/Review');
 const Event = require('../models/Event');
 const MentorProfile = require('../models/MentorProfile');
+const MentorBooking = require('../models/MentorBooking');
+const { AMASession } = require('../models/AMA');
+const MentorReview = require('../models/MentorReview');
+const PayoutTracking = require('../models/PayoutTracking');
+const AdminActionLog = require('../models/AdminActionLog');
 const notificationService = require('../services/notificationService');
 
 // Check if user is admin middleware
@@ -18,6 +23,7 @@ const isAdmin = async (req, res, next) => {
     if (!user || user.role !== 'admin') {
       return res.status(403).json({ message: 'Access denied. Admin only.' });
     }
+    req.adminUser = user;
     next();
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -306,6 +312,8 @@ router.put('/mentors/:id/approve', authMiddleware, async (req, res) => {
     
     mentor.verificationStatus = 'approved';
     await mentor.save();
+
+    await AdminActionLog.create({ adminId: req.adminUser._id, actionType: 'approve_mentor', targetId: mentor._id, reason: 'Approved application' });
     
     // Notify user
     await notificationService.createNotification({
@@ -335,13 +343,15 @@ router.put('/mentors/:id/reject', authMiddleware, async (req, res) => {
     }
     
     mentor.verificationStatus = 'rejected';
-    // We could add a rejectionReason field to MentorProfile, but for now we'll just reject it
+    mentor.rejectionReason = req.body.reason;
     await mentor.save();
+
+    await AdminActionLog.create({ adminId: req.adminUser._id, actionType: 'reject_mentor', targetId: mentor._id, reason: req.body.reason });
     
     // Notify user
     await notificationService.createNotification({
       userId: mentor.user_id,
-      type: 'mentor_application_rejected',
+      type: 'mentor_application_status',
       relatedContentId: mentor._id,
       message: `Your mentor application was rejected. Reason: ${req.body.reason}`
     });
@@ -349,6 +359,154 @@ router.put('/mentors/:id/reject', authMiddleware, async (req, res) => {
     res.json({ message: 'Mentor rejected', mentor });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/admin/mentors/analytics
+router.get('/mentors/analytics', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [
+      totalActiveMentors,
+      totalSessionsThisMonth,
+      totalAMAsHosted,
+      totalPayoutsThisMonth,
+      pendingApplications,
+      mostBookedMentors
+    ] = await Promise.all([
+      MentorProfile.countDocuments({ verificationStatus: 'approved', isActive: true }),
+      MentorBooking.countDocuments({ 
+        createdAt: { $gte: startOfMonth },
+        status: { $in: ['confirmed', 'completed'] }
+      }),
+      AMASession.countDocuments({ status: { $ne: 'cancelled' } }),
+      PayoutTracking.aggregate([
+        { $match: { createdAt: { $gte: startOfMonth }, status: 'paid' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      MentorProfile.countDocuments({ verificationStatus: 'pending' }),
+      MentorBooking.aggregate([
+        { $match: { status: { $in: ['confirmed', 'completed'] } } },
+        { $group: { _id: '$mentorId', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 5 },
+        { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
+        { $unwind: '$user' },
+        { $project: { _id: 1, count: 1, name: '$user.full_name', email: '$user.email' } }
+      ])
+    ]);
+
+    res.json({
+      totalActiveMentors,
+      totalSessionsThisMonth,
+      totalAMAsHosted,
+      platformRevenueThisMonth: totalPayoutsThisMonth[0]?.total || 0,
+      pendingApplications,
+      mostBookedMentors
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/admin/mentors/:id/suspend
+router.post('/mentors/:id/suspend', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const mentor = await MentorProfile.findById(req.params.id);
+    if (!mentor) return res.status(404).json({ message: 'Mentor profile not found' });
+    
+    const { reason } = req.body;
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ message: 'Suspension reason is required' });
+    }
+    
+    mentor.verificationStatus = 'suspended';
+    mentor.suspensionReason = reason;
+    await mentor.save();
+
+    await AdminActionLog.create({ adminId: req.adminUser._id, actionType: 'suspend_mentor', targetId: mentor._id, reason });
+
+    await notificationService.createNotification({
+      userId: mentor.user_id,
+      type: 'mentor_application_status',
+      relatedContentId: mentor._id,
+      message: `Your mentor account has been suspended. Reason: ${reason}`
+    });
+    
+    res.json({ message: 'Mentor suspended', mentor });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/admin/mentors/:id/unsuspend
+router.post('/mentors/:id/unsuspend', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const mentor = await MentorProfile.findById(req.params.id);
+    if (!mentor) return res.status(404).json({ message: 'Mentor profile not found' });
+    
+    const { reason } = req.body;
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ message: 'Reason is required' });
+    }
+    
+    mentor.verificationStatus = 'approved';
+    mentor.suspensionReason = null;
+    await mentor.save();
+
+    await AdminActionLog.create({ adminId: req.adminUser._id, actionType: 'unsuspend_mentor', targetId: mentor._id, reason });
+
+    await notificationService.createNotification({
+      userId: mentor.user_id,
+      type: 'mentor_application_status',
+      relatedContentId: mentor._id,
+      message: `Your mentor account has been reinstated.`
+    });
+    
+    res.json({ message: 'Mentor unsuspended', mentor });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/admin/mentor-reviews/flagged
+router.get('/mentor-reviews/flagged', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const flaggedReviews = await MentorReview.find({ moderationStatus: 'flagged' })
+      .populate('menteeId', 'username full_name')
+      .populate('mentorId', 'username full_name')
+      .sort({ createdAt: -1 });
+    res.json(flaggedReviews);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching flagged reviews', error: error.message });
+  }
+});
+
+// PUT /api/admin/mentor-reviews/:id/moderate
+router.put('/mentor-reviews/:id/moderate', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { action, reason } = req.body; // 'hide', 'unhide'
+    const review = await MentorReview.findById(req.params.id);
+    if (!review) return res.status(404).json({ message: 'Review not found' });
+    if (!reason) return res.status(400).json({ message: 'Reason required for moderation log' });
+
+    if (action === 'hide') {
+      review.moderationStatus = 'hidden';
+      await review.save();
+      await AdminActionLog.create({ adminId: req.adminUser._id, actionType: 'hide_review', targetId: review._id, reason });
+      res.json({ message: 'Review hidden', review });
+    } else if (action === 'unhide') {
+      review.moderationStatus = 'approved'; // clearing the flag
+      await review.save();
+      await AdminActionLog.create({ adminId: req.adminUser._id, actionType: 'unhide_review', targetId: review._id, reason });
+      res.json({ message: 'Review unhidden', review });
+    } else {
+      res.status(400).json({ message: 'Invalid action' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Error moderating review', error: error.message });
   }
 });
 

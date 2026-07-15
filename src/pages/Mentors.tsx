@@ -14,8 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookingModal } from "@/components/BookingModal";
 import { MentorAMA } from "@/components/mentors/MentorAMA";
 import { BecomeMentorModal } from "@/components/mentors/BecomeMentorModal";
-import { useMentors, useMentorAvailability, type MentorRow, type AvailabilitySlot } from "@/hooks/useMentors";
-import { Users, Star, CheckCircle2, Search, Calendar as CalendarIcon, Video, Award, Clock, DollarSign, Globe, Mic, Loader2, ArrowRight } from "lucide-react";
+import { useMentors, useMentorAvailability, useRecommendedMentors, type MentorRow, type AvailabilitySlot } from "@/hooks/useMentors";
+import { Users, Star, CheckCircle2, Search, Calendar as CalendarIcon, Video, Award, Clock, DollarSign, Globe, Mic, Loader2, ArrowRight, Sparkles } from "lucide-react";
 import useDebounce from "@/hooks/useDebounce";
 
 const Mentors = () => {
@@ -27,6 +27,8 @@ const Mentors = () => {
     search: debouncedSearch,
     expertise: selectedExpertise
   });
+  
+  const { mentors: recommended, loading: loadingRecommended } = useRecommendedMentors();
 
   const [allExpertise, setAllExpertise] = useState<string[]>([]);
   
@@ -107,8 +109,12 @@ const Mentors = () => {
             ) : filtered.length === 0 ? (
               <div className="text-center py-16">
                 <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <h3 className="font-semibold mb-2">No mentors yet</h3>
-                <p className="text-sm text-muted-foreground">Be the first to create a mentor profile.</p>
+                <h3 className="font-semibold mb-2">
+                  {searchQuery || selectedExpertise ? "No mentors match your search" : "No mentors yet"}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {searchQuery || selectedExpertise ? "Try adjusting your filters or search terms." : "Be the first to create a mentor profile."}
+                </p>
               </div>
             ) : (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -126,7 +132,12 @@ const Mentors = () => {
                               <h3 className="font-semibold">{mentor.profile?.full_name || mentor.profile?.username || "Mentor"}</h3>
                               {mentor.verified && <CheckCircle2 className="h-4 w-4 text-accent" />}
                             </div>
-                            <p className="text-sm text-muted-foreground">{mentor.title}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm text-muted-foreground">{mentor.title}</p>
+                              {mentor.tier !== 'new' && (
+                                <Badge variant="secondary" className="text-[10px] uppercase h-5 bg-primary/10 text-primary border-primary/20">{mentor.tier}</Badge>
+                              )}
+                            </div>
                             {mentor.company && <p className="text-sm font-medium text-primary">{mentor.company}</p>}
                           </div>
                         </div>
@@ -155,6 +166,64 @@ const Mentors = () => {
                     </Card>
                   </ScrollReveal>
                 ))}
+              </div>
+            )}
+            
+            {!loadingRecommended && recommended.length > 0 && !searchQuery && !selectedExpertise && (
+              <div className="mt-12">
+                <div className="flex items-center gap-2 mb-6">
+                  <Sparkles className="h-5 w-5 text-accent" />
+                  <h2 className="text-2xl font-bold">Recommended for You</h2>
+                </div>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {recommended.map((mentor, idx) => (
+                    <ScrollReveal key={`rec-${mentor.id}`} delay={idx * 0.05} direction="up">
+                      <Card className="card-hover bg-card/50 border-accent/30 ring-1 ring-accent/10">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start gap-4">
+                            <Avatar className="h-16 w-16 ring-2 ring-primary/20">
+                              <AvatarImage src={mentor.profile?.avatar_url || ""} />
+                              <AvatarFallback className="text-lg bg-primary text-primary-foreground text-primary-foreground">{initials(mentor)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold">{mentor.profile?.full_name || mentor.profile?.username || "Mentor"}</h3>
+                                {mentor.verified && <CheckCircle2 className="h-4 w-4 text-accent" />}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm text-muted-foreground">{mentor.title}</p>
+                                {mentor.tier !== 'new' && (
+                                  <Badge variant="secondary" className="text-[10px] uppercase h-5 bg-primary/10 text-primary border-primary/20">{mentor.tier}</Badge>
+                                )}
+                              </div>
+                              {mentor.company && <p className="text-sm font-medium text-primary">{mentor.company}</p>}
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="flex items-center gap-4 text-sm">
+                            <div className="flex items-center gap-1"><Star className="h-4 w-4 fill-warning text-warning" /><span className="font-medium">{Number(mentor.rating).toFixed(1)}</span><span className="text-muted-foreground">({mentor.reviews_count})</span></div>
+                            <div className="flex items-center gap-1 text-muted-foreground"><Users className="h-4 w-4" /><span>{mentor.sessions_count} sessions</span></div>
+                          </div>
+                          {mentor.bio && <p className="text-sm text-muted-foreground line-clamp-2">{mentor.bio}</p>}
+                          <div className="flex flex-wrap gap-2">
+                            {mentor.expertise.slice(0, 3).map((s) => <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>)}
+                            {mentor.expertise.length > 3 && <Badge variant="outline" className="text-xs">+{mentor.expertise.length - 3}</Badge>}
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            {mentor.availability_text && <div className="flex items-center gap-1"><Clock className="h-4 w-4" /><span>{mentor.availability_text}</span></div>}
+                            <div className="flex items-center gap-1"><DollarSign className="h-4 w-4" /><span>₹{mentor.price_per_hour}/hr</span></div>
+                          </div>
+                        </CardContent>
+                        <CardFooter className="pt-3">
+                          <Button variant="default" size="sm" className="w-full" asChild>
+                            <Link to={`/mentors/${mentor.id}`}><CalendarIcon className="mr-2 h-4 w-4" />View Profile</Link>
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    </ScrollReveal>
+                  ))}
+                </div>
               </div>
             )}
           </TabsContent>

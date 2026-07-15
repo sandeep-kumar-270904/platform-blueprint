@@ -70,6 +70,8 @@ const UserSchema = new mongoose.Schema({
     longest: { type: Number, default: 0 },
     lastActiveDate: { type: Date, default: null }
   },
+  blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  interestTags: [{ type: String, trim: true }],
   skillsProfilePublic: {
     type: Boolean,
     default: false

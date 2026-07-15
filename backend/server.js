@@ -11,6 +11,9 @@ dotenv.config();
 // Connect to MongoDB
 connectDB().then(async () => {
   try {
+    const cronService = require('./services/cronService');
+    cronService.init();
+    
     const User = require('./models/User');
     const bcrypt = require('bcryptjs');
     
@@ -130,6 +133,11 @@ app.use(cors({
   },
   credentials: true
 }));
+
+// Webhooks must be parsed as raw body for signature verification
+const webhooksRoutes = require('./routes/webhooks');
+app.use('/api/webhooks', webhooksRoutes);
+
 app.use(express.json());
 const cookieParser = require('cookie-parser');
 const sanitizeMiddleware = require('./middleware/sanitize');
@@ -206,6 +214,8 @@ app.use('/api/colleges', require('./routes/colleges'));
 app.use('/api/college-qa', require('./routes/collegeQA'));
 app.use('/api/ideas', require('./routes/ideas')); // kept for any backwards compatibility
 app.use('/api/amas', require('./routes/amas'));
+app.use('/api/video', require('./routes/video'));
+app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/uploads', require('./routes/uploads'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/dashboard', require('./routes/dashboard'));

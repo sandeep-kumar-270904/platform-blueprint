@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { type AvailabilitySlot } from "@/hooks/useMentors";
 
 export const MyMentorBookings = () => {
   const { user, token } = useAuth();
@@ -23,6 +24,13 @@ export const MyMentorBookings = () => {
   const [rating, setRating] = useState(5);
   const [feedback, setFeedback] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+
+  // Reschedule state
+  const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
+  const [reschedulingBooking, setReschedulingBooking] = useState<any>(null);
+  const [nextSlots, setNextSlots] = useState<AvailabilitySlot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [submittingReschedule, setSubmittingReschedule] = useState(false);
 
   const fetchBookings = async () => {
     try {
@@ -71,6 +79,81 @@ export const MyMentorBookings = () => {
     }
   };
 
+  const handleCancel = async (booking: any) => {
+    const hoursUntilSession = (new Date(booking.slotId?.starts_at || booking.scheduledAt).getTime() - Date.now()) / (1000 * 60 * 60);
+    const isPaid = booking.paymentStatus === 'paid';
+    
+    let confirmMessage = "Are you sure you want to cancel this booking?";
+    if (isPaid) {
+      if (hoursUntilSession > 24) {
+        confirmMessage = "Are you sure? You will receive a full refund since you are cancelling more than 24 hours in advance.";
+      } else {
+        confirmMessage = "Are you sure? Because this session is within 24 hours, you WILL NOT receive a refund.";
+      }
+    }
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/mentors/bookings/${booking._id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: "Mentee cancelled." })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      
+      let msg = "Booking cancelled.";
+      if (data.refundStatus === 'full') msg += " A full refund has been initiated.";
+      toast({ title: "Cancelled", description: msg });
+      
+      fetchBookings();
+    } catch (err: any) {
+      toast({ title: "Cancel failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleOpenReschedule = async (booking: any) => {
+    setReschedulingBooking(booking);
+    setRescheduleModalOpen(true);
+    setLoadingSlots(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/mentors/${booking.mentorId._id}/availability`);
+      if (res.ok) {
+        const slots = await res.json();
+        // Get next 3 available slots
+        const available = slots.filter((s: AvailabilitySlot) => !s.is_booked);
+        setNextSlots(available.slice(0, 3));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  const handleReschedule = async (slotId: string) => {
+    if (!reschedulingBooking) return;
+    setSubmittingReschedule(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/mentors/bookings/${reschedulingBooking._id}/reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ newDate: slotId, reason: "Mentee rescheduled via dashboard." })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      
+      toast({ title: "Rescheduled", description: "Your session has been successfully rescheduled." });
+      setRescheduleModalOpen(false);
+      fetchBookings();
+    } catch (err: any) {
+      toast({ title: "Reschedule failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmittingReschedule(false);
+    }
+  };
+
   const isPast = (date: string) => new Date(date) < new Date();
 
   if (loading) return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -112,9 +195,13 @@ export const MyMentorBookings = () => {
                         <div className="text-sm text-muted-foreground">{booking.mentorId?.title}</div>
                       </div>
                     </div>
-                    <Badge variant={booking.status === 'confirmed' ? 'default' : (booking.status === 'completed' ? 'secondary' : 'outline')}>
-                      {booking.status}
-                    </Badge>
+                    <div className="flex gap-2">
+                      {booking.paymentStatus === 'paid' && <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">Paid</Badge>}
+                      {booking.paymentStatus === 'pending' && <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200">Payment Pending</Badge>}
+                      <Badge variant={booking.status === 'confirmed' ? 'default' : (['completed', 'cancelled'].includes(booking.status) ? 'secondary' : (booking.status === 'no-show' ? 'destructive' : 'outline'))}>
+                        {booking.status === 'no-show' ? 'No Show' : booking.status}
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -123,13 +210,28 @@ export const MyMentorBookings = () => {
                     <div className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" /> {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                   </div>
                   
-                  {booking.meetingLink && !past && (
+                  {booking.meetingLink && !past && booking.status === 'confirmed' && (
                     <Button className="w-full gap-2" variant="outline" asChild>
                       <a href={booking.meetingLink} target="_blank" rel="noreferrer"><Video className="h-4 w-4" /> Join Video Call</a>
                     </Button>
                   )}
 
-                  {past && (
+                  {booking.status === 'no-show' && (
+                    <div className="text-sm p-3 bg-red-50 text-red-800 rounded-lg border border-red-100">
+                      {booking.noShowBy === 'mentor' && "Your mentor missed this session. You have been fully refunded automatically."}
+                      {booking.noShowBy === 'mentee' && "You missed this session. Per our policy, your payment/reschedule right is forfeited."}
+                      {booking.noShowBy === 'both' && "Neither you nor the mentor joined this session. You have been refunded."}
+                    </div>
+                  )}
+
+                  {!past && !['completed', 'cancelled', 'no-show'].includes(booking.status) && (
+                    <div className="flex gap-2 mt-2">
+                      <Button variant="outline" className="w-full" onClick={() => handleOpenReschedule(booking)}>Reschedule</Button>
+                      <Button variant="destructive" className="w-full" onClick={() => handleCancel(booking)}>Cancel</Button>
+                    </div>
+                  )}
+
+                  {past && booking.status === 'completed' && (
                     <Button 
                       className="w-full gap-2" 
                       variant="secondary"
@@ -172,6 +274,40 @@ export const MyMentorBookings = () => {
               {submittingReview && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Submit Review
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reschedule Modal */}
+      <Dialog open={rescheduleModalOpen} onOpenChange={setRescheduleModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reschedule Session</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">Select one of the mentor's next available slots:</p>
+            {loadingSlots ? (
+              <div className="flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+            ) : nextSlots.length === 0 ? (
+              <div className="text-sm p-4 bg-muted/50 rounded text-center">No upcoming availability found. Please contact the mentor.</div>
+            ) : (
+              <div className="grid gap-2">
+                {nextSlots.map((slot, i) => {
+                  const d = new Date(slot.starts_at);
+                  return (
+                    <Button 
+                      key={i} 
+                      variant="outline" 
+                      onClick={() => handleReschedule(slot.id)}
+                      disabled={submittingReschedule}
+                      className="justify-start gap-3"
+                    >
+                      <Calendar className="h-4 w-4" /> {d.toLocaleDateString()} at {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

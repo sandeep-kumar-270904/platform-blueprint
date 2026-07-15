@@ -3,7 +3,42 @@ const router = express.Router();
 const { AMASession, AMAQuestion, AMAQuestionVote } = require('../models/AMA');
 const User = require('../models/User');
 const MentorProfile = require('../models/MentorProfile');
+const Notification = require('../models/Notification');
 const authMiddleware = require('../middleware/auth');
+
+// Create an AMA session
+router.post('/', authMiddleware, async (req, res) => {
+  try {
+    const mentorProfile = await MentorProfile.findOne({ user_id: req.user.id, verificationStatus: 'approved', isActive: true });
+    if (!mentorProfile) return res.status(403).json({ message: 'Only approved active mentors can create AMAs' });
+
+    const { title, description, topic, scheduled_at, duration_minutes, max_participants } = req.body;
+    
+    const ama = new AMASession({
+      mentor_id: req.user.id,
+      title,
+      description,
+      topic,
+      scheduled_at: new Date(scheduled_at),
+      duration_minutes: duration_minutes || 60,
+      max_participants: max_participants || 100
+    });
+    
+    // Provision room
+    try {
+      const room = await require('../services/videoService').createRoom(ama._id, ama.scheduled_at, ama.duration_minutes);
+      ama.daily_room_id = room.name;
+      ama.daily_room_url = room.url;
+    } catch (e) {
+      console.error('Failed to provision Daily room for AMA:', e);
+    }
+
+    await ama.save();
+    res.status(201).json(ama);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
 
 // Get active AMA sessions
 router.get('/sessions', async (req, res) => {
@@ -38,13 +73,20 @@ router.post('/sessions/:id/register', authMiddleware, async (req, res) => {
     const ama = await AMASession.findById(req.params.id);
     if (!ama) return res.status(404).json({ message: 'AMA not found' });
     if (ama.status !== 'upcoming') return res.status(400).json({ message: 'AMA is not upcoming' });
-    if (ama.registered_attendees.includes(req.user.id)) return res.status(400).json({ message: 'Already registered' });
-    if (ama.registered_attendees.length >= ama.max_participants) return res.status(400).json({ message: 'AMA is full' });
-
-    // Atomic push to prevent race condition overbooking
+    
+    const isRegistered = ama.registered_attendees.some(att => att.user_id.toString() === req.user.id);
+    if (isRegistered) return res.status(400).json({ message: 'Already registered' });
+    
+    // Atomic update to strictly enforce cap
     const updated = await AMASession.findOneAndUpdate(
-      { _id: ama._id, [`registered_attendees.${ama.max_participants - 1}`]: { $exists: false } },
-      { $addToSet: { registered_attendees: req.user.id }, $inc: { participant_count: 1 } },
+      { 
+        _id: ama._id, 
+        participant_count: { $lt: ama.max_participants } 
+      },
+      { 
+        $push: { registered_attendees: { user_id: req.user.id } }, 
+        $inc: { participant_count: 1 } 
+      },
       { new: true }
     );
     
@@ -52,11 +94,97 @@ router.post('/sessions/:id/register', authMiddleware, async (req, res) => {
       return res.status(409).json({ message: 'AMA just filled up. Please try another session.' });
     }
 
+    // Send notification
+    try {
+      await Notification.create({
+        userId: req.user.id,
+        type: 'ama_registration_confirmed',
+        relatedContentId: updated._id,
+        message: `You successfully registered for the AMA: ${updated.title}`
+      });
+    } catch (sideErr) {
+      console.error('Non-critical side effect failed during AMA registration:', sideErr);
+    }
+
     res.json({ message: 'Registered successfully', ama: updated });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+
+// Cancel AMA (by host)
+router.post('/sessions/:id/cancel', authMiddleware, async (req, res) => {
+  try {
+    const ama = await AMASession.findOne({ _id: req.params.id, mentor_id: req.user.id });
+    if (!ama) return res.status(404).json({ message: 'AMA not found or unauthorized' });
+    if (ama.status === 'completed' || ama.status === 'cancelled') {
+      return res.status(400).json({ message: 'Cannot cancel an already ended or cancelled session' });
+    }
+
+    ama.status = 'cancelled';
+    await ama.save();
+
+    // Notify all attendees
+    for (const attendee of ama.registered_attendees) {
+      await Notification.create({
+        userId: attendee.user_id,
+        type: 'ama_cancelled',
+        relatedContentId: ama._id,
+        message: `The AMA "${ama.title}" has been cancelled by the host.`
+      });
+    }
+
+    res.json({ message: 'AMA cancelled', ama });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Reschedule AMA (by host)
+router.put('/sessions/:id/reschedule', authMiddleware, async (req, res) => {
+  try {
+    const { scheduled_at } = req.body;
+    const ama = await AMASession.findOne({ _id: req.params.id, mentor_id: req.user.id });
+    if (!ama) return res.status(404).json({ message: 'AMA not found or unauthorized' });
+    if (ama.status !== 'upcoming') return res.status(400).json({ message: 'Can only reschedule upcoming AMAs' });
+
+    ama.scheduled_at = new Date(scheduled_at);
+    await ama.save();
+
+    // Notify all attendees
+    for (const attendee of ama.registered_attendees) {
+      await Notification.create({
+        userId: attendee.user_id,
+        type: 'session_reminder', // Reuse session_reminder or general notification
+        relatedContentId: ama._id,
+        message: `The AMA "${ama.title}" has been rescheduled to ${ama.scheduled_at.toLocaleString()}.`
+      });
+    }
+
+    res.json({ message: 'AMA rescheduled', ama });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Add Recording URL (by host)
+router.put('/sessions/:id/recording', authMiddleware, async (req, res) => {
+  try {
+    const { recording_url } = req.body;
+    const ama = await AMASession.findOne({ _id: req.params.id, mentor_id: req.user.id });
+    if (!ama) return res.status(404).json({ message: 'AMA not found or unauthorized' });
+
+    ama.recording_url = recording_url;
+    await ama.save();
+
+    res.json({ message: 'Recording added', ama });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// -- Questions endpoints omitted for brevity but keeping them from original --
+// (To not break existing frontends that rely on these routes, I'll paste them)
 
 // Get questions for a session
 router.get('/sessions/:id/questions', async (req, res) => {

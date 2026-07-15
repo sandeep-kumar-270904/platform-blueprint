@@ -56,29 +56,18 @@ export const BookingModal = ({ open, onOpenChange, mentor, slot }: BookingModalP
         throw new Error(errData.message || 'Booking failed');
       }
       
-      let newBooking = await res.json();
+      const { booking, checkoutUrl } = await res.json();
       
-      // Simulate webhook for paid bookings
-      if (mentor.price_per_hour > 0) {
-        const webhookRes = await fetch(`${API_URL}/api/mentors/webhook/payment`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            bookingId: newBooking._id,
-            transactionId: `sim_${Date.now()}`,
-            status: 'success'
-          })
-        });
-        if (webhookRes.ok) {
-          // just assume success and the backend updated it
-          newBooking.meetingLink = `https://meet.studenthub.com/${newBooking._id}`;
-        }
+      if (mentor.price_per_hour > 0 && checkoutUrl) {
+        // Redirect to Stripe Checkout
+        window.location.href = checkoutUrl;
+        return; // Don't proceed to confirmed step locally
       }
 
-      setBookingId(newBooking._id || newBooking.id);
-      setVideoLink(newBooking.meetingLink || newBooking.video_link || "");
+      setBookingId(booking._id || booking.id);
+      setVideoLink(booking.meetingLink || booking.video_link || "");
       setStep("confirmed");
-      toast({ title: "Booking confirmed!", description: "Your mentor session is scheduled." });
+      toast({ title: "Booking confirmed!", description: "Your free mentor session is scheduled." });
     } catch (error: any) {
       toast({ title: "Booking failed", description: error.message, variant: "destructive" });
     } finally {

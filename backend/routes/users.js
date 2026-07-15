@@ -31,6 +31,92 @@ router.put('/me', authMiddleware, async (req, res) => {
   }
 });
 
+// DELETE /api/users/me - Account Deletion Cascade
+router.delete('/me', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const User = require('../models/User');
+    const MentorProfile = require('../models/MentorProfile');
+    const MentorBooking = require('../models/MentorBooking');
+    const MentorReview = require('../models/MentorReview');
+    
+    // 1. Mentee-side bookings: Cancel future ones
+    const futureMenteeBookings = await MentorBooking.find({ menteeId: userId, scheduledAt: { $gte: new Date() }, status: { $in: ['requested', 'confirmed'] } });
+    for (let b of futureMenteeBookings) {
+      b.status = 'cancelled';
+      b.cancellationReason = 'Account deleted';
+      b.cancelledBy = 'system';
+      if (b.paymentStatus === 'paid') b.refundStatus = 'full';
+      await b.save();
+    }
+    
+    // 2. Reviews written by this user: Anonymize (nullify menteeId) to keep mentor ratings intact
+    await MentorReview.updateMany({ menteeId: userId }, { $set: { menteeId: null } });
+
+    // 3. Mentor Profile cleanup (if they are a mentor)
+    const mentorProfile = await MentorProfile.findOne({ user_id: userId });
+    if (mentorProfile) {
+      // Cancel future bookings where this user is the mentor
+      const futureMentorBookings = await MentorBooking.find({ mentorId: mentorProfile._id, scheduledAt: { $gte: new Date() }, status: { $in: ['requested', 'confirmed'] } });
+      for (let b of futureMentorBookings) {
+        b.status = 'cancelled';
+        b.cancellationReason = 'Mentor account deleted';
+        b.cancelledBy = 'system';
+        if (b.paymentStatus === 'paid') b.refundStatus = 'full'; // Assuming we'd trigger real refund async
+        await b.save();
+      }
+      
+      // We do NOT delete reviews ABOUT the mentor, or past bookings, for audit/ledger purposes.
+      // We just deactivate the profile
+      mentorProfile.isActive = false;
+      mentorProfile.verificationStatus = 'rejected';
+      await mentorProfile.save();
+    }
+    
+    // 4. Finally delete the User record
+    await User.findByIdAndDelete(userId);
+    
+    res.json({ message: 'Account and associated personal data deleted/anonymized successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error during account deletion', error: err.message });
+  }
+});
+
+// GET /api/users/me/export - Data Export
+router.get('/me/export', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const User = require('../models/User');
+    const MentorProfile = require('../models/MentorProfile');
+    const MentorBooking = require('../models/MentorBooking');
+    const MentorReview = require('../models/MentorReview');
+    
+    const user = await User.findById(userId).lean();
+    const mentorProfile = await MentorProfile.findOne({ user_id: userId }).lean();
+    const myBookingsAsMentee = await MentorBooking.find({ menteeId: userId }).lean();
+    const myReviewsAsMentee = await MentorReview.find({ menteeId: userId }).lean();
+    
+    let myBookingsAsMentor = [];
+    if (mentorProfile) {
+      myBookingsAsMentor = await MentorBooking.find({ mentorId: mentorProfile._id }).lean();
+    }
+
+    const exportData = {
+      userData: user,
+      mentorProfile,
+      bookingsAsMentee: myBookingsAsMentee,
+      reviewsGiven: myReviewsAsMentee,
+      bookingsAsMentor: myBookingsAsMentor
+    };
+
+    res.setHeader('Content-disposition', 'attachment; filename=my-data-export.json');
+    res.setHeader('Content-type', 'application/json');
+    res.send(JSON.stringify(exportData, null, 2));
+  } catch (err) {
+    res.status(500).json({ message: 'Server error exporting data', error: err.message });
+  }
+});
+
 // Note: Real follower schema would typically involve a separate Follow model.
 // For the UI demonstration purposes, we will mock a successful response.
 
@@ -362,6 +448,56 @@ router.get('/me/learning-paths', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error fetching user learning paths:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/users/report
+router.post('/report', authMiddleware, async (req, res) => {
+  try {
+    const Report = require('../models/Report');
+    const { content_type, content_id, reason, details } = req.body;
+    
+    // In our simplified Report model, reported_by maps to the user making the report.
+    // If the schema requires specific fields for 'details' we can map them, but we'll use 'admin_note' as a placeholder for extra text if needed.
+    const report = new Report({
+      content_type,
+      content_id,
+      reported_by: req.user.id,
+      reason: reason + (details ? ` - ${details}` : '')
+    });
+    
+    await report.save();
+    res.status(201).json({ message: 'Report submitted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error submitting report', error: error.message });
+  }
+});
+
+// POST /api/users/:id/block
+router.post('/:id/block', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.id === req.params.id) {
+      return res.status(400).json({ message: 'Cannot block yourself' });
+    }
+
+    const userToBlock = await User.findById(req.params.id);
+    if (!userToBlock) return res.status(404).json({ message: 'User not found' });
+    
+    const user = await User.findById(req.user.id);
+    if (!user.blockedUsers) user.blockedUsers = [];
+    
+    const index = user.blockedUsers.indexOf(req.params.id);
+    if (index === -1) {
+      user.blockedUsers.push(req.params.id);
+      await user.save();
+      res.json({ message: 'User blocked successfully', blocked: true });
+    } else {
+      user.blockedUsers.splice(index, 1);
+      await user.save();
+      res.json({ message: 'User unblocked successfully', blocked: false });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Server error blocking user', error: error.message });
   }
 });
 

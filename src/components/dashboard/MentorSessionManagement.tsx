@@ -10,6 +10,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Star } from "lucide-react";
 
 export const MentorSessionManagement = () => {
   const { user, token } = useAuth();
@@ -85,6 +87,21 @@ export const MentorSessionManagement = () => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setAddingSlot(false);
+    }
+  };
+
+  const handleCancel = async (bookingId: string) => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/mentors/bookings/${bookingId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: "Mentor cancelled due to scheduling conflict." })
+      });
+      if (!res.ok) throw new Error((await res.json()).message);
+      toast({ title: "Booking cancelled", description: "Mentee has been notified and refunded if applicable." });
+      fetchDashboard();
+    } catch (err: any) {
+      toast({ title: "Cancel failed", description: err.message, variant: "destructive" });
     }
   };
 
@@ -177,9 +194,13 @@ export const MentorSessionManagement = () => {
                         <div className="text-sm text-muted-foreground">{booking.menteeId?.email}</div>
                       </div>
                     </div>
-                    <Badge variant={booking.status === 'confirmed' ? 'default' : (booking.status === 'completed' ? 'secondary' : 'outline')}>
-                      {booking.status}
-                    </Badge>
+                    <div className="flex gap-2">
+                      {booking.paymentStatus === 'paid' && <Badge variant="outline" className="text-green-600 bg-green-50 border-green-200">Paid</Badge>}
+                      {booking.paymentStatus === 'pending' && <Badge variant="outline" className="text-amber-600 bg-amber-50 border-amber-200">Payment Pending</Badge>}
+                      <Badge variant={booking.status === 'confirmed' ? 'default' : (['completed', 'cancelled'].includes(booking.status) ? 'secondary' : (booking.status === 'no-show' ? 'destructive' : 'outline'))}>
+                        {booking.status === 'no-show' ? 'No Show' : booking.status}
+                      </Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -195,10 +216,24 @@ export const MentorSessionManagement = () => {
                     </div>
                   )}
 
-                  {booking.meetingLink && !past && (
+                  {booking.meetingLink && !past && booking.status === 'confirmed' && (
                     <Button className="w-full gap-2" variant="outline" asChild>
                       <a href={booking.meetingLink} target="_blank" rel="noreferrer"><Video className="h-4 w-4" /> Start Video Call</a>
                     </Button>
+                  )}
+
+                  {booking.status === 'no-show' && (
+                    <div className="text-sm p-3 bg-red-50 text-red-800 rounded-lg border border-red-100">
+                      {booking.noShowBy === 'mentor' && "You missed this session. A strike has been recorded against your profile."}
+                      {booking.noShowBy === 'mentee' && "The mentee missed this session."}
+                      {booking.noShowBy === 'both' && "Neither you nor the mentee joined this session."}
+                    </div>
+                  )}
+
+                  {!past && !['completed', 'cancelled', 'no-show'].includes(booking.status) && (
+                    <div className="flex gap-2">
+                      <Button variant="destructive" className="w-full" onClick={() => handleCancel(booking._id)}>Cancel</Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>

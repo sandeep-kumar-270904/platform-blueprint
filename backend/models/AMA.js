@@ -7,11 +7,31 @@ const amaSessionSchema = new mongoose.Schema({
   topic: { type: String, required: true },
   scheduled_at: { type: Date, required: true },
   duration_minutes: { type: Number, default: 60 },
-  status: { type: String, enum: ['upcoming', 'live', 'completed'], default: 'upcoming' },
+  status: { type: String, enum: ['upcoming', 'live', 'completed', 'cancelled'], default: 'upcoming' },
+  session_type: { type: String, enum: ['ama', 'group_mentorship'], default: 'ama' },
+  price: { type: Number, default: 0 },
   max_participants: { type: Number, default: 100 },
   participant_count: { type: Number, default: 0 },
-  registered_attendees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  meeting_link: { type: String, default: null },
+  registered_attendees: [{
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    registered_at: { type: Date, default: Date.now }
+  }],
+  meeting_link: { type: String, default: null }, // Legacy
+  daily_room_url: { type: String, default: null },
+  daily_room_id: { type: String, default: null },
+  calendar_event_id: { type: String, default: null },
+  
+  // AI & Recording
+  recording_url: { type: String, default: null },
+  recording_status: { 
+    type: String, 
+    enum: ['not_started', 'processing', 'ready', 'failed'], 
+    default: 'not_started' 
+  },
+  transcript_text: { type: String, default: null },
+  ai_summary: { type: String, default: null },
+  ai_action_items: [{ type: String }],
+  
   is_active: { type: Boolean, default: true }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 

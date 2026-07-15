@@ -20,7 +20,16 @@ const notificationSchema = new mongoose.Schema({
       'team_request',
       'team_request_accepted',
       'course_reminder',
-      'course_streak_milestone'
+      'course_streak_milestone',
+      'booking_requested',
+      'booking_confirmed',
+      'booking_cancelled',
+      'session_reminder',
+      'review_received',
+      'mentor_application_status',
+      'ama_registration_confirmed',
+      'ama_reminder',
+      'ama_cancelled'
     ],
     required: true
   },

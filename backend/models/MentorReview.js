@@ -7,7 +7,8 @@ const mentorReviewSchema = new mongoose.Schema({
   rating: { type: Number, required: true, min: 1, max: 5 },
   writtenFeedback: { type: String, required: true, trim: true },
   mentorReply: { type: String, default: null, trim: true },
-  moderationStatus: { type: String, enum: ['public', 'hidden'], default: 'public' }
+  moderationStatus: { type: String, enum: ['public', 'flagged', 'hidden'], default: 'public' },
+  editedAt: { type: Date, default: null }
 }, { timestamps: true });
 
 mentorReviewSchema.index({ mentorId: 1, moderationStatus: 1 });

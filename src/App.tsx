@@ -53,7 +53,10 @@ import SkillSwap from "./pages/SkillSwap";
 import CreatorsZone from "./pages/CreatorsZone";
 import AdminPanel from "./pages/AdminPanel";
 import AdminCollegePanel from "./pages/AdminCollegePanel";
+import MentorsAdminDashboard from "./pages/admin/MentorsAdminDashboard";
 import DailyHacks from "./pages/DailyHacks";
+import VideoRoomPage from "./pages/VideoRoomPage";
+import { ThemeProvider } from "./components/theme-provider";
 import PostSkill from "./pages/PostSkill";
 import Hostels from "./pages/Hostels";
 import Repair from "./pages/Repair";
@@ -64,6 +67,8 @@ import Search from "./pages/Search";
 import EventDetail from "./pages/EventDetail";
 import PublicSkillsProfile from "./pages/PublicSkillsProfile";
 import MentorProfilePage from "./pages/MentorProfilePage";
+import AMASessionsPage from "./pages/AMASessionsPage";
+import AMADetailPage from "./pages/AMADetailPage";
 import { AuthProvider } from "./hooks/useAuth";
 
 const queryClient = new QueryClient();
@@ -84,6 +89,7 @@ const App = () => (
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetail />} />
+          <Route path="/video/:id" element={<VideoRoomPage />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
           <Route path="/search" element={<Search />} />
           <Route path="/profile/:userId/skills" element={<PublicSkillsProfile />} />
@@ -94,6 +100,8 @@ const App = () => (
           <Route path="/study-session/:sessionId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
           <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
           <Route path="/mentors" element={<ProtectedRoute><Mentors /></ProtectedRoute>} />
+          <Route path="/mentors/amas" element={<ProtectedRoute><AMASessionsPage /></ProtectedRoute>} />
+          <Route path="/mentors/amas/:id" element={<ProtectedRoute><AMADetailPage /></ProtectedRoute>} />
           <Route path="/mentors/:id" element={<ProtectedRoute><MentorProfilePage /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/resume-builder" element={<ProtectedRoute><ResumeBuilder /></ProtectedRoute>} />
@@ -132,6 +140,7 @@ const App = () => (
           <Route path="/creators" element={<ProtectedRoute><CreatorsZone /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
           <Route path="/admin/colleges" element={<ProtectedRoute><AdminCollegePanel /></ProtectedRoute>} />
+          <Route path="/admin/mentors" element={<ProtectedRoute><MentorsAdminDashboard /></ProtectedRoute>} />
           <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
           <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />
           <Route path="/hostels" element={<ProtectedRoute><Hostels /></ProtectedRoute>} />

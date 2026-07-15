@@ -20,6 +20,7 @@ export interface MentorRow {
   verified: boolean;
   availability_text: string | null;
   is_active: boolean;
+  tier: 'new' | 'rising' | 'top-rated' | 'elite';
   profile?: { username: string | null; full_name: string | null; avatar_url: string | null };
 }
 
@@ -106,4 +107,35 @@ export const useMentorAvailability = (mentorId: string | null) => {
   }, [fetchSlots, mentorId]);
 
   return { slots, loading, refetch: fetchSlots };
+};
+
+export const useRecommendedMentors = () => {
+  const [mentors, setMentors] = useState<MentorRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRecommended = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+        const res = await fetch(`${API_URL}/api/mentors/recommendations`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setMentors(data.map((m: any) => ({ ...m, id: m._id })));
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRecommended();
+  }, []);
+
+  return { mentors, loading };
 };
