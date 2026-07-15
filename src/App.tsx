@@ -8,6 +8,9 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import NotesHub from "./pages/NotesHub";
 import Auth from "./pages/Auth";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
+import VerifyEmail from "./pages/auth/VerifyEmail";
 import StudySession from "./pages/StudySession";
 import Analytics from "./pages/Analytics";
 import QABoard from "./pages/QABoard";
@@ -59,6 +62,8 @@ import FoundersPassport from "./pages/FoundersPassport";
 import InviteAccept from "./pages/InviteAccept";
 import Search from "./pages/Search";
 import EventDetail from "./pages/EventDetail";
+import PublicSkillsProfile from "./pages/PublicSkillsProfile";
+import MentorProfilePage from "./pages/MentorProfilePage";
 import { AuthProvider } from "./hooks/useAuth";
 
 const queryClient = new QueryClient();
@@ -74,10 +79,14 @@ const App = () => (
           {/* Public Routes */}
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/profile/:userId/skills" element={<PublicSkillsProfile />} />
           
           {/* Protected Routes */}
           <Route path="/notes" element={<ProtectedRoute><NotesHub /></ProtectedRoute>} />
@@ -85,6 +94,7 @@ const App = () => (
           <Route path="/study-session/:sessionId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
           <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
           <Route path="/mentors" element={<ProtectedRoute><Mentors /></ProtectedRoute>} />
+          <Route path="/mentors/:id" element={<ProtectedRoute><MentorProfilePage /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/resume-builder" element={<ProtectedRoute><ResumeBuilder /></ProtectedRoute>} />
           <Route path="/college-insights" element={<ProtectedRoute><CollegeInsights /></ProtectedRoute>} />

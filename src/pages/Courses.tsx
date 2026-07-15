@@ -102,21 +102,18 @@ const Courses = () => {
       <Header />
 
       <ParallaxSection speed={0.3}>
-        <section className="relative overflow-hidden py-20 md:py-32">
+        <section className="relative overflow-hidden pt-4 pb-6 md:pt-8 md:pb-10">
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
-              <div className="mx-auto max-w-3xl text-center">
-                <Badge variant="accent" className="mb-6">
+              <div className="mx-auto max-w-5xl text-center">
+                <Badge variant="accent" className="mb-4">
                   <BookOpen className="mr-1 h-3 w-3" />
                   Learn New Skills
                 </Badge>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
-                  Online{" "}
-                  <span className="text-foreground display-font">
-                    Courses & Workshops
-                  </span>
+                <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl whitespace-nowrap">
+                  Online <span className="text-foreground display-font">Courses & Workshops</span>
                 </h1>
-                <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
+                <p className="mx-auto mb-6 max-w-2xl text-lg text-muted-foreground">
                   Upskill with industry-relevant courses, curated learning paths, and earn certifications.
                 </p>
               </div>
@@ -125,9 +122,9 @@ const Courses = () => {
         </section>
       </ParallaxSection>
 
-      <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="flex justify-center mb-10">
+          <div className="flex justify-center mb-6">
             <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="courses">Browse Courses</TabsTrigger>
               <TabsTrigger value="paths">Learning Paths</TabsTrigger>

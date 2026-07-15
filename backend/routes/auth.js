@@ -4,6 +4,7 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const passport = require('passport');
+const crypto = require('crypto');
 const emailService = require('../services/emailService');
 const fingerprintService = require('../services/fingerprintService');
 const AuthEvent = require('../models/AuthEvent');
@@ -56,12 +57,15 @@ router.post('/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+
     user = new User({
       email,
       password: hashedPassword,
       username: username || email.split('@')[0],
       full_name,
       authProvider: 'local',
+      emailVerificationToken: verificationToken,
       consent: {
         accepted_at: new Date(),
         terms_version: 'v1.0',
@@ -71,12 +75,17 @@ router.post('/register', async (req, res) => {
 
     await user.save();
     
+    // TODO: Configure email service
+    console.log('\n[TODO: EMAIL SERVICE NOT CONFIGURED]');
+    console.log(`[EMAIL SIMULATION] Verification Email sent to: ${email}`);
+    console.log(`[EMAIL SIMULATION] Verification Link: ${process.env.FRONTEND_URL || 'http://localhost:8080'}/verify-email?token=${verificationToken}\n`);
+
     const { accessToken, refreshToken } = generateTokens(user);
     user.refreshToken = refreshToken;
     await user.save();
     
     setCookies(res, accessToken, refreshToken);
-    res.status(201).json({ message: 'Registered successfully', user: { id: user._id, email: user.email, username: user.username, full_name: user.full_name } });
+    res.status(201).json({ message: 'Registered successfully', token: accessToken, user: { id: user._id, email: user.email, username: user.username, full_name: user.full_name, isEmailVerified: user.isEmailVerified } });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -154,7 +163,8 @@ router.post('/login', async (req, res) => {
     setCookies(res, accessToken, refreshToken);
     res.json({ 
       message: 'Logged in successfully', 
-      user: { id: user._id, email: user.email, username: user.username, full_name: user.full_name },
+      token: accessToken,
+      user: { id: user._id, email: user.email, username: user.username, full_name: user.full_name, isEmailVerified: user.isEmailVerified },
       linkedProvider,
       newDeviceDetails: isNewDevice ? { browser: fp.browser, os: fp.os, region: fp.region } : null
     });
@@ -219,6 +229,81 @@ router.post('/logout', async (req, res) => {
   res.clearCookie('accessToken');
   res.clearCookie('refreshToken');
   res.json({ message: 'Logged out successfully' });
+});
+
+// Forgot Password
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    // We don't reveal if the email exists for security
+    if (user && user.authProvider === 'local') {
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      user.resetPasswordToken = resetToken;
+      user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+      await user.save();
+
+      // TODO: Configure email service
+      console.log('\n[TODO: EMAIL SERVICE NOT CONFIGURED]');
+      console.log(`[EMAIL SIMULATION] Password Reset Email sent to: ${email}`);
+      console.log(`[EMAIL SIMULATION] Reset Link: ${process.env.FRONTEND_URL || 'http://localhost:8080'}/reset-password?token=${resetToken}\n`);
+    }
+
+    res.json({ message: 'If that email exists, a reset link has been sent.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Reset Password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Password reset token is invalid or has expired.' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    
+    // Clear tokens to force re-login
+    user.refreshToken = null;
+    await user.save();
+
+    res.json({ message: 'Password has been updated. Please log in.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Verify Email
+router.post('/verify-email', async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    const user = await User.findOne({ emailVerificationToken: token });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Verification token is invalid or has already been used.' });
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationToken = null;
+    await user.save();
+
+    res.json({ message: 'Email successfully verified!' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // OAuth Routes

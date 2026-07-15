@@ -15,7 +15,10 @@ router.get('/', async (req, res) => {
     const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(safeQuery, 'i');
 
-    const [colleges, events] = await Promise.all([
+    const Course = require('../models/Course');
+    const LearningPath = require('../models/LearningPath');
+
+    const [colleges, events, courses, paths] = await Promise.all([
       College.find({
         $or: [
           { name: regex },
@@ -24,7 +27,7 @@ router.get('/', async (req, res) => {
         ]
       })
       .select('name location imageUrl rating type')
-      .limit(10),
+      .limit(5),
 
       Event.find({
         status: 'approved',
@@ -36,10 +39,36 @@ router.get('/', async (req, res) => {
         ]
       })
       .populate('hostCollegeId', 'name')
-      .limit(10)
+      .limit(5),
+
+      Course.find({
+        $or: [
+          { title: regex },
+          { tags: regex },
+          { category: regex },
+          { provider: regex }
+        ]
+      })
+      .select('title provider thumbnailImage category level')
+      .limit(5),
+
+      LearningPath.find({
+        $or: [
+          { title: regex },
+          { category: regex }
+        ]
+      })
+      .select('title thumbnailImage category level')
+      .limit(3)
     ]);
 
-    res.json({ colleges, events });
+    // Combine courses and paths into one results array for the frontend "Courses" section
+    const combinedCourses = [
+      ...courses.map(c => ({ ...c.toObject(), searchType: 'course' })),
+      ...paths.map(p => ({ ...p.toObject(), searchType: 'path' }))
+    ];
+
+    res.json({ colleges, events, courses: combinedCourses });
   } catch (err) {
     console.error('Search error:', err);
     res.status(500).json({ message: 'Server error during search' });

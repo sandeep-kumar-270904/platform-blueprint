@@ -16,6 +16,7 @@ interface AuthContextType {
   signIn: (credentials: any) => Promise<any>;
   signUp: (userData: any) => Promise<void>;
   signOut: () => Promise<void>;
+  fetchUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,24 +27,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await fetch(`${API_URL}/me`, { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          setUser({
-            ...data.user,
-            id: data.user._id || data.user.id
-          });
-        }
-      } catch (err) {
-        console.error("Auth check failed", err);
-      } finally {
-        setLoading(false);
+  const fetchUser = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_URL}/me`, { 
+        headers,
+        credentials: 'include' 
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser({
+          ...data.user,
+          id: data.user._id || data.user.id
+        });
       }
-    };
-    checkAuth();
+    } catch (err) {
+      console.error("Auth check failed", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUser();
   }, []);
 
   const signIn = async (credentials: any) => {
@@ -59,6 +68,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (res.status === 429) throw new Error(data.message || 'Too many attempts. Try again later.');
         throw new Error(data.message || 'Login failed');
       }
+      if (data.token) localStorage.setItem('token', data.token);
       setUser(data.user);
       return data; // Return full data to handle newDeviceDetails and linkedProvider in UI
     } catch (error: any) {
@@ -77,6 +87,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Registration failed');
+      if (data.token) localStorage.setItem('token', data.token);
       setUser(data.user);
     } catch (error: any) {
       throw error;
@@ -87,11 +98,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await fetch(`${API_URL}/logout`, { method: 'POST', credentials: 'include' });
     } catch(e) {}
+    localStorage.removeItem('token');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, fetchUser }}>
       {children}
     </AuthContext.Provider>
   );

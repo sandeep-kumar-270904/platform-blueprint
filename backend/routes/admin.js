@@ -7,6 +7,7 @@ const Report = require('../models/Report');
 const User = require('../models/User');
 const Review = require('../models/Review');
 const Event = require('../models/Event');
+const MentorProfile = require('../models/MentorProfile');
 const notificationService = require('../services/notificationService');
 
 // Check if user is admin middleware
@@ -278,4 +279,78 @@ router.put('/events/:id/reject', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/admin/mentors/pending
+router.get('/mentors/pending', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+    
+    const pendingMentors = await MentorProfile.find({ verificationStatus: 'pending' })
+      .populate('user_id', 'username full_name avatar_url')
+      .sort({ createdAt: -1 });
+      
+    res.json(pendingMentors);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PUT /api/admin/mentors/:id/approve
+router.put('/mentors/:id/approve', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+    
+    const mentor = await MentorProfile.findById(req.params.id);
+    if (!mentor) return res.status(404).json({ message: 'Mentor profile not found' });
+    
+    mentor.verificationStatus = 'approved';
+    await mentor.save();
+    
+    // Notify user
+    await notificationService.createNotification({
+      userId: mentor.user_id,
+      type: 'mentor_application_approved',
+      relatedContentId: mentor._id,
+      message: `Congratulations! Your mentor application has been approved.`
+    });
+    
+    res.json({ message: 'Mentor approved', mentor });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PUT /api/admin/mentors/:id/reject
+router.put('/mentors/:id/reject', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+    
+    const mentor = await MentorProfile.findById(req.params.id);
+    if (!mentor) return res.status(404).json({ message: 'Mentor profile not found' });
+    
+    if (!req.body.reason || req.body.reason.trim() === '') {
+      return res.status(400).json({ message: 'Rejection reason is required' });
+    }
+    
+    mentor.verificationStatus = 'rejected';
+    // We could add a rejectionReason field to MentorProfile, but for now we'll just reject it
+    await mentor.save();
+    
+    // Notify user
+    await notificationService.createNotification({
+      userId: mentor.user_id,
+      type: 'mentor_application_rejected',
+      relatedContentId: mentor._id,
+      message: `Your mentor application was rejected. Reason: ${req.body.reason}`
+    });
+    
+    res.json({ message: 'Mentor rejected', mentor });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 module.exports = router;
+

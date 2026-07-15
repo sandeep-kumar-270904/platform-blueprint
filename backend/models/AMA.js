@@ -10,6 +10,8 @@ const amaSessionSchema = new mongoose.Schema({
   status: { type: String, enum: ['upcoming', 'live', 'completed'], default: 'upcoming' },
   max_participants: { type: Number, default: 100 },
   participant_count: { type: Number, default: 0 },
+  registered_attendees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  meeting_link: { type: String, default: null },
   is_active: { type: Boolean, default: true }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 

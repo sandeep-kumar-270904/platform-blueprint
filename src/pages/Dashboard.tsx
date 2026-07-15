@@ -34,8 +34,10 @@ import { SecuritySettings } from "@/components/dashboard/SecuritySettings";
 import { SavedColleges } from "@/components/dashboard/SavedColleges";
 import { MyActivity } from "@/components/dashboard/MyActivity";
 import { NotificationSettings } from "@/components/dashboard/NotificationSettings";
+import { MyMentorBookings } from "@/components/dashboard/MyMentorBookings";
+import { MentorSessionManagement } from "@/components/dashboard/MentorSessionManagement";
 
-type Section = "overview" | "courses" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "notification-settings" | "live" | "analytics" | "profile" | "security" | "links" | "saved-colleges" | "activity";
+type Section = "overview" | "courses" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "notification-settings" | "live" | "analytics" | "profile" | "security" | "links" | "saved-colleges" | "activity" | "mentor-bookings" | "mentor-management";
 
 const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -51,6 +53,8 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "analytics", label: "Host Analytics", icon: BarChart2 },
   { id: "saved-colleges", label: "Saved Colleges", icon: Building2 },
   { id: "activity", label: "Activity & Events", icon: Star },
+  { id: "mentor-bookings", label: "My Mentorship", icon: Handshake },
+  { id: "mentor-management", label: "Mentor Dashboard", icon: Briefcase },
   { id: "profile", label: "Profile", icon: User },
   { id: "security", label: "Security", icon: Lock },
   { id: "links", label: "Quick Links", icon: ArrowRight },
@@ -225,6 +229,10 @@ const Dashboard = () => {
         return <SavedColleges />;
       case "activity":
         return <MyActivity />;
+      case "mentor-bookings":
+        return <MyMentorBookings />;
+      case "mentor-management":
+        return <MentorSessionManagement />;
       case "links":
         return (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

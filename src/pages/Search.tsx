@@ -5,7 +5,7 @@ import { CollegeCard } from "@/components/colleges/CollegeCard";
 import { EventCard } from "@/components/events/EventCard";
 import { SkeletonCollegeCard } from "@/components/colleges/SkeletonCollegeCard";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Search as SearchIcon, Calendar, ArrowRight } from "lucide-react";
+import { Search as SearchIcon, Calendar, ArrowRight, BookOpen } from "lucide-react";
 
 const Search = () => {
   const [searchParams] = useSearchParams();
@@ -13,7 +13,7 @@ const Search = () => {
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);
-  const [results, setResults] = useState<{ colleges: any[]; events: any[] }>({ colleges: [], events: [] });
+  const [results, setResults] = useState<{ colleges: any[]; events: any[]; courses: any[] }>({ colleges: [], events: [], courses: [] });
   
   useEffect(() => {
     if (!query) {
@@ -26,7 +26,7 @@ const Search = () => {
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/search?q=${encodeURIComponent(query)}`)
       .then(res => res.json())
       .then(data => {
-        setResults({ colleges: data.colleges || [], events: data.events || [] });
+        setResults({ colleges: data.colleges || [], events: data.events || [], courses: data.courses || [] });
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -83,7 +83,7 @@ const Search = () => {
             <SearchIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
             <p>Ready to search.</p>
           </div>
-        ) : (results.colleges.length === 0 && results.events.length === 0) ? (
+        ) : (results.colleges.length === 0 && results.events.length === 0 && results.courses.length === 0) ? (
           <div className="text-center py-24 text-muted-foreground border rounded-lg border-dashed">
             <SearchIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-xl font-semibold mb-2">No results for "{query}"</h3>
@@ -133,6 +133,41 @@ const Search = () => {
                       typeColorClass={typeColorClass}
                       onClick={() => navigate(`/events/${event._id}`)}
                     />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {results.courses.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold">Courses & Learning Paths</h2>
+                  <span className="text-sm text-muted-foreground font-medium bg-muted px-2 py-1 rounded-md">{results.courses.length} found</span>
+                </div>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {results.courses.map(course => (
+                    <Card key={course._id} className="hover:shadow-md transition-shadow cursor-pointer flex flex-col h-full overflow-hidden" onClick={() => navigate(course.searchType === 'path' ? `/learning-paths/${course._id}` : `/courses/${course._id}`)}>
+                      <div className="aspect-video bg-muted relative">
+                        {course.thumbnailImage ? (
+                          <img src={course.thumbnailImage} alt={course.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-primary/5 text-primary">
+                            <BookOpen className="h-12 w-12 opacity-50" />
+                          </div>
+                        )}
+                        <div className="absolute top-2 right-2 bg-background/90 backdrop-blur-sm px-2 py-1 rounded text-xs font-semibold uppercase">
+                          {course.searchType === 'path' ? 'Learning Path' : 'Course'}
+                        </div>
+                      </div>
+                      <CardContent className="p-5 flex flex-col flex-1">
+                        <div className="text-xs text-primary font-semibold mb-2 uppercase tracking-wider">{course.category}</div>
+                        <h3 className="font-bold text-lg mb-2 line-clamp-2">{course.title}</h3>
+                        <div className="mt-auto pt-4 flex items-center justify-between text-sm text-muted-foreground">
+                          {course.provider && <span>By {course.provider}</span>}
+                          <span className="capitalize">{course.level || 'All Levels'}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               </div>

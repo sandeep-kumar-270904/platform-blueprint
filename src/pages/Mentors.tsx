@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { ParallaxSection } from "@/components/animations/ParallaxSection";
@@ -12,27 +13,38 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookingModal } from "@/components/BookingModal";
 import { MentorAMA } from "@/components/mentors/MentorAMA";
+import { BecomeMentorModal } from "@/components/mentors/BecomeMentorModal";
 import { useMentors, useMentorAvailability, type MentorRow, type AvailabilitySlot } from "@/hooks/useMentors";
-import { Users, Star, CheckCircle2, Search, Calendar as CalendarIcon, Video, Award, Clock, DollarSign, Globe, Mic, Loader2 } from "lucide-react";
+import { Users, Star, CheckCircle2, Search, Calendar as CalendarIcon, Video, Award, Clock, DollarSign, Globe, Mic, Loader2, ArrowRight } from "lucide-react";
+import useDebounce from "@/hooks/useDebounce";
 
 const Mentors = () => {
-  const { mentors, loading } = useMentors();
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 300);
   const [selectedExpertise, setSelectedExpertise] = useState<string | null>(null);
+  
+  const { mentors, loading } = useMentors({
+    search: debouncedSearch,
+    expertise: selectedExpertise
+  });
+
+  const [allExpertise, setAllExpertise] = useState<string[]>([]);
+  
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/mentors/tags`)
+      .then(r => r.ok ? r.json() : [])
+      .then(setAllExpertise)
+      .catch(console.error);
+  }, []);
+
   const [selectedMentor, setSelectedMentor] = useState<MentorRow | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [bookingOpen, setBookingOpen] = useState(false);
   const [pickedSlot, setPickedSlot] = useState<AvailabilitySlot | null>(null);
+  const [applyModalOpen, setApplyModalOpen] = useState(false);
   const { slots } = useMentorAvailability(selectedMentor?.id || null);
 
-  const allExpertise = useMemo(() => Array.from(new Set(mentors.flatMap((m) => m.expertise))), [mentors]);
-
-  const filtered = mentors.filter((m) => {
-    const name = (m.profile?.full_name || m.profile?.username || "").toLowerCase();
-    const matchesSearch = !searchQuery || name.includes(searchQuery.toLowerCase()) || m.title.toLowerCase().includes(searchQuery.toLowerCase()) || m.expertise.some((e) => e.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesExp = !selectedExpertise || m.expertise.includes(selectedExpertise);
-    return matchesSearch && matchesExp;
-  });
+  const filtered = mentors; // Server already filtered it
 
   const initials = (m: MentorRow) => (m.profile?.full_name || m.profile?.username || "M").split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
   const dateKey = selectedDate?.toISOString().split("T")[0];
@@ -49,6 +61,9 @@ const Mentors = () => {
                 <Badge variant="accent" className="mb-4"><Users className="mr-1 h-3 w-3" />Connect with Industry Experts</Badge>
                 <h1 className="mb-4 text-4xl font-bold tracking-tight md:text-5xl">Learn from the <span className="text-foreground display-font">Best Mentors</span></h1>
                 <p className="mx-auto mb-6 max-w-2xl text-lg text-muted-foreground">Get personalized guidance from experienced professionals. Book real 1-on-1 sessions today.</p>
+                <Button onClick={() => setApplyModalOpen(true)} variant="outline" className="gap-2">
+                  Become a Mentor <ArrowRight className="h-4 w-4" />
+                </Button>
               </div>
             </ScrollReveal>
           </div>
@@ -133,30 +148,9 @@ const Mentors = () => {
                         {mentor.languages.length > 0 && <div className="flex items-center gap-2"><Globe className="h-4 w-4 text-muted-foreground" /><span className="text-sm text-muted-foreground">{mentor.languages.join(", ")}</span></div>}
                       </CardContent>
                       <CardFooter className="pt-3">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="default" size="sm" className="w-full" onClick={() => setSelectedMentor(mentor)}><CalendarIcon className="mr-2 h-4 w-4" />Book Session</Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                            <DialogHeader><DialogTitle>Book a Session with {mentor.profile?.full_name || mentor.profile?.username}</DialogTitle></DialogHeader>
-                            <div className="space-y-6">
-                              <div>
-                                <h4 className="mb-3 font-medium">Select Date</h4>
-                                <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0)) || d > new Date(Date.now() + 30 * 86400000)} className="rounded-lg border" />
-                              </div>
-                              <div>
-                                <h4 className="mb-3 font-medium">Available Slots</h4>
-                                <div className="grid grid-cols-3 gap-2">
-                                  {availableSlots.length > 0 ? availableSlots.map((slot) => (
-                                    <Button key={slot.id} variant="outline" size="sm" onClick={() => { setPickedSlot(slot); setBookingOpen(true); }}>
-                                      {new Date(slot.starts_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                    </Button>
-                                  )) : <p className="col-span-3 text-sm text-muted-foreground text-center py-4">No slots for this date.</p>}
-                                </div>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
+                        <Button variant="default" size="sm" className="w-full" asChild>
+                          <Link to={`/mentors/${mentor.id}`}><CalendarIcon className="mr-2 h-4 w-4" />View Profile & Book</Link>
+                        </Button>
                       </CardFooter>
                     </Card>
                   </ScrollReveal>
@@ -170,6 +164,7 @@ const Mentors = () => {
       </div>
 
       <BookingModal open={bookingOpen} onOpenChange={setBookingOpen} mentor={selectedMentor} slot={pickedSlot} />
+      <BecomeMentorModal open={applyModalOpen} onOpenChange={setApplyModalOpen} />
     </div>
   );
 };

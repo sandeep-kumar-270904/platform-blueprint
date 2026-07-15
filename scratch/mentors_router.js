@@ -4,11 +4,10 @@ const MentorProfile = require('../models/MentorProfile');
 const MentorAvailability = require('../models/MentorAvailability');
 const MentorBooking = require('../models/MentorBooking');
 const MentorReview = require('../models/MentorReview');
-const { AMASession } = require('../models/AMA');
+const AMASession = require('../models/AMASession');
 const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
 const mongoose = require('mongoose');
-const notificationService = require('../services/notificationService');
 
 // ==========================================
 // 1. PUBLIC MENTOR LISTING & BROWSE
@@ -298,16 +297,6 @@ router.post('/bookings', authMiddleware, async (req, res) => {
 
     await booking.save();
 
-    // Create notification for mentor
-    await notificationService.createNotification({
-      userId: mentor.user_id,
-      type: 'mentor_booking',
-      relatedContentId: booking._id,
-      message: mentor.pricePerHour > 0 
-        ? `New booking request pending payment for ${slotDate.toLocaleString()}`
-        : `New free session booked for ${slotDate.toLocaleString()}`
-    });
-
     // Increment mentor sessions if free and confirmed immediately
     if (booking.status === 'confirmed') {
       mentor.totalSessions += 1;
@@ -446,16 +435,76 @@ router.post('/webhook/payment', async (req, res) => {
         req.io.emit(`my_bookings_updated_${booking.menteeId}`);
         req.io.emit(`mentor_dashboard_updated_${booking.mentorId.user_id}`);
       }
-
-      await notificationService.createNotification({
-        userId: booking.mentorId.user_id,
-        type: 'mentor_booking',
-        relatedContentId: booking._id,
-        message: `Payment received! Confirmed session for ${booking.scheduledAt.toLocaleString()}`
-      });
     }
 
     res.json({ message: 'Webhook processed' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// ==========================================
+// 5. AMA SESSIONS
+// ==========================================
+router.get('/amas', async (req, res) => {
+  try {
+    const amas = await AMASession.find()
+      .populate({
+        path: 'hostMentorId',
+        populate: { path: 'user_id', select: 'full_name username avatar_url' }
+      })
+      .sort({ scheduledAt: 1 })
+      .lean();
+    res.json(amas);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+router.post('/amas', authMiddleware, async (req, res) => {
+  try {
+    const mentor = await MentorProfile.findOne({ user_id: req.user.id });
+    if (!mentor || mentor.verificationStatus !== 'approved') {
+      return res.status(403).json({ message: 'Only approved mentors can create AMAs' });
+    }
+    
+    const { title, description, scheduledAt, maxAttendees, durationMinutes } = req.body;
+    const ama = new AMASession({
+      hostMentorId: mentor._id,
+      title,
+      description,
+      scheduledAt: new Date(scheduledAt),
+      durationMinutes,
+      maxAttendees
+    });
+    
+    await ama.save();
+    res.status(201).json(ama);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+router.post('/amas/:id/register', authMiddleware, async (req, res) => {
+  try {
+    const ama = await AMASession.findById(req.params.id);
+    if (!ama) return res.status(404).json({ message: 'AMA not found' });
+    if (ama.status !== 'upcoming') return res.status(400).json({ message: 'AMA is not upcoming' });
+    if (ama.registeredAttendees.includes(req.user.id)) return res.status(400).json({ message: 'Already registered' });
+    if (ama.registeredAttendees.length >= ama.maxAttendees) return res.status(400).json({ message: 'AMA is full' });
+
+    // Atomic push to prevent race condition overbooking
+    const updated = await AMASession.findOneAndUpdate(
+      { _id: ama._id, 'registeredAttendees.length': { $lt: ama.maxAttendees } },
+      { $addToSet: { registeredAttendees: req.user.id } },
+      { new: true }
+    );
+    
+    if (!updated) {
+      return res.status(409).json({ message: 'AMA just filled up. Please try another session.' });
+    }
+
+    res.json({ message: 'Registered successfully', ama: updated });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -494,13 +543,6 @@ router.post('/bookings/:id/review', authMiddleware, async (req, res) => {
     mentor.rating = newRating;
     mentor.reviewsCount = newCount;
     await mentor.save();
-
-    await notificationService.createNotification({
-      userId: mentor.user_id,
-      type: 'mentor_review',
-      relatedContentId: review._id,
-      message: `You received a ${rating}-star review for a recent session!`
-    });
 
     res.status(201).json(review);
   } catch (err) {
