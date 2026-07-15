@@ -35,7 +35,8 @@ const AdminPanel = () => {
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string; title: string } | null>(null);
 
   const [pendingEvents, setPendingEvents] = useState<any[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(false);
+  const [pendingMentors, setPendingMentors] = useState<any[]>([]);
+  const [mentorsLoading, setMentorsLoading] = useState(false);
 
   const fetchPendingEvents = async () => {
     try {
@@ -55,9 +56,28 @@ const AdminPanel = () => {
     }
   };
 
+  const fetchPendingMentors = async () => {
+    try {
+      setMentorsLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/mentors/pending`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingMentors(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setMentorsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (isAdmin && activeTab === "events") {
-      fetchPendingEvents();
+    if (isAdmin) {
+      if (activeTab === "events") fetchPendingEvents();
+      if (activeTab === "mentors") fetchPendingMentors();
     }
   }, [isAdmin, activeTab]);
 
@@ -76,6 +96,27 @@ const AdminPanel = () => {
       });
       if (res.ok) {
         fetchPendingEvents();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleMentorAction = async (id: string, action: 'approve' | 'reject') => {
+    try {
+      const token = localStorage.getItem('token');
+      let reason = "";
+      if (action === 'reject') {
+        reason = prompt("Reason for rejection:") || "";
+        if (!reason) return;
+      }
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/mentors/${id}/${action}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      if (res.ok) {
+        fetchPendingMentors();
       }
     } catch (e) {
       console.error(e);
@@ -177,6 +218,9 @@ const AdminPanel = () => {
             <TabsTrigger value="events">
               <Calendar className="mr-1.5 h-3.5 w-3.5" />Events
               {pendingEvents.length > 0 && <Badge variant="secondary" className="ml-1.5 text-xs px-1.5">{pendingEvents.length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="mentors">
+              <Star className="mr-1.5 h-3.5 w-3.5" />Mentors
             </TabsTrigger>
           </TabsList>
 
@@ -510,6 +554,53 @@ const AdminPanel = () => {
                             <X className="mr-1 h-4 w-4" /> Reject
                           </Button>
                           <Button size="sm" variant="success" onClick={() => handleEventAction(ev._id, 'approve')}>
+                            <Check className="mr-1 h-4 w-4" /> Approve
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* MENTORS TAB */}
+          <TabsContent value="mentors">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Star className="h-5 w-5 text-primary" /> Pending Mentor Applications
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {mentorsLoading ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Loading mentors...</p>
+                ) : pendingMentors.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Check className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                    <p>No pending mentor applications</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {pendingMentors.map((m) => (
+                      <div key={m._id} className="flex flex-col sm:flex-row sm:items-start justify-between p-4 rounded-lg border bg-card gap-4">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-lg">{m.user_id?.full_name} (@{m.user_id?.username})</h3>
+                          </div>
+                          <p className="text-sm font-medium">{m.title} at {m.company}</p>
+                          <p className="text-sm text-muted-foreground">{m.bio}</p>
+                          
+                          <div className="flex flex-wrap gap-2 pt-2">
+                            {m.expertise?.map((e: string) => <Badge key={e} variant="outline" className="text-xs">{e}</Badge>)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 sm:flex-col">
+                          <Button size="sm" variant="outline" className="w-full text-destructive hover:bg-destructive/10" onClick={() => handleMentorAction(m._id, 'reject')}>
+                            <X className="mr-1 h-4 w-4" /> Reject
+                          </Button>
+                          <Button size="sm" variant="success" className="w-full" onClick={() => handleMentorAction(m._id, 'approve')}>
                             <Check className="mr-1 h-4 w-4" /> Approve
                           </Button>
                         </div>
