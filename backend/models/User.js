@@ -42,7 +42,15 @@ const UserSchema = new mongoose.Schema({
   failedLoginAttempts: { type: Number, default: 0 },
   lockUntil: { type: Date, default: null },
 
+  resetPasswordToken: { type: String, default: null },
+  resetPasswordExpires: { type: Date, default: null },
+  isEmailVerified: { type: Boolean, default: false },
+  emailVerificationToken: { type: String, default: null },
+
   full_name: {
+    type: String
+  },
+  bio: {
     type: String
   },
   university: {
@@ -62,6 +70,14 @@ const UserSchema = new mongoose.Schema({
     longest: { type: Number, default: 0 },
     lastActiveDate: { type: Date, default: null }
   },
+  skillsProfilePublic: {
+    type: Boolean,
+    default: false
+  },
+  skills: [{
+    skillName: { type: String, required: true },
+    sourceCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }]
+  }],
   role: {
     type: String,
     enum: ['user', 'admin'],
@@ -91,7 +107,9 @@ const UserSchema = new mongoose.Schema({
     event_approved: { type: Boolean, default: true },
     event_rejected: { type: Boolean, default: true },
     event_cancelled_or_changed: { type: Boolean, default: true },
-    waitlist_promoted: { type: Boolean, default: true }
+    waitlist_promoted: { type: Boolean, default: true },
+    course_reminder: { type: Boolean, default: true },
+    course_streak_milestone: { type: Boolean, default: true }
   }
 });
 

@@ -47,6 +47,76 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/courses/recommendations
+router.get('/recommendations', authMiddleware, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const EventRegistration = require('../models/EventRegistration');
+    const LearningPath = require('../models/LearningPath');
+    
+    const user = await User.findById(req.user.id).populate('savedColleges');
+    
+    let interestedCategories = new Set();
+    
+    // Infer interests from saved colleges
+    if (user && user.savedColleges) {
+      user.savedColleges.forEach(col => {
+        if (col.type === 'Tech' || col.type === 'Engineering' || (col.name && col.name.includes('Tech'))) {
+          interestedCategories.add('Technology');
+          interestedCategories.add('Programming');
+        } else if (col.type === 'Business') {
+          interestedCategories.add('Business');
+        } else if (col.type === 'Art' || col.type === 'Design') {
+          interestedCategories.add('Design');
+        }
+      });
+    }
+
+    // Infer interests from registered events
+    const registrations = await EventRegistration.find({ userId: req.user.id }).populate('eventId');
+    registrations.forEach(reg => {
+      if (reg.eventId && reg.eventId.tags) {
+        reg.eventId.tags.forEach(tag => {
+          const t = tag.toLowerCase();
+          if (t.includes('tech') || t.includes('code') || t.includes('hack')) interestedCategories.add('Programming');
+          if (t.includes('design') || t.includes('ui')) interestedCategories.add('Design');
+          if (t.includes('business') || t.includes('startup')) interestedCategories.add('Business');
+        });
+      }
+    });
+
+    const categoriesArray = Array.from(interestedCategories);
+    
+    // Find matching courses not enrolled
+    const enrollments = await CourseEnrollment.find({ userId: req.user.id });
+    const enrolledCourseIds = enrollments.map(e => e.courseId);
+
+    let recommendedCourses = [];
+    if (categoriesArray.length > 0) {
+      recommendedCourses = await Course.find({
+        category: { $in: categoriesArray },
+        _id: { $nin: enrolledCourseIds }
+      }).limit(5);
+    }
+    
+    // Fallback to top rated/most enrolled
+    if (recommendedCourses.length < 5) {
+      const fallback = await Course.find({
+        _id: { $nin: [...enrolledCourseIds, ...recommendedCourses.map(c => c._id)] }
+      }).sort({ rating: -1, totalEnrollments: -1 }).limit(5 - recommendedCourses.length);
+      recommendedCourses = [...recommendedCourses, ...fallback];
+    }
+    
+    const topPaths = await LearningPath.find().sort({ createdAt: -1 }).limit(2);
+    
+    res.json({ recommendedCourses, topPaths });
+
+  } catch (error) {
+    console.error('Error fetching course recommendations:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // GET /api/courses/:id
 router.get('/:id', async (req, res) => {
   try {
@@ -210,6 +280,35 @@ router.put('/:id/progress', authMiddleware, async (req, res) => {
         longest: longestStreak,
         lastActiveDate: now
       };
+
+      // Extract skills if completed
+      if (progressPercent === 100) {
+        const Course = require('../models/Course');
+        const course = await Course.findById(courseId);
+        
+        if (course) {
+          const skillsToGains = new Set([...(course.tags || []), course.category]);
+          skillsToGains.delete(undefined);
+          skillsToGains.delete(null);
+          skillsToGains.delete('');
+          
+          if (!user.skills) user.skills = [];
+          
+          skillsToGains.forEach(skillName => {
+            let existingSkill = user.skills.find(s => s.skillName === skillName);
+            if (existingSkill) {
+              if (!existingSkill.sourceCourses.includes(courseId)) {
+                existingSkill.sourceCourses.push(courseId);
+              }
+            } else {
+              user.skills.push({
+                skillName,
+                sourceCourses: [courseId]
+              });
+            }
+          });
+        }
+      }
 
       await user.save();
 

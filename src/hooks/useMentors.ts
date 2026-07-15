@@ -32,30 +32,41 @@ export interface AvailabilitySlot {
   is_booked: boolean;
 }
 
-export const useMentors = () => {
+export const useMentors = (filters?: { search?: string; expertise?: string | null; isFree?: string; minRating?: string; sort?: string; page?: number }) => {
   const [mentors, setMentors] = useState<MentorRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
 
   const fetchMentors = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/mentors`);
+      let query = `${API_URL}/api/mentors?`;
+      if (filters?.search) query += `search=${encodeURIComponent(filters.search)}&`;
+      if (filters?.expertise) query += `expertise=${encodeURIComponent(filters.expertise)}&`;
+      if (filters?.isFree) query += `isFree=${filters.isFree}&`;
+      if (filters?.minRating) query += `minRating=${filters.minRating}&`;
+      if (filters?.sort) query += `sort=${filters.sort}&`;
+      if (filters?.page) query += `page=${filters.page}&`;
+
+      const res = await fetch(query);
       if (res.ok) {
-        let data = await res.json();
-        data = data.map((m: any) => ({ ...m, id: m._id }));
-        setMentors(data);
+        const data = await res.json();
+        const mapped = data.mentors.map((m: any) => ({ ...m, id: m._id }));
+        setMentors(mapped);
+        setTotal(data.total);
       }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filters?.search, filters?.expertise, filters?.isFree, filters?.minRating, filters?.sort, filters?.page]);
 
   useEffect(() => {
     fetchMentors();
   }, [fetchMentors]);
 
-  return { mentors, loading, refetch: fetchMentors };
+  return { mentors, loading, total, refetch: fetchMentors };
 };
 
 export const useMentorAvailability = (mentorId: string | null) => {

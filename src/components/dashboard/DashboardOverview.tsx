@@ -7,6 +7,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ThisWeekStrip } from "./ThisWeekStrip";
 import { RecommendedColleges } from "./RecommendedColleges";
+import { RecommendedCourses } from "./RecommendedCourses";
+import { ResumeLearning } from "./ResumeLearning";
 import { RecentNotifications } from "./RecentNotifications";
 
 interface Stats {
@@ -47,6 +49,7 @@ export const DashboardOverview = ({ stats, setActiveSection }: { stats: Stats, s
   return (
     <div className="space-y-6">
       <ThisWeekStrip />
+      <ResumeLearning />
       
       {totalActivity === 0 ? (
         <div className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 border rounded-xl p-8 text-center shadow-sm">
@@ -98,6 +101,7 @@ export const DashboardOverview = ({ stats, setActiveSection }: { stats: Stats, s
       )}
 
       <RecommendedColleges />
+      <RecommendedCourses />
       
       {totalActivity > 0 && (
         <div className="mt-8">

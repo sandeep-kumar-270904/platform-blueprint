@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, MapPin, Building2, ArrowRight } from "lucide-react";
+import { Calendar, Clock, MapPin, Building2, ArrowRight, BookOpen } from "lucide-react";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { formatDistanceToNow } from "date-fns";
 
@@ -18,9 +18,10 @@ export const ThisWeekStrip = () => {
         const headers = { Authorization: `Bearer ${token}` };
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-        const [eventsRes, collegesRes] = await Promise.all([
+        const [eventsRes, collegesRes, coursesRes] = await Promise.all([
           fetch(`${API_URL}/api/users/me/events/registered`, { headers }),
-          fetch(`${API_URL}/api/colleges/saved/me`, { headers })
+          fetch(`${API_URL}/api/colleges/saved/me`, { headers }),
+          fetch(`${API_URL}/api/users/me/courses`, { headers })
         ]);
 
         const weekItems: any[] = [];
@@ -68,6 +69,29 @@ export const ThisWeekStrip = () => {
           });
         }
 
+        if (coursesRes.ok) {
+          const coursesData = await coursesRes.json();
+          // Find courses that are stalled (no progress in 5 days) or just in progress
+          const enrollments = coursesData.enrollments || [];
+          enrollments.forEach((enr: any) => {
+            if (enr.progressPercent > 0 && enr.progressPercent < 100) {
+              const lastUpdate = new Date(enr.lastProgressUpdateAt || enr.enrolledAt);
+              const daysSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 3600 * 24);
+              if (daysSinceUpdate >= 5) {
+                // Add a gentle nudge to "This week" setting its date to today so it sorts to the front
+                weekItems.push({
+                  type: 'stalled_course',
+                  id: enr._id,
+                  title: `Pick up where you left off: ${enr.courseId.title}`,
+                  date: now,
+                  badge: 'reminder',
+                  link: `/courses/${enr.courseId._id}`
+                });
+              }
+            }
+          });
+        }
+
         // Sort by date soonest
         weekItems.sort((a, b) => a.date.getTime() - b.date.getTime());
         setItems(weekItems);
@@ -98,13 +122,19 @@ export const ThisWeekStrip = () => {
                     <div className="flex justify-between items-start mb-2">
                       <Badge variant="outline" className="capitalize text-[10px] py-0">{item.badge}</Badge>
                       <span className="text-xs text-muted-foreground font-medium bg-muted px-2 py-0.5 rounded-full">
-                        {formatDistanceToNow(item.date, { addSuffix: true })}
+                        {item.type === 'stalled_course' ? 'Resume Learning' : item.type === 'college_deadline' ? 'Deadline' : formatDistanceToNow(item.date, { addSuffix: true })}
                       </span>
                     </div>
-                    <h4 className="font-semibold text-sm line-clamp-2 leading-tight">{item.title}</h4>
+                    <div className="font-semibold line-clamp-2 mt-1 mb-2">{item.title}</div>
                   </div>
                   <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
-                    {item.time && <span className="flex items-center gap-1"><Clock className="h-3 w-3"/> {item.time}</span>}
+                    {item.type === 'stalled_course' ? (
+                      <span className="flex items-center gap-1 text-orange-500 font-medium">
+                        <BookOpen className="h-3 w-3"/> Don't lose momentum!
+                      </span>
+                    ) : item.time ? (
+                      <span className="flex items-center gap-1"><Clock className="h-3 w-3"/> {item.time}</span>
+                    ) : null}
                     <span className="flex items-center gap-1 text-primary font-medium ml-auto">View <ArrowRight className="h-3 w-3"/></span>
                   </div>
                 </CardContent>

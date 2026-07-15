@@ -35,7 +35,7 @@ export const MentorAMA = () => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/ama/${id}/join`, {
+      const res = await fetch(`${API_URL}/api/amas/sessions/${id}/register`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });

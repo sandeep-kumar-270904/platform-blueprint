@@ -5,14 +5,18 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { BookOpen, Layers, CheckCircle, Clock, Download, Award, Flame } from "lucide-react";
+import { BookOpen, Layers, CheckCircle, Clock, Download, Award, Flame, Share2 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 
 export const MyCourses = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data: enrollments, isLoading: coursesLoading } = useQuery({
     queryKey: ['my-courses'],
@@ -59,8 +63,42 @@ export const MyCourses = () => {
     }
   };
 
+  const privacyMutation = useMutation({
+    mutationFn: async (isPublic: boolean) => {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/me/skills-privacy`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ skillsProfilePublic: isPublic })
+      });
+      if (!res.ok) throw new Error('Failed to update privacy');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-courses'] });
+      toast.success("Privacy settings updated");
+    },
+    onError: () => {
+      toast.error("Failed to update privacy settings");
+    }
+  });
+
+  const handleCopyLink = () => {
+    if (!enrollments?.skillsProfilePublic) {
+      toast.error("Enable your public profile first to share credentials!");
+      return;
+    }
+    const url = `${window.location.origin}/profile/${user?._id}/skills`;
+    navigator.clipboard.writeText(url);
+    toast.success("Profile link copied to clipboard!");
+  };
+
   const inProgressCourses = enrollments ? [...enrollments.enrolled, ...enrollments.in_progress] : [];
   const completedCourses = enrollments ? [...enrollments.completed] : [];
+  const skillsProfilePublic = enrollments?.skillsProfilePublic || false;
+  const skills = enrollments?.skills || [];
 
   return (
     <div className="space-y-6">
@@ -86,6 +124,7 @@ export const MyCourses = () => {
         <TabsList className="mb-4">
           <TabsTrigger value="courses">Individual Courses</TabsTrigger>
           <TabsTrigger value="paths">My Learning Paths</TabsTrigger>
+          <TabsTrigger value="skills">Skills Profile</TabsTrigger>
         </TabsList>
 
         <TabsContent value="courses" className="mt-0 space-y-8">
@@ -186,6 +225,14 @@ export const MyCourses = () => {
                               <Button asChild variant="ghost" size="sm" className="h-7 text-xs px-2 flex-1">
                                 <Link to={`/courses/${e.courseId._id}`}>View Details</Link>
                               </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-7 text-xs px-2 flex-1 gap-1"
+                                onClick={handleCopyLink}
+                              >
+                                <Share2 className="h-3 w-3" /> Share
+                              </Button>
                             </div>
                           </div>
                         </CardContent>
@@ -235,6 +282,65 @@ export const MyCourses = () => {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="skills" className="mt-0 space-y-6">
+          <div className="flex items-center justify-between p-4 bg-muted/20 border rounded-lg">
+            <div className="space-y-0.5">
+              <Label htmlFor="public-profile-toggle" className="text-base">Public Skills Profile</Label>
+              <p className="text-sm text-muted-foreground">
+                Allow anyone with the link to view your verified skills and certificates.
+              </p>
+            </div>
+            <Switch 
+              id="public-profile-toggle" 
+              checked={skillsProfilePublic}
+              onCheckedChange={(checked) => privacyMutation.mutate(checked)}
+              disabled={privacyMutation.isPending}
+            />
+          </div>
+
+          {skillsProfilePublic && (
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between text-sm text-blue-800">
+              <span className="truncate mr-4">Your public profile is live at: <strong>{window.location.origin}/profile/{user?._id}/skills</strong></span>
+              <Button variant="outline" size="sm" className="bg-white hover:bg-gray-100" onClick={handleCopyLink}>
+                Copy Link
+              </Button>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold border-b pb-2">My Verified Skills</h3>
+            {skills.length === 0 ? (
+              <EmptyState icon={Award} title="No Skills Yet" description="Complete courses to start building your verified skills profile." />
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {skills.map((skill: any, idx: number) => (
+                  <Card key={idx} className="bg-card/40 hover:shadow-sm transition-all overflow-hidden">
+                    <CardHeader className="bg-muted/20 pb-3">
+                      <CardTitle className="text-md flex items-center justify-between">
+                        {skill.skillName}
+                        <Badge variant="secondary" className="font-normal text-xs">
+                          {skill.sourceCourses?.length || 0} Course{(skill.sourceCourses?.length || 0) !== 1 ? 's' : ''}
+                        </Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-3">
+                      <div className="space-y-2">
+                        {skill.sourceCourses?.map((course: any) => (
+                          <div key={course._id} className="flex items-center gap-2 text-xs">
+                            <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                            <span className="font-medium truncate">{course.title}</span>
+                            <span className="text-muted-foreground truncate hidden sm:inline">- {course.provider}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

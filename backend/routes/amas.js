@@ -32,6 +32,32 @@ router.get('/sessions', async (req, res) => {
   }
 });
 
+// Register for an AMA
+router.post('/sessions/:id/register', authMiddleware, async (req, res) => {
+  try {
+    const ama = await AMASession.findById(req.params.id);
+    if (!ama) return res.status(404).json({ message: 'AMA not found' });
+    if (ama.status !== 'upcoming') return res.status(400).json({ message: 'AMA is not upcoming' });
+    if (ama.registered_attendees.includes(req.user.id)) return res.status(400).json({ message: 'Already registered' });
+    if (ama.registered_attendees.length >= ama.max_participants) return res.status(400).json({ message: 'AMA is full' });
+
+    // Atomic push to prevent race condition overbooking
+    const updated = await AMASession.findOneAndUpdate(
+      { _id: ama._id, [`registered_attendees.${ama.max_participants - 1}`]: { $exists: false } },
+      { $addToSet: { registered_attendees: req.user.id }, $inc: { participant_count: 1 } },
+      { new: true }
+    );
+    
+    if (!updated) {
+      return res.status(409).json({ message: 'AMA just filled up. Please try another session.' });
+    }
+
+    res.json({ message: 'Registered successfully', ama: updated });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // Get questions for a session
 router.get('/sessions/:id/questions', async (req, res) => {
   try {

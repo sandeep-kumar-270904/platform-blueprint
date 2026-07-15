@@ -96,11 +96,12 @@ export const Header = () => {
   
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<{colleges: any[], events: any[]}>({ colleges: [], events: [] });
+  const [searchResults, setSearchResults] = useState<{colleges: any[], events: any[], courses: any[]}>({ colleges: [], events: [], courses: [] });
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Handle outside click for search
   useEffect(() => {
@@ -124,7 +125,7 @@ export const Header = () => {
   // Fetch search results
   useEffect(() => {
     if (!debouncedQuery) {
-      setSearchResults({ colleges: [], events: [] });
+      setSearchResults({ colleges: [], events: [], courses: [] });
       setIsSearching(false);
       return;
     }
@@ -132,7 +133,7 @@ export const Header = () => {
     setIsSearching(true);
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/search?q=${encodeURIComponent(debouncedQuery)}`)
       .then(r => r.json())
-      .then(data => setSearchResults({ colleges: data.colleges || [], events: data.events || [] }))
+      .then(data => setSearchResults({ colleges: data.colleges || [], events: data.events || [], courses: data.courses || [] }))
       .catch(console.error)
       .finally(() => setIsSearching(false));
   }, [debouncedQuery]);
@@ -153,10 +154,23 @@ export const Header = () => {
   }, []);
 
   return (
-    <header className={cn(
-      "navbar transition-all duration-300",
-      isScrolled ? "py-0 shadow-sm" : "py-2"
-    )}>
+    <>
+      {user && user.isEmailVerified === false && !bannerDismissed && (
+        <div className="bg-[var(--gold-light)] border-b border-[var(--gold)] py-2 px-4 text-center text-sm font-medium text-[var(--ink-deep)] flex items-center justify-center relative">
+          <span>Please verify your email address to unlock all platform features. A link was sent during registration.</span>
+          <button 
+            onClick={() => setBannerDismissed(true)} 
+            className="absolute right-4 p-1 hover:bg-black/5 rounded-full transition-colors"
+            title="Dismiss for this session"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      <header className={cn(
+        "navbar transition-all duration-300",
+        isScrolled ? "py-0 shadow-sm" : "py-2"
+      )}>
       <div className="container mx-auto flex h-16 items-center justify-between gap-8">
         {/* Left Side (Logo) */}
         <div className="flex-1 flex justify-start min-w-max">
@@ -283,7 +297,30 @@ export const Header = () => {
                       </div>
                     )}
                     
-                    {searchResults.colleges.length === 0 && searchResults.events.length === 0 ? (
+                    {searchResults.courses?.length > 0 && (
+                      <div className="space-y-1 mt-2">
+                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Courses</div>
+                        {searchResults.courses.slice(0, 5).map(course => (
+                          <div 
+                            key={course._id} 
+                            onClick={() => { setShowSearchDropdown(false); navigate(course.searchType === 'path' ? `/learning-paths/${course._id}` : `/courses/${course._id}`); }}
+                            className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                          >
+                            <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center">
+                              <BookOpen className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="overflow-hidden">
+                              <div className="text-sm font-medium truncate">{course.title}</div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {course.searchType === 'path' ? 'Learning Path' : course.provider || 'Course'} • <span className="capitalize">{course.category}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {searchResults.colleges.length === 0 && searchResults.events.length === 0 && (!searchResults.courses || searchResults.courses.length === 0) ? (
                       <div className="p-4 text-center text-sm text-muted-foreground">No results for "{searchQuery}"</div>
                     ) : (
                       <div 
@@ -369,6 +406,7 @@ export const Header = () => {
         </div>
       )}
     </header>
+    </>
   );
 };
 

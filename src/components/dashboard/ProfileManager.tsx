@@ -4,22 +4,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Save, Loader2 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User, Save, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 interface Profile {
   username: string | null;
   full_name: string | null;
   avatar_url: string | null;
+  bio?: string | null;
   sessions_hosted?: number;
   sessions_attended?: number;
 }
 
 export const ProfileManager = ({ userId, email }: { userId: string; email: string }) => {
-  const [profile, setProfile] = useState<Profile>({ username: null, full_name: null, avatar_url: null, sessions_hosted: 0, sessions_attended: 0 });
+  const [profile, setProfile] = useState<Profile>({ username: null, full_name: null, avatar_url: null, bio: null, sessions_hosted: 0, sessions_attended: 0 });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -45,7 +48,7 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/dashboard/profile`, {
+      const res = await fetch(`${API_URL}/api/users/me`, {
         method: 'PUT',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -54,9 +57,13 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
         body: JSON.stringify({
           username: profile.username,
           full_name: profile.full_name,
+          bio: profile.bio,
+          avatar_url: profile.avatar_url
         })
       });
       if (res.ok) {
+        const data = await res.json();
+        setProfile(prev => ({...prev, ...data.user}));
         toast.success("Profile updated!");
       } else {
         toast.error("Failed to update profile");
@@ -65,6 +72,38 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
       toast.error("Failed to update profile");
     }
     setSaving(false);
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/uploads`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(p => ({ ...p, avatar_url: data.url }));
+        toast.success("Avatar uploaded! Remember to save changes.");
+      } else {
+        toast.error("Failed to upload avatar");
+      }
+    } catch (err) {
+      toast.error("Error uploading avatar");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const initials = (profile.full_name || profile.username || email.split("@")[0])
@@ -77,7 +116,7 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
   if (loading) return <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">Loading...</CardContent></Card>;
 
   return (
-    <Card>
+    <Card className="max-w-3xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <User className="h-4 w-4 text-primary" />
@@ -86,11 +125,35 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16 ring-2 ring-primary/20">
-            <AvatarFallback className="text-lg bg-primary text-primary-foreground text-primary-foreground">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative group">
+            <Avatar className="h-16 w-16 ring-2 ring-primary/20">
+              {profile.avatar_url && (
+                <AvatarImage 
+                  src={profile.avatar_url.startsWith('http') ? profile.avatar_url : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${profile.avatar_url}`} 
+                  alt="Avatar" 
+                  className="object-cover"
+                />
+              )}
+              <AvatarFallback className="text-lg bg-primary text-primary-foreground">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="absolute inset-0 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+              title="Upload new avatar"
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/*"
+              onChange={handleAvatarUpload}
+            />
+          </div>
           <div>
             <p className="font-semibold">{profile.full_name || profile.username || "Student"}</p>
             <p className="text-sm text-muted-foreground">{email}</p>
@@ -116,6 +179,20 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
               placeholder="your_username"
             />
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="bio">Bio</Label>
+          <Input
+            id="bio"
+            value={profile.bio || ""}
+            onChange={(e) => setProfile(p => ({ ...p, bio: e.target.value }))}
+            placeholder="Tell us a little about yourself"
+            maxLength={160}
+          />
+          <p className="text-xs text-muted-foreground text-right">
+            {(profile.bio || "").length}/160
+          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 pt-4">

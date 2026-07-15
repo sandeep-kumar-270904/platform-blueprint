@@ -11,6 +11,25 @@ dotenv.config();
 // Connect to MongoDB
 connectDB().then(async () => {
   try {
+    const User = require('./models/User');
+    const bcrypt = require('bcryptjs');
+    
+    // Seed default admin user for testing
+    const adminExists = await User.findOne({ email: 'admin@studenthub.com' });
+    if (!adminExists) {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash('admin123', salt);
+      await User.create({
+        email: 'admin@studenthub.com',
+        password: hashedPassword,
+        username: 'admin',
+        full_name: 'Admin User',
+        role: 'admin',
+        isEmailVerified: true
+      });
+      console.log('Seeded default admin user: admin@studenthub.com / admin123');
+    }
+
     const Event = require('./models/Event');
 
     // --- 24-Hour Event Reminder Cron Job ---
@@ -195,6 +214,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/courses', require('./routes/courses'));
 app.use('/api/learning-paths', require('./routes/learningPaths'));
+app.use('/api/mentors', require('./routes/mentors'));
 
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

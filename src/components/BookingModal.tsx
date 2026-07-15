@@ -36,7 +36,7 @@ export const BookingModal = ({ open, onOpenChange, mentor, slot }: BookingModalP
       return;
     }
     if (!mentor || !slot) return;
-    if (cardNumber.length < 16) {
+    if (mentor.price_per_hour > 0 && cardNumber.length < 16) {
       toast({ title: "Invalid card", description: "Enter a valid 16-digit card number", variant: "destructive" });
       return;
     }
@@ -48,7 +48,7 @@ export const BookingModal = ({ open, onOpenChange, mentor, slot }: BookingModalP
       const res = await fetch(`${API_URL}/api/mentors/bookings`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slot_id: slot.id, mentor_id: mentor.id, notes: sessionNotes })
+        body: JSON.stringify({ scheduledAt: slot.starts_at || slot.id || slot._id, mentorId: mentor.id || mentor._id, menteeNotes: sessionNotes })
       });
       
       if (!res.ok) {
@@ -56,9 +56,27 @@ export const BookingModal = ({ open, onOpenChange, mentor, slot }: BookingModalP
         throw new Error(errData.message || 'Booking failed');
       }
       
-      const newBooking = await res.json();
+      let newBooking = await res.json();
+      
+      // Simulate webhook for paid bookings
+      if (mentor.price_per_hour > 0) {
+        const webhookRes = await fetch(`${API_URL}/api/mentors/webhook/payment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingId: newBooking._id,
+            transactionId: `sim_${Date.now()}`,
+            status: 'success'
+          })
+        });
+        if (webhookRes.ok) {
+          // just assume success and the backend updated it
+          newBooking.meetingLink = `https://meet.studenthub.com/${newBooking._id}`;
+        }
+      }
+
       setBookingId(newBooking._id || newBooking.id);
-      setVideoLink(newBooking.video_link || "");
+      setVideoLink(newBooking.meetingLink || newBooking.video_link || "");
       setStep("confirmed");
       toast({ title: "Booking confirmed!", description: "Your mentor session is scheduled." });
     } catch (error: any) {
@@ -124,15 +142,17 @@ export const BookingModal = ({ open, onOpenChange, mentor, slot }: BookingModalP
               <Textarea id="notes" placeholder="Topics or questions you'd like to discuss..." value={sessionNotes} onChange={(e) => setSessionNotes(e.target.value.slice(0, 1000))} rows={3} />
             </div>
 
-            <div className="space-y-3">
-              <Label className="flex items-center gap-2 text-base"><CreditCard className="h-4 w-4" />Payment</Label>
-              <Input placeholder="1234 5678 9012 3456" value={cardNumber} onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, "").slice(0, 16))} maxLength={16} />
-              <div className="grid grid-cols-2 gap-3">
-                <Input placeholder="MM/YY" maxLength={5} />
-                <Input placeholder="CVV" type="password" maxLength={3} />
+            {total > 0 && (
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2 text-base"><CreditCard className="h-4 w-4" />Payment</Label>
+                <Input placeholder="1234 5678 9012 3456" value={cardNumber} onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, "").slice(0, 16))} maxLength={16} />
+                <div className="grid grid-cols-2 gap-3">
+                  <Input placeholder="MM/YY" maxLength={5} />
+                  <Input placeholder="CVV" type="password" maxLength={3} />
+                </div>
+                <p className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Secure 256-bit encryption (demo)</p>
               </div>
-              <p className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> Secure 256-bit encryption (demo)</p>
-            </div>
+            )}
           </div>
         ) : (
           <div className="space-y-6 py-4">
@@ -155,8 +175,8 @@ export const BookingModal = ({ open, onOpenChange, mentor, slot }: BookingModalP
             <>
               <Button variant="outline" onClick={handleClose}>Cancel</Button>
               <Button onClick={handlePayment} disabled={submitting} className="gap-2">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                Pay ₹{total}
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : (total > 0 ? <CreditCard className="h-4 w-4" /> : <Calendar className="h-4 w-4" />)}
+                {total > 0 ? `Pay ₹${total}` : 'Confirm Free Session'}
               </Button>
             </>
           ) : (

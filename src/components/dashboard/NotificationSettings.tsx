@@ -14,6 +14,8 @@ interface NotificationPreferences {
   event_rejected: boolean;
   event_cancelled_or_changed: boolean;
   waitlist_promoted: boolean;
+  course_reminder: boolean;
+  course_streak_milestone: boolean;
 }
 
 export function NotificationSettings() {
@@ -46,6 +48,8 @@ export function NotificationSettings() {
         event_rejected: data.event_rejected !== false,
         event_cancelled_or_changed: data.event_cancelled_or_changed !== false,
         waitlist_promoted: data.waitlist_promoted !== false,
+        course_reminder: data.course_reminder !== false,
+        course_streak_milestone: data.course_streak_milestone !== false,
       });
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to load preferences', variant: 'destructive' });
@@ -187,6 +191,32 @@ export function NotificationSettings() {
             <Switch 
               checked={preferences?.waitlist_promoted} 
               onCheckedChange={() => handleToggle('waitlist_promoted')} 
+            />
+          </div>
+        </div>
+
+        <div className="space-y-4 pt-4 border-t border-border">
+          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Learning & Courses</h3>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Course Progress Reminders</p>
+              <p className="text-sm text-muted-foreground">Gentle nudges when you haven't made progress on a course in a few days.</p>
+            </div>
+            <Switch 
+              checked={preferences?.course_reminder} 
+              onCheckedChange={() => handleToggle('course_reminder')} 
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Learning Streak Milestones</p>
+              <p className="text-sm text-muted-foreground">Celebrations when you hit new learning streaks.</p>
+            </div>
+            <Switch 
+              checked={preferences?.course_streak_milestone} 
+              onCheckedChange={() => handleToggle('course_streak_milestone')} 
             />
           </div>
         </div>

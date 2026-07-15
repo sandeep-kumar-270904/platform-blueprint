@@ -6,6 +6,31 @@ const Review = require('../models/Review');
 const CollegeQuestion = require('../models/CollegeQuestion');
 const CollegeAnswer = require('../models/CollegeAnswer');
 
+// PUT /api/users/me
+router.put('/me', authMiddleware, async (req, res) => {
+  try {
+    const { full_name, username, avatar_url, bio } = req.body;
+    
+    // Check if username is taken (if it's changing)
+    if (username) {
+      const existing = await User.findOne({ username, _id: { $ne: req.user.id } });
+      if (existing) {
+        return res.status(400).json({ message: 'Username is already taken' });
+      }
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { full_name, username, avatar_url, bio } },
+      { new: true, runValidators: true }
+    ).select('-password -refreshToken');
+
+    res.json({ message: 'Profile updated successfully', user: updatedUser });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error updating profile', error: error.message });
+  }
+});
+
 // Note: Real follower schema would typically involve a separate Follow model.
 // For the UI demonstration purposes, we will mock a successful response.
 
@@ -164,6 +189,54 @@ router.put('/me/notification-preferences', authMiddleware, async (req, res) => {
   }
 });
 
+// PUT /api/users/me/skills-privacy
+router.put('/me/skills-privacy', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    user.skillsProfilePublic = req.body.skillsProfilePublic;
+    await user.save();
+    
+    res.json({ skillsProfilePublic: user.skillsProfilePublic });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/users/:id/skills-profile
+router.get('/:id/skills-profile', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .populate({
+        path: 'skills.sourceCourses',
+        select: 'title provider thumbnailImage category level'
+      })
+      .select('full_name avatar_url learningStreak skillsProfilePublic skills');
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user.skillsProfilePublic) return res.status(403).json({ message: 'This profile is private.' });
+
+    // Count total certificates (which equates to completed courses in the skills arrays, deduplicated)
+    const courseIds = new Set();
+    user.skills.forEach(skill => {
+      skill.sourceCourses.forEach(course => {
+        if(course._id) courseIds.add(course._id.toString());
+      });
+    });
+
+    res.json({
+      full_name: user.full_name,
+      avatar_url: user.avatar_url,
+      learningStreak: user.learningStreak,
+      skills: user.skills,
+      totalCertificates: courseIds.size
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error fetching skills profile' });
+  }
+});
+
 // GET /api/users/me/courses
 router.get('/me/courses', authMiddleware, async (req, res) => {
   try {
@@ -171,7 +244,12 @@ router.get('/me/courses', authMiddleware, async (req, res) => {
     const Notification = require('../models/Notification');
     const User = require('../models/User');
 
-    const user = await User.findById(req.user.id).select('learningStreak');
+    const user = await User.findById(req.user.id)
+      .populate({
+        path: 'skills.sourceCourses',
+        select: 'title provider thumbnailImage category level'
+      })
+      .select('learningStreak skillsProfilePublic skills');
 
     const enrollments = await CourseEnrollment.find({ userId: req.user.id })
       .populate('courseId')
@@ -181,7 +259,9 @@ router.get('/me/courses', authMiddleware, async (req, res) => {
       enrolled: [],
       in_progress: [],
       completed: [],
-      learningStreak: user?.learningStreak || { current: 0, longest: 0, lastActiveDate: null }
+      learningStreak: user?.learningStreak || { current: 0, longest: 0, lastActiveDate: null },
+      skillsProfilePublic: user?.skillsProfilePublic || false,
+      skills: user?.skills || []
     };
 
     const now = new Date();
