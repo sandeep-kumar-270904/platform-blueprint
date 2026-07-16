@@ -231,6 +231,8 @@ app.use('/api/mentors', require('./routes/mentors'));
 app.use('/api/applications', require('./routes/applications'));
 app.use('/api/job-alerts', require('./routes/jobAlerts'));
 app.use('/api/companies', require('./routes/companies'));
+app.use('/api/assessments', require('./routes/assessments'));
+app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/insights', require('./routes/insights'));
 
 // Serve static files from the uploads directory

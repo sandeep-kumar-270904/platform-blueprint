@@ -80,6 +80,15 @@ const UserSchema = new mongoose.Schema({
     skillName: { type: String, required: true },
     sourceCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Course' }]
   }],
+  verifiedSkills: [{
+    skill: { type: String, required: true },
+    score: { type: Number },
+    verifiedAt: { type: Date, default: Date.now }
+  }],
+  videoIntroUrl: { type: String },
+  videoIntroUploadedAt: { type: Date },
+  institutionVerified: { type: Boolean, default: false },
+  institutionVerifiedAt: { type: Date },
   role: {
     type: String,
     enum: ['user', 'student', 'recruiter', 'admin'],

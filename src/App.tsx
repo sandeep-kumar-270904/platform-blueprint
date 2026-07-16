@@ -41,6 +41,7 @@ import CampusInsights from "./pages/CampusInsights";
 import ATSChecker from "./pages/ATSChecker";
 import MyApplications from "./pages/MyApplications";
 import ATSDashboard from "./pages/ATSDashboard";
+import Assessments from "./pages/Assessments";
 import RecruiterDashboard from "./pages/RecruiterDashboard";
 import JobAnalytics from "./pages/JobAnalytics";
 import CandidateSearch from "./pages/CandidateSearch";
@@ -138,6 +139,7 @@ const App = () => (
           <Route path="/companies/followed" element={<ProtectedRoute><FollowedCompanies /></ProtectedRoute>} />
           <Route path="/insights" element={<ProtectedRoute><CampusInsights /></ProtectedRoute>} />
           <Route path="/resume/ats-check" element={<ProtectedRoute><ATSChecker /></ProtectedRoute>} />
+          <Route path="/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
           <Route path="/jobs/:id" element={<ProtectedRoute><JobDetail /></ProtectedRoute>} />
           <Route path="/applications" element={<ProtectedRoute><MyApplications /></ProtectedRoute>} />
           <Route path="/recruiter/dashboard" element={<ProtectedRoute><RecruiterDashboard /></ProtectedRoute>} />

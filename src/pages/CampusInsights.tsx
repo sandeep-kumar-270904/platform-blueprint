@@ -22,15 +22,20 @@ const CampusInsights: React.FC = () => {
         return;
       }
       try {
-        const res = await fetch(`${API_URL}/api/insights/campus-hiring`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.message || 'Failed to fetch insights');
+        const [resHiring, resSalary] = await Promise.all([
+          fetch(`${API_URL}/api/insights/campus-hiring`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`${API_URL}/api/insights/salary`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        
+        if (!resHiring.ok) {
+          const err = await resHiring.json();
+          throw new Error(err.message || 'Failed to fetch hiring insights');
         }
-        const insightsData = await res.json();
-        setData(insightsData);
+        
+        const insightsData = await resHiring.ok ? await resHiring.json() : null;
+        const salaryData = await resSalary.ok ? await resSalary.json() : [];
+        
+        setData({ ...insightsData, salaryInsights: salaryData });
       } catch (err: any) {
         toast.error(err.message);
       } finally {
@@ -174,6 +179,38 @@ const CampusInsights: React.FC = () => {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Salary Insights Section */}
+      <Card className="mt-8 mb-8">
+        <CardHeader>
+          <CardTitle>Salary Insights</CardTitle>
+          <CardDescription>Average salary ranges by role</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {data.salaryInsights && data.salaryInsights.length > 0 ? (
+            <div className="h-[400px] w-full mt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.salaryInsights} margin={{ top: 20, right: 30, left: 40, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="_id" tickLine={false} axisLine={false} tickMargin={10} angle={-45} textAnchor="end" height={80} />
+                  <YAxis tickLine={false} axisLine={false} tickFormatter={(val) => `$${val/1000}k`} />
+                  <Tooltip 
+                    cursor={{ fill: 'transparent' }} 
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    formatter={(value: number) => `$${value.toLocaleString()}`}
+                  />
+                  <Bar dataKey="avgMin" name="Avg Min Salary" fill="#8884d8" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="avgMax" name="Avg Max Salary" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="py-8 text-center text-gray-500">
+              Not enough salary data available yet.
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

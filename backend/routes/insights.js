@@ -78,5 +78,48 @@ router.get('/campus-hiring', async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+// GET /api/insights/salary
+router.get('/salary', async (req, res) => {
+  try {
+    const { role, location, experienceLevel } = req.query;
+    
+    let match = { 
+      status: 'published',
+      'salary.min': { $exists: true },
+      'salary.max': { $exists: true }
+    };
+    
+    if (role) {
+      match.title = { $regex: role, $options: 'i' };
+    }
+    
+    if (location) {
+      match.location = { $regex: location, $options: 'i' };
+    }
+    
+    if (experienceLevel) {
+      match.experienceLevel = experienceLevel;
+    }
+    
+    const salaryData = await Job.aggregate([
+      { $match: match },
+      { 
+        $group: {
+          _id: "$title",
+          avgMin: { $avg: "$salary.min" },
+          avgMax: { $avg: "$salary.max" },
+          count: { $sum: 1 }
+        }
+      },
+      { $match: { count: { $gt: 0 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+    
+    res.json(salaryData);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
 
 module.exports = router;

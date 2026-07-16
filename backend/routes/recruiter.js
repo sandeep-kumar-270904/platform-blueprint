@@ -107,7 +107,7 @@ router.get('/candidates', authMiddleware, async (req, res) => {
     }
 
     let candidates = await User.find(query)
-      .select('full_name username avatar_url skills careerVisibility degree university')
+      .select('full_name username avatar_url skills verifiedSkills careerVisibility degree university')
       .lean();
 
     // Scoring
@@ -118,10 +118,15 @@ router.get('/candidates', authMiddleware, async (req, res) => {
       if (requestedSkills.length > 0) {
         const candidateKeywords = (candidate.careerVisibility?.searchKeywords || []).map(k => k.toLowerCase());
         const candidateSkills = (candidate.skills || []).map(s => s.skillName.toLowerCase());
+        const verifiedSkills = (candidate.verifiedSkills || []).map(s => s.skill.toLowerCase());
         const allTerms = new Set([...candidateKeywords, ...candidateSkills]);
         
         requestedSkills.forEach(rs => {
-          if (allTerms.has(rs)) score++;
+          if (verifiedSkills.includes(rs)) {
+            score += 2; // Verified skills weigh more
+          } else if (allTerms.has(rs)) {
+            score += 1;
+          }
         });
       }
       return { ...candidate, matchScore: score };
@@ -153,7 +158,7 @@ router.get('/candidates', authMiddleware, async (req, res) => {
 router.get('/candidates/:userId', authMiddleware, async (req, res) => {
   try {
     const candidate = await User.findOne({ _id: req.params.userId, 'careerVisibility.visibleToRecruiters': true })
-      .select('full_name username avatar_url skills careerVisibility degree university bio');
+      .select('full_name username avatar_url skills verifiedSkills videoIntroUrl institutionVerified careerVisibility degree university bio');
     
     if (!candidate) {
       return res.status(403).json({ message: 'Candidate not found or profile is not visible to recruiters.' });

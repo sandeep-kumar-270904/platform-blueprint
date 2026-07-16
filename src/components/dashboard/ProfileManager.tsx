@@ -15,6 +15,8 @@ interface Profile {
   bio?: string | null;
   sessions_hosted?: number;
   sessions_attended?: number;
+  videoIntroUrl?: string;
+  institutionVerified?: boolean;
 }
 
 export const ProfileManager = ({ userId, email }: { userId: string; email: string }) => {
@@ -22,7 +24,10 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [videoUploading, setVideoUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -103,6 +108,90 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setVideoUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      // Upload file
+      const res = await fetch(`${API_URL}/api/uploads`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        // Save to profile
+        const saveRes = await fetch(`${API_URL}/api/users/me/video-intro`, {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ videoUrl: data.url })
+        });
+        if (saveRes.ok) {
+          setProfile(p => ({ ...p, videoIntroUrl: data.url }));
+          toast.success("Video intro updated!");
+        }
+      } else {
+        toast.error("Failed to upload video");
+      }
+    } catch (err) {
+      toast.error("Error uploading video");
+    } finally {
+      setVideoUploading(false);
+      if (videoInputRef.current) videoInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteVideo = async () => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/users/me/video-intro`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setProfile(p => ({ ...p, videoIntroUrl: undefined }));
+        toast.success("Video intro removed");
+      }
+    } catch (err) {
+      toast.error("Failed to remove video");
+    }
+  };
+
+  const handleVerifyInstitution = async () => {
+    setVerifying(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/users/me/institution-verify`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.verified) {
+        setProfile(p => ({ ...p, institutionVerified: true }));
+        toast.success("Institution verified successfully!");
+      } else {
+        toast.error(data.message || "Failed to verify institution");
+      }
+    } catch (err) {
+      toast.error("Error verifying institution");
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -210,6 +299,52 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Save Changes
         </Button>
+
+        <div className="border-t pt-6 mt-6 space-y-4">
+          <h3 className="text-lg font-semibold">Video Pitch</h3>
+          <p className="text-sm text-muted-foreground">Upload a short video (up to 50MB) introducing yourself to recruiters.</p>
+          
+          {profile.videoIntroUrl ? (
+            <div className="space-y-4">
+              <video 
+                controls 
+                className="w-full max-w-md rounded-lg border bg-black/5" 
+                src={profile.videoIntroUrl.startsWith('http') ? profile.videoIntroUrl : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${profile.videoIntroUrl}`} 
+              />
+              <Button variant="destructive" onClick={handleDeleteVideo}>Remove Video</Button>
+            </div>
+          ) : (
+            <div className="flex gap-4 items-center">
+              <Button onClick={() => videoInputRef.current?.click()} disabled={videoUploading} variant="outline">
+                {videoUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                Upload Video
+              </Button>
+              <input 
+                type="file" 
+                ref={videoInputRef} 
+                className="hidden" 
+                accept="video/mp4,video/webm,video/quicktime"
+                onChange={handleVideoUpload}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="border-t pt-6 mt-6 space-y-4">
+          <h3 className="text-lg font-semibold">Institution Verification</h3>
+          <p className="text-sm text-muted-foreground">Verify your student status to get a trusted badge on your profile.</p>
+          
+          {profile.institutionVerified ? (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 font-medium text-sm">
+              <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+              Verified Student
+            </div>
+          ) : (
+            <Button onClick={handleVerifyInstitution} disabled={verifying}>
+              {verifying ? 'Verifying...' : 'Verify Institution'}
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
