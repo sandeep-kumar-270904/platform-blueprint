@@ -159,4 +159,43 @@ router.post('/delete-account', auth, async (req, res) => {
   }
 });
 
+// GET /api/settings/notifications
+router.get('/notifications', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json({ preferences: user.notificationPreferences });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PUT /api/settings/notifications
+router.put('/notifications', auth, async (req, res) => {
+  try {
+    const { preferences } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    // Deep merge for job_board
+    if (preferences && preferences.job_board) {
+      if (!user.notificationPreferences) {
+        user.notificationPreferences = { job_board: {} };
+      }
+      if (!user.notificationPreferences.job_board) {
+        user.notificationPreferences.job_board = {};
+      }
+      user.notificationPreferences.job_board = {
+        ...user.notificationPreferences.job_board,
+        ...preferences.job_board
+      };
+    }
+    
+    await user.save();
+    res.json({ message: 'Preferences updated', preferences: user.notificationPreferences });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 module.exports = router;

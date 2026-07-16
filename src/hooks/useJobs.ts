@@ -1,78 +1,65 @@
 import { useEffect, useState, useCallback } from "react";
-import { io } from "socket.io-client";
 import { toast } from "sonner";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface JobRow {
-  _id?: string;
-  id?: string;
+  _id: string;
   title: string;
-  company: string;
+  company: { name: string; logoUrl?: string; verified: boolean };
   location: string;
-  type: string;
-  salary: string;
+  workMode: string;
+  jobType: string;
+  experienceLevel?: string;
+  salary?: { min?: number; max?: number; currency?: string; negotiable?: boolean };
   description: string;
-  logo: string;
-  createdAt?: string;
+  responsibilities?: string[];
+  qualifications?: string[];
+  benefits?: string[];
+  skills?: string[];
+  openings?: number;
+  applyMode: string;
+  externalUrl?: string;
+  screeningQuestions?: any[];
+  status: string;
+  createdAt: string;
+  postedBy?: any;
+  applicantCount?: number;
 }
 
-export const useJobs = () => {
+export const useJobs = (filters: any = {}) => {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
 
   const fetchJobs = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/jobs`);
+      // Build query string manually
+      const params = new URLSearchParams();
+      if (filters.search) params.append('search', filters.search);
+      if (filters.location) params.append('location', filters.location);
+      if (filters.workMode) params.append('workMode', filters.workMode);
+      if (filters.jobType) params.append('jobType', filters.jobType);
+      if (filters.minSalary) params.append('minSalary', filters.minSalary);
+      if (filters.maxSalary) params.append('maxSalary', filters.maxSalary);
+      
+      const res = await fetch(`${API_URL}/api/jobs?${params.toString()}`);
       if (res.ok) {
-        let data = await res.json();
-        data = data.map((j: any) => ({ ...j, id: j._id }));
-        setJobs(data);
+        const data = await res.json();
+        setJobs(data.jobs || []);
+        setTotal(data.total || 0);
       }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [JSON.stringify(filters)]);
 
   useEffect(() => {
     fetchJobs();
-
-    const socket = io(API_URL);
-    socket.on('job_posted', (newJob) => {
-      setJobs((prev) => [{ ...newJob, id: newJob._id }, ...prev]);
-      toast.info("A new job has been posted!");
-    });
-
-    return () => {
-      socket.disconnect();
-    };
   }, [fetchJobs]);
-
-  const applyForJob = async (jobId: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      toast.error("Sign in required");
-      return;
-    }
-    
-    try {
-      const res = await fetch(`${API_URL}/api/jobs/${jobId}/apply`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.message || 'Failed to apply');
-      }
-      
-      toast.success("Successfully applied for the job!");
-    } catch (err: any) {
-      toast.error(err.message);
-    }
-  };
 
   const postJob = async (jobData: Partial<JobRow>) => {
     const token = localStorage.getItem('token');
@@ -88,12 +75,16 @@ export const useJobs = () => {
         body: JSON.stringify(jobData)
       });
       
-      if (!res.ok) throw new Error('Failed to post job');
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || 'Failed to post job');
+      }
       toast.success("Job posted successfully!");
+      fetchJobs();
     } catch (err: any) {
       toast.error(err.message);
     }
   }
 
-  return { jobs, loading, refetch: fetchJobs, applyForJob, postJob };
+  return { jobs, total, loading, refetch: fetchJobs, postJob };
 };

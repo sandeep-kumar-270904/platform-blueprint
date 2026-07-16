@@ -29,13 +29,33 @@ const notificationSchema = new mongoose.Schema({
       'mentor_application_status',
       'ama_registration_confirmed',
       'ama_reminder',
-      'ama_cancelled'
+      'ama_cancelled',
+      'application_submitted',
+      'application_status_changed',
+      'new_applicant',
+      'recruiter_verified',
+      'recruiter_rejected',
+      'job_auto_hidden',
+      'job_deleted_by_admin',
+      'recruiter_banned',
+      'application_deadline_approaching',
+      'profile_viewed',
+      'job_invite_received',
+      'job_alert_match',
+      'company_new_job'
     ],
     required: true
   },
   relatedCollegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College', default: null },
+  relatedJob: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null },
+  relatedApplication: { type: mongoose.Schema.Types.ObjectId, ref: 'JobApplication', default: null },
   relatedContentId: { type: mongoose.Schema.Types.ObjectId, default: null }, // questionId/reviewId/answerId
   message: { type: String, required: true },
+  actionUrl: { type: String },
+  channel: { type: String, enum: ['in_app', 'email', 'both'], default: 'in_app' },
+  emailSent: { type: Boolean, default: false },
+  emailSentAt: { type: Date },
+  emailFailureReason: { type: String },
   isRead: { type: Boolean, default: false }
 }, { timestamps: true });
 

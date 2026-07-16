@@ -9,7 +9,7 @@ const CollegeAnswer = require('../models/CollegeAnswer');
 // PUT /api/users/me
 router.put('/me', authMiddleware, async (req, res) => {
   try {
-    const { full_name, username, avatar_url, bio } = req.body;
+    const { full_name, username, avatar_url, bio, skills } = req.body;
     
     // Check if username is taken (if it's changing)
     if (username) {
@@ -19,9 +19,14 @@ router.put('/me', authMiddleware, async (req, res) => {
       }
     }
 
+    const updateFields = { full_name, username, avatar_url, bio };
+    if (skills) {
+      updateFields.skills = skills.map(skill => (typeof skill === 'string' ? { skillName: skill } : skill));
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
-      { $set: { full_name, username, avatar_url, bio } },
+      { $set: updateFields },
       { new: true, runValidators: true }
     ).select('-password -refreshToken');
 
@@ -498,6 +503,113 @@ router.post('/:id/block', authMiddleware, async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({ message: 'Server error blocking user', error: error.message });
+  }
+});
+
+// GET /api/users/me/visibility-analytics
+router.get('/me/visibility-analytics', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .select('careerVisibility recruiterProfile role')
+      .populate({
+        path: 'careerVisibility.profileViewers.recruiter',
+        select: 'full_name recruiterProfile'
+      });
+      
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    // Format recent viewers masking unverified recruiters
+    const recentViewers = (user.careerVisibility?.profileViewers || [])
+      .sort((a, b) => b.viewedAt - a.viewedAt)
+      .slice(0, 10)
+      .map(v => {
+        const recruiterData = v.recruiter;
+        if (!recruiterData) return { _id: v._id, viewedAt: v.viewedAt, name: 'A recruiter' };
+        
+        const isVerified = recruiterData.recruiterProfile?.verificationStatus === 'verified';
+        if (isVerified) {
+          return {
+            _id: v._id,
+            viewedAt: v.viewedAt,
+            name: recruiterData.full_name,
+            company: recruiterData.recruiterProfile.companyName
+          };
+        } else {
+          return {
+            _id: v._id,
+            viewedAt: v.viewedAt,
+            name: 'A recruiter'
+          };
+        }
+      });
+
+    res.json({
+      profileViewCount: user.careerVisibility?.profileViewCount || 0,
+      recentViewers,
+      topSearchKeywords: user.careerVisibility?.searchKeywords || []
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// PUT /api/users/me/visibility
+router.put('/me/visibility', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    const { 
+      openToWork, 
+      visibleToRecruiters, 
+      visiblePreferredRoles, 
+      visiblePreferredLocations, 
+      expectedCTC, 
+      noticePeriod 
+    } = req.body;
+
+    if (!user.careerVisibility) user.careerVisibility = {};
+
+    if (openToWork !== undefined) user.careerVisibility.openToWork = openToWork;
+    if (visibleToRecruiters !== undefined) user.careerVisibility.visibleToRecruiters = visibleToRecruiters;
+    if (visiblePreferredRoles) user.careerVisibility.visiblePreferredRoles = visiblePreferredRoles;
+    if (visiblePreferredLocations) user.careerVisibility.visiblePreferredLocations = visiblePreferredLocations;
+    if (expectedCTC) user.careerVisibility.expectedCTC = expectedCTC;
+    if (noticePeriod !== undefined) user.careerVisibility.noticePeriod = noticePeriod;
+    user.careerVisibility.profileLastUpdatedForVisibility = new Date();
+    
+    // Sync searchKeywords
+    const keywords = new Set();
+    if (user.careerVisibility.visiblePreferredRoles) {
+      user.careerVisibility.visiblePreferredRoles.forEach(r => keywords.add(r));
+    }
+    if (user.degree) keywords.add(user.degree);
+    if (user.skills) user.skills.forEach(s => keywords.add(s.skillName));
+    user.careerVisibility.searchKeywords = Array.from(keywords);
+    await user.save();
+    res.json({ message: 'Visibility updated successfully', careerVisibility: user.careerVisibility });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PUT /api/users/me/application-profile
+router.put('/me/application-profile', authMiddleware, async (req, res) => {
+  try {
+    const { resumeUrl, defaultCoverLetter } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.defaultApplicationProfile = {
+      ...user.defaultApplicationProfile,
+      resumeUrl: resumeUrl !== undefined ? resumeUrl : user.defaultApplicationProfile?.resumeUrl,
+      defaultCoverLetter: defaultCoverLetter !== undefined ? defaultCoverLetter : user.defaultApplicationProfile?.defaultCoverLetter
+    };
+
+    await user.save();
+    res.json({ message: 'Application profile updated', defaultApplicationProfile: user.defaultApplicationProfile });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 

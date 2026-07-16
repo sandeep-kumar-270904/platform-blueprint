@@ -138,3 +138,100 @@ exports.sendNewDeviceAlert = async (email, os, browser, region) => {
   );
   await sendEmailBase(email, 'New sign-in to NotesHub', html);
 };
+
+// --- Job Board Phase 3 Emails ---
+
+const getFrontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:8080';
+const preferencesLink = { text: 'Notification Preferences', href: `${getFrontendUrl()}/settings/notifications` };
+
+exports.sendApplicationSubmittedEmail = async (email, jobTitle, actionUrl) => {
+  const html = getBaseTemplate(
+    'Application Submitted',
+    `Your application for <strong>${jobTitle}</strong> has been successfully submitted. We will notify you when the status changes.`,
+    'View Application',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Application Submitted: ${jobTitle}`, html);
+};
+
+exports.sendApplicationStatusEmail = async (email, jobTitle, newStatus, actionUrl) => {
+  const html = getBaseTemplate(
+    'Application Status Updated',
+    `The status of your application for <strong>${jobTitle}</strong> has been updated to: <strong>${newStatus}</strong>.`,
+    'View Application',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Application Update: ${jobTitle}`, html);
+};
+
+exports.sendNewApplicantEmail = async (email, jobTitle, applicantName, actionUrl) => {
+  const html = getBaseTemplate(
+    'New Applicant',
+    `<strong>${applicantName}</strong> has just applied to your job posting for <strong>${jobTitle}</strong>.`,
+    'Review Application',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `New Applicant for ${jobTitle}`, html);
+};
+
+exports.sendRecruiterVerificationEmail = async (email, isApproved) => {
+  const status = isApproved ? 'approved' : 'rejected';
+  const message = isApproved 
+    ? 'Your recruiter profile has been verified! You can now post jobs and hire top talent.' 
+    : 'Your recruiter verification request was rejected. Please review your details and try again.';
+  const html = getBaseTemplate(
+    `Verification ${isApproved ? 'Approved' : 'Rejected'}`,
+    message,
+    'Go to Dashboard',
+    `${getFrontendUrl()}/jobs`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Recruiter Verification ${isApproved ? 'Approved' : 'Rejected'}`, html);
+};
+
+exports.sendJobHiddenEmail = async (email, jobTitle) => {
+  const html = getBaseTemplate(
+    'Job Hidden',
+    `Your job posting for <strong>${jobTitle}</strong> has received multiple reports and was automatically hidden pending review.`,
+    'View Dashboard',
+    `${getFrontendUrl()}/jobs`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Action Required: Job Hidden - ${jobTitle}`, html);
+};
+
+exports.sendJobDeletedEmail = async (email, jobTitle, adminNote) => {
+  const html = getBaseTemplate(
+    'Job Deleted',
+    `Your job posting for <strong>${jobTitle}</strong> has been deleted by an administrator. ${adminNote ? `<br/><br/>Reason: ${adminNote}` : ''}`,
+    null,
+    null,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Job Deleted - ${jobTitle}`, html);
+};
+
+exports.sendRecruiterBannedEmail = async (email) => {
+  const html = getBaseTemplate(
+    'Account Suspended',
+    'Your recruiter privileges have been suspended by an administrator due to violations of our policies.',
+    null,
+    null,
+    preferencesLink
+  );
+  await sendEmailBase(email, 'Important: Account Suspended', html);
+};
+
+exports.sendDeadlineApproachingEmail = async (email, jobTitle, actionUrl) => {
+  const html = getBaseTemplate(
+    'Application Deadline Approaching',
+    `The application deadline for your job posting <strong>${jobTitle}</strong> is in less than 48 hours.`,
+    'View Applicants',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Deadline Approaching: ${jobTitle}`, html);
+};

@@ -20,6 +20,16 @@ class CronService {
       this.checkExpiredHolds();
       this.checkNoShows();
     });
+
+    // Run every hour to check job application deadlines
+    cron.schedule('0 * * * *', async () => {
+      this.checkJobDeadlines();
+    });
+
+    // Run every day at midnight for daily job alerts
+    cron.schedule('0 0 * * *', async () => {
+      this.checkDailyJobAlerts();
+    });
   }
 
   async checkSessionReminders() {
@@ -292,6 +302,109 @@ class CronService {
       }
     } catch (err) {
       console.error('Error in checkNoShows:', err);
+    }
+  }
+
+  async checkJobDeadlines() {
+    try {
+      const Job = require('../models/Job');
+      const notificationService = require('./notificationService');
+      const now = new Date();
+      const in48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+
+      const upcomingDeadlineJobs = await Job.find({
+        status: 'published',
+        applicationDeadline: {
+          $gte: now,
+          $lte: in48Hours
+        },
+        deadlineReminderSent: { $ne: true }
+      });
+
+      for (const job of upcomingDeadlineJobs) {
+        await notificationService.createNotification({
+          userId: job.postedBy,
+          type: 'application_deadline_approaching',
+          message: `The application deadline for ${job.title} is approaching.`,
+          relatedJob: job._id,
+          actionUrl: `/recruiter/jobs/${job._id}/applicants`,
+          channel: 'in_app', // Per section 3 table
+          emailData: { jobTitle: job.title }
+        });
+
+        job.deadlineReminderSent = true;
+        await job.save();
+      }
+    } catch (err) {
+      console.error('Error in checkJobDeadlines:', err);
+    }
+  }
+
+  async checkDailyJobAlerts() {
+    try {
+      const JobAlert = require('../models/JobAlert');
+      const Job = require('../models/Job');
+      const User = require('../models/User');
+      const notificationService = require('./notificationService');
+
+      const now = new Date();
+      // Find all active daily alerts
+      const alerts = await JobAlert.find({ active: true, frequency: 'daily' });
+
+      for (const alert of alerts) {
+        const since = alert.lastNotifiedAt || new Date(now.getTime() - 24 * 60 * 60 * 1000); // last 24h if null
+
+        // Find jobs published since `since` that match criteria
+        const query = {
+          status: 'published',
+          createdAt: { $gt: since }
+        };
+
+        const c = alert.criteria;
+        if (c.workMode) query.workMode = c.workMode;
+        if (c.jobType) query.jobType = c.jobType;
+        if (c.experienceLevel) query.experienceLevel = c.experienceLevel;
+        if (c.minSalary) query['salary.max'] = { $gte: c.minSalary };
+        if (c.location) query.location = new RegExp(c.location, 'i');
+        
+        if (c.keywords) {
+          // simplistic match
+          query.$text = { $search: c.keywords };
+        }
+
+        const matchedJobs = await Job.find(query).limit(50);
+        
+        // Manual filter for keywords if text index isn't behaving perfectly, or we just rely on text search
+        // We'll rely on text search if keywords exist.
+
+        if (matchedJobs.length > 0) {
+          const user = await User.findById(alert.user).select('notificationPreferences');
+          if (!user) continue;
+
+          const inApp = user.notificationPreferences?.jobAlerts?.inApp !== false;
+          const email = user.notificationPreferences?.jobAlerts?.email !== false;
+
+          if (!inApp && !email) continue;
+          
+          let channel = 'both';
+          if (inApp && !email) channel = 'in_app';
+          if (!inApp && email) channel = 'email';
+
+          await notificationService.createNotification({
+            userId: alert.user,
+            type: 'job_alert_daily',
+            message: `You have ${matchedJobs.length} new jobs matching your alert "${alert.name}".`,
+            actionUrl: `/jobs`, // In real app, link to alert results
+            channel,
+            emailData: { alertName: alert.name, matchCount: matchedJobs.length }
+          });
+
+          alert.lastNotifiedAt = now;
+          await alert.save();
+        }
+      }
+    } catch (err) {
+      console.error('Error in checkDailyJobAlerts:', err);
     }
   }
 }
