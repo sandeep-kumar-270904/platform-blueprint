@@ -50,21 +50,12 @@ router.use('/', apiLimiter);
 // ==========================================
 router.get('/', async (req, res) => {
   try {
-    const { search, expertise, isFree, minRating, page = 1, limit = 20, sort = 'rating' } = req.query;
+    const { search, expertise, isFree, minRating, maxPrice, page = 1, limit = 10, sort = 'rating' } = req.query;
     
     // Only show approved, active mentors
     const query = { verificationStatus: 'approved', isActive: true };
 
-    if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { company: { $regex: search, $options: 'i' } }
-      ];
-      // We will also match User name in memory or we can lookup, but for now we regex title/company.
-    }
-
     if (expertise) {
-      // expertise can be a comma-separated list
       query.expertise = { $in: expertise.split(',') };
     }
 
@@ -78,17 +69,14 @@ router.get('/', async (req, res) => {
       query.rating = { $gte: Number(minRating) };
     }
 
+    if (maxPrice) {
+      query.pricePerHour = { $lte: Number(maxPrice) };
+    }
+
     let sortObj = { rating: -1 };
     if (sort === 'sessions') sortObj = { totalSessions: -1 };
     if (sort === 'price_asc') sortObj = { pricePerHour: 1 };
     if (sort === 'newest') sortObj = { createdAt: -1 };
-
-    const { expertise, minRating, maxPrice, search, page = 1, limit = 10 } = req.query;
-    let query = { verificationStatus: 'approved', isActive: true };
-
-    if (expertise) query.expertise = { $in: expertise.split(',') };
-    if (minRating) query.rating = { $gte: Number(minRating) };
-    if (maxPrice) query.pricePerHour = { $lte: Number(maxPrice) };
 
     const mentors = await MentorProfile.find(query)
       .populate('user_id', 'full_name username avatar_url bio')

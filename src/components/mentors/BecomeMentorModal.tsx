@@ -14,8 +14,9 @@ interface BecomeMentorModalProps {
 }
 
 export const BecomeMentorModal = ({ open, onOpenChange }: BecomeMentorModalProps) => {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
+  const token = localStorage.getItem('token');
   
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(true);
@@ -32,16 +33,17 @@ export const BecomeMentorModal = ({ open, onOpenChange }: BecomeMentorModalProps
   });
 
   useEffect(() => {
-    if (open && user && token) {
+    if (open && user) {
       checkExistingProfile();
     }
-  }, [open, user, token]);
+  }, [open, user]);
 
   const checkExistingProfile = async () => {
     setCheckingStatus(true);
     try {
+      const currentToken = localStorage.getItem('token');
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/mentors/me/profile`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${currentToken}` }
       });
       if (res.ok) {
         const data = await res.json();

@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const emailService = require('../services/emailService');
 const fingerprintService = require('../services/fingerprintService');
 const AuthEvent = require('../models/AuthEvent');
+const authMiddleware = require('../middleware/auth');
 
 const generateTokens = (user) => {
   const accessToken = jwt.sign(
@@ -37,6 +38,23 @@ const setCookies = (res, accessToken, refreshToken) => {
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
   });
 };
+
+router.put('/test/upgrade-role', async (req, res) => {
+  try {
+    const { email, role, verificationStatus } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    user.role = role;
+    if (role === 'recruiter') {
+      user.recruiterProfile = user.recruiterProfile || {};
+      user.recruiterProfile.verificationStatus = verificationStatus || 'verified';
+    }
+    await user.save();
+    res.json({ message: 'Role upgraded', user });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 router.post('/register', async (req, res) => {
   try {
@@ -173,20 +191,9 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.get('/me', async (req, res) => {
+router.get('/me', authMiddleware, async (req, res) => {
   try {
-    // --- AUTH BYPASS FOR DEVELOPMENT ---
-    const adminUser = await User.findOne({ role: 'admin' }).select('-password -refreshToken');
-    if (adminUser) {
-      return res.json({ user: adminUser });
-    }
-    // -----------------------------------
-
-    const token = req.cookies.accessToken;
-    if (!token) return res.status(401).json({ message: 'No session' });
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    const user = await User.findById(decoded.id).select('-password -refreshToken');
+    const user = await User.findById(req.user.id).select('-password -refreshToken');
     if (!user) return res.status(401).json({ message: 'User not found' });
     
     res.json({ user });

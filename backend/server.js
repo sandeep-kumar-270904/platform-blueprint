@@ -209,6 +209,8 @@ app.use('/api/learning-sessions', require('./routes/learningSessions'));
 app.use('/api/learning-progress', require('./routes/learningProgress'));
 app.use('/api/note-comments', require('./routes/noteComments'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/admin', require('./routes/adminJobs'));
+app.use('/api/recruiter', require('./routes/recruiter'));
 app.use('/api/innovation', require('./routes/innovation'));
 app.use('/api/colleges', require('./routes/colleges'));
 app.use('/api/college-qa', require('./routes/collegeQA'));
@@ -217,6 +219,7 @@ app.use('/api/amas', require('./routes/amas'));
 app.use('/api/video', require('./routes/video'));
 app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/uploads', require('./routes/uploads'));
+app.use('/api/admin/career-opportunities', require('./routes/adminCareerOpportunities'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/study-sessions', require('./routes/studySessions'));
@@ -225,6 +228,10 @@ app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/courses', require('./routes/courses'));
 app.use('/api/learning-paths', require('./routes/learningPaths'));
 app.use('/api/mentors', require('./routes/mentors'));
+app.use('/api/applications', require('./routes/applications'));
+app.use('/api/job-alerts', require('./routes/jobAlerts'));
+app.use('/api/companies', require('./routes/companies'));
+app.use('/api/insights', require('./routes/insights'));
 
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -281,6 +288,16 @@ io.on('connection', (socket) => {
   socket.on('leave_group_room', (groupId) => {
     socket.leave(`group_${groupId}`);
     console.log(`Socket ${socket.id} left group_${groupId}`);
+  });
+
+  socket.on('join_user_room', (userId) => {
+    socket.join(`user:${userId}`);
+    console.log(`Socket ${socket.id} joined user:${userId}`);
+  });
+
+  socket.on('join_recruiter_room', (userId) => {
+    socket.join(`recruiter:${userId}`);
+    console.log(`Socket ${socket.id} joined recruiter:${userId}`);
   });
 
   socket.on('disconnect', () => {

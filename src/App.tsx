@@ -33,6 +33,17 @@ import Courses from "./pages/Courses";
 import CourseDetail from "./pages/CourseDetail";
 import LearningPathDetail from "./pages/LearningPathDetail";
 import JobsPortal from "./pages/JobsPortal";
+import JobDetail from "./pages/JobDetail";
+import SavedJobs from "./pages/SavedJobs";
+import JobAlerts from "./pages/JobAlerts";
+import FollowedCompanies from "./pages/FollowedCompanies";
+import CampusInsights from "./pages/CampusInsights";
+import ATSChecker from "./pages/ATSChecker";
+import MyApplications from "./pages/MyApplications";
+import ATSDashboard from "./pages/ATSDashboard";
+import RecruiterDashboard from "./pages/RecruiterDashboard";
+import JobAnalytics from "./pages/JobAnalytics";
+import CandidateSearch from "./pages/CandidateSearch";
 import QuizHub from "./pages/QuizHub";
 import SkillZone from "./pages/SkillZone";
 import TechNews from "./pages/TechNews";
@@ -41,6 +52,8 @@ import StudyGroups from "./pages/StudyGroups";
 import TeamHunt from "./pages/TeamHunt";
 import RoommateFind from "./pages/RoommateFind";
 import Wellness from "./pages/Wellness";
+import AdminCareerOpportunities from './pages/admin/AdminCareerOpportunities';
+import FlashcardDeckView from './pages/FlashcardDeckView';
 import Flashcards from "./pages/Flashcards";
 import RoomRentals from "./pages/RoomRentals";
 import FoodServices from "./pages/FoodServices";
@@ -56,6 +69,8 @@ import AdminCollegePanel from "./pages/AdminCollegePanel";
 import MentorsAdminDashboard from "./pages/admin/MentorsAdminDashboard";
 import DailyHacks from "./pages/DailyHacks";
 import VideoRoomPage from "./pages/VideoRoomPage";
+import AdminJobsPanel from "./pages/admin/AdminJobsPanel";
+import RecruiterVerify from "./pages/RecruiterVerify";
 import { ThemeProvider } from "./components/theme-provider";
 import PostSkill from "./pages/PostSkill";
 import Hostels from "./pages/Hostels";
@@ -69,6 +84,7 @@ import PublicSkillsProfile from "./pages/PublicSkillsProfile";
 import MentorProfilePage from "./pages/MentorProfilePage";
 import AMASessionsPage from "./pages/AMASessionsPage";
 import AMADetailPage from "./pages/AMADetailPage";
+import NotificationSettings from "./pages/NotificationSettings";
 import { AuthProvider } from "./hooks/useAuth";
 
 const queryClient = new QueryClient();
@@ -90,6 +106,9 @@ const App = () => (
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/video/:id" element={<VideoRoomPage />} />
+          <Route path="/recruiter/verify" element={<RecruiterVerify />} />
+          <Route path="/recruiter/candidates" element={<CandidateSearch />} />
+          <Route path="/scholarships" element={<Scholarships />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
           <Route path="/search" element={<Search />} />
           <Route path="/profile/:userId/skills" element={<PublicSkillsProfile />} />
@@ -114,6 +133,16 @@ const App = () => (
           <Route path="/courses/:id" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
           <Route path="/learning-paths/:id" element={<ProtectedRoute><LearningPathDetail /></ProtectedRoute>} />
           <Route path="/jobs" element={<ProtectedRoute><JobsPortal /></ProtectedRoute>} />
+          <Route path="/jobs/saved" element={<ProtectedRoute><SavedJobs /></ProtectedRoute>} />
+          <Route path="/job-alerts" element={<ProtectedRoute><JobAlerts /></ProtectedRoute>} />
+          <Route path="/companies/followed" element={<ProtectedRoute><FollowedCompanies /></ProtectedRoute>} />
+          <Route path="/insights" element={<ProtectedRoute><CampusInsights /></ProtectedRoute>} />
+          <Route path="/resume/ats-check" element={<ProtectedRoute><ATSChecker /></ProtectedRoute>} />
+          <Route path="/jobs/:id" element={<ProtectedRoute><JobDetail /></ProtectedRoute>} />
+          <Route path="/applications" element={<ProtectedRoute><MyApplications /></ProtectedRoute>} />
+          <Route path="/recruiter/dashboard" element={<ProtectedRoute><RecruiterDashboard /></ProtectedRoute>} />
+          <Route path="/recruiter/jobs/:id/applicants" element={<ProtectedRoute><ATSDashboard /></ProtectedRoute>} />
+          <Route path="/recruiter/jobs/:id/analytics" element={<ProtectedRoute><JobAnalytics /></ProtectedRoute>} />
           <Route path="/quiz" element={<ProtectedRoute><QuizHub /></ProtectedRoute>} />
           <Route path="/skills" element={<ProtectedRoute><SkillZone /></ProtectedRoute>} />
           <Route path="/news" element={<ProtectedRoute><TechNews /></ProtectedRoute>} />
@@ -139,14 +168,18 @@ const App = () => (
           <Route path="/skill-swap" element={<ProtectedRoute><SkillSwap /></ProtectedRoute>} />
           <Route path="/creators" element={<ProtectedRoute><CreatorsZone /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
+          <Route path="/admin/jobs" element={<ProtectedRoute><AdminJobsPanel /></ProtectedRoute>} />
           <Route path="/admin/colleges" element={<ProtectedRoute><AdminCollegePanel /></ProtectedRoute>} />
           <Route path="/admin/mentors" element={<ProtectedRoute><MentorsAdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/career-opportunities" element={<ProtectedRoute><AdminCareerOpportunities /></ProtectedRoute>} />
+          <Route path="/recruiter/verify" element={<ProtectedRoute><RecruiterVerify /></ProtectedRoute>} />
           <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
           <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />
           <Route path="/hostels" element={<ProtectedRoute><Hostels /></ProtectedRoute>} />
           <Route path="/repair" element={<ProtectedRoute><Repair /></ProtectedRoute>} />
           <Route path="/shopping" element={<ProtectedRoute><Shopping /></ProtectedRoute>} />
           <Route path="/founders-passport" element={<ProtectedRoute><FoundersPassport /></ProtectedRoute>} />
+          <Route path="/settings/notifications" element={<ProtectedRoute><NotificationSettings /></ProtectedRoute>} />
           
           <Route path="*" element={<NotFound />} />
           </Routes>

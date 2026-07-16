@@ -23,6 +23,7 @@
     "express-rate-limit": "^8.5.2",
     "express-session": "^1.19.0",
     "geoip-lite": "^2.0.3",
+    "googleapis": "^173.0.0",
     "jsdom": "^29.1.1",
     "jsonwebtoken": "^9.0.3",
     "moment-timezone": "^0.6.2",
@@ -35,6 +36,7 @@
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",
     "passport-linkedin-oauth2": "^2.0.0",
+    "pdf-parse": "^2.4.5",
     "socket.io": "^4.8.3",
     "stripe": "^22.3.1",
     "xss-clean": "^0.1.4"

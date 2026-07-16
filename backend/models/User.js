@@ -82,9 +82,25 @@ const UserSchema = new mongoose.Schema({
   }],
   role: {
     type: String,
-    enum: ['user', 'admin'],
+    enum: ['user', 'student', 'recruiter', 'admin'],
     default: 'user'
   },
+  recruiterProfile: {
+    companyName: { type: String },
+    companyWebsite: { type: String },
+    companyLogoUrl: { type: String },
+    verificationStatus: { 
+      type: String, 
+      enum: ['unverified', 'pending', 'verified', 'rejected'], 
+      default: 'unverified' 
+    },
+    verificationDocUrl: { type: String },
+    verifiedAt: { type: Date },
+    verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  },
+  banned: { type: Boolean, default: false },
+  bannedAt: { type: Date },
+  banReason: { type: String },
   savedColleges: [{ 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'College' 
@@ -93,6 +109,10 @@ const UserSchema = new mongoose.Schema({
     collegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
     viewedAt: { type: Date, default: Date.now }
   }],
+  savedJobs: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Job'
+  }],
   created_at: {
     type: Date,
     default: Date.now
@@ -100,6 +120,29 @@ const UserSchema = new mongoose.Schema({
   deletedAt: {
     type: Date,
     default: null
+  },
+  careerVisibility: {
+    openToWork: { type: Boolean, default: false },
+    visibleToRecruiters: { type: Boolean, default: false },
+    visiblePreferredRoles: [{ type: String }],
+    visiblePreferredLocations: [{ type: String }],
+    expectedCTC: {
+      min: { type: Number },
+      max: { type: Number },
+      currency: { type: String, default: 'INR' }
+    },
+    noticePeriod: { type: String },
+    profileLastUpdatedForVisibility: { type: Date },
+    profileViewCount: { type: Number, default: 0 },
+    profileViewers: [{
+      recruiter: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      viewedAt: { type: Date, default: Date.now }
+    }],
+    searchKeywords: [{ type: String }]
+  },
+  defaultApplicationProfile: {
+    resumeUrl: { type: String },
+    defaultCoverLetter: { type: String }
   },
   notificationPreferences: {
     question_answered: { type: Boolean, default: true },
@@ -111,8 +154,41 @@ const UserSchema = new mongoose.Schema({
     event_cancelled_or_changed: { type: Boolean, default: true },
     waitlist_promoted: { type: Boolean, default: true },
     course_reminder: { type: Boolean, default: true },
-    course_streak_milestone: { type: Boolean, default: true }
+    course_streak_milestone: { type: Boolean, default: true },
+    applicationUpdates: { 
+      inApp: { type: Boolean, default: true }, 
+      email: { type: Boolean, default: true } 
+    },
+    newApplicants: { 
+      inApp: { type: Boolean, default: true }, 
+      email: { type: Boolean, default: true } 
+    },
+    accountVerification: { 
+      inApp: { type: Boolean, default: true }, 
+      email: { type: Boolean, default: true } 
+    },
+    deadlines: { 
+      inApp: { type: Boolean, default: true }, 
+      email: { type: Boolean, default: true } 
+    },
+    profileViews: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true }
+    },
+    companyUpdates: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true }
+    },
+    jobAlerts: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true }
+    }
   }
 });
+
+// Query helper for privacy
+UserSchema.query.visibleCandidates = function() {
+  return this.where({ 'careerVisibility.visibleToRecruiters': true });
+};
 
 module.exports = mongoose.model('User', UserSchema);

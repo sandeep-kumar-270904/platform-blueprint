@@ -12,6 +12,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import io from 'socket.io-client';
 
 interface Notification {
   id: string;
@@ -52,32 +53,51 @@ export const NotificationCenter = () => {
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
         const token = localStorage.getItem('token');
-        const res = await fetch(`${API_URL}/api/dashboard/notifications`, {
+        const res = await fetch(`${API_URL}/api/notifications`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
           const data = await res.json();
-          setNotifications(data);
+          // API returns { notifications: [...] }
+          setNotifications(data.notifications || []);
         }
       } catch {}
     };
 
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 15000);
-    return () => clearInterval(interval);
+
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const socket = io(API_URL);
+    socket.emit('join_user_room', user.id);
+    socket.on('notification:new', (newNotification: any) => {
+      setNotifications(prev => [newNotification, ...prev]);
+    });
+
+    return () => {
+      clearInterval(interval);
+      socket.disconnect();
+    };
   }, [user]);
 
-  const markAsRead = async (id: string) => {
+  const markAsRead = async (notification: Notification) => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/api/dashboard/notifications/${id}/read`, {
-        method: 'POST',
+      await fetch(`${API_URL}/api/notifications/${notification.id || (notification as any)._id}/read`, {
+        method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+        prev.map((n) => ((n.id || (n as any)._id) === (notification.id || (notification as any)._id) ? { ...n, isRead: true } : n))
       );
+      
+      // Navigate to actionUrl if present
+      const actionUrl = (notification as any).actionUrl;
+      if (actionUrl) {
+        setIsOpen(false);
+        window.location.href = actionUrl; // or use navigate from react-router-dom if we add the hook
+      }
     } catch {}
   };
 
@@ -86,15 +106,15 @@ export const NotificationCenter = () => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('token');
-      await fetch(`${API_URL}/api/dashboard/notifications/read-all`, {
-        method: 'POST',
+      await fetch(`${API_URL}/api/notifications/read-all`, {
+        method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch {}
   };
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const unreadCount = notifications.filter((n) => !n.is_read && !(n as any).isRead).length;
 
   if (!user) return null;
 
@@ -123,7 +143,12 @@ export const NotificationCenter = () => {
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between p-4 border-b">
-          <h4 className="font-semibold">Notifications</h4>
+          <div className="flex items-center gap-2">
+            <h4 className="font-semibold">Notifications</h4>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setIsOpen(false); window.location.href = '/settings/notifications'; }}>
+              <Bell className="h-3 w-3" />
+            </Button>
+          </div>
           {unreadCount > 0 && (
             <Button
               variant="ghost"
@@ -146,19 +171,19 @@ export const NotificationCenter = () => {
               {notifications.map((notification) => {
                 const Icon = getNotificationIcon(notification.type);
                 return (
-                  <motion.div
-                    key={notification.id}
+                    <motion.div
+                    key={notification.id || (notification as any)._id}
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={`p-4 hover:bg-muted/50 cursor-pointer transition-colors ${
-                      !notification.is_read ? "bg-primary/5" : ""
+                      !notification.is_read && !(notification as any).isRead ? "bg-primary/5" : ""
                     }`}
-                    onClick={() => markAsRead(notification.id)}
+                    onClick={() => markAsRead(notification)}
                   >
                     <div className="flex gap-3">
                       <div
                         className={`p-2 rounded-full ${
-                          !notification.is_read
+                          !notification.is_read && !(notification as any).isRead
                             ? "bg-primary/10 text-primary"
                             : "bg-muted text-muted-foreground"
                         }`}
@@ -168,21 +193,21 @@ export const NotificationCenter = () => {
                       <div className="flex-1 min-w-0">
                         <p
                           className={`text-sm font-medium ${
-                            !notification.is_read ? "" : "text-muted-foreground"
+                            !notification.is_read && !(notification as any).isRead ? "" : "text-muted-foreground"
                           }`}
                         >
-                          {notification.title}
+                          {notification.title || (notification as any).type.replace(/_/g, ' ')}
                         </p>
                         <p className="text-xs text-muted-foreground line-clamp-2">
                           {notification.message}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {formatDistanceToNow(new Date(notification.created_at), {
+                          {formatDistanceToNow(new Date(notification.created_at || (notification as any).createdAt), {
                             addSuffix: true,
                           })}
                         </p>
                       </div>
-                      {!notification.is_read && (
+                      {(!notification.is_read && !(notification as any).isRead) && (
                         <div className="w-2 h-2 rounded-full bg-primary" />
                       )}
                     </div>
