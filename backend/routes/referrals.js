@@ -4,7 +4,7 @@ const Referral = require('../models/Referral');
 const Job = require('../models/Job');
 const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
-const { getIO } = require('../socket');
+
 
 // GET /api/referrals/me - Get referrals made by me or to me
 router.get('/me', authMiddleware, async (req, res) => {

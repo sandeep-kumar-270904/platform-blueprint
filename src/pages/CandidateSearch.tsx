@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -370,7 +369,7 @@ const CandidateSearch = () => {
         </div>
       </main>
 
-      <Footer />
+
 
       <Dialog open={!!selectedCandidate} onOpenChange={(open) => !open && setSelectedCandidate(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
