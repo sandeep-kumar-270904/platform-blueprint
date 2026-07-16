@@ -403,7 +403,6 @@ const JobDetail: React.FC = () => {
                       </Button>
                     </form>
                   </DialogContent>
-                  </DialogContent>
                 </Dialog>
               )}
               

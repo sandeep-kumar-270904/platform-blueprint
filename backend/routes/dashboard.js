@@ -129,4 +129,46 @@ router.post('/join-requests/:id/reject', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/dashboard/my-ideas
+router.get('/my-ideas', authMiddleware, async (req, res) => {
+  try {
+    const ideas = await Idea.find({ user_id: req.user.id }).sort({ created_at: -1 });
+    res.json(ideas);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/dashboard/upcoming-sessions
+router.get('/upcoming-sessions', authMiddleware, async (req, res) => {
+  try {
+    const sessions = await VirtualClassroom.find({ 
+      $or: [{ host_id: req.user.id }, { participants: req.user.id }],
+      status: 'scheduled'
+    }).sort({ scheduled_at: 1 }).limit(5);
+    res.json(sessions);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/dashboard/live-activity
+router.get('/live-activity', authMiddleware, async (req, res) => {
+  try {
+    res.json([]);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/dashboard/notifications
+router.get('/notifications', authMiddleware, async (req, res) => {
+  try {
+    const notifications = await Notification.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(10);
+    res.json(notifications);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

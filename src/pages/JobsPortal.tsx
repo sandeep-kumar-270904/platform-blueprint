@@ -363,7 +363,7 @@ const JobsPortal: React.FC = () => {
         </div>
       ) : jobs.length === 0 ? (
         <EmptyState 
-          icon={<Briefcase className="h-12 w-12 text-gray-300" />}
+          icon={Briefcase}
           title="No jobs found"
           description="Try adjusting your filters or be the first to post a new opportunity."
         />
