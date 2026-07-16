@@ -99,7 +99,9 @@ router.get('/recommended', authMiddleware, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'User not found' });
     
     const userSkills = (user.skills || []).map(s => s.skillName);
-    if (userSkills.length === 0) {
+    const verifiedSkills = (user.verifiedSkills || []).map(s => s.skill);
+    
+    if (userSkills.length === 0 && verifiedSkills.length === 0) {
       return res.json([]);
     }
 
@@ -113,14 +115,21 @@ router.get('/recommended', authMiddleware, async (req, res) => {
     const candidateJobs = await Job.find({
       status: 'published',
       _id: { $nin: excludeIds },
-      skills: { $in: userSkills }
+      skills: { $in: [...userSkills, ...verifiedSkills] }
     }).populate('postedBy', 'full_name avatar_url recruiterProfile').lean();
 
     // Score candidates
     candidateJobs.forEach(job => {
       const jobSkills = job.skills || [];
-      const intersection = jobSkills.filter(s => userSkills.includes(s));
-      job.matchScore = intersection.length;
+      let matchScore = 0;
+      jobSkills.forEach(s => {
+        if (verifiedSkills.includes(s)) {
+          matchScore += 2; // 2x weight for verified skills
+        } else if (userSkills.includes(s)) {
+          matchScore += 1;
+        }
+      });
+      job.matchScore = matchScore;
     });
 
     // Sort by matchScore desc, then createdAt desc
@@ -368,6 +377,58 @@ router.post('/:id/easy-apply', authMiddleware, async (req, res) => {
       return res.status(409).json({ message: 'You have already applied to this job' });
     }
     res.status(err.status || 500).json({ message: err.message || 'Server error', error: err.message });
+  }
+});
+
+// POST /api/jobs/:id/refer
+router.post('/:id/refer', authMiddleware, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    const { email, message } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email to refer is required' });
+
+    const Referral = require('../models/Referral');
+    const Notification = require('../models/Notification');
+    
+    // Check if user is registered
+    const referredUser = await User.findOne({ email: email.toLowerCase() });
+    
+    const referral = new Referral({
+      job: job._id,
+      referrer: req.user.id,
+      referredUser: referredUser ? referredUser._id : null,
+      referredEmail: email.toLowerCase(),
+      message
+    });
+    
+    await referral.save();
+    
+    // Notify the user if they exist
+    if (referredUser) {
+      await Notification.create({
+        user: referredUser._id,
+        title: 'You were referred for a job!',
+        message: `Someone referred you for ${job.title} at ${job.company}`,
+        type: 'system',
+        link: `/jobs/${job._id}`
+      });
+      const io = req.app.get('io');
+      if (io) {
+        io.to(referredUser._id.toString()).emit('notification', {
+          title: 'You were referred for a job!',
+          message: `Someone referred you for ${job.title} at ${job.company}`
+        });
+      }
+    }
+
+    res.status(201).json({ message: 'Referral sent successfully', referral });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'This person has already been referred for this job.' });
+    }
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 

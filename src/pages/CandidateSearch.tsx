@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Header } from "@/components/layout/Header";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ interface Candidate {
   university?: string;
   bio?: string;
   skills: { skillName: string }[];
+  verifiedSkills?: { skill: string; score: number }[];
+  institutionVerified?: boolean;
   matchScore: number;
   careerVisibility: {
     noticePeriod?: string;
@@ -87,13 +90,11 @@ const CandidateSearch = () => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/jobs/admin/all`, { // using admin/all just to get all jobs for the user if they are the poster (or we can use another route, but this is fine for recruiter)
+      const res = await fetch(`${API_URL}/api/jobs/admin/all`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        // Just filter jobs posted by me (the backend for admin/all usually returns all if admin, or we should use /api/jobs and filter locally)
-        // Since we are recruiter, let's fetch from /api/jobs and filter locally, or use a specific recruiter jobs endpoint if it exists.
         setJobs(data.jobs || data);
       }
     } catch (error) {}
@@ -169,7 +170,6 @@ const CandidateSearch = () => {
         </ScrollReveal>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Filters Sidebar */}
           <div className="lg:col-span-1 space-y-6">
             <Card>
               <CardContent className="p-6 space-y-6">
@@ -257,7 +257,6 @@ const CandidateSearch = () => {
             </Card>
           </div>
 
-          {/* Results List */}
           <div className="lg:col-span-3 space-y-4">
             <div className="flex justify-between items-center bg-card p-3 rounded-lg border">
               <p className="text-sm text-muted-foreground">
@@ -302,14 +301,17 @@ const CandidateSearch = () => {
                           <div className="flex-1 space-y-2">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h3 className="font-bold text-lg flex items-center gap-2">
-                                  {candidate.full_name || candidate.username}
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-bold text-lg">{candidate.full_name || candidate.username}</h3>
+                                  {candidate.institutionVerified && (
+                                    <Badge className="bg-blue-500 text-white" title="Institution Verified">Verified Student</Badge>
+                                  )}
                                   {isRecentlyActive && (
                                     <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200">
                                       Recently Active
                                     </Badge>
                                   )}
-                                </h3>
+                                </div>
                                 <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                                   <GraduationCap className="h-4 w-4" />
                                   {candidate.degree || "Student"} {candidate.university ? `at ${candidate.university}` : ""}
@@ -336,13 +338,18 @@ const CandidateSearch = () => {
                             )}
 
                             <div className="flex flex-wrap gap-2 pt-2">
-                              {candidate.skills?.slice(0, 5).map(skill => (
+                              {candidate.verifiedSkills?.map(vs => (
+                                <Badge key={`v-${vs.skill}`} className="bg-green-100 text-green-800 border-green-300">
+                                  {vs.skill} ✓
+                                </Badge>
+                              ))}
+                              {candidate.skills?.filter(s => !candidate.verifiedSkills?.some(vs => vs.skill.toLowerCase() === s.skillName.toLowerCase())).slice(0, 5).map(skill => (
                                 <Badge key={skill.skillName} variant="secondary">
                                   {skill.skillName}
                                 </Badge>
                               ))}
-                              {(candidate.skills?.length || 0) > 5 && (
-                                <Badge variant="outline">+{candidate.skills.length - 5} more</Badge>
+                              {((candidate.skills?.length || 0) + (candidate.verifiedSkills?.length || 0)) > 5 && (
+                                <Badge variant="outline">+{((candidate.skills?.length || 0) + (candidate.verifiedSkills?.length || 0)) - 5} more</Badge>
                               )}
                             </div>
                             
@@ -365,7 +372,6 @@ const CandidateSearch = () => {
 
       <Footer />
 
-      {/* Candidate Profile / Invite Dialog */}
       <Dialog open={!!selectedCandidate} onOpenChange={(open) => !open && setSelectedCandidate(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -382,7 +388,12 @@ const CandidateSearch = () => {
                   <AvatarFallback>{candidateProfile.full_name?.[0]}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <h3 className="font-bold text-xl">{candidateProfile.full_name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-lg">{candidateProfile.full_name}</h3>
+                    {candidateProfile.institutionVerified && (
+                      <Badge className="bg-blue-500 text-white" title="Institution Verified">Verified Student</Badge>
+                    )}
+                  </div>
                   <p className="text-muted-foreground">{candidateProfile.degree} {candidateProfile.university ? `@ ${candidateProfile.university}` : ""}</p>
                 </div>
               </div>
@@ -418,11 +429,25 @@ const CandidateSearch = () => {
               <div>
                 <h4 className="font-semibold mb-2">Skills</h4>
                 <div className="flex flex-wrap gap-2">
-                  {candidateProfile.skills?.map((s: any) => (
+                  {candidateProfile.verifiedSkills?.map((vs: any) => (
+                    <Badge key={`v-${vs.skill}`} className="bg-green-100 text-green-800 border-green-300">{vs.skill} ✓</Badge>
+                  ))}
+                  {candidateProfile.skills?.filter((s: any) => !candidateProfile.verifiedSkills?.some((vs: any) => vs.skill.toLowerCase() === s.skillName.toLowerCase())).map((s: any) => (
                     <Badge key={s.skillName}>{s.skillName}</Badge>
                   ))}
                 </div>
               </div>
+              
+              {candidateProfile.videoIntroUrl && (
+                <div>
+                  <h4 className="font-semibold mb-2">Video Pitch</h4>
+                  <video 
+                    controls 
+                    className="w-full rounded-lg border bg-black/5 max-h-64"
+                    src={candidateProfile.videoIntroUrl.startsWith('http') ? candidateProfile.videoIntroUrl : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${candidateProfile.videoIntroUrl}`}
+                  />
+                </div>
+              )}
               
               <div className="border-t pt-4 space-y-4">
                 <h4 className="font-semibold text-lg flex items-center gap-2">

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Building2, MapPin, Briefcase, ExternalLink, DollarSign, Clock, Users, ChevronLeft, CheckCircle2, Flag, Bookmark } from 'lucide-react';
+import { Building2, MapPin, Briefcase, ExternalLink, DollarSign, Clock, Users, ChevronLeft, CheckCircle2, Flag, Bookmark, Share2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,6 +23,10 @@ const JobDetail: React.FC = () => {
   const [resumeUrl, setResumeUrl] = useState('');
   const [coverLetter, setCoverLetter] = useState('');
   const [applying, setApplying] = useState(false);
+  const [isReferModalOpen, setIsReferModalOpen] = useState(false);
+  const [referring, setReferring] = useState(false);
+  const [referEmail, setReferEmail] = useState("");
+  const [referMessage, setReferMessage] = useState("");
   const [hasApplied, setHasApplied] = useState(false); // local state for immediate feedback
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reportReason, setReportReason] = useState('');
@@ -157,6 +161,42 @@ const JobDetail: React.FC = () => {
       }
     } finally {
       setApplying(false);
+    }
+  };
+
+  const handleRefer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      toast.error("You must be logged in to refer someone");
+      return;
+    }
+    
+    setReferring(true);
+    try {
+      const token = localStorage.getItem('token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${API_URL}/api/jobs/${id}/refer`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: referEmail, message: referMessage })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to refer');
+      }
+      
+      toast.success('Referral sent successfully!');
+      setIsReferModalOpen(false);
+      setReferEmail("");
+      setReferMessage("");
+    } catch (err: any) {
+      toast.error(err.message || 'Error sending referral');
+    } finally {
+      setReferring(false);
     }
   };
 
@@ -363,8 +403,38 @@ const JobDetail: React.FC = () => {
                       </Button>
                     </form>
                   </DialogContent>
+                  </DialogContent>
                 </Dialog>
               )}
+              
+              <Dialog open={isReferModalOpen} onOpenChange={setIsReferModalOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-full mt-2 border-primary/20 hover:bg-primary/5 text-primary">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Refer a Friend
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Refer Someone for {job.title}</DialogTitle>
+                    <DialogDescription>Know someone great for this role? Refer them!</DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleRefer} className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Friend's Email *</Label>
+                      <Input type="email" required placeholder="friend@example.com" value={referEmail} onChange={e => setReferEmail(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Why are they a good fit? (Optional)</Label>
+                      <Textarea rows={3} placeholder="They have 5 years of experience in..." value={referMessage} onChange={e => setReferMessage(e.target.value)} />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={referring}>
+                      {referring ? 'Sending...' : 'Send Referral'}
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
             </CardContent>
           </Card>
 
