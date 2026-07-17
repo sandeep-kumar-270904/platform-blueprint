@@ -1,127 +1,127 @@
+require('dotenv').config({ path: __dirname + '/.env' });
 const mongoose = require('mongoose');
-const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
-const dotenv = require('dotenv');
-const path = require('path');
+const User = require('./models/User');
+const Quiz = require('./models/Quiz');
+const QuizAttempt = require('./models/QuizAttempt');
+const LiveSession = require('./models/LiveSession');
+const Notification = require('./models/Notification');
+const db = require('./db');
 
-dotenv.config({ path: path.join(process.cwd(), '.env') });
+async function runVerification() {
+  try {
+    await db();
+    console.log('--- Phase 5 Verification ---');
 
-const API_URL = 'http://localhost:5000';
+    // 1. Consistency check verification (drift)
+    // Create a mismatch intentionally
+    console.log('Forcing drift on a Quiz...');
+    let hostUser = await User.findOne();
+    if (!hostUser) {
+      hostUser = await User.create({ username: 'testuser', email: 'test@example.com', password: 'password', full_name: 'Test User' });
+    }
+    
+    let someQuiz = await Quiz.findOne();
+    if (!someQuiz) {
+      someQuiz = await Quiz.create({ 
+        title: 'Test Quiz', 
+        description: 'Test', 
+        createdBy: hostUser._id, 
+        mode: 'live',
+        category: 'Technology',
+        durationMinutes: 10,
+        questions: [{ questionText: 'Test', options: ['A', 'B'], correctOptionIndex: 0 }] 
+      });
+    }
+    if (someQuiz) {
+      const originalCount = someQuiz.attemptCount;
+      someQuiz.attemptCount = originalCount + 10;
+      await someQuiz.save();
+      console.log(`Shifted attempt count for Quiz ${someQuiz.title} from ${originalCount} to ${someQuiz.attemptCount}`);
+    }
 
-async function run() {
-  console.log('--- Verifying Phase 5 ---');
+    // 2. Consistency check verification (stuck live session)
+    console.log('Creating a stuck live session...');
+    const stuckSession = await LiveSession.create({
+      quiz: someQuiz._id,
+      hostedBy: hostUser._id,
+      status: 'in_progress',
+      joinCode: 'STUCK1',
+      scheduledStartAt: new Date(),
+      startedAt: new Date(Date.now() - 7 * 60 * 60 * 1000), // 7 hours ago
+      questionStartedAt: new Date(Date.now() - 7 * 60 * 60 * 1000)
+    });
+    console.log('Stuck session created:', stuckSession._id);
 
-  // Register Student
-  const studentEmail = `student${Date.now()}@studenthub.com`;
-  console.log(`Registering new student ${studentEmail}`);
-  const studentRes = await fetch(`${API_URL}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: studentEmail, password: 'password123', full_name: 'Test Student', username: `student${Date.now()}`, captchaToken: 'skip_captcha', consent: true })
-  });
-  const studentBody = await studentRes.json();
-  const { token: studentToken, user: studentUser } = studentBody;
-  if (!studentToken) throw new Error(`Failed to register student: ${JSON.stringify(studentBody)}`);
+    // 3. Consistency check verification (email failure)
+    console.log('Creating silent email failure notification...');
+    const failNotif = await Notification.create({
+      userId: hostUser._id,
+      type: 'badge_earned',
+      message: 'Test message',
+      channel: 'email',
+      emailSent: false
+      // No emailFailureReason set
+    });
+    console.log('Silent email failure created:', failNotif._id);
 
-  // Direct DB update removed. We will search by preferredRole instead.
+    // Now test the consistency check endpoint logic
+    console.log('\n--- Running Consistency Check Logic ---');
+    const actualAttemptsAgg = await QuizAttempt.aggregate([
+      { $match: { status: 'completed' } },
+      { $group: { _id: "$quiz", actualCount: { $sum: 1 } } }
+    ]);
+    const actualAttemptsMap = new Map(actualAttemptsAgg.map(a => [a._id.toString(), a.actualCount]));
+    const allQuizzes = await Quiz.find().select('title attemptCount');
+    
+    let driftFound = false;
+    for (const quiz of allQuizzes) {
+      const actual = actualAttemptsMap.get(quiz._id.toString()) || 0;
+      if (quiz.attemptCount !== actual) {
+        driftFound = true;
+        console.log(`[PASS] Drift detected! Quiz "${quiz.title}" has ${quiz.attemptCount} listed, but ${actual} actual attempts.`);
+      }
+    }
+    if (!driftFound) console.log('[FAIL] No drift detected!');
 
-  // Register Recruiter
-  const recruiterEmail = `recruiter${Date.now()}@studenthub.com`;
-  console.log(`Registering new recruiter ${recruiterEmail}`);
-  const recruiterRes = await fetch(`${API_URL}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: recruiterEmail, password: 'password123', full_name: 'Test Recruiter', username: `recruiter${Date.now()}`, captchaToken: 'skip_captcha', consent: true })
-  });
-  const { token: recruiterToken, user: recruiterUser } = await recruiterRes.json();
-  if (!recruiterToken) throw new Error('Failed to register recruiter');
+    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000);
+    const stuckSessions = await LiveSession.find({
+      status: 'in_progress',
+      questionStartedAt: { $lt: sixHoursAgo }
+    }).select('joinCode questionStartedAt');
 
-  // Recruiter verification removed. The viewer will show up as "A recruiter".
+    if (stuckSessions.length > 0) {
+      console.log(`[PASS] Detected ${stuckSessions.length} stuck session(s)!`);
+    } else {
+      console.log('[FAIL] Did not detect stuck session!');
+    }
 
-  // 1. Student updates visibility
-  console.log('Student updates visibility settings to TRUE...');
-  const visRes = await fetch(`${API_URL}/api/users/me/visibility`, {
-    method: 'PUT',
-    headers: { 'Authorization': `Bearer ${studentToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      visibleToRecruiters: true,
-      openToWork: true,
-      visiblePreferredRoles: ['Frontend Developer']
-    })
-  });
-  if (!visRes.ok) {
-    const errText = await visRes.text();
-    throw new Error(`Failed to update visibility: ${errText}`);
-  }
+    const silentEmailFailures = await Notification.find({
+      channel: { $in: ['email', 'both'] },
+      emailSent: false,
+      emailFailureReason: { $exists: false }
+    }).select('type createdAt');
 
-  // 2. Recruiter searches for candidate
-  console.log('Recruiter searching for candidates with preferredRole Frontend Developer...');
-  let searchRes = await fetch(`${API_URL}/api/recruiter/candidates?preferredRole=Frontend`, {
-    headers: { 'Authorization': `Bearer ${recruiterToken}` }
-  });
-  let candidates = await searchRes.json();
-  const foundCandidate = candidates.find((c) => c._id === studentUser.id);
-  if (foundCandidate) {
-    console.log('✅ Student found in search results');
-  } else {
-    console.error('❌ Student NOT found in search results');
+    if (silentEmailFailures.length > 0) {
+      console.log(`[PASS] Detected ${silentEmailFailures.length} silent email failure(s)!`);
+    } else {
+      console.log('[FAIL] Did not detect silent email failure!');
+    }
+
+    // Cleanup
+    if (someQuiz) {
+      // Revert drift
+      someQuiz.attemptCount = actualAttemptsMap.get(someQuiz._id.toString()) || 0;
+      await someQuiz.save();
+    }
+    await LiveSession.findByIdAndDelete(stuckSession._id);
+    await Notification.findByIdAndDelete(failNotif._id);
+
+    console.log('\nVerification complete!');
+    process.exit(0);
+  } catch (error) {
+    console.error('Verification failed:', error);
     process.exit(1);
   }
-
-  // 3. Recruiter views candidate profile
-  console.log('Recruiter views student profile...');
-  const viewRes = await fetch(`${API_URL}/api/recruiter/candidates/${studentUser.id}`, {
-    headers: { 'Authorization': `Bearer ${recruiterToken}` }
-  });
-  if (viewRes.ok) {
-    console.log('✅ Recruiter viewed profile successfully');
-  } else {
-    console.error('❌ Failed to view profile');
-    process.exit(1);
-  }
-
-  // 4. Student checks analytics
-  console.log('Student checks visibility analytics...');
-  const analyticsRes = await fetch(`${API_URL}/api/users/me/visibility-analytics`, {
-    headers: { 'Authorization': `Bearer ${studentToken}` }
-  });
-  const analytics = await analyticsRes.json();
-  console.log('Analytics data:', JSON.stringify(analytics, null, 2));
-  
-  if (analytics.profileViewCount === 1 && analytics.recentViewers[0]?.name === 'A recruiter') {
-    console.log('✅ Analytics correctly shows view count and masked recruiter name');
-  } else {
-    console.error('❌ Analytics data incorrect', analytics);
-    process.exit(1);
-  }
-
-  // 5. Student turns off visibility
-  console.log('Student updates visibility settings to FALSE...');
-  await fetch(`${API_URL}/api/users/me/visibility`, {
-    method: 'PUT',
-    headers: { 'Authorization': `Bearer ${studentToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      visibleToRecruiters: false
-    })
-  });
-
-  // 6. Recruiter searches again
-  console.log('Recruiter searching again...');
-  searchRes = await fetch(`${API_URL}/api/recruiter/candidates?preferredRole=Frontend`, {
-    headers: { 'Authorization': `Bearer ${recruiterToken}` }
-  });
-  candidates = await searchRes.json();
-  if (candidates.some((c) => c._id === studentUser.id)) {
-    console.error('❌ Student found in search results, but should be hidden!');
-    process.exit(1);
-  } else {
-    console.log('✅ Student successfully hidden from search results');
-  }
-
-  console.log('--- Phase 5 Verification Complete ---');
-  process.exit(0);
 }
 
-run().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+runVerification();

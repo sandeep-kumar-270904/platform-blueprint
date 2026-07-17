@@ -46,6 +46,11 @@ import RecruiterDashboard from "./pages/RecruiterDashboard";
 import JobAnalytics from "./pages/JobAnalytics";
 import CandidateSearch from "./pages/CandidateSearch";
 import QuizHub from "./pages/QuizHub";
+import QuizCreate from "./pages/QuizCreate";
+import QuizDetail from "./pages/QuizDetail";
+import QuizTake from "./pages/QuizTake";
+import QuizResults from "./pages/QuizResults";
+import MyQuizzes from "./pages/MyQuizzes";
 import SkillZone from "./pages/SkillZone";
 import TechNews from "./pages/TechNews";
 import PlacementCell from "./pages/PlacementCell";
@@ -86,7 +91,17 @@ import MentorProfilePage from "./pages/MentorProfilePage";
 import AMASessionsPage from "./pages/AMASessionsPage";
 import AMADetailPage from "./pages/AMADetailPage";
 import NotificationSettings from "./pages/NotificationSettings";
+import LiveQuizHost from "./pages/LiveQuizHost";
+import LiveQuizJoin from "./pages/LiveQuizJoin";
+import LiveQuizPlay from "./pages/LiveQuizPlay";
+import AdminQuizReports from "./pages/admin/AdminQuizReports";
+import AdminNewsModeration from "./pages/admin/AdminNewsModeration";
 import { AuthProvider } from "./hooks/useAuth";
+import { GlobalSocketListener } from "./components/GlobalSocketListener";
+import CreatorDashboard from "./pages/CreatorDashboard";
+import CreatorAnalytics from "./pages/CreatorAnalytics";
+import Leaderboard from "./pages/Leaderboard";
+import QuestionBank from "./pages/QuestionBank";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +111,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <GlobalSocketListener />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
           {/* Public Routes */}
@@ -113,7 +129,6 @@ const App = () => (
           <Route path="/invite/:token" element={<InviteAccept />} />
           <Route path="/search" element={<Search />} />
           <Route path="/profile/:userId/skills" element={<PublicSkillsProfile />} />
-          
           {/* Protected Routes */}
           <Route path="/notes" element={<ProtectedRoute><NotesHub /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
@@ -145,7 +160,19 @@ const App = () => (
           <Route path="/recruiter/dashboard" element={<ProtectedRoute><RecruiterDashboard /></ProtectedRoute>} />
           <Route path="/recruiter/jobs/:id/applicants" element={<ProtectedRoute><ATSDashboard /></ProtectedRoute>} />
           <Route path="/recruiter/jobs/:id/analytics" element={<ProtectedRoute><JobAnalytics /></ProtectedRoute>} />
-          <Route path="/quiz" element={<ProtectedRoute><QuizHub /></ProtectedRoute>} />
+          <Route path="/quizzes" element={<ProtectedRoute><QuizHub /></ProtectedRoute>} />
+          <Route path="/quizzes/new" element={<ProtectedRoute><QuizCreate /></ProtectedRoute>} />
+          <Route path="/quizzes/:id" element={<ProtectedRoute><QuizDetail /></ProtectedRoute>} />
+          <Route path="/quizzes/:id/take" element={<ProtectedRoute><QuizTake /></ProtectedRoute>} />
+          <Route path="/question-bank" element={<ProtectedRoute><QuestionBank /></ProtectedRoute>} />
+          <Route path="/quizzes/:id/host" element={<ProtectedRoute><LiveQuizHost /></ProtectedRoute>} />
+          <Route path="/live/join" element={<ProtectedRoute><LiveQuizJoin /></ProtectedRoute>} />
+          <Route path="/live/:sessionId/play" element={<ProtectedRoute><LiveQuizPlay /></ProtectedRoute>} />
+          <Route path="/attempts/:attemptId/results" element={<ProtectedRoute><QuizResults /></ProtectedRoute>} />
+          <Route path="/my-quizzes" element={<ProtectedRoute><MyQuizzes /></ProtectedRoute>} />
+          <Route path="/creator-dashboard" element={<ProtectedRoute><CreatorDashboard /></ProtectedRoute>} />
+          <Route path="/analytics/:id" element={<ProtectedRoute><CreatorAnalytics /></ProtectedRoute>} />
+          <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
           <Route path="/skills" element={<ProtectedRoute><SkillZone /></ProtectedRoute>} />
           <Route path="/news" element={<ProtectedRoute><TechNews /></ProtectedRoute>} />
           <Route path="/placement" element={<ProtectedRoute><PlacementCell /></ProtectedRoute>} />
@@ -174,6 +201,8 @@ const App = () => (
           <Route path="/admin/colleges" element={<ProtectedRoute><AdminCollegePanel /></ProtectedRoute>} />
           <Route path="/admin/mentors" element={<ProtectedRoute><MentorsAdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/career-opportunities" element={<ProtectedRoute><AdminCareerOpportunities /></ProtectedRoute>} />
+          <Route path="/admin/quiz-reports" element={<ProtectedRoute><AdminQuizReports /></ProtectedRoute>} />
+          <Route path="/admin/news-moderation" element={<ProtectedRoute><AdminNewsModeration /></ProtectedRoute>} />
           <Route path="/recruiter/verify" element={<ProtectedRoute><RecruiterVerify /></ProtectedRoute>} />
           <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
           <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />

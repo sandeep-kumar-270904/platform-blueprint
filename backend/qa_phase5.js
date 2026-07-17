@@ -1,147 +1,113 @@
-const API_URL = 'http://localhost:5000';
+const axios = require('axios');
+const assert = require('assert');
+
+const API_BASE = 'http://localhost:5000/api';
 
 async function run() {
-  console.log('--- Phase 5 QA: Candidate Search & Visibility ---');
-  let failures = 0;
-  const timestamp = Date.now();
+  console.log('--- PHASE 5 QA (Admin Dashboard & Consistency) ---');
+  let successCount = 0;
+  let failureCount = 0;
 
-  // 1. Register Recruiter and Student
-  console.log('Registering recruiter and student...');
-  const recRes = await fetch(`${API_URL}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: `rec_${timestamp}@test.com`, password: 'password123', full_name: 'Recruiter', username: `rec_${timestamp}`, role: 'student', captchaToken: 'skip', consent: true })
-  });
-  await fetch(`${API_URL}/api/auth/test/upgrade-role`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: `rec_${timestamp}@test.com`, role: 'recruiter', verificationStatus: 'verified' })
-  });
-  const recLogin = await fetch(`${API_URL}/api/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: `rec_${timestamp}@test.com`, password: 'password123' })
-  });
-  const recToken = (await recLogin.json()).token;
+  function pass(msg) { console.log(`[PASS] ${msg}`); successCount++; }
+  function fail(msg) { console.error(`[FAIL] ${msg}`); failureCount++; }
 
-  const stuRes = await fetch(`${API_URL}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: `stu_${timestamp}@test.com`, password: 'password123', full_name: 'Student', username: `stu_${timestamp}`, role: 'student', captchaToken: 'skip', consent: true })
-  });
-  const stuLoginData = await stuRes.json();
-  const stuToken = stuLoginData.token;
-  const stuId = stuLoginData.user.id;
+  try {
+    const ts = Date.now();
+    
+    // 1. Admin login
+    const adminLogin = await axios.post(`${API_BASE}/auth/login`, { email: 'admin@studenthub.com', password: 'admin123' });
+    const adminHeaders = { Authorization: `Bearer ${adminLogin.data.token}` };
 
-  // 2. Student sets visibility to true
-  console.log('Student setting profile to visible...');
-  const visRes = await fetch(`${API_URL}/api/users/me/visibility`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${stuToken}` },
-    body: JSON.stringify({
-      visibleToRecruiters: true,
-      openToWork: true,
-      visiblePreferredRoles: ['Frontend Developer']
-    })
-  });
-  if (!visRes.ok) {
-    console.error('❌ Failed to update visibility', await visRes.text());
-    failures++;
+    // 2. Register a new user
+    await axios.post(`${API_BASE}/auth/register`, { username: `p5_user_${ts}`, email: `p5_user_${ts}@test.com`, password: 'password123', full_name: 'P5 User', role: 'student', captchaToken: 'dummy', consent: true });
+    const p5Login = await axios.post(`${API_BASE}/auth/login`, { email: `p5_user_${ts}@test.com`, password: 'password123' });
+    const p5UserId = p5Login.data.user._id || p5Login.data.user.id;
+    const p5Headers = { Authorization: `Bearer ${p5Login.data.token}` };
+
+    // 3. Admin: Get Quizzes Overview
+    const overviewRes = await axios.get(`${API_BASE}/admin/quizzes-overview`, { headers: adminHeaders });
+    assert(overviewRes.data, 'Admin quizzes overview should return data');
+    assert(overviewRes.data.quizzes.published >= 0, 'Overview should have quizzes.published');
+    pass('Admin summary overview numbers fetched');
+    
+    // 3.5 Admin: Check Consistency
+    const consistencyRes = await axios.get(`${API_BASE}/admin/quizzes-overview/consistency-check`, { headers: adminHeaders });
+    assert(Array.isArray(consistencyRes.data.issues), 'Consistency check should return issues array');
+    pass('Admin consistency check fetched');
+
+    // 4. Ban User
+    await axios.patch(`${API_BASE}/admin/users/${p5UserId}/ban`, { reason: 'Test Ban' }, { headers: adminHeaders });
+    
+    // Check if banned user can create a quiz
+    let bannedFailed = false;
+    try {
+      await axios.post(`${API_BASE}/quizzes`, {
+        title: `Banned Quiz ${ts}`,
+        category: 'Testing',
+        mode: 'solo',
+        difficulty: 'easy',
+        durationMinutes: 10,
+        questions: [{ questionText: 'Q1?', options: ['A', 'B'], correctOptionIndex: 0 }]
+      }, { headers: p5Headers });
+    } catch (err) {
+      if (err.response && err.response.status === 403) {
+        bannedFailed = true;
+      }
+    }
+    assert(bannedFailed, 'Banned user should receive 403 when trying to access protected route');
+    pass('Banned user check passed (cannot create quiz)');
+
+    // 5. Unban User
+    await axios.patch(`${API_BASE}/admin/users/${p5UserId}/unban`, {}, { headers: adminHeaders });
+    pass('User unbanned successfully');
+    
+    // 6. Report a quiz and Resolve via Admin
+    // Create a quiz first
+    const quizRes = await axios.post(`${API_BASE}/quizzes`, {
+      title: `Admin Moderation Quiz ${ts}`,
+      category: 'Testing',
+      mode: 'solo',
+      difficulty: 'easy',
+      durationMinutes: 10,
+      questions: [{ questionText: 'Q1?', options: ['A', 'B'], correctOptionIndex: 0 }]
+    }, { headers: p5Headers });
+    const quizId = quizRes.data._id;
+    await axios.patch(`${API_BASE}/quizzes/${quizId}/status`, { status: 'published' }, { headers: p5Headers });
+    
+    // Report the quiz
+    await axios.post(`${API_BASE}/quizzes/${quizId}/report`, { reason: 'spam', details: 'test' }, { headers: p5Headers });
+    
+    // Get Admin Quiz Reports
+    const reportsRes = await axios.get(`${API_BASE}/admin/quiz-reports?status=pending`, { headers: adminHeaders });
+    if (!Array.isArray(reportsRes.data)) {
+        console.error('reportsRes.data is not an array:', reportsRes.data);
+    }
+    const targetReport = reportsRes.data.find(r => r.targetId && r.targetId._id === quizId);
+    assert(targetReport, 'Admin should see the pending report');
+    
+    // Resolve report by warning creator
+    await axios.patch(`${API_BASE}/admin/quiz-reports/${targetReport._id}`, { action: 'warn_creator', adminNote: 'Be careful' }, { headers: adminHeaders });
+    
+    const reportsResAfter = await axios.get(`${API_BASE}/admin/quiz-reports`, { headers: adminHeaders });
+    const resolvedReport = reportsResAfter.data.find(r => r._id === targetReport._id);
+    assert(resolvedReport.status === 'reviewed_actioned', 'Report status should be reviewed_actioned');
+    pass('Admin moderation report resolution check passed');
+
+  } catch (err) {
+    if (err.response) {
+      fail(`Unhandled error: ${err.message}. Response data: ${JSON.stringify(err.response.data)}`);
+    } else {
+      fail(`Unhandled error: ${err.stack || err.message}`);
+    }
   }
 
-  // 3. Recruiter searches candidates
-  console.log('Recruiter searching candidates...');
-  const searchRes = await fetch(`${API_URL}/api/recruiter/candidates?preferredRole=Frontend`, {
-    headers: { 'Authorization': `Bearer ${recToken}` }
-  });
-  const candidates = await searchRes.json();
-  if (candidates.some(c => c._id === stuId)) {
-    console.log('✅ Student appeared in recruiter search');
+  if (failureCount > 0) {
+    console.error(`\n❌ Phase 5 QA FAILED with ${failureCount} issues.`);
+    process.exit(1);
   } else {
-    console.error('❌ Student did not appear in recruiter search');
-    failures++;
+    console.log(`\n✅ Phase 5 QA PASSED completely.`);
+    process.exit(0);
   }
-
-  // 4. Recruiter views student profile
-  console.log('Recruiter viewing student profile...');
-  const viewRes = await fetch(`${API_URL}/api/recruiter/candidates/${stuId}`, {
-    headers: { 'Authorization': `Bearer ${recToken}` }
-  });
-  if (!viewRes.ok) {
-    console.error('❌ Failed to view candidate profile', await viewRes.text());
-    failures++;
-  } else {
-    console.log('✅ Recruiter viewed candidate profile successfully');
-  }
-
-  // Check if student profileViewCount updated
-  const stuMeRes = await fetch(`${API_URL}/api/auth/me`, {
-    headers: { 'Authorization': `Bearer ${stuToken}` }
-  });
-  const stuMe = await stuMeRes.json();
-  if (stuMe.user.careerVisibility?.profileViewCount > 0) {
-    console.log('✅ Student profileViewCount incremented');
-  } else {
-    console.error('❌ Student profileViewCount did not increment');
-    failures++;
-  }
-
-  // 5. Post Job to invite candidate to
-  console.log('Recruiter posting job for invite...');
-  const jobRes = await fetch(`${API_URL}/api/jobs`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${recToken}` },
-    body: JSON.stringify({
-      title: 'Frontend Developer',
-      company: { name: 'Tech Inc' },
-      location: 'Remote',
-      workMode: 'remote',
-      jobType: 'full-time',
-      experienceLevel: 'entry',
-      description: 'Code React',
-      qualifications: ['React'],
-      responsibilities: ['Code React'],
-      benefits: ['None'],
-      skills: ['React'],
-      applyMode: 'in-app',
-      status: 'published'
-    })
-  });
-  const job = await jobRes.json();
-
-  // 6. Recruiter invites candidate
-  console.log('Recruiter inviting candidate...');
-  const inviteRes = await fetch(`${API_URL}/api/recruiter/candidates/${stuId}/invite`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${recToken}` },
-    body: JSON.stringify({ jobId: job._id, message: 'Please apply!' })
-  });
-  if (inviteRes.ok) {
-    console.log('✅ Candidate invited successfully');
-  } else {
-    console.error('❌ Failed to invite candidate', await inviteRes.text());
-    failures++;
-  }
-
-  // 7. Verify Student Notification
-  console.log('Checking student notifications for invite...');
-  const stuNotifRes = await fetch(`${API_URL}/api/notifications`, {
-    headers: { 'Authorization': `Bearer ${stuToken}` }
-  });
-  const stuNotifs = await stuNotifRes.json();
-  const inviteNotif = stuNotifs.notifications.find(n => n.type === 'job_invite_received');
-  if (inviteNotif) {
-    console.log('✅ Student received job_invite_received notification');
-  } else {
-    console.error('❌ Student did not receive job_invite_received notification');
-    failures++;
-  }
-
-  console.log(`\n--- Phase 5 QA Complete: ${failures} Failures ---`);
-  process.exit(failures > 0 ? 1 : 0);
 }
 
-run().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+run();

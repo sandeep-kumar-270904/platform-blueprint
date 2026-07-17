@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Award, Lock, Flame, ShieldCheck } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
-import Header from "@/components/layout/Header";
+import { Header } from "@/components/layout/Header";
 
 export default function PublicSkillsProfile() {
   const { userId } = useParams();

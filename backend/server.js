@@ -8,11 +8,23 @@ const rateLimit = require('express-rate-limit');
 
 dotenv.config();
 
+const http = require('http');
+const { Server } = require('socket.io');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*", // allow all in dev
+    methods: ["GET", "POST"]
+  }
+});
+
 // Connect to MongoDB
 connectDB().then(async () => {
   try {
     const cronService = require('./services/cronService');
-    cronService.init();
+    cronService.init(io);
     
     const User = require('./models/User');
     const bcrypt = require('bcryptjs');
@@ -106,17 +118,7 @@ connectDB().then(async () => {
   }
 });
 
-const http = require('http');
-const { Server } = require('socket.io');
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*", // allow all in dev
-    methods: ["GET", "POST"]
-  }
-});
 
 // Middleware
 const allowedOrigins = ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:5173'];
@@ -203,6 +205,7 @@ app.use('/api/jobs', require('./routes/jobs'));
 app.use('/api/resumes', require('./routes/resumes'));
 app.use('/api/study-groups', require('./routes/studyGroups'));
 app.use('/api/quizzes', require('./routes/quizzes'));
+app.use('/api/attempts', require('./routes/attempts'));
 app.use('/api/flashcards', require('./routes/flashcards'));
 app.use('/api/roadmaps', require('./routes/roadmaps'));
 app.use('/api/learning-sessions', require('./routes/learningSessions'));
@@ -234,6 +237,14 @@ app.use('/api/companies', require('./routes/companies'));
 app.use('/api/assessments', require('./routes/assessments'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/insights', require('./routes/insights'));
+app.use('/api/live-sessions', require('./routes/liveSessions'));
+app.use('/api/admin/quiz-reports', require('./routes/adminQuizReports'));
+app.use('/api/news', require('./routes/news'));
+app.use('/api/leaderboards', require('./routes/leaderboards'));
+app.use('/api/creators', require('./routes/creators'));
+app.use('/api/admin/quizzes-overview', require('./routes/adminQuizzesOverview'));
+app.use('/api/question-bank', require('./routes/questionBank'));
+app.use('/api/me', require('./routes/me'));
 
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -302,6 +313,9 @@ io.on('connection', (socket) => {
     console.log(`Socket ${socket.id} joined recruiter:${userId}`);
   });
 
+  // Attach Live Session socket handlers
+  require('./sockets/liveSessions')(io, socket);
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
   });
@@ -321,3 +335,4 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+// trigger restart

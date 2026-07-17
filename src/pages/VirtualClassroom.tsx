@@ -129,9 +129,9 @@ const VirtualClassroom = () => {
           <div className="flex items-center gap-3">
             <SyncStatusIndicator status={status} />
             {user && (
-              <Button variant="outline" asChild>
-                <Link to="/host-dashboard">Host Dashboard</Link>
-              </Button>
+              <Link to="/host-dashboard">
+                <Button variant="outline">Host Dashboard</Button>
+              </Link>
             )}
             {user && (
               <Dialog open={open} onOpenChange={setOpen}>
@@ -294,12 +294,12 @@ const VirtualClassroom = () => {
                     {isJoined || c.host_id === user?.id ? (
                       <>
                         {participation?.status !== "waitlisted" && (
-                          <Button variant={live ? "destructive" : "default"} size="sm" className="flex-1" asChild>
-                            <Link to={`/classroom/${c.id}`}>
+                          <Link to={`/classroom/${c.id}`} className="flex-1">
+                            <Button variant={live ? "destructive" : "default"} size="sm" className="w-full">
                               <ExternalLink className="h-4 w-4 mr-1" />
                               {live ? "Enter Classroom" : "Enter Room"}
-                            </Link>
-                          </Button>
+                            </Button>
+                          </Link>
                         )}
                         {participation?.status === "waitlisted" && (
                           <Button variant="secondary" size="sm" className="flex-1" disabled>

@@ -235,3 +235,71 @@ exports.sendDeadlineApproachingEmail = async (email, jobTitle, actionUrl) => {
   );
   await sendEmailBase(email, `Deadline Approaching: ${jobTitle}`, html);
 };
+
+// --- Quiz & Live Session Phase 3 Emails ---
+
+exports.sendLiveSessionReminderEmail = async (email, quizTitle, joinCode, actionUrl) => {
+  const html = getBaseTemplate(
+    'Live Session Starting Soon',
+    `A live session for <strong>${quizTitle}</strong> is starting in about 10 minutes. <br/><br/>Join Code: <strong>${joinCode}</strong>`,
+    'Join Session',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Starting Soon: Live Quiz - ${quizTitle}`, html);
+};
+
+exports.sendLiveSessionInviteEmail = async (email, quizTitle, inviterName, joinCode, actionUrl) => {
+  const html = getBaseTemplate(
+    'You are invited to a Live Quiz',
+    `<strong>${inviterName}</strong> has invited you to join a live session for <strong>${quizTitle}</strong>. <br/><br/>Join Code: <strong>${joinCode}</strong>`,
+    'Join Session',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Invite: Live Quiz - ${quizTitle}`, html);
+};
+
+exports.sendQuizReportedEmail = async (email, quizTitle) => {
+  const html = getBaseTemplate(
+    'Quiz Under Review',
+    `Your quiz <strong>${quizTitle}</strong> has received multiple reports from the community and has been temporarily hidden pending review by an administrator.`,
+    'Go to Dashboard',
+    `${getFrontendUrl()}/my-quizzes`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Notice: Quiz Under Review - ${quizTitle}`, html);
+};
+
+exports.sendQuizDeletedEmail = async (email, quizTitle, adminNote) => {
+  const html = getBaseTemplate(
+    'Quiz Deleted',
+    `Your quiz <strong>${quizTitle}</strong> has been deleted by an administrator. ${adminNote ? `<br/><br/>Reason: ${adminNote}` : ''}`,
+    null,
+    null,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Quiz Deleted - ${quizTitle}`, html);
+};
+
+exports.sendLeaderboardOvertakenEmail = async (email, quizTitle, actionUrl) => {
+  const html = getBaseTemplate(
+    'Leaderboard Update',
+    `Someone just beat your high score on <strong>${quizTitle}</strong>! You've been bumped down the leaderboard.`,
+    'Reclaim your spot',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `You were overtaken on ${quizTitle}!`, html);
+};
+
+exports.sendLiveSessionResultsEmail = async (email, quizTitle, score, actionUrl) => {
+  const html = getBaseTemplate(
+    'Live Quiz Completed',
+    `The live session for <strong>${quizTitle}</strong> has concluded. Your final score was <strong>${score}</strong>.`,
+    'View Full Results',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Results: Live Quiz - ${quizTitle}`, html);
+};

@@ -1,113 +1,105 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const path = require('path');
+dotenv.config({ path: path.join(__dirname, '.env') });
+const connectDB = require('./db');
 
-dotenv.config({ path: path.join(process.cwd(), '.env') });
-
-const API_URL = 'http://localhost:5000';
+const User = require('./models/User');
+const Quiz = require('./models/Quiz');
+const QuizAttempt = require('./models/QuizAttempt');
+const gamificationService = require('./services/gamificationService');
 
 async function run() {
-  console.log('--- Verifying Phase 4 ---');
+  await connectDB();
+  console.log('Connected to DB via db.js');
 
-  const randomEmail = `recruiter${Date.now()}@studenthub.com`;
-  
-  console.log(`Registering new user ${randomEmail}`);
-  const registerRes = await fetch(`${API_URL}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: randomEmail, password: 'password123', full_name: 'Test Recruiter', username: `recruiter${Date.now()}` })
-  });
-  
-  const { token, user } = await registerRes.json();
-  if (!token) {
-    console.error('Failed to register');
-    process.exit(1);
+  // Find or create test users
+  let host = await User.findOne({ email: 'host@example.com' });
+  if (!host) {
+    host = await User.create({ username: 'host', email: 'host@example.com', full_name: 'Host User' });
   }
 
-  // Set role to recruiter
-  await mongoose.connect(process.env.MONGODB_URI);
-  const User = mongoose.model('User', new mongoose.Schema({}, { strict: false }));
-  await User.findByIdAndUpdate(user._id, { $set: { role: 'recruiter' } });
+  let student = await User.findOne({ email: 'student@example.com' });
+  if (!student) {
+    student = await User.create({ username: 'student', email: 'student@example.com', full_name: 'Student User' });
+  }
 
-  console.log('Registered and updated role for', user.email);
+  // Ensure they have basic stats
+  console.log('Student stats:', { streak: student.quizStreak, badges: student.badges, points: student.totalQuizPoints });
 
-  // 1. Post a test job to ensure we have something
-  const jobRes = await fetch(`${API_URL}/api/jobs`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      title: 'Senior SWE - Recommendations',
-      company: { name: 'TechCo', verified: true },
-      location: 'San Francisco, CA',
-      workMode: 'hybrid',
-      jobType: 'full-time',
-      experienceLevel: 'senior',
-      description: 'Test job for phase 4',
-      skills: ['React', 'Node.js', 'MongoDB'],
-      status: 'published'
+  // Create a quiz
+  let quiz = await Quiz.findOne({ title: 'Test Analytics Quiz' });
+  if (!quiz) {
+    quiz = await Quiz.create({
+      creator: host._id,
+      title: 'Test Analytics Quiz',
+      category: 'Programming',
+      difficulty: 'Intermediate',
+      questions: [
+        { questionText: 'What is 1+1?', options: ['1', '2', '3', '4'], correctOptionIndex: 1, type: 'multiple-choice', points: 10 },
+        { questionText: 'Is JS strongly typed?', options: ['Yes', 'No'], correctOptionIndex: 1, type: 'true-false', points: 10 }
+      ]
+    });
+    console.log('Created quiz:', quiz._id);
+  }
+
+  // Process a solo attempt for gamification
+  const attempt = await QuizAttempt.create({
+    quiz: quiz._id,
+    user: student._id,
+    sessionType: 'solo',
+    status: 'completed',
+    score: 20,
+    answers: [
+      { questionId: quiz.questions[0]._id, selectedOptionIndex: 1, isCorrect: true, timeTaken: 5 },
+      { questionId: quiz.questions[1]._id, selectedOptionIndex: 1, isCorrect: true, timeTaken: 5 }
+    ]
+  });
+
+  console.log('Created attempt:', attempt._id);
+
+  // Call gamification service manually
+  const mockIo = {
+    to: (room) => ({
+      emit: (event, data) => console.log(`[Socket emit] to ${room}: ${event}`, data)
     })
-  });
-  const newJob = await jobRes.json();
-  const jobId = newJob._id || newJob.job?._id;
-  console.log(`Created test job ${jobId}`);
+  };
 
-  // 2. Save the job
-  console.log('Testing Save Job...');
-  const saveRes = await fetch(`${API_URL}/api/jobs/${jobId}/save`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  console.log('Save job response:', saveRes.status);
-  
-  // Fetch saved jobs
-  const savedJobsRes = await fetch(`${API_URL}/api/jobs/saved`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  const savedJobs = await savedJobsRes.json();
-  console.log(`Saved jobs count: ${savedJobs.length}`);
-  if (!savedJobs.some(j => j._id === jobId)) {
-    console.error('Job was not successfully saved!');
-  }
+  await gamificationService.processQuizCompletion(student._id.toString(), quiz._id.toString(), 20, mockIo);
 
-  // 3. Unsave the job
-  console.log('Testing Unsave Job...');
-  const unsaveRes = await fetch(`${API_URL}/api/jobs/${jobId}/save`, {
-    method: 'DELETE',
-    headers: { 'Authorization': `Bearer ${token}` }
+  // Fetch updated student
+  const updatedStudent = await User.findById(student._id);
+  console.log('Updated Student stats:', { 
+    streak: updatedStudent.quizStreak, 
+    badges: updatedStudent.badges, 
+    points: updatedStudent.totalQuizPoints 
   });
-  console.log('Unsave job response:', unsaveRes.status);
 
-  // 4. Test Job Recommendations (Skill overlap)
-  console.log('Testing Job Recommendations...');
-  // The user admin@studenthub.com might not have skills set up in their profile.
-  // We'll update the user's skills directly via DB to test recommendations.
-  await User.findByIdAndUpdate(user._id, { $set: { skills: ['React', 'Node.js'] } });
-  console.log('Updated user skills to React and Node.js');
+  // Verify Leaderboard Logic (Aggregation)
+  const leadersAgg = await QuizAttempt.aggregate([
+    { $match: { status: 'completed' } },
+    { $lookup: { from: 'quizzes', localField: 'quiz', foreignField: '_id', as: 'quizData' } },
+    { $unwind: '$quizData' },
+    { $match: { 'quizData.category': 'Programming' } },
+    { $group: { _id: '$user', categoryPoints: { $sum: '$score' } } },
+    { $sort: { categoryPoints: -1 } },
+    { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'userInfo' } },
+    { $unwind: '$userInfo' },
+    { $project: { _id: 1, points: '$categoryPoints', username: '$userInfo.username' } }
+  ]);
+  console.log('Leaderboard for Programming:', leadersAgg);
 
-  const recRes = await fetch(`${API_URL}/api/jobs/recommended`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  const recommendedJobs = await recRes.json();
-  console.log(`Found ${recommendedJobs.length} recommended jobs.`);
-  
-  // 5. Test Analytics (Job Level)
-  console.log('Testing Job Analytics...');
-  const analyticsRes = await fetch(`${API_URL}/api/jobs/${jobId}/analytics`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  const analytics = await analyticsRes.json();
-  console.log('Job Analytics:', analytics);
+  // Verify Analytics Logic (Aggregation)
+  const analyticsAgg = await QuizAttempt.aggregate([
+    { $match: { quiz: quiz._id, status: 'completed' } },
+    { $group: { _id: null, attemptCount: { $sum: 1 }, avgScore: { $avg: '$score' } } }
+  ]);
+  console.log('Analytics for Quiz:', analyticsAgg);
 
-  // 6. Test Analytics (Recruiter Overview)
-  console.log('Testing Recruiter Overview Analytics...');
-  const overviewRes = await fetch(`${API_URL}/api/recruiter/analytics/overview`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  const overview = await overviewRes.json();
-  console.log('Overview:', overview);
-
-  console.log('--- Phase 4 Verification Complete ---');
-  process.exit(0);
+  mongoose.disconnect();
 }
 
-run().catch(console.error);
+run().catch(err => {
+  console.error(err);
+  mongoose.disconnect();
+});

@@ -17,10 +17,13 @@ interface Profile {
   sessions_attended?: number;
   videoIntroUrl?: string;
   institutionVerified?: boolean;
+  quizStreak?: number;
+  totalQuizPoints?: number;
+  badges?: { badgeId: string; earnedAt: string }[];
 }
 
 export const ProfileManager = ({ userId, email }: { userId: string; email: string }) => {
-  const [profile, setProfile] = useState<Profile>({ username: null, full_name: null, avatar_url: null, bio: null, sessions_hosted: 0, sessions_attended: 0 });
+  const [profile, setProfile] = useState<Profile>({ username: null, full_name: null, avatar_url: null, bio: null, sessions_hosted: 0, sessions_attended: 0, quizStreak: 0, totalQuizPoints: 0, badges: [] });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -284,14 +287,44 @@ export const ProfileManager = ({ userId, email }: { userId: string; email: strin
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 pt-4">
+        <div className="grid gap-4 sm:grid-cols-4 pt-4">
           <div className="rounded-lg border p-3 flex flex-col items-center justify-center bg-primary/5">
             <span className="text-2xl font-bold">{profile.sessions_hosted}</span>
-            <span className="text-sm text-muted-foreground">Sessions Hosted</span>
+            <span className="text-sm text-muted-foreground text-center">Sessions Hosted</span>
           </div>
           <div className="rounded-lg border p-3 flex flex-col items-center justify-center bg-primary/5">
             <span className="text-2xl font-bold">{profile.sessions_attended}</span>
-            <span className="text-sm text-muted-foreground">Sessions Attended</span>
+            <span className="text-sm text-muted-foreground text-center">Sessions Attended</span>
+          </div>
+          <div className="rounded-lg border p-3 flex flex-col items-center justify-center bg-orange-500/10 border-orange-500/20">
+            <span className="text-2xl font-bold text-orange-600 flex items-center gap-1">
+              {profile.quizStreak} 🔥
+            </span>
+            <span className="text-sm text-muted-foreground text-center">Quiz Streak</span>
+          </div>
+          <div className="rounded-lg border p-3 flex flex-col items-center justify-center bg-blue-500/10 border-blue-500/20">
+            <span className="text-2xl font-bold text-blue-600 flex items-center gap-1">
+              {profile.totalQuizPoints}
+            </span>
+            <span className="text-sm text-muted-foreground text-center">Total Quiz Pts</span>
+          </div>
+        </div>
+
+        <div className="border-t pt-6 mt-6 space-y-4">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            🏆 Unlocked Badges
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {profile.badges && profile.badges.length > 0 ? (
+              profile.badges.map((badge, idx) => (
+                <div key={idx} className="bg-muted px-3 py-1.5 rounded-full text-sm font-medium border border-border shadow-sm flex items-center gap-2">
+                  <span>🏅</span>
+                  {badge.badgeId.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">Keep taking quizzes to earn badges!</p>
+            )}
           </div>
         </div>
 

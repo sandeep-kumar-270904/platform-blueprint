@@ -1,40 +1,35 @@
 const mongoose = require('mongoose');
 
 const quizQuestionSchema = new mongoose.Schema({
-  question: { type: String, required: true },
-  options: [{ type: String }],
-  correct_index: { type: Number, required: true },
+  questionText: { type: String, required: true },
+  options: [{ type: String, required: true }],
+  correctOptionIndex: { type: Number, required: true },
   explanation: { type: String },
-  position: { type: Number, default: 0 }
+  points: { type: Number, default: 1 }
 });
 
-const quizAttemptSchema = new mongoose.Schema({
-  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  score: { type: Number, required: true },
-  total: { type: Number, required: true },
-  time_taken_seconds: { type: Number, required: true },
-  answers: [{ type: Number }]
-}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
-
 const quizSchema = new mongoose.Schema({
-  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   title: { type: String, required: true },
   description: { type: String },
   category: { type: String, required: true },
-  difficulty: { type: String, enum: ['beginner', 'intermediate', 'advanced'], default: 'intermediate' },
-  duration_minutes: { type: Number, default: 10 },
-  attempts_count: { type: Number, default: 0 },
-  is_public: { type: Boolean, default: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  mode: { type: String, enum: ['solo', 'live'], required: true },
+  difficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'medium' },
+  durationMinutes: { type: Number, required: true },
+  perQuestionTimeLimitSeconds: { type: Number, default: 20 },
   questions: [quizQuestionSchema],
-  attempts: [quizAttemptSchema]
-}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
+  status: { type: String, enum: ['draft', 'published', 'under_review', 'closed'], default: 'draft' },
+  attemptCount: { type: Number, default: 0 },
+  averageScore: { type: Number, default: 0 }
+}, { timestamps: true });
 
-// Virtual property to get question count based on questions array
+quizSchema.index({ title: 'text', description: 'text', category: 'text' });
+
+// Virtual property for question count
 quizSchema.virtual('question_count').get(function() {
   return this.questions ? this.questions.length : 0;
 });
 
-// Ensure virtuals are included when converting document to JSON
 quizSchema.set('toJSON', { virtuals: true });
 quizSchema.set('toObject', { virtuals: true });
 
