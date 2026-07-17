@@ -24,7 +24,11 @@ export default function NotificationSettings() {
       recruiter_rejected: true,
       recruiter_banned: true,
       application_deadline_approaching: true,
-    }
+    },
+    liveSessionReminders: { inApp: true, email: true },
+    liveSessionResults: { inApp: true, email: true },
+    quizModeration: { inApp: true, email: true },
+    leaderboardActivity: { inApp: true, email: true }
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -44,6 +48,16 @@ export default function NotificationSettings() {
               job_board: { ...prev.job_board, ...data.preferences.job_board }
             }));
           }
+          // Merge phase 3 fields
+          const p3 = ['liveSessionReminders', 'liveSessionResults', 'quizModeration', 'leaderboardActivity'];
+          p3.forEach(field => {
+            if (data.preferences?.[field]) {
+              setPreferences(prev => ({
+                ...prev,
+                [field]: { ...prev[field as keyof typeof prev], ...data.preferences[field] }
+              }));
+            }
+          });
         }
       } catch (err) {
         console.error("Error fetching notification settings", err);
@@ -60,6 +74,16 @@ export default function NotificationSettings() {
       job_board: {
         ...prev.job_board,
         [key as keyof typeof prev.job_board]: !prev.job_board[key as keyof typeof prev.job_board]
+      }
+    }));
+  };
+
+  const handleQuizToggle = (category: string, channel: 'inApp' | 'email') => {
+    setPreferences(prev => ({
+      ...prev,
+      [category]: {
+        ...(prev as any)[category],
+        [channel]: !(prev as any)[category][channel]
       }
     }));
   };
@@ -116,6 +140,41 @@ export default function NotificationSettings() {
                     checked={value} 
                     onCheckedChange={() => handleToggle(key)} 
                   />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Quiz & Live Sessions</CardTitle>
+              <CardDescription>Manage alerts for live quizzes, moderation, and leaderboards</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {[
+                { key: 'liveSessionReminders', label: 'Live Session Reminders' },
+                { key: 'liveSessionResults', label: 'Live Session Results' },
+                { key: 'quizModeration', label: 'Quiz Moderation (Reports/Deletions)' },
+                { key: 'leaderboardActivity', label: 'Leaderboard Activity (Overtaken)' }
+              ].map(cat => (
+                <div key={cat.key} className="space-y-3">
+                  <h4 className="font-medium">{cat.label}</h4>
+                  <div className="flex items-center justify-between ml-4">
+                    <Label htmlFor={`${cat.key}-inApp`} className="cursor-pointer text-muted-foreground">In-App Notification</Label>
+                    <Switch 
+                      id={`${cat.key}-inApp`} 
+                      checked={(preferences as any)[cat.key].inApp} 
+                      onCheckedChange={() => handleQuizToggle(cat.key, 'inApp')} 
+                    />
+                  </div>
+                  <div className="flex items-center justify-between ml-4">
+                    <Label htmlFor={`${cat.key}-email`} className="cursor-pointer text-muted-foreground">Email Notification</Label>
+                    <Switch 
+                      id={`${cat.key}-email`} 
+                      checked={(preferences as any)[cat.key].email} 
+                      onCheckedChange={() => handleQuizToggle(cat.key, 'email')} 
+                    />
+                  </div>
                 </div>
               ))}
             </CardContent>

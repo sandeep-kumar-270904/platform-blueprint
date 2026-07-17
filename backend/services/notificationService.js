@@ -90,9 +90,39 @@ const createNotification = async (data, io = null) => {
             shouldSendEmail = shouldSendEmail;
           }
           break;
+        // Phase 3 Quiz Types
+        case 'live_session_reminder':
+        case 'live_session_invite':
+          if (prefs.liveSessionReminders) {
+            shouldSendInApp = prefs.liveSessionReminders.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.liveSessionReminders.email !== false;
+          }
+          break;
+        case 'live_session_results':
+          if (prefs.liveSessionResults) {
+            shouldSendInApp = prefs.liveSessionResults.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.liveSessionResults.email !== false;
+          }
+          break;
+        case 'leaderboard_overtaken':
+        case 'badge_earned':
+          if (prefs.leaderboardActivity) {
+            shouldSendInApp = prefs.leaderboardActivity.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.leaderboardActivity.email !== false;
+          }
+          break;
+        case 'quiz_reported':
+        case 'quiz_deleted':
+          if (prefs.quizModeration) {
+            shouldSendInApp = prefs.quizModeration.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.quizModeration.email !== false;
+          }
+          break;
         // Always send in-app and email for critical admin actions if channel requested it
         case 'job_auto_hidden':
         case 'job_deleted_by_admin':
+        case 'article_approved':
+        case 'article_rejected':
           // Bypass preferences for critical warnings
           break;
       }
@@ -128,6 +158,25 @@ const createNotification = async (data, io = null) => {
             break;
           case 'application_deadline_approaching':
             await emailService.sendDeadlineApproachingEmail(user.email, emailData.jobTitle, data.actionUrl);
+            break;
+          // Phase 3 Quiz Emails
+          case 'live_session_reminder':
+            await emailService.sendLiveSessionReminderEmail(user.email, emailData.quizTitle, emailData.joinCode, data.actionUrl);
+            break;
+          case 'live_session_invite':
+            await emailService.sendLiveSessionInviteEmail(user.email, emailData.quizTitle, emailData.inviterName, emailData.joinCode, data.actionUrl);
+            break;
+          case 'quiz_reported':
+            await emailService.sendQuizReportedEmail(user.email, emailData.quizTitle);
+            break;
+          case 'quiz_deleted':
+            await emailService.sendQuizDeletedEmail(user.email, emailData.quizTitle, emailData.adminNote);
+            break;
+          case 'leaderboard_overtaken':
+            await emailService.sendLeaderboardOvertakenEmail(user.email, emailData.quizTitle, data.actionUrl);
+            break;
+          case 'live_session_results':
+            await emailService.sendLiveSessionResultsEmail(user.email, emailData.quizTitle, emailData.score, data.actionUrl);
             break;
         }
         data.emailSent = true;

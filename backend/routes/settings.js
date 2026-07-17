@@ -177,7 +177,7 @@ router.put('/notifications', auth, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     
-    // Deep merge for job_board
+    // Deep merge for job_board (existing)
     if (preferences && preferences.job_board) {
       if (!user.notificationPreferences) {
         user.notificationPreferences = { job_board: {} };
@@ -189,6 +189,19 @@ router.put('/notifications', auth, async (req, res) => {
         ...user.notificationPreferences.job_board,
         ...preferences.job_board
       };
+    }
+    
+    // Merge new Phase 3 fields
+    const phase3Fields = ['liveSessionReminders', 'liveSessionResults', 'quizModeration', 'leaderboardActivity'];
+    for (const field of phase3Fields) {
+      if (preferences && preferences[field]) {
+        if (!user.notificationPreferences) user.notificationPreferences = {};
+        if (!user.notificationPreferences[field]) user.notificationPreferences[field] = {};
+        user.notificationPreferences[field] = {
+          ...user.notificationPreferences[field],
+          ...preferences[field]
+        };
+      }
     }
     
     await user.save();

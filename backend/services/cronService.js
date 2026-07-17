@@ -4,21 +4,32 @@ const { AMASession } = require('../models/AMA');
 const Notification = require('../models/Notification');
 
 class CronService {
-  init() {
+  init(io) {
     console.log('⏳ Initializing Cron Service...');
+
+    const newsFetcherService = require('./newsFetcherService');
+    
+    // Initial fetch on startup so it doesn't wait 15 minutes empty
+    newsFetcherService.fetchNews(io);
+
+    // Run every 15 minutes to fetch external tech/AI news
+    cron.schedule('*/15 * * * *', async () => {
+      await newsFetcherService.fetchNews(io);
+    });
 
     // Run every minute for testing, or typically every 5 mins in production
     // For Phase 3, we run every 5 mins.
     cron.schedule('*/5 * * * *', async () => {
       this.checkSessionReminders();
+      this.checkLiveSessionReminders();
     });
 
-    // Run every minute to transition AMA statuses
     // Run every minute to transition AMA statuses and check expired holds
     cron.schedule('* * * * *', async () => {
       this.transitionAMAStatuses();
       this.checkExpiredHolds();
       this.checkNoShows();
+      this.checkAbandonedQuizAttempts();
     });
 
     // Run every hour to check job application deadlines
@@ -29,6 +40,11 @@ class CronService {
     // Run every day at midnight for daily job alerts
     cron.schedule('0 0 * * *', async () => {
       this.checkDailyJobAlerts();
+    });
+
+    // Run every hour to check ingestion health
+    cron.schedule('0 * * * *', async () => {
+      this.checkNewsIngestionHealth();
     });
   }
 
@@ -155,6 +171,61 @@ class CronService {
       } catch (err) {
         console.error('Error in general 5-min cron:', err);
       }
+  }
+
+  async checkLiveSessionReminders() {
+    try {
+      const LiveSession = require('../models/LiveSession');
+      const User = require('../models/User');
+      const notificationService = require('./notificationService');
+
+      const now = new Date();
+      // Look for sessions scheduled to start between now and 12 minutes from now.
+      // (12 minutes gives a safe window for a 5-minute cron to catch the ~10min mark)
+      const in12Minutes = new Date(now.getTime() + 12 * 60 * 1000);
+
+      const upcomingSessions = await LiveSession.find({
+        status: 'scheduled',
+        scheduledStartAt: { $gte: now, $lte: in12Minutes },
+        reminderSent: false
+      }).populate('quiz', 'title _id');
+
+      for (const session of upcomingSessions) {
+        // Find users in waiting room
+        const waitingParticipants = session.participants
+          .filter(p => p.status === 'waiting' && p.user)
+          .map(p => p.user.toString());
+
+        // Find users subscribed to this quiz
+        const subscribers = await User.find({ subscribedQuizzes: session.quiz._id }).select('_id');
+        const subscriberIds = subscribers.map(s => s._id.toString());
+
+        // Combine unique users to notify
+        const usersToNotify = [...new Set([...waitingParticipants, ...subscriberIds])];
+
+        for (const userId of usersToNotify) {
+          await notificationService.createNotification({
+            userId,
+            type: 'live_session_reminder',
+            relatedQuiz: session.quiz._id,
+            relatedLiveSession: session._id,
+            message: `The live quiz "${session.quiz.title}" is starting in ~10 minutes. Get ready!`,
+            actionUrl: `/live/join`,
+            channel: 'both',
+            emailData: {
+              quizTitle: session.quiz.title,
+              joinCode: session.joinCode
+            }
+          });
+        }
+
+        // Mark as sent
+        session.reminderSent = true;
+        await session.save();
+      }
+    } catch (err) {
+      console.error('Error in checkLiveSessionReminders:', err);
+    }
   }
 
   async transitionAMAStatuses() {
@@ -405,6 +476,60 @@ class CronService {
       }
     } catch (err) {
       console.error('Error in checkDailyJobAlerts:', err);
+    }
+  }
+
+  async checkNewsIngestionHealth() {
+    try {
+      const NewsIngestionLog = require('../models/NewsIngestionLog');
+      const User = require('../models/User');
+      const notificationService = require('./notificationService');
+      
+      const lastLog = await NewsIngestionLog.findOne().sort({ createdAt: -1 });
+      const now = new Date();
+      
+      // If no logs, or the last log is older than 60 minutes
+      if (!lastLog || (now.getTime() - lastLog.createdAt.getTime()) > 60 * 60 * 1000) {
+        const adminUsers = await User.find({ role: 'admin' });
+        for (const admin of adminUsers) {
+          await notificationService.createNotification({
+            userId: admin._id,
+            type: 'admin_alert',
+            message: `⚠️ Alert: Tech News ingestion engine has not run successfully in over an hour.`,
+            actionUrl: `/admin/news-moderation`,
+            channel: 'in_app'
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error in checkNewsIngestionHealth:', err);
+    }
+  }
+
+  async checkAbandonedQuizAttempts() {
+    try {
+      const QuizAttempt = require('../models/QuizAttempt');
+      const Quiz = require('../models/Quiz');
+      
+      // Find all in-progress attempts
+      const inProgressAttempts = await QuizAttempt.find({ status: 'in_progress' });
+      const now = new Date();
+
+      for (const attempt of inProgressAttempts) {
+        // Load the quiz to get the durationMinutes
+        const quiz = await Quiz.findById(attempt.quiz);
+        if (!quiz || !quiz.durationMinutes) continue;
+
+        const allowedTimeMs = quiz.durationMinutes * 60 * 1000 + 30000; // 30s buffer
+        if (now.getTime() - attempt.startedAt.getTime() > allowedTimeMs) {
+          // It's abandoned
+          attempt.status = 'abandoned';
+          attempt.completedAt = now;
+          await attempt.save();
+        }
+      }
+    } catch (error) {
+      console.error('Error in checkAbandonedQuizAttempts:', error);
     }
   }
 }

@@ -147,6 +147,43 @@ router.put('/reports/:id', authMiddleware, isAdmin, async (req, res) => {
   }
 });
 
+// PATCH /api/admin/users/:userId/ban
+router.patch('/users/:userId/ban', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    user.banned = true;
+    user.banReason = reason || 'Admin action';
+    user.bannedAt = new Date();
+    await user.save();
+    
+    res.json({ message: 'User banned successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// PATCH /api/admin/users/:userId/unban
+router.patch('/users/:userId/unban', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    user.banned = false;
+    user.banReason = null;
+    user.bannedAt = null;
+    await user.save();
+    
+    res.json({ message: 'User unbanned successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+
+
 // GET /api/admin/flagged-reviews - Fetch flagged reviews
 router.get('/flagged-reviews', authMiddleware, async (req, res) => {
   try {
@@ -507,6 +544,30 @@ router.put('/mentor-reviews/:id/moderate', authMiddleware, isAdmin, async (req, 
     }
   } catch (error) {
     res.status(500).json({ message: 'Error moderating review', error: error.message });
+  }
+});
+
+// POST /api/admin/qa-trigger-abandoned
+router.post('/qa-trigger-abandoned', authMiddleware, async (req, res) => {
+  try {
+    const { attemptId } = req.body;
+    const QuizAttempt = require('../models/QuizAttempt');
+    
+    // Backdate the attempt
+    await QuizAttempt.updateOne(
+      { _id: attemptId },
+      { $set: { startedAt: new Date(Date.now() - 60 * 60 * 1000) } } // 1 hour ago
+    );
+    
+    // Trigger the cron
+    const cronService = require('../services/cronService');
+    await cronService.checkAbandonedQuizAttempts();
+    
+    // Return updated attempt
+    const updated = await QuizAttempt.findById(attemptId);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: 'Error', error: err.message });
   }
 });
 

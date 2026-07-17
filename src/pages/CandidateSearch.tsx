@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import Header from "@/components/layout/Header";
+import { Header } from "@/components/layout/Header";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

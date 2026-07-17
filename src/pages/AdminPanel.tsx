@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { useAdmin } from "@/hooks/useAdmin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -181,9 +182,16 @@ const AdminPanel = () => {
               </div>
               <p className="text-muted-foreground">Manage platform content, users, and moderation</p>
             </div>
-            <Button variant="outline" size="sm" onClick={refresh}>
-              <RefreshCw className="mr-2 h-4 w-4" />Refresh
-            </Button>
+            <div className="flex gap-2">
+              <Link to="/admin/news-moderation">
+                <Button variant="outline" size="sm">
+                  <Flag className="mr-2 h-4 w-4" />News Mod
+                </Button>
+              </Link>
+              <Button variant="outline" size="sm" onClick={refresh}>
+                <RefreshCw className="mr-2 h-4 w-4" />Refresh
+              </Button>
+            </div>
           </div>
         </ScrollReveal>
 

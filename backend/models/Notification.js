@@ -42,13 +42,22 @@ const notificationSchema = new mongoose.Schema({
       'profile_viewed',
       'job_invite_received',
       'job_alert_match',
-      'company_new_job'
+      'company_new_job',
+      'live_session_reminder',
+      'live_session_invite',
+      'quiz_reported',
+      'quiz_deleted',
+      'leaderboard_overtaken',
+      'live_session_results',
+      'badge_earned'
     ],
     required: true
   },
   relatedCollegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College', default: null },
   relatedJob: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null },
   relatedApplication: { type: mongoose.Schema.Types.ObjectId, ref: 'JobApplication', default: null },
+  relatedQuiz: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz', default: null },
+  relatedLiveSession: { type: mongoose.Schema.Types.ObjectId, ref: 'LiveSession', default: null },
   relatedContentId: { type: mongoose.Schema.Types.ObjectId, default: null }, // questionId/reviewId/answerId
   message: { type: String, required: true },
   actionUrl: { type: String },

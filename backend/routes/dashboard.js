@@ -171,4 +171,34 @@ router.get('/notifications', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/dashboard/profile
+router.get('/profile', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select(
+      'username full_name avatar_url bio videoIntroUrl institutionVerified badges quizStreak totalQuizPoints'
+    );
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    // Calculate sessions hosted / attended
+    const sessions_hosted = await VirtualClassroom.countDocuments({ host_id: req.user.id });
+    const sessions_attended = await VirtualClassroom.countDocuments({ participants: req.user.id });
+
+    res.json({
+      username: user.username,
+      full_name: user.full_name,
+      avatar_url: user.avatar_url,
+      bio: user.bio,
+      videoIntroUrl: user.videoIntroUrl,
+      institutionVerified: user.institutionVerified,
+      sessions_hosted,
+      sessions_attended,
+      badges: user.badges || [],
+      quizStreak: user.quizStreak || 0,
+      totalQuizPoints: user.totalQuizPoints || 0
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;

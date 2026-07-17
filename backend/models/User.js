@@ -6,6 +6,11 @@ const UserSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  username: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
   password: {
     type: String,
     required: function() {
@@ -70,6 +75,16 @@ const UserSchema = new mongoose.Schema({
     longest: { type: Number, default: 0 },
     lastActiveDate: { type: Date, default: null }
   },
+  quizStreak: {
+    current: { type: Number, default: 0 },
+    longest: { type: Number, default: 0 },
+    lastActivityDate: { type: Date, default: null }
+  },
+  badges: [{
+    badgeId: String,
+    earnedAt: { type: Date, default: Date.now }
+  }],
+  totalQuizPoints: { type: Number, default: 0 },
   blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   interestTags: [{ type: String, trim: true }],
   skillsProfilePublic: {
@@ -113,6 +128,10 @@ const UserSchema = new mongoose.Schema({
   savedColleges: [{ 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'College' 
+  }],
+  subscribedQuizzes: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Quiz' 
   }],
   viewedColleges: [{
     collegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
@@ -191,7 +210,27 @@ const UserSchema = new mongoose.Schema({
     jobAlerts: {
       inApp: { type: Boolean, default: true },
       email: { type: Boolean, default: true }
+    },
+    liveSessionReminders: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true }
+    },
+    liveSessionResults: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true }
+    },
+    quizModeration: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true }
+    },
+    leaderboardActivity: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true }
     }
+  },
+  newsPreferences: {
+    followedCategories: [{ type: String }],
+    followedTags: [{ type: String }]
   }
 });
 

@@ -339,12 +339,15 @@ router.put('/me/notification-preferences', authMiddleware, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     
-    user.notificationPreferences = { ...user.notificationPreferences, ...req.body };
+    for (const key of Object.keys(req.body)) {
+      user.notificationPreferences[key] = req.body[key];
+    }
     await user.save();
     
     res.json(user.notificationPreferences);
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error updating preferences:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
