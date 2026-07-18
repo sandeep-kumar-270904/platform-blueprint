@@ -248,6 +248,7 @@ app.use('/api/mentors', require('./routes/mentors'));
 app.use('/api/jobs', require('./routes/jobs'));
 app.use('/api/resumes', require('./routes/resumes'));
 app.use('/api/templates', require('./routes/templates'));
+app.use('/api/scholarships', require('./routes/scholarships'));
 app.use('/api/interviews', require('./routes/interviews'));
 app.use('/api/negotiation', require('./routes/negotiation'));
 app.use('/api/portfolios', require('./routes/portfolios'));

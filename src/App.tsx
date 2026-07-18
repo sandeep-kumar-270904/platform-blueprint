@@ -116,6 +116,9 @@ import LiveQuizJoin from "./pages/LiveQuizJoin";
 import LiveQuizPlay from "./pages/LiveQuizPlay";
 import AdminQuizReports from "./pages/admin/AdminQuizReports";
 import AdminNewsModeration from "./pages/admin/AdminNewsModeration";
+import ScholarshipDetail from "./pages/ScholarshipDetail";
+import ScholarshipApply from "./pages/ScholarshipApply";
+import AdminScholarships from "./pages/admin/AdminScholarships";
 import { AuthProvider } from "./hooks/useAuth";
 import { GlobalSocketListener } from "./components/GlobalSocketListener";
 import CreatorDashboard from "./pages/CreatorDashboard";
@@ -186,6 +189,8 @@ const App = () => (
           <Route path="/compare" element={<ProtectedRoute><CompareColleges /></ProtectedRoute>} />
           <Route path="/innovation-hub" element={<ProtectedRoute><InnovationHub /></ProtectedRoute>} />
           <Route path="/scholarships" element={<ProtectedRoute><Scholarships /></ProtectedRoute>} />
+          <Route path="/scholarships/:id" element={<ScholarshipDetail />} />
+          <Route path="/scholarships/:id/apply" element={<ProtectedRoute><ScholarshipApply /></ProtectedRoute>} />
           <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
           <Route path="/courses/:id" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
           <Route path="/learning-paths/:id" element={<ProtectedRoute><LearningPathDetail /></ProtectedRoute>} />
@@ -242,6 +247,7 @@ const App = () => (
           <Route path="/tech-vault" element={<ProtectedRoute><TechVault /></ProtectedRoute>} />
           <Route path="/skill-swap" element={<ProtectedRoute><SkillSwap /></ProtectedRoute>} />
           <Route path="/creators" element={<ProtectedRoute><CreatorsZone /></ProtectedRoute>} />
+          <Route path="/admin/scholarships" element={<ProtectedRoute><AdminScholarships /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
           <Route path="/admin/jobs" element={<ProtectedRoute><AdminJobsPanel /></ProtectedRoute>} />
           <Route path="/admin/colleges" element={<ProtectedRoute><AdminCollegePanel /></ProtectedRoute>} />
