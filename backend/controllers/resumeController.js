@@ -7,7 +7,6 @@ const Notification = require('../models/Notification');
 
 const SkillCluster = require('../models/SkillCluster');
 const CertificationRecord = require('../models/CertificationRecord');
-const User = require('../models/User');
 
 exports.panicRebuild = async (req, res) => {
   try {
@@ -539,7 +538,7 @@ exports.getSharedResumeQR = async (req, res) => {
 
     const qrcode = require('qrcode');
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const shareUrl = \`\${frontendUrl}/shared/resume/\${linkId}?source=qr_scan\`;
+    const shareUrl = `${frontendUrl}/shared/resume/${linkId}?source=qr_scan`;
     
     const qrDataUrl = await qrcode.toDataURL(shareUrl);
     res.json({ qrCode: qrDataUrl, shareUrl });

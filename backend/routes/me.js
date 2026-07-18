@@ -5,7 +5,7 @@ const QuizAttempt = require('../models/QuizAttempt');
 const Quiz = require('../models/Quiz');
 const User = require('../models/User');
 const LiveSession = require('../models/LiveSession');
-const QuestionBankItem = require('../models/QuestionBankItem');
+const QuestionBankItem = require('../models/QuestionBank');
 
 // GET /api/me/quiz-dashboard
 router.get('/quiz-dashboard', authMiddleware, async (req, res) => {

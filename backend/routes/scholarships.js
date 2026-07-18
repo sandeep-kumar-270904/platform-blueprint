@@ -1,7 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const scholarshipController = require('../controllers/scholarshipController');
-const { protect, checkRole } = require('../middleware/auth');
+const protect = require('../middleware/auth');
+
+const checkRole = (roles) => (req, res, next) => {
+  if (!roles.includes(req.user.role)) {
+    return res.status(403).json({ message: 'Access denied' });
+  }
+  next();
+};
 
 // Public / User routes
 router.get('/', scholarshipController.getScholarships);
