@@ -20,5 +20,6 @@ router.post('/', protect, scholarshipController.submitScholarship);
 // Admin review routes
 router.get('/admin/pending', protect, checkRole(['admin', 'moderator']), scholarshipController.getPendingReviews);
 router.post('/admin/:id/review', protect, checkRole(['admin', 'moderator']), scholarshipController.reviewScholarship);
+router.get('/admin/analytics', protect, checkRole(['admin', 'moderator']), scholarshipController.getAdminAnalytics);
 
 module.exports = router;

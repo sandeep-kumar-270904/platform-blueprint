@@ -119,6 +119,8 @@ import AdminNewsModeration from "./pages/admin/AdminNewsModeration";
 import ScholarshipDetail from "./pages/ScholarshipDetail";
 import ScholarshipApply from "./pages/ScholarshipApply";
 import AdminScholarships from "./pages/admin/AdminScholarships";
+import MyScholarships from "./pages/MyScholarships";
+import ScholarshipCalculator from "./pages/ScholarshipCalculator";
 import { AuthProvider } from "./hooks/useAuth";
 import { GlobalSocketListener } from "./components/GlobalSocketListener";
 import CreatorDashboard from "./pages/CreatorDashboard";
@@ -189,6 +191,8 @@ const App = () => (
           <Route path="/compare" element={<ProtectedRoute><CompareColleges /></ProtectedRoute>} />
           <Route path="/innovation-hub" element={<ProtectedRoute><InnovationHub /></ProtectedRoute>} />
           <Route path="/scholarships" element={<ProtectedRoute><Scholarships /></ProtectedRoute>} />
+          <Route path="/scholarships/my-scholarships" element={<ProtectedRoute><MyScholarships /></ProtectedRoute>} />
+          <Route path="/scholarships/calculator" element={<ProtectedRoute><ScholarshipCalculator /></ProtectedRoute>} />
           <Route path="/scholarships/:id" element={<ScholarshipDetail />} />
           <Route path="/scholarships/:id/apply" element={<ProtectedRoute><ScholarshipApply /></ProtectedRoute>} />
           <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />

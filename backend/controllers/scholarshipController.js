@@ -131,7 +131,7 @@ exports.getSavedScholarships = async (req, res) => {
 exports.apply = async (req, res) => {
   try {
     const { id } = req.params;
-    const { responses, essayResponses, attachedResumeId } = req.body;
+    const { responses, essayResponses, attachedResumeId, attachedRecommendationLetterId } = req.body;
     const scholarship = await Scholarship.findById(id);
     
     if (!scholarship) return res.status(404).json({ message: 'Scholarship not found' });
@@ -150,6 +150,22 @@ exports.apply = async (req, res) => {
       app.responses = responses || [];
       app.essayResponses = essayResponses || [];
       app.attachedResumeId = attachedResumeId;
+      
+      if (attachedRecommendationLetterId) {
+          const RecommendationLetter = require('../models/RecommendationLetter');
+          const letter = await RecommendationLetter.findOne({ _id: attachedRecommendationLetterId, requestedBy: req.user.id });
+          if (letter && letter.status === 'submitted') {
+              app.attachedRecommendationLetterId = attachedRecommendationLetterId;
+              app.attachedLetterSnapshot = {
+                  relationship: letter.relationship,
+                  content: letter.content,
+                  writtenBy: letter.writtenBy,
+                  externalEmail: letter.externalEmail,
+                  snapshottedAt: new Date()
+              };
+          }
+      }
+      
       app.submittedAt = new Date();
     }
     
@@ -211,6 +227,79 @@ exports.reviewScholarship = async (req, res) => {
     res.json(scholarship);
   } catch (err) {
     res.status(500).json({ message: 'Error reviewing scholarship', error: err.message });
+  }
+};
+
+exports.getAdminAnalytics = async (req, res) => {
+  try {
+      // Aggregate Funnel View
+      const totalScholarships = await Scholarship.countDocuments({ status: 'published' });
+      
+      const applications = await ScholarshipApplication.find({});
+      let appsStarted = 0;
+      let appsSubmitted = 0;
+      let appsAwarded = 0;
+      let linkOpened = 0;
+
+      applications.forEach(a => {
+          if (a.status === 'draft') appsStarted++;
+          if (a.status === 'submitted') appsSubmitted++;
+          if (a.status === 'awarded') appsAwarded++;
+          if (a.status === 'link_opened') linkOpened++;
+      });
+
+      // Categories Breakdown
+      const categoriesRaw = await Scholarship.aggregate([
+          { $match: { status: 'published' } },
+          { $unwind: "$categories" },
+          { $group: { _id: "$categories", count: { $sum: 1 } } }
+      ]);
+
+      const categories = categoriesRaw.map(c => ({ name: c._id, count: c.count }));
+
+      // Source Breakdown
+      const sourceRaw = await Scholarship.aggregate([
+          { $match: { status: 'published' } },
+          { $group: { _id: "$submittedByAdmin", count: { $sum: 1 } } }
+      ]);
+      const source = { admin: 0, org: 0 };
+      sourceRaw.forEach(s => {
+          if (s._id) source.admin = s.count;
+          else source.org = s.count;
+      });
+
+      // Expiring / Stale flags
+      const now = new Date();
+      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      
+      const expiringSoon = await Scholarship.find({
+          status: 'published',
+          applicationDeadline: { $gt: now, $lt: nextWeek }
+      }).select('title provider applicationDeadline');
+
+      const stale = await Scholarship.find({
+          status: 'published',
+          saveCount: 0,
+          applicationCount: 0,
+          applicationDeadline: { $lt: now }
+      }).select('title provider applicationDeadline');
+
+      res.json({
+          funnel: {
+              totalScholarships,
+              appsStarted,
+              appsSubmitted,
+              appsAwarded,
+              linkOpened
+          },
+          categories,
+          source,
+          expiringSoon,
+          stale
+      });
+
+  } catch (err) {
+      res.status(500).json({ message: 'Error fetching admin analytics', error: err.message });
   }
 };
 

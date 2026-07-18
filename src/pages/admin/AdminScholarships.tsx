@@ -17,6 +17,7 @@ const AdminScholarships = () => {
   const [selectedReview, setSelectedReview] = useState<any | null>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [analytics, setAnalytics] = useState<any>(null);
 
   const fetchPending = async () => {
     try {
@@ -30,13 +31,31 @@ const AdminScholarships = () => {
       }
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/scholarships/admin/analytics`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAnalytics(data);
+      }
+    } catch (err) {
+      console.error("Error fetching analytics", err);
     }
   };
 
   useEffect(() => {
-    fetchPending();
+    const loadAll = async () => {
+      setLoading(true);
+      await Promise.all([fetchPending(), fetchAnalytics()]);
+      setLoading(false);
+    };
+    loadAll();
   }, []);
 
   const handleReview = async (status: 'published' | 'rejected') => {
@@ -68,24 +87,97 @@ const AdminScholarships = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-12 max-w-6xl">
-        <div className="mb-8 flex justify-between items-end">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight mb-2">Scholarships Administration</h1>
-            <p className="text-muted-foreground">Manage organization submissions and flag reports.</p>
-          </div>
-          <div className="flex gap-4">
-             {/* Stub stats */}
-             <Card className="w-32">
-                <CardHeader className="p-4 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                    <div className="text-2xl font-bold">{pending.length}</div>
-                </CardContent>
-             </Card>
-          </div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">Scholarships Admin</h1>
+          <p className="text-muted-foreground">Manage and review organization-submitted scholarships.</p>
         </div>
+
+        {analytics && (
+            <div className="grid md:grid-cols-3 gap-6 mb-8">
+                {/* Funnel */}
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-lg">Application Funnel</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between border-b pb-1">
+                                <span className="text-muted-foreground">Total Published</span>
+                                <span className="font-bold">{analytics.funnel.totalScholarships}</span>
+                            </div>
+                            <div className="flex justify-between border-b pb-1">
+                                <span className="text-muted-foreground">Applications Started</span>
+                                <span className="font-bold">{analytics.funnel.appsStarted}</span>
+                            </div>
+                            <div className="flex justify-between border-b pb-1">
+                                <span className="text-muted-foreground">Applications Submitted</span>
+                                <span className="font-bold">{analytics.funnel.appsSubmitted}</span>
+                            </div>
+                            <div className="flex justify-between border-b pb-1">
+                                <span className="text-muted-foreground">External Links Opened</span>
+                                <span className="font-bold">{analytics.funnel.linkOpened}</span>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Source & Categories */}
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-lg">Submissions & Categories</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4 text-sm">
+                            <div className="flex gap-4">
+                                <Badge variant="outline">Admin Added: {analytics.source.admin}</Badge>
+                                <Badge variant="outline">Org Submitted: {analytics.source.org}</Badge>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold mb-2 text-xs uppercase text-muted-foreground">Top Categories</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {analytics.categories.length === 0 ? <span className="text-muted-foreground">None</span> : 
+                                     analytics.categories.slice(0, 5).map((c: any) => (
+                                        <Badge key={c.name} variant="secondary">{c.name} ({c.count})</Badge>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Flags */}
+                <Card className="border-orange-500/30">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-lg text-orange-600">Admin Action Required</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4 text-sm">
+                            <div>
+                                <div className="font-semibold mb-1 flex items-center justify-between">
+                                    Expiring This Week <Badge variant="destructive">{analytics.expiringSoon.length}</Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground space-y-1">
+                                    {analytics.expiringSoon.slice(0,3).map((e: any) => (
+                                        <div key={e._id} className="truncate">• {e.title}</div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="font-semibold mb-1 flex items-center justify-between">
+                                    Stale (Passed, 0 Apps) <Badge variant="destructive">{analytics.stale.length}</Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground space-y-1">
+                                    {analytics.stale.slice(0,3).map((s: any) => (
+                                        <div key={s._id} className="truncate">• {s.title}</div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        )}
 
         <Card>
             <CardHeader>
