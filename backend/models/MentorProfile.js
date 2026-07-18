@@ -36,6 +36,9 @@ const mentorProfileSchema = new mongoose.Schema({
   noShowCount: { type: Number, default: 0 },
   
   verificationStatus: { type: String, enum: ['pending', 'approved', 'rejected', 'suspended'], default: 'pending' },
+  verificationEvidenceUrl: { type: String }, // Signed URL to evidence
+  verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  verificationDate: { type: Date },
   rejectionReason: { type: String, default: null },
   suspensionReason: { type: String, default: null },
   socialLinks: {

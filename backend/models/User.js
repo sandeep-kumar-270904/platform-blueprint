@@ -109,6 +109,11 @@ const UserSchema = new mongoose.Schema({
     enum: ['user', 'student', 'recruiter', 'admin'],
     default: 'user'
   },
+  adminRole: {
+    type: String,
+    enum: ['super', 'moderator', null],
+    default: null
+  },
   recruiterProfile: {
     companyName: { type: String },
     companyWebsite: { type: String },
@@ -120,7 +125,8 @@ const UserSchema = new mongoose.Schema({
     },
     verificationDocUrl: { type: String },
     verifiedAt: { type: Date },
-    verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    rejectionReason: { type: String }
   },
   banned: { type: Boolean, default: false },
   bannedAt: { type: Date },

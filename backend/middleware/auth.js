@@ -29,7 +29,8 @@ module.exports = async function (req, res, next) {
     req.user = { 
       id: user._id.toString(), 
       role: user.role,
-      banned: user.banned
+      banned: user.banned,
+      adminRole: user.adminRole
     };
     if (user.role === 'recruiter' || user.role === 'admin') {
       req.user.recruiterProfile = user.recruiterProfile;

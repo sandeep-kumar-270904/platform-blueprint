@@ -40,6 +40,64 @@ router.get('/check', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/admin/stats/global
+router.get('/stats/global', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user || user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
+
+    const MentorProfile = require('../models/MentorProfile');
+    const Dispute = require('../models/Dispute');
+    const Report = require('../models/Report');
+    const IdeaReport = require('../models/IdeaReport');
+    const JobReport = require('../models/JobReport');
+    const QuizReport = require('../models/QuizReport');
+    const NewsReport = require('../models/NewsReport');
+    const Institution = require('../models/Institution');
+    const Cohort = require('../models/Cohort');
+
+    const [
+      pendingMentors,
+      pendingRecruiters,
+      openDisputes,
+      generalR, ideaR, jobR, quizR, newsR,
+      recentBans,
+      institutions
+    ] = await Promise.all([
+      MentorProfile.countDocuments({ verificationStatus: 'pending' }),
+      User.countDocuments({ 'recruiterProfile.verificationStatus': 'pending' }),
+      Dispute.countDocuments({ status: 'open' }),
+      Report.countDocuments({ status: 'pending' }),
+      IdeaReport.countDocuments({ status: 'pending' }),
+      JobReport.countDocuments({ status: 'pending' }),
+      QuizReport.countDocuments({ status: 'pending' }),
+      NewsReport.countDocuments({ status: 'pending' }),
+      User.find({ banned: true }).sort({ bannedAt: -1 }).limit(5).select('full_name email banReason bannedAt'),
+      Institution.find().select('name seatLimit').lean()
+    ]);
+
+    const totalReports = generalR + ideaR + jobR + quizR + newsR;
+    const pendingVerifications = pendingMentors + pendingRecruiters;
+
+    // Calculate seat utilization
+    const cohorts = await Cohort.find().lean();
+    let usedSeats = 0;
+    let totalSeats = 0;
+    institutions.forEach(inst => totalSeats += inst.seatLimit);
+    cohorts.forEach(coh => usedSeats += (coh.students ? coh.students.length : 0));
+
+    res.json({
+      pendingVerifications,
+      pendingReports: totalReports,
+      openDisputes,
+      recentBans,
+      seats: { used: usedSeats, total: totalSeats }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get admin dashboard payload
 router.get('/dashboard', authMiddleware, async (req, res) => {
   try {
@@ -347,6 +405,8 @@ router.put('/mentors/:id/approve', authMiddleware, async (req, res) => {
     if (!mentor) return res.status(404).json({ message: 'Mentor profile not found' });
     
     mentor.verificationStatus = 'approved';
+    mentor.verifiedBy = req.adminUser._id;
+    mentor.verificationDate = new Date();
     await mentor.save();
 
     await AdminActionLog.create({ adminId: req.adminUser._id, actionType: 'approve_mentor', targetId: mentor._id, reason: 'Approved application' });
@@ -380,6 +440,8 @@ router.put('/mentors/:id/reject', authMiddleware, async (req, res) => {
     
     mentor.verificationStatus = 'rejected';
     mentor.rejectionReason = req.body.reason;
+    mentor.verifiedBy = req.adminUser._id;
+    mentor.verificationDate = new Date();
     await mentor.save();
 
     await AdminActionLog.create({ adminId: req.adminUser._id, actionType: 'reject_mentor', targetId: mentor._id, reason: req.body.reason });
@@ -387,7 +449,7 @@ router.put('/mentors/:id/reject', authMiddleware, async (req, res) => {
     // Notify user
     await notificationService.createNotification({
       userId: mentor.user_id,
-      type: 'mentor_application_status',
+      type: 'mentor_application_rejected',
       relatedContentId: mentor._id,
       message: `Your mentor application was rejected. Reason: ${req.body.reason}`
     });

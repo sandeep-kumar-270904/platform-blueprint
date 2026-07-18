@@ -49,7 +49,18 @@ router.patch('/recruiters/:userId/verify', authMiddleware, isAdmin, async (req, 
     user.recruiterProfile.verificationStatus = approve ? 'verified' : 'rejected';
     user.recruiterProfile.verifiedAt = new Date();
     user.recruiterProfile.verifiedBy = req.adminUser._id;
+    if (!approve) {
+      user.recruiterProfile.rejectionReason = note;
+    }
     await user.save();
+
+    const AdminActionLog = require('../models/AdminActionLog');
+    await AdminActionLog.create({ 
+      adminId: req.adminUser._id, 
+      actionType: approve ? 'verify_recruiter' : 'reject_recruiter', 
+      targetId: user._id, 
+      reason: note || (approve ? 'Verified application' : 'Rejected application') 
+    });
 
     await notificationService.createNotification({
       userId: user._id,
