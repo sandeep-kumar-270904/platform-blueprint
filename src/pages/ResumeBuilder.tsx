@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { FileText, Plus, Copy, Trash2, Star, ArrowLeft } from "lucide-react";
 import { useResumes } from "@/hooks/useResume";
 import { ResumeEditor } from "@/components/resume/ResumeEditor";
+import { ResumeAnalytics } from "@/components/resume/ResumeAnalytics";
 import { formatDistanceToNow } from "date-fns";
 
 const ResumeBuilder = () => {
@@ -96,6 +97,7 @@ const ResumeBuilder = () => {
                           Set Default
                         </Button>
                         <div className="flex gap-2">
+                          <ResumeAnalytics analytics={resume.analytics} />
                           <Button variant="ghost" size="icon" onClick={() => duplicateResume(resume._id as string)}>
                             <Copy className="h-4 w-4" />
                           </Button>

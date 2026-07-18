@@ -88,6 +88,21 @@ const resumeSchema = new mongoose.Schema({
       severity: String,
       tip: String
     }]
+  },
+
+  sharing: {
+    enabled: { type: Boolean, default: false },
+    linkId: { type: String }, // unique random string
+    expiresAt: { type: Date },
+    password: { type: String } // hashed
+  },
+  
+  showAtsScore: { type: Boolean, default: false },
+  
+  analytics: {
+    viewCount: { type: Number, default: 0 },
+    exportCount: { type: Number, default: 0 },
+    applicationCount: { type: Number, default: 0 }
   }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 

@@ -1,4 +1,5 @@
 const Resume = require('../models/Resume');
+const ResumeVersion = require('../models/ResumeVersion');
 const geminiService = require('../services/geminiService');
 const logger = require('../utils/logger');
 
@@ -148,9 +149,200 @@ exports.scoreResume = async (req, res) => {
     };
     
     await resume.save();
+
+    // Create Version Snapshot on explicit score/save
+    const versionCount = await ResumeVersion.countDocuments({ resumeId: resume._id });
+    const newVersion = new ResumeVersion({
+      resumeId: resume._id,
+      versionNumber: versionCount + 1,
+      snapshotData: resume.toObject(),
+      atsScoreAtVersion: resume.atsScore
+    });
+    await newVersion.save();
+
+    // Prune versions to max 20
+    if (versionCount + 1 > 20) {
+      const oldestVersions = await ResumeVersion.find({ resumeId: resume._id })
+        .sort({ versionNumber: 1 })
+        .limit((versionCount + 1) - 20);
+      
+      for (const ov of oldestVersions) {
+        await ov.deleteOne();
+      }
+    }
+
     res.json(resume.atsScore);
   } catch (error) {
     logger.error('Error scoring resume:', error);
     res.status(503).json({ message: error.message || 'Scoring temporarily unavailable, try again' });
   }
 };
+
+// Get version history
+exports.getVersions = async (req, res) => {
+  try {
+    const resume = await Resume.findById(req.params.id);
+    if (!resume) return res.status(404).json({ message: 'Resume not found' });
+    if (resume.user_id.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+
+    const versions = await ResumeVersion.find({ resumeId: resume._id }).sort({ versionNumber: -1 });
+    res.json(versions);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error fetching versions', error: error.message });
+  }
+};
+
+// Restore a version
+exports.restoreVersion = async (req, res) => {
+  try {
+    const { id, vid } = req.params;
+    const resume = await Resume.findById(id);
+    if (!resume) return res.status(404).json({ message: 'Resume not found' });
+    if (resume.user_id.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+
+    const version = await ResumeVersion.findById(vid);
+    if (!version || version.resumeId.toString() !== id) {
+      return res.status(404).json({ message: 'Version not found' });
+    }
+
+    // Backup current state as a new version before restoring
+    const versionCount = await ResumeVersion.countDocuments({ resumeId: resume._id });
+    await ResumeVersion.create({
+      resumeId: resume._id,
+      versionNumber: versionCount + 1,
+      snapshotData: resume.toObject(),
+      atsScoreAtVersion: resume.atsScore
+    });
+
+    // Restore
+    const snapshot = version.snapshotData;
+    delete snapshot._id;
+    delete snapshot.user_id;
+    delete snapshot.created_at;
+    delete snapshot.updated_at;
+
+    Object.assign(resume, snapshot);
+    await resume.save();
+
+    res.json({ message: 'Version restored successfully', resume });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error restoring version', error: error.message });
+  }
+};
+
+// Toggle Sharing
+exports.toggleSharing = async (req, res) => {
+  try {
+    const resume = await Resume.findById(req.params.id);
+    if (!resume) return res.status(404).json({ message: 'Resume not found' });
+    if (resume.user_id.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+
+    const { enabled, password, expiresAt } = req.body;
+
+    if (!resume.sharing) {
+      resume.sharing = {};
+    }
+
+    resume.sharing.enabled = enabled;
+    
+    if (enabled && !resume.sharing.linkId) {
+      const crypto = require('crypto');
+      resume.sharing.linkId = crypto.randomBytes(8).toString('hex');
+    }
+
+    if (password) {
+      const bcrypt = require('bcryptjs');
+      resume.sharing.password = await bcrypt.hash(password, 10);
+    }
+
+    if (expiresAt) {
+      resume.sharing.expiresAt = new Date(expiresAt);
+    }
+
+    await resume.save();
+    res.json({ sharing: resume.sharing });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error updating sharing settings', error: error.message });
+  }
+};
+
+// Get Shared Resume (Public)
+exports.getSharedResume = async (req, res) => {
+  try {
+    const { linkId } = req.params;
+    const { password } = req.body;
+
+    const resume = await Resume.findOne({ 'sharing.linkId': linkId });
+    if (!resume || !resume.sharing?.enabled) {
+      return res.status(404).json({ message: 'Resume not found or sharing is disabled' });
+    }
+
+    if (resume.sharing.expiresAt && new Date() > resume.sharing.expiresAt) {
+      return res.status(404).json({ message: 'This link has expired' });
+    }
+
+    if (resume.sharing.password) {
+      if (!password) {
+        return res.status(401).json({ message: 'Password required' });
+      }
+      const bcrypt = require('bcryptjs');
+      const isMatch = await bcrypt.compare(password, resume.sharing.password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Invalid password' });
+      }
+    }
+
+    // Track views
+    resume.analytics = resume.analytics || {};
+    resume.analytics.viewCount = (resume.analytics.viewCount || 0) + 1;
+    await resume.save();
+
+    // Sanitize response
+    const sanitizedResume = resume.toObject();
+    delete sanitizedResume.user_id;
+    delete sanitizedResume.sharing.password;
+
+    if (!sanitizedResume.showAtsScore) {
+      delete sanitizedResume.atsScore;
+    }
+
+    res.json({ resume: sanitizedResume });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error fetching shared resume', error: error.message });
+  }
+};
+
+// Track Public Export
+exports.trackPublicExport = async (req, res) => {
+  try {
+    const { linkId } = req.params;
+    const resume = await Resume.findOne({ 'sharing.linkId': linkId });
+    if (!resume) return res.status(404).json({ message: 'Resume not found' });
+
+    resume.analytics = resume.analytics || {};
+    resume.analytics.exportCount = (resume.analytics.exportCount || 0) + 1;
+    await resume.save();
+
+    res.json({ message: 'Export tracked' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error tracking export', error: error.message });
+  }
+};
+
+// Track Export
+exports.trackExport = async (req, res) => {
+  try {
+    const resume = await Resume.findById(req.params.id);
+    if (!resume) return res.status(404).json({ message: 'Resume not found' });
+    if (resume.user_id.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+
+    resume.analytics = resume.analytics || {};
+    resume.analytics.exportCount = (resume.analytics.exportCount || 0) + 1;
+    await resume.save();
+
+    res.json({ message: 'Export tracked' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error tracking export', error: error.message });
+  }
+};
+
