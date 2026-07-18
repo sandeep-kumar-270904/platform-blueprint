@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const interviewController = require('../controllers/interviewController');
-const { protect } = require('../middleware/auth');
+const protect = require('../middleware/auth');
 
 router.use(protect);
 

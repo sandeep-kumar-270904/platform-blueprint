@@ -68,11 +68,11 @@ router.post('/:id/edit-propose', resumeController.proposeResumeEdit);
 
 
 // Phase 10
-router.get('/insights/benchmark', auth, resumeController.getIndustryBenchmark);
-router.put('/:id/archive', auth, resumeController.archiveResume);
-router.put('/:id/restore', auth, resumeController.unarchiveResume);
+router.get('/insights/benchmark', authMiddleware, resumeController.getIndustryBenchmark);
+router.put('/:id/archive', authMiddleware, resumeController.archiveResume);
+router.put('/:id/restore', authMiddleware, resumeController.unarchiveResume);
 
-router.post('/:id/narrative', auth, resumeController.generateNarrative);
+router.post('/:id/narrative', authMiddleware, resumeController.generateNarrative);
 
 
 // POST /api/resumes/:id/panic-rebuild

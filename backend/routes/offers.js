@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const GeminiService = require('../services/geminiService');
-const geminiService = new GeminiService();
+const geminiService = require('../services/geminiService');
 
 // POST /api/offers/compare
 router.post('/compare', auth, async (req, res) => {

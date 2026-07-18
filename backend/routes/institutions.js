@@ -239,14 +239,14 @@ router.post('/cohorts/:id/auto-schedule', auth, async (req, res) => {
           duration: 30,
           status: 'pending',
           paymentStatus: 'free', // Institutional cohorts are prepaid
-          joinUrl: \`https://studenthub.app/meet/\${step.suggestedMentorId}-\${Date.now()}\`
+          joinUrl: `https://studenthub.app/meet/${step.suggestedMentorId}-${Date.now()}`
         });
         await booking.save();
         bookingsCreated++;
       }
     }
     
-    res.json({ message: \`Auto-scheduled \${bookingsCreated} sessions for cohort\` });
+    res.json({ message: `Auto-scheduled ${bookingsCreated} sessions for cohort` });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

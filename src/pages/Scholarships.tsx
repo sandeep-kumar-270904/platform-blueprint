@@ -21,9 +21,9 @@ const Scholarships = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   
   // Filters
-  const [minAmount, setMinAmount] = useState<string>("");
-  const [academicLevel, setAcademicLevel] = useState<string>("");
-  const [applicationMode, setApplicationMode] = useState<string>("");
+  const [minAmount, setMinAmount] = useState<string>("all");
+  const [academicLevel, setAcademicLevel] = useState<string>("all");
+  const [applicationMode, setApplicationMode] = useState<string>("all");
   const [page, setPage] = useState(1);
 
   // Debounce search
@@ -34,9 +34,9 @@ const Scholarships = () => {
 
   const filters = {
     q: debouncedSearch,
-    minAmount,
-    academicLevel,
-    applicationMode,
+    minAmount: minAmount === "all" ? "" : minAmount,
+    academicLevel: academicLevel === "all" ? "" : academicLevel,
+    applicationMode: applicationMode === "all" ? "" : applicationMode,
     page,
     limit: 9
   };
@@ -59,9 +59,9 @@ const Scholarships = () => {
 
   const clearFilters = () => {
     setSearchQuery("");
-    setMinAmount("");
-    setAcademicLevel("");
-    setApplicationMode("");
+    setMinAmount("all");
+    setAcademicLevel("all");
+    setApplicationMode("all");
     setPage(1);
   };
 
@@ -139,7 +139,7 @@ const Scholarships = () => {
                       <SelectValue placeholder="Any amount" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Any amount</SelectItem>
+                      <SelectItem value="all">Any amount</SelectItem>
                       <SelectItem value="1000">$1,000+</SelectItem>
                       <SelectItem value="5000">$5,000+</SelectItem>
                       <SelectItem value="10000">$10,000+</SelectItem>
@@ -154,7 +154,7 @@ const Scholarships = () => {
                       <SelectValue placeholder="Any level" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Any level</SelectItem>
+                      <SelectItem value="all">Any level</SelectItem>
                       <SelectItem value="undergraduate">Undergraduate</SelectItem>
                       <SelectItem value="graduate">Graduate</SelectItem>
                       <SelectItem value="phd">PhD</SelectItem>
@@ -169,7 +169,7 @@ const Scholarships = () => {
                       <SelectValue placeholder="Any mode" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Any mode</SelectItem>
+                      <SelectItem value="all">Any mode</SelectItem>
                       <SelectItem value="in_app">Apply on StudentHub</SelectItem>
                       <SelectItem value="external_link">Apply Externally</SelectItem>
                     </SelectContent>

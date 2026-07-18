@@ -77,7 +77,7 @@ router.patch('/:id/approve', authMiddleware, async (req, res) => {
 
 
 // POST /api/templates/community
-router.post('/community', auth, async (req, res) => {
+router.post('/community', authMiddleware, async (req, res) => {
   try {
     const { name, layoutCode } = req.body;
     const template = new ResumeTemplate({
@@ -94,7 +94,7 @@ router.post('/community', auth, async (req, res) => {
 });
 
 // PATCH /api/templates/:id/reject
-router.patch('/:id/reject', auth, async (req, res) => {
+router.patch('/:id/reject', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ message: 'Admin only' });
     const { reason } = req.body;
@@ -112,7 +112,7 @@ router.patch('/:id/reject', auth, async (req, res) => {
 });
 
 // POST /api/templates/:id/track-usage
-router.post('/:id/track-usage', auth, async (req, res) => {
+router.post('/:id/track-usage', authMiddleware, async (req, res) => {
   try {
     const template = await ResumeTemplate.findByIdAndUpdate(req.params.id, { $inc: { usageCount: 1 } }, { new: true });
     res.json(template);
