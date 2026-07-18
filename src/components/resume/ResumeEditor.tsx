@@ -1,14 +1,17 @@
-import React from "react";
+import React, { useState } from "react";
 import { ResumeData, useResumeEditor } from "@/hooks/useResume";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Plus, Trash2, CheckCircle2, AlertCircle, Sparkles, LayoutPanelLeft } from "lucide-react";
+import { Loader2, Plus, Trash2, Sparkles, LayoutPanelLeft, History } from "lucide-react";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { ResumePDF } from "./PDFRenderer";
+import { ResumeHistory } from "./ResumeHistory";
+import { ResumeSharing } from "./ResumeSharing";
 
 // Simple debounce helper could be added, but for now we'll save onBlur
 interface Props {
@@ -16,7 +19,8 @@ interface Props {
 }
 
 export const ResumeEditor = ({ resumeId }: Props) => {
-  const { resume, loading, updateResume, scoreResume } = useResumeEditor(resumeId);
+  const { resume, loading, updateResume, scoreResume, refetch, trackExport } = useResumeEditor(resumeId);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   if (loading) {
     return <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -176,6 +180,7 @@ export const ResumeEditor = ({ resumeId }: Props) => {
                 document={<ResumePDF resume={resume} />}
                 fileName={`${resume.title.replace(/\s+/g, '_')}.pdf`}
                 className="w-full"
+                onClick={() => trackExport?.()}
               >
                 {({ loading }) => (
                   <Button variant="outline" className="w-full gap-2" disabled={loading}>
@@ -184,7 +189,22 @@ export const ResumeEditor = ({ resumeId }: Props) => {
                   </Button>
                 )}
               </PDFDownloadLink>
+              <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-full gap-2">
+                    <History className="h-4 w-4" /> Version History
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Version History</DialogTitle>
+                  </DialogHeader>
+                  <ResumeHistory resumeId={resumeId} onRestore={() => { setHistoryOpen(false); refetch?.(); }} />
+                </DialogContent>
+              </Dialog>
             </div>
+            
+            <ResumeSharing resumeId={resumeId} initialSharing={resume.sharing || { enabled: false }} onUpdate={(updates) => updateResume(updates)} />
           </CardContent>
         </Card>
 

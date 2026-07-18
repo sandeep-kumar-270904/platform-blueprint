@@ -2,8 +2,9 @@ const JobApplication = require('../models/JobApplication');
 const Job = require('../models/Job');
 const { createNotification } = require('./notificationService');
 const User = require('../models/User');
+const Resume = require('../models/Resume');
 
-const createJobApplication = async ({ jobId, applicantId, applyMode, resumeUrl, coverLetter, screeningAnswers, io }) => {
+const createJobApplication = async ({ jobId, applicantId, applyMode, resumeId, resumeUrl, coverLetter, screeningAnswers, io }) => {
   const job = await Job.findById(jobId);
   if (!job) {
     const error = new Error('Job not found');
@@ -35,17 +36,36 @@ const createJobApplication = async ({ jobId, applicantId, applyMode, resumeUrl, 
     throw error;
   }
 
-  if (job.applyMode === 'in-app' && !resumeUrl) {
+  if (job.applyMode === 'in-app' && !resumeId && !resumeUrl) {
     const error = new Error('Resume is required for in-app applications');
     error.status = 400;
     throw error;
+  }
+
+  let resumeSnapshot = undefined;
+  if (resumeId) {
+    const resume = await Resume.findById(resumeId);
+    if (!resume) {
+      throw new Error('Selected resume not found');
+    }
+    if (resume.user_id.toString() !== applicantId.toString()) {
+      throw new Error('Not authorized to use this resume');
+    }
+    resumeSnapshot = resume.toObject();
+    
+    // Increment application count for analytics
+    await Resume.findByIdAndUpdate(resumeId, {
+      $inc: { 'analytics.applicationCount': 1 }
+    });
   }
 
   const application = new JobApplication({
     job: job._id,
     applicant: applicantId,
     applyMode: job.applyMode,
-    resumeUrl: job.applyMode === 'in-app' ? resumeUrl : undefined,
+    resumeId: resumeId || undefined,
+    resumeSnapshot,
+    resumeUrl: resumeUrl || undefined, // fallback for external/legacy
     coverLetter,
     screeningAnswers,
     status: 'applied',

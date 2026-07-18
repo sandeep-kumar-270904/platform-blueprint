@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { toast } from 'sonner';
-import { ChevronLeft, MoreVertical, Paperclip } from 'lucide-react';
+import { ChevronLeft, MoreVertical, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -192,7 +193,78 @@ const ATSDashboard: React.FC = () => {
                         </DropdownMenu>
                       </div>
                       
-                      {app.resumeUrl && (
+                      {app.resumeSnapshot ? (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <button className="flex items-center gap-1 text-xs text-blue-600 hover:underline mt-2 bg-blue-50 dark:bg-blue-900/30 p-1.5 rounded w-full justify-center">
+                              <FileText className="w-3 h-3" /> View Resume
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                            <DialogHeader>
+                              <DialogTitle>{app.applicant.full_name}'s Resume</DialogTitle>
+                            </DialogHeader>
+                            <div className="bg-white p-8 text-black border rounded shadow-sm min-h-[800px]">
+                              {app.resumeSnapshot.showAtsScore && app.resumeSnapshot.atsScore && (
+                                <div className="mb-4 p-4 bg-gray-50 border rounded-lg flex justify-between items-center">
+                                  <span className="font-semibold text-gray-700">ATS Match Score</span>
+                                  <Badge className="text-lg px-3 py-1" variant={app.resumeSnapshot.atsScore.score >= 80 ? 'default' : 'secondary'}>
+                                    {app.resumeSnapshot.atsScore.score}
+                                  </Badge>
+                                </div>
+                              )}
+                              {/* Resume Content Rendering */}
+                              <div className="text-center mb-6">
+                                <h1 className="text-3xl font-bold">{app.resumeSnapshot.personalInfo?.fullName}</h1>
+                                <p className="text-gray-600">
+                                  {app.resumeSnapshot.personalInfo?.email} • {app.resumeSnapshot.personalInfo?.phone} • {app.resumeSnapshot.personalInfo?.location}
+                                </p>
+                              </div>
+                              {app.resumeSnapshot.personalInfo?.professionalSummary && (
+                                <div className="mb-6">
+                                  <h2 className="text-xl font-semibold border-b pb-1 mb-2">Professional Summary</h2>
+                                  <p className="whitespace-pre-wrap text-sm">{app.resumeSnapshot.personalInfo.professionalSummary}</p>
+                                </div>
+                              )}
+                              {app.resumeSnapshot.experience && app.resumeSnapshot.experience.length > 0 && (
+                                <div className="mb-6">
+                                  <h2 className="text-xl font-semibold border-b pb-1 mb-2">Experience</h2>
+                                  <div className="space-y-4">
+                                    {app.resumeSnapshot.experience.map((exp: any, i: number) => (
+                                      <div key={i}>
+                                        <div className="flex justify-between">
+                                          <h3 className="font-bold">{exp.title}</h3>
+                                          <span className="text-sm text-gray-500">{exp.startDate} - {exp.isCurrent ? 'Present' : exp.endDate}</span>
+                                        </div>
+                                        <p className="italic text-sm">{exp.company} • {exp.location}</p>
+                                        <ul className="list-disc pl-5 text-sm mt-1">
+                                          {exp.bulletPoints?.map((bp: string, j: number) => <li key={j}>{bp}</li>)}
+                                        </ul>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {app.resumeSnapshot.education && app.resumeSnapshot.education.length > 0 && (
+                                <div className="mb-6">
+                                  <h2 className="text-xl font-semibold border-b pb-1 mb-2">Education</h2>
+                                  <div className="space-y-4">
+                                    {app.resumeSnapshot.education.map((edu: any, i: number) => (
+                                      <div key={i}>
+                                        <div className="flex justify-between">
+                                          <h3 className="font-bold">{edu.institution}</h3>
+                                          <span className="text-sm text-gray-500">{edu.startDate} - {edu.endDate}</span>
+                                        </div>
+                                        <p className="text-sm">{edu.degree} in {edu.fieldOfStudy}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      ) : app.resumeUrl && (
                         <a 
                           href={app.resumeUrl} 
                           target="_blank" 

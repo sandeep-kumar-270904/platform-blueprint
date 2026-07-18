@@ -206,5 +206,20 @@ export const useResumeEditor = (resumeId: string | null) => {
     }
   };
 
-  return { resume, loading, updateResume, scoreResume };
+  const trackExport = async () => {
+    if (!resumeId) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      await fetch(`${API_URL}/api/resumes/${resumeId}/export`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return { resume, loading, updateResume, scoreResume, refetch: fetchResume, trackExport };
 };

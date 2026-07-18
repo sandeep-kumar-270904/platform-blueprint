@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { useResumes } from '@/hooks/useResume';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -20,7 +21,8 @@ const JobDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
-  const [resumeUrl, setResumeUrl] = useState('');
+  const { resumes, loading: resumesLoading } = useResumes();
+  const [selectedResumeId, setSelectedResumeId] = useState<string>('');
   const [coverLetter, setCoverLetter] = useState('');
   const [applying, setApplying] = useState(false);
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
@@ -70,6 +72,25 @@ const JobDetail: React.FC = () => {
     fetchJobAndStatuses();
   }, [id, navigate]);
 
+  // Set default resume when modal opens
+  useEffect(() => {
+    if (isApplyModalOpen && resumes.length > 0 && !selectedResumeId) {
+      const defaultRes = resumes.find(r => r.isDefault);
+      if (defaultRes) {
+        setSelectedResumeId(defaultRes._id as string);
+      } else {
+        setSelectedResumeId(resumes[0]._id as string);
+      }
+    }
+  }, [isApplyModalOpen, resumes, selectedResumeId]);
+
+  const calculateMatch = (resumeSkills: any[], jobSkills: string[]) => {
+    if (!resumeSkills || !jobSkills || jobSkills.length === 0) return 0;
+    const flatResumeSkills = resumeSkills.flatMap(s => s.items).map(i => i.toLowerCase());
+    const matched = jobSkills.filter(s => flatResumeSkills.includes(s.toLowerCase()));
+    return Math.round((matched.length / jobSkills.length) * 100);
+  };
+
   const handleToggleSave = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -108,7 +129,7 @@ const JobDetail: React.FC = () => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ resumeUrl, coverLetter })
+        body: JSON.stringify({ resumeId: selectedResumeId, coverLetter })
       });
 
       const data = await res.json();
@@ -390,9 +411,34 @@ const JobDetail: React.FC = () => {
                     </DialogHeader>
                     <form onSubmit={handleApply} className="space-y-4 py-4">
                       <div className="space-y-2">
-                        <Label>Resume Link (URL) *</Label>
-                        <Input type="url" required placeholder="https://docs.google.com/..." value={resumeUrl} onChange={e => setResumeUrl(e.target.value)} />
-                        <p className="text-xs text-gray-500">Please provide a public link to your resume (Drive, Dropbox, etc.)</p>
+                        <Label>Select Resume *</Label>
+                        {resumesLoading ? (
+                          <div className="h-10 bg-muted animate-pulse rounded-md w-full"></div>
+                        ) : resumes.length === 0 ? (
+                          <div className="text-sm text-red-500 border border-red-200 p-3 rounded bg-red-50">
+                            You need to create a resume first. <a href="/resume" className="underline font-medium">Go to Resume Builder</a>
+                          </div>
+                        ) : (
+                          <Select value={selectedResumeId} onValueChange={setSelectedResumeId} required>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a saved resume" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {resumes.map(r => {
+                                const matchScore = job.skills ? calculateMatch(r.skills || [], job.skills) : 0;
+                                return (
+                                  <SelectItem key={r._id} value={r._id as string}>
+                                    <div className="flex justify-between items-center w-[300px]">
+                                      <span>{r.title} {r.isDefault && "(Default)"}</span>
+                                      {matchScore > 0 && <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded">{matchScore}% Match</span>}
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        <p className="text-xs text-gray-500">Your resume will be attached as a snapshot.</p>
                       </div>
                       <div className="space-y-2">
                         <Label>Cover Letter (Optional)</Label>

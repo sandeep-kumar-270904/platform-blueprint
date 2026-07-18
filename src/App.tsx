@@ -24,6 +24,7 @@ import Community from "./pages/Community";
 import Mentors from "./pages/Mentors";
 import Dashboard from "./pages/Dashboard";
 import ResumeBuilder from "./pages/ResumeBuilder";
+import SharedResumeView from "./pages/SharedResumeView";
 import CollegeInsights from "./pages/CollegeInsights";
 import CollegeDetail from "./pages/CollegeDetail";
 import CompareColleges from "./pages/CompareColleges";
@@ -141,6 +142,8 @@ const App = () => (
           <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
           <Route path="/study-session/:sessionId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
           <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
+          {/* Public or Auth-free routes could be outside ProtectedRoute if needed, but App.tsx structure has them in a wrapper. SharedResumeView should probably be outside ProtectedRoute so recruiters can view without account. */}
+          <Route path="/resume/shared/:linkId" element={<SharedResumeView />} />
           <Route path="/mentors" element={<ProtectedRoute><Mentors /></ProtectedRoute>} />
           <Route path="/mentors/amas" element={<ProtectedRoute><AMASessionsPage /></ProtectedRoute>} />
           <Route path="/mentors/amas/:id" element={<ProtectedRoute><AMADetailPage /></ProtectedRoute>} />

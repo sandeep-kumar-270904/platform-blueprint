@@ -319,12 +319,13 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
 
 router.post('/:id/apply', authMiddleware, async (req, res) => {
   try {
-    const { resumeUrl, coverLetter, screeningAnswers } = req.body;
+    const { resumeId, resumeUrl, coverLetter, screeningAnswers } = req.body;
     
     const { application, job } = await createJobApplication({
       jobId: req.params.id,
       applicantId: req.user.id,
       // Removed hardcoded applyMode, will let service handle it
+      resumeId,
       resumeUrl,
       coverLetter,
       screeningAnswers,
@@ -363,9 +364,12 @@ router.post('/:id/easy-apply', authMiddleware, async (req, res) => {
     }
 
     const user = await User.findById(req.user.id);
+    const Resume = require('../models/Resume');
+    const defaultResume = await Resume.findOne({ user_id: req.user.id, isDefault: true });
+    
     const resumeUrl = user.defaultApplicationProfile?.resumeUrl;
     
-    if (!resumeUrl) {
+    if (!defaultResume && !resumeUrl) {
       return res.status(400).json({ message: 'You must set up your default resume before using Easy Apply.' });
     }
 
@@ -373,7 +377,8 @@ router.post('/:id/easy-apply', authMiddleware, async (req, res) => {
       jobId: req.params.id,
       applicantId: req.user.id,
       applyMode: 'easy',
-      resumeUrl,
+      resumeId: defaultResume ? defaultResume._id : undefined,
+      resumeUrl: defaultResume ? undefined : resumeUrl,
       coverLetter: user.defaultApplicationProfile?.defaultCoverLetter || undefined,
       io: req.app.get('io')
     });
