@@ -343,6 +343,38 @@ Respond STRICTLY with a valid JSON object matching this schema, without markdown
     }
   }
 
+  async generateScholarshipExplanation(userProfile, scholarshipDetails, userId) {
+    if (this.isMock) {
+      return "Mock explanation: Based on your major and GPA, you are a strong fit for this scholarship.";
+    }
+
+    try {
+      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+      const prompt = `
+        You are an expert scholarship advisor. Explain briefly (max 3 sentences) why the user is a good match for this scholarship. 
+        Focus strictly on factual overlap between the user's profile and the scholarship's eligibility criteria.
+        
+        User Profile:
+        ${JSON.stringify(userProfile, null, 2)}
+        
+        Scholarship Details:
+        ${JSON.stringify(scholarshipDetails, null, 2)}
+      `;
+
+      const result = await withRetry(() => model.generateContent(prompt));
+      const response = result.response.text();
+
+      // Track usage asynchronously
+      this.trackUsage(userId, 'scholarship_explanation', prompt.length + response.length).catch(err => 
+        logger.error(`Failed to track Gemini usage: ${err.message}`)
+      );
+
+      return response.trim();
+    } catch (error) {
+      logger.error('Gemini scholarship explanation generation failed:', error);
+      throw new Error('Failed to generate match explanation');
+    }
+  }
 }
 
 module.exports = new GeminiService();
