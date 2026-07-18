@@ -33,9 +33,8 @@ const isAdmin = async (req, res, next) => {
 // Check if user is admin route
 router.get('/check', authMiddleware, async (req, res) => {
   try {
-    // For blueprint testing, temporarily return true for any authenticated user
-    // In production: const user = await User.findById(req.user.id); res.json({ isAdmin: user.role === 'admin' });
-    res.json({ isAdmin: true });
+    const user = await User.findById(req.user.id);
+    res.json({ isAdmin: user?.role === 'admin' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
