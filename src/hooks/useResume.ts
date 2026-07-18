@@ -223,3 +223,167 @@ export const useResumeEditor = (resumeId: string | null) => {
 
   return { resume, loading, updateResume, scoreResume, refetch: fetchResume, trackExport };
 };
+
+export interface CoverLetter {
+  _id: string;
+  title: string;
+  jobTitle?: string;
+  companyName?: string;
+  jobDescription?: string;
+  content: string;
+  tone: string;
+  resumeId?: string;
+  updatedAt: string;
+}
+
+export const useCoverLetters = () => {
+  const [coverLetters, setCoverLetters] = useState<CoverLetter[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCoverLetters = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/cover-letters`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setCoverLetters(await res.json());
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCoverLetters();
+  }, [fetchCoverLetters]);
+
+  const createCoverLetter = async (data: Partial<CoverLetter>) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/cover-letters`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        const newLetter = await res.json();
+        setCoverLetters(prev => [newLetter, ...prev]);
+        return newLetter;
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const updateCoverLetter = async (id: string, data: Partial<CoverLetter>) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/cover-letters/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setCoverLetters(prev => prev.map(cl => cl._id === id ? updated : cl));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const deleteCoverLetter = async (id: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/cover-letters/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setCoverLetters(prev => prev.filter(c => c._id !== id));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const generateCoverLetter = async (resumeId: string, jobDescription: string, tone: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) throw new Error('Not authenticated');
+    
+    const res = await fetch(`${API_URL}/api/cover-letters/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ resumeId, jobDescription, tone })
+    });
+    
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || 'Generation failed');
+    }
+    
+    return await res.json();
+  };
+
+  return { coverLetters, loading, refetch: fetchCoverLetters, createCoverLetter, updateCoverLetter, deleteCoverLetter, generateCoverLetter };
+};
+
+export const useCoverLetterEditor = (id: string | null) => {
+  const [coverLetter, setCoverLetter] = useState<CoverLetter | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCoverLetter = useCallback(async () => {
+    if (!id) {
+      setCoverLetter(null);
+      setLoading(false);
+      return;
+    }
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/cover-letters/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setCoverLetter(await res.json());
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchCoverLetter();
+  }, [fetchCoverLetter]);
+
+  const updateCoverLetter = async (updates: Partial<CoverLetter>) => {
+    if (!id) return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    setCoverLetter(prev => prev ? { ...prev, ...updates } : null);
+    try {
+      await fetch(`${API_URL}/api/cover-letters/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(updates)
+      });
+    } catch (err) {
+      console.error(err);
+      fetchCoverLetter();
+    }
+  };
+
+  return { coverLetter, loading, updateCoverLetter, refetch: fetchCoverLetter };
+};

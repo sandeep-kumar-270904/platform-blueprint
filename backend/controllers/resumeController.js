@@ -139,7 +139,7 @@ exports.scoreResume = async (req, res) => {
     if (!resume) return res.status(404).json({ message: 'Resume not found' });
     if (resume.user_id.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
 
-    const atsResult = await geminiService.scoreResume(resume);
+    const atsResult = await geminiService.scoreResume(resume.toObject(), req.user.id);
     
     resume.atsScore = {
       score: atsResult.score,
@@ -343,6 +343,37 @@ exports.trackExport = async (req, res) => {
     res.json({ message: 'Export tracked' });
   } catch (error) {
     res.status(500).json({ message: 'Server error tracking export', error: error.message });
+  }
+};
+
+
+const fs = require('fs');
+const pdfParse = require('pdf-parse');
+
+// Import from File (PDF or Text)
+exports.importFromFile = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    
+    let rawText = '';
+    if (req.file.mimetype === 'application/pdf') {
+      const dataBuffer = fs.readFileSync(req.file.path);
+      const data = await pdfParse(dataBuffer);
+      rawText = data.text;
+    } else {
+      rawText = fs.readFileSync(req.file.path, 'utf8');
+    }
+    
+    // Parse with Gemini
+    const structuredData = await geminiService.parseResumeData(rawText, req.user.id);
+    
+    // Cleanup file
+    fs.unlinkSync(req.file.path);
+    
+    res.json({ resumeData: structuredData });
+  } catch (error) {
+    console.error('Import error:', error);
+    res.status(500).json({ message: 'Error parsing file', error: error.message });
   }
 };
 

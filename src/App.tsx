@@ -78,6 +78,7 @@ import CreatorsZone from "./pages/CreatorsZone";
 import AdminPanel from "./pages/AdminPanel";
 import AdminCollegePanel from "./pages/AdminCollegePanel";
 import MentorsAdminDashboard from "./pages/admin/MentorsAdminDashboard";
+import AdminResumeDashboard from "./pages/admin/AdminResumeDashboard";
 import DailyHacks from "./pages/DailyHacks";
 import VideoRoomPage from "./pages/VideoRoomPage";
 import AdminJobsPanel from "./pages/admin/AdminJobsPanel";
@@ -218,6 +219,7 @@ const App = () => (
           <Route path="/admin/jobs" element={<ProtectedRoute><AdminJobsPanel /></ProtectedRoute>} />
           <Route path="/admin/colleges" element={<ProtectedRoute><AdminCollegePanel /></ProtectedRoute>} />
           <Route path="/admin/mentors" element={<ProtectedRoute><MentorsAdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/resumes" element={<ProtectedRoute><AdminResumeDashboard /></ProtectedRoute>} />
           <Route path="/admin/career-opportunities" element={<ProtectedRoute><AdminCareerOpportunities /></ProtectedRoute>} />
           <Route path="/admin/quiz-reports" element={<ProtectedRoute><AdminQuizReports /></ProtectedRoute>} />
           <Route path="/admin/news-moderation" element={<ProtectedRoute><AdminNewsModeration /></ProtectedRoute>} />

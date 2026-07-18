@@ -25,10 +25,17 @@ const API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/
 
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>({ 
+    id: "dummy-user-id", 
+    email: "test@example.com", 
+    full_name: "Test User", 
+    university: "Test University" 
+  });
   const [loading, setLoading] = useState(true);
 
   const fetchUser = async () => {
+    // TEMPORARY AUTH BYPASS: Commenting out real fetch
+    /*
     try {
       const token = localStorage.getItem('token');
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -50,6 +57,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } finally {
       setLoading(false);
     }
+    */
+    setLoading(false);
   };
 
   useEffect(() => {
