@@ -201,9 +201,16 @@ export default function MentorsAdminDashboard() {
                     <Button size="sm" onClick={() => handleApprove(p._id)}><Check className="mr-2 h-4 w-4" /> Approve</Button>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm">{p.bio}</p>
-                </CardContent>
+                  <CardContent>
+                    <p className="text-sm">{p.bio}</p>
+                    {p.verificationEvidenceUrl && (
+                      <div className="mt-2 text-sm">
+                        <a href={p.verificationEvidenceUrl} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">
+                          View Verification Document
+                        </a>
+                      </div>
+                    )}
+                  </CardContent>
               </Card>
             ))
           )}

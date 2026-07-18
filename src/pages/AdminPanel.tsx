@@ -1,231 +1,54 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
-import { useAdmin } from "@/hooks/useAdmin";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  Users, FileText, AlertTriangle, Shield, Trash2, XCircle,
-  RefreshCw, Search, Star, Flag, MessageSquare, BarChart3, Calendar, Check, X, ShieldAlert,
-  Link as LinkIcon, BookOpen, GraduationCap, LayoutList, HelpCircle
+import { 
+  Users, AlertTriangle, ShieldAlert, BarChart3, 
+  DollarSign, Briefcase, GraduationCap, Link as LinkIcon 
 } from "lucide-react";
-import { ScrollReveal } from "@/components/animations/ScrollReveal";
+import { AdminModerationQueue } from "@/components/admin/AdminModerationQueue";
+import { AdminFinancials } from "@/components/admin/AdminFinancials";
+import { useAdmin } from "@/hooks/useAdmin";
+import { toast } from 'sonner';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const AdminPanel = () => {
-  const {
-    isAdmin, loading, notes, comments, reports, users, stats,
-    deleteNote, deleteComment, updateReportStatus, deleteReportedContent, refresh,
-  } = useAdmin();
-
-  const [activeTab, setActiveTab] = useState("overview");
-  const [noteSort, setNoteSort] = useState("newest");
-  const [noteSearch, setNoteSearch] = useState("");
-  const [commentSearch, setCommentSearch] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string; title: string } | null>(null);
-
-  const [pendingEvents, setPendingEvents] = useState<any[]>([]);
-  const [pendingMentors, setPendingMentors] = useState<any[]>([]);
-  const [mentorsLoading, setMentorsLoading] = useState(false);
-  const [disputesLoading, setDisputesLoading] = useState(false);
-
-  // Phase 9 Mentors Overview State
-  const [referrals, setReferrals] = useState<any[]>([]);
-  const [forums, setForums] = useState<any[]>([]);
-  const [qa, setQa] = useState<any[]>([]);
-  const [learningPaths, setLearningPaths] = useState<any[]>([]);
-  const [institutions, setInstitutions] = useState<any[]>([]);
-  const [cohorts, setCohorts] = useState<any[]>([]);
-  const [subscriptions, setSubscriptions] = useState<any[]>([]);
-  const [consistencyCheck, setConsistencyCheck] = useState<any>(null);
-
-  const fetchPendingEvents = async () => {
-    try {
-      setEventsLoading(true);
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/events/pending`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPendingEvents(data.events);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setEventsLoading(false);
-    }
-  };
-
-  const fetchPendingMentors = async () => {
-    try {
-      setMentorsLoading(true);
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/mentors/pending`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPendingMentors(data);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setMentorsLoading(false);
-    }
-  };
-
-  const fetchDisputes = async () => {
-    try {
-      setDisputesLoading(true);
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/disputes`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setDisputes(data);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setDisputesLoading(false);
-    }
-  };
-
-  const fetchMentorsOverview = async (type: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const res = await fetch(`${API_URL}/api/admin/mentors-overview/${type}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (type === 'referrals') setReferrals(data);
-        if (type === 'forums') setForums(data);
-        if (type === 'qa') setQa(data);
-        if (type === 'learning-paths') setLearningPaths(data);
-        if (type === 'institutions') setInstitutions(data);
-        if (type === 'cohorts') setCohorts(data);
-        if (type === 'subscriptions') setSubscriptions(data);
-        if (type === 'consistency-check') setConsistencyCheck(data);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  const { isAdmin, loading: authLoading } = useAdmin();
+  const [globalStats, setGlobalStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     if (isAdmin) {
-      if (activeTab === "events") fetchPendingEvents();
-      if (activeTab === "mentors") fetchPendingMentors();
-      if (activeTab === "disputes") fetchDisputes();
-      if (['referrals', 'forums', 'qa', 'learning-paths', 'institutions', 'cohorts', 'subscriptions', 'consistency'].includes(activeTab)) {
-        fetchMentorsOverview(activeTab === 'consistency' ? 'consistency-check' : activeTab);
-      }
+      fetchGlobalStats();
     }
-  }, [isAdmin, activeTab]);
+  }, [isAdmin]);
 
-  const handleEventAction = async (id: string, action: 'approve' | 'reject') => {
+  const fetchGlobalStats = async () => {
     try {
       const token = localStorage.getItem('token');
-      let reason = "";
-      if (action === 'reject') {
-        reason = prompt("Reason for rejection:") || "";
-        if (!reason) return;
-      }
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/events/${id}/${action}`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason })
-      });
-      if (res.ok) {
-        fetchPendingEvents();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleMentorAction = async (id: string, action: 'approve' | 'reject') => {
-    try {
-      const token = localStorage.getItem('token');
-      let reason = "";
-      if (action === 'reject') {
-        reason = prompt("Reason for rejection:") || "";
-        if (!reason) return;
-      }
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/mentors/${id}/${action}`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason })
-      });
-      if (res.ok) {
-        fetchPendingMentors();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleResolveDispute = async (id: string, action: 'refund_mentee' | 'pay_mentor' | 'dismiss') => {
-    try {
-      const token = localStorage.getItem('token');
-      const notes = prompt("Admin Resolution Notes:") || `Resolved via ${action}`;
-      
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/disputes/${id}/resolve`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resolutionAction: action, adminNotes: notes })
-      });
-      
-      if (res.ok) {
-        fetchDisputes();
-      } else {
-        alert((await res.json()).message || "Failed to resolve dispute");
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const deleteMentorsOverviewItem = async (type: string, id: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
-    try {
-      const token = localStorage.getItem('token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const res = await fetch(`${API_URL}/api/admin/mentors-overview/${type}/${id}`, {
-        method: 'DELETE',
+      const res = await fetch(`${API_URL}/api/admin/stats/global`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
-        fetchMentorsOverview(type);
+        setGlobalStats(await res.json());
       }
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error("Failed to load global stats", error);
+    } finally {
+      setStatsLoading(false);
     }
   };
 
-  if (loading) {
+  if (authLoading || statsLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-      <div className="container mx-auto px-4 pt-24 pb-12 text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="mt-4 text-muted-foreground">Loading admin panel...</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-pulse flex flex-col items-center">
+          <ShieldAlert className="h-12 w-12 text-gray-300 mb-4" />
+          <h2 className="text-xl font-semibold text-gray-500">Loading Admin Dashboard...</h2>
         </div>
       </div>
     );
@@ -233,818 +56,127 @@ const AdminPanel = () => {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-      <div className="container mx-auto px-4 pt-24 pb-12 text-center">
-          <Shield className="h-16 w-16 mx-auto text-destructive mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
-          <p className="text-muted-foreground">You need admin privileges to access this page.</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <ShieldAlert className="mx-auto h-16 w-16 text-red-500 mb-4" />
+          <h1 className="text-3xl font-bold mb-2">Access Denied</h1>
+          <p className="text-muted-foreground mb-6">You do not have administrative privileges.</p>
+          <Button asChild><Link to="/">Return to Home</Link></Button>
         </div>
       </div>
     );
   }
 
-  // Filter + sort notes
-  const sortedNotes = [...notes]
-    .filter((n) => !noteSearch || n.title.toLowerCase().includes(noteSearch.toLowerCase()) || n.subject.toLowerCase().includes(noteSearch.toLowerCase()))
-    .sort((a, b) => {
-      switch (noteSort) {
-        case "low-rating": return (a.rating || 0) - (b.rating || 0);
-        case "high-reports": return (b.report_count || 0) - (a.report_count || 0);
-        case "low-engagement": return ((a.quality_score || 0)) - ((b.quality_score || 0));
-        case "most-downloads": return (b.downloads || 0) - (a.downloads || 0);
-        default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      }
-    });
-
-  const filteredComments = comments.filter(
-    (c) => !commentSearch || c.content.toLowerCase().includes(commentSearch.toLowerCase()) || (c.note_title || "").toLowerCase().includes(commentSearch.toLowerCase())
-  );
-
-  const reportedComments = comments.filter((c) => c.is_reported);
-  const pendingReports = reports.filter((r) => r.status === "pending");
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-50">
       <Header />
-      <div className="container mx-auto px-4 pt-24 pb-8">
-        <ScrollReveal>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <Shield className="h-6 w-6 text-primary" />
-                <h1 className="text-3xl font-bold">Admin Panel</h1>
-              </div>
-              <p className="text-muted-foreground">Manage platform content, users, and moderation</p>
-            </div>
-            <div className="flex gap-2">
-              <Link to="/admin/news-moderation">
-                <Button variant="outline" size="sm">
-                  <Flag className="mr-2 h-4 w-4" />News Mod
-                </Button>
-              </Link>
-              <Button variant="outline" size="sm" onClick={refresh}>
-                <RefreshCw className="mr-2 h-4 w-4" />Refresh
-              </Button>
-            </div>
+      <main className="container mx-auto px-4 py-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">Admin Control Center</h1>
+            <p className="text-muted-foreground mt-2">Centralized management across all StudentHub modules.</p>
           </div>
-        </ScrollReveal>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          {[
-            { label: "Total Notes", value: stats.totalNotes, icon: FileText, color: "text-primary" },
-            { label: "Total Users", value: stats.totalUsers, icon: Users, color: "text-accent-foreground" },
-            { label: "Pending Reports", value: stats.pendingReports, icon: AlertTriangle, color: "text-destructive" },
-            { label: "Flagged Notes", value: stats.flaggedNotes, icon: Flag, color: "text-orange-500" },
-          ].map((s) => (
-            <Card key={s.label}>
-              <CardContent className="pt-4 pb-3">
-                <s.icon className={`h-4 w-4 mb-1 ${s.color}`} />
-                <p className="text-2xl font-bold">{s.value}</p>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-              </CardContent>
-            </Card>
-          ))}
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="overview"><BarChart3 className="mr-1.5 h-3.5 w-3.5" />Overview</TabsTrigger>
-            <TabsTrigger value="notes"><FileText className="mr-1.5 h-3.5 w-3.5" />Notes ({notes.length})</TabsTrigger>
-            <TabsTrigger value="comments"><MessageSquare className="mr-1.5 h-3.5 w-3.5" />Comments ({comments.length})</TabsTrigger>
-            <TabsTrigger value="reports">
-              <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />Reports
-              {pendingReports.length > 0 && <Badge variant="destructive" className="ml-1.5 text-xs px-1.5">{pendingReports.length}</Badge>}
+        <Tabs defaultValue="overview" className="space-y-8">
+          <TabsList className="bg-white border p-1 rounded-lg">
+            <TabsTrigger value="overview"><BarChart3 className="mr-2 h-4 w-4" /> Dashboard</TabsTrigger>
+            <TabsTrigger value="moderation">
+              <AlertTriangle className="mr-2 h-4 w-4" /> Moderation Queue
+              {globalStats?.pendingReports > 0 && <Badge variant="destructive" className="ml-2">{globalStats.pendingReports}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="users"><Users className="mr-1.5 h-3.5 w-3.5" />Users ({users.length})</TabsTrigger>
-            <TabsTrigger value="events">
-              <Calendar className="mr-1.5 h-3.5 w-3.5" />Events
-              {pendingEvents.length > 0 && <Badge variant="secondary" className="ml-1.5 text-xs px-1.5">{pendingEvents.length}</Badge>}
+            <TabsTrigger value="financials">
+              <DollarSign className="mr-2 h-4 w-4" /> Financials & Disputes
+              {globalStats?.openDisputes > 0 && <Badge variant="destructive" className="ml-2">{globalStats.openDisputes}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="mentors">
-              <Star className="mr-1.5 h-3.5 w-3.5" />Mentors
-            </TabsTrigger>
-            <TabsTrigger value="disputes">
-              <ShieldAlert className="mr-1.5 h-3.5 w-3.5" />Disputes
-              {disputes.filter((d: any) => d.status === 'open').length > 0 && (
-                <Badge variant="destructive" className="ml-1.5 text-xs px-1.5">
-                  {disputes.filter((d: any) => d.status === 'open').length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="referrals"><LinkIcon className="mr-1.5 h-3.5 w-3.5" />Referrals</TabsTrigger>
-            <TabsTrigger value="forums"><MessageSquare className="mr-1.5 h-3.5 w-3.5" />Forums</TabsTrigger>
-            <TabsTrigger value="qa"><HelpCircle className="mr-1.5 h-3.5 w-3.5" />Q&A</TabsTrigger>
-            <TabsTrigger value="learning-paths"><LayoutList className="mr-1.5 h-3.5 w-3.5" />Paths</TabsTrigger>
-            <TabsTrigger value="institutions"><GraduationCap className="mr-1.5 h-3.5 w-3.5" />Institutions</TabsTrigger>
-            <TabsTrigger value="cohorts"><Users className="mr-1.5 h-3.5 w-3.5" />Cohorts</TabsTrigger>
-            <TabsTrigger value="subscriptions"><Star className="mr-1.5 h-3.5 w-3.5" />Subs</TabsTrigger>
-            <TabsTrigger value="consistency"><ShieldAlert className="mr-1.5 h-3.5 w-3.5" />Consistency</TabsTrigger>
           </TabsList>
 
-          {/* OVERVIEW */}
           <TabsContent value="overview">
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-4 gap-6 mb-8">
               <Card>
-                <CardHeader><CardTitle className="text-lg">Recent Reports</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Pending Verifications</CardTitle></CardHeader>
                 <CardContent>
-                  {pendingReports.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No pending reports 🎉</p>
+                  <div className="text-3xl font-bold">{globalStats?.pendingVerifications || 0}</div>
+                  <p className="text-xs text-muted-foreground mt-1">Mentors & Recruiters</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Reports Queue</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{globalStats?.pendingReports || 0}</div>
+                  <p className="text-xs text-muted-foreground mt-1">Across all modules</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Open Disputes</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{globalStats?.openDisputes || 0}</div>
+                  <p className="text-xs text-muted-foreground mt-1">Requires financial resolution</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Institution Seats</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{globalStats?.seats?.used || 0} / {globalStats?.seats?.total || 0}</div>
+                  <p className="text-xs text-muted-foreground mt-1">Total platform utilization</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Module Dashboards</CardTitle>
+                  <CardDescription>Deep dive into specific module settings and verifications.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 gap-4">
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/mentors"><Users className="mr-3 h-5 w-5 text-blue-500" /> Mentors & Enterprise Cohorts</Link>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/jobs"><Briefcase className="mr-3 h-5 w-5 text-orange-500" /> Job Board & Recruiters</Link>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/colleges"><GraduationCap className="mr-3 h-5 w-5 text-purple-500" /> College Insights</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Bans & Suspensions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {globalStats?.recentBans?.length === 0 ? (
+                    <p className="text-muted-foreground">No recent bans.</p>
                   ) : (
-                    <div className="space-y-3">
-                      {pendingReports.slice(0, 5).map((r) => (
-                        <div key={r.id} className="flex items-start justify-between p-3 rounded-lg border border-border/50 bg-muted/30">
+                    <div className="space-y-4">
+                      {globalStats?.recentBans?.map((user: any) => (
+                        <div key={user._id} className="flex justify-between items-center border-b pb-2 last:border-0">
                           <div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant={r.content_type === "note" ? "default" : "secondary"}>{r.content_type}</Badge>
-                              <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
-                            </div>
-                            <p className="text-sm mt-1">{r.reason}</p>
+                            <p className="font-medium">{user.full_name}</p>
+                            <p className="text-xs text-muted-foreground">{user.banReason}</p>
                           </div>
-                          <div className="flex gap-1">
-                            <Button size="sm" variant="ghost" onClick={() => updateReportStatus(r.id, "dismissed")}>
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteReportedContent(r)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <Badge variant="destructive">Banned</Badge>
                         </div>
                       ))}
                     </div>
                   )}
                 </CardContent>
               </Card>
-
-              <Card>
-                <CardHeader><CardTitle className="text-lg">Low Quality Notes</CardTitle></CardHeader>
-                <CardContent>
-                  {notes.filter((n) => (n.quality_score || 0) < 1).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">All notes meet quality standards ✅</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {notes.filter((n) => (n.quality_score || 0) < 1).slice(0, 5).map((n) => (
-                        <div key={n.id} className="flex items-center justify-between p-2 rounded border border-border/50">
-                          <div>
-                            <p className="text-sm font-medium truncate max-w-[200px]">{n.title}</p>
-                            <div className="flex gap-2 text-xs text-muted-foreground">
-                              <span>⭐ {n.rating.toFixed(1)}</span>
-                              <span>👁 {n.views}</span>
-                              <span>📥 {n.downloads}</span>
-                            </div>
-                          </div>
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteTarget({ type: "note", id: n.id, title: n.title })}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader><CardTitle className="text-lg">Reported Comments</CardTitle></CardHeader>
-                <CardContent>
-                  {reportedComments.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No reported comments</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {reportedComments.slice(0, 5).map((c) => (
-                        <div key={c.id} className="flex items-start justify-between p-2 rounded border border-destructive/20 bg-destructive/5">
-                          <div>
-                            <p className="text-sm truncate max-w-[250px]">{c.content}</p>
-                            <p className="text-xs text-muted-foreground">on: {c.note_title}</p>
-                          </div>
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteTarget({ type: "comment", id: c.id, title: c.content.slice(0, 30) })}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader><CardTitle className="text-lg">Top Contributors</CardTitle></CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {[...users].sort((a, b) => b.notes_count - a.notes_count).slice(0, 5).map((u, i) => (
-                      <div key={u.id} className="flex items-center justify-between p-2 rounded border border-border/50">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-muted-foreground w-4">{i + 1}</span>
-                          <span className="text-sm font-medium">{u.full_name || u.username || "Anonymous"}</span>
-                        </div>
-                        <div className="flex gap-2 text-xs text-muted-foreground">
-                          <span>{u.notes_count} notes</span>
-                          <span>⭐ {u.avg_rating}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </TabsContent>
 
-          {/* NOTES TAB */}
-          <TabsContent value="notes">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search notes..." className="pl-9" value={noteSearch} onChange={(e) => setNoteSearch(e.target.value)} />
-              </div>
-              <Select value={noteSort} onValueChange={setNoteSort}>
-                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="low-rating">Low Rating</SelectItem>
-                  <SelectItem value="high-reports">Most Reported</SelectItem>
-                  <SelectItem value="low-engagement">Low Engagement</SelectItem>
-                  <SelectItem value="most-downloads">Most Downloads</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Author</TableHead>
-                    <TableHead className="text-center">Rating</TableHead>
-                    <TableHead className="text-center">Views</TableHead>
-                    <TableHead className="text-center">Downloads</TableHead>
-                    <TableHead className="text-center">Quality</TableHead>
-                    <TableHead className="text-center">Reports</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedNotes.slice(0, 50).map((n) => (
-                    <TableRow key={n.id}>
-                      <TableCell className="font-medium max-w-[200px] truncate">{n.title}</TableCell>
-                      <TableCell><Badge variant="outline">{n.subject}</Badge></TableCell>
-                      <TableCell className="text-sm">{n.profile?.full_name || n.profile?.username || "Unknown"}</TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Star className="h-3 w-3 text-yellow-500" />
-                          <span className="text-sm">{n.rating.toFixed(1)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center text-sm">{n.views}</TableCell>
-                      <TableCell className="text-center text-sm">{n.downloads}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant={(n.quality_score || 0) < 1 ? "destructive" : (n.quality_score || 0) < 3 ? "secondary" : "default"}>
-                          {(n.quality_score || 0).toFixed(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {n.report_count > 0 ? <Badge variant="destructive">{n.report_count}</Badge> : <span className="text-muted-foreground text-sm">0</span>}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteTarget({ type: "note", id: n.id, title: n.title })}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
+          <TabsContent value="moderation" className="bg-white p-6 rounded-xl border shadow-sm">
+            <AdminModerationQueue />
           </TabsContent>
 
-          {/* COMMENTS TAB */}
-          <TabsContent value="comments">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search comments..." className="pl-9" value={commentSearch} onChange={(e) => setCommentSearch(e.target.value)} />
-              </div>
-            </div>
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Content</TableHead>
-                    <TableHead>Note</TableHead>
-                    <TableHead>Author</TableHead>
-                    <TableHead className="text-center">Votes</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredComments.slice(0, 50).map((c) => (
-                    <TableRow key={c.id} className={c.is_reported ? "bg-destructive/5" : ""}>
-                      <TableCell className="max-w-[300px] truncate text-sm">{c.content}</TableCell>
-                      <TableCell className="text-sm max-w-[150px] truncate">{c.note_title}</TableCell>
-                      <TableCell className="text-sm">{c.profile?.full_name || c.profile?.username || "Unknown"}</TableCell>
-                      <TableCell className="text-center">
-                        <span className={`text-sm ${(c.upvotes - c.downvotes) >= 0 ? "text-green-600" : "text-destructive"}`}>
-                          {c.upvotes - c.downvotes > 0 ? "+" : ""}{c.upvotes - c.downvotes}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          {c.is_helpful && <Badge variant="default" className="text-xs">Helpful</Badge>}
-                          {c.is_reported && <Badge variant="destructive" className="text-xs">Reported</Badge>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteTarget({ type: "comment", id: c.id, title: c.content.slice(0, 30) })}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
+          <TabsContent value="financials" className="bg-white p-6 rounded-xl border shadow-sm">
+            <AdminFinancials />
           </TabsContent>
 
-          {/* REPORTS TAB */}
-          <TabsContent value="reports">
-            <Card>
-              <CardHeader><CardTitle>Content Reports</CardTitle></CardHeader>
-              <CardContent>
-                {reports.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">No reports yet</p>
-                ) : (
-                  <div className="space-y-3">
-                    {reports.map((r) => (
-                      <div key={r.id} className={`p-4 rounded-lg border ${r.status === "pending" ? "border-destructive/30 bg-destructive/5" : "border-border/50 bg-muted/20"}`}>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge variant={r.content_type === "note" ? "default" : "secondary"}>{r.content_type}</Badge>
-                              <Badge variant={r.status === "pending" ? "destructive" : r.status === "reviewed" ? "default" : "outline"}>
-                                {r.status}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</span>
-                            </div>
-                            <p className="text-sm font-medium">{r.reason}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Reported by: {r.reporter_profile?.full_name || r.reporter_profile?.username || "Anonymous"}
-                            </p>
-                            {r.admin_note && <p className="text-xs text-primary mt-1 italic">Admin: {r.admin_note}</p>}
-                          </div>
-                          {r.status === "pending" && (
-                            <div className="flex gap-1">
-                              <Button size="sm" variant="outline" onClick={() => updateReportStatus(r.id, "dismissed")}>
-                                <XCircle className="mr-1 h-3 w-3" />Dismiss
-                              </Button>
-                              <Button size="sm" variant="destructive" onClick={() => deleteReportedContent(r)}>
-                                <Trash2 className="mr-1 h-3 w-3" />Delete Content
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* USERS TAB */}
-          <TabsContent value="users">
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Username</TableHead>
-                    <TableHead className="text-center">Notes</TableHead>
-                    <TableHead className="text-center">Avg Rating</TableHead>
-                    <TableHead>Joined</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((u) => (
-                    <TableRow key={u.id}>
-                      <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{u.username || "—"}</TableCell>
-                      <TableCell className="text-center">{u.notes_count}</TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Star className="h-3 w-3 text-yellow-500" />
-                          <span>{u.avg_rating}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">{new Date(u.created_at).toLocaleDateString()}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          </TabsContent>
-
-          {/* EVENTS TAB */}
-          <TabsContent value="events">
-            <Card>
-              <CardHeader><CardTitle>Pending Events</CardTitle></CardHeader>
-              <CardContent>
-                {eventsLoading ? (
-                  <div className="flex justify-center p-8"><RefreshCw className="animate-spin text-muted-foreground" /></div>
-                ) : pendingEvents.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">No pending events</p>
-                ) : (
-                  <div className="space-y-4">
-                    {pendingEvents.map((ev) => (
-                      <div key={ev._id} className="p-4 border rounded-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge className="capitalize">{ev.eventType}</Badge>
-                            <span className="font-semibold text-lg">{ev.title}</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-2">{ev.description}</p>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>Host: {ev.hostName}</span>
-                            <span>Date: {new Date(ev.startDate).toLocaleDateString()}</span>
-                            <span>Venue: {ev.isVirtual ? 'Virtual' : ev.venue}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10" onClick={() => handleEventAction(ev._id, 'reject')}>
-                            <X className="mr-1 h-4 w-4" /> Reject
-                          </Button>
-                          <Button size="sm" variant="success" onClick={() => handleEventAction(ev._id, 'approve')}>
-                            <Check className="mr-1 h-4 w-4" /> Approve
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          {/* MENTORS TAB */}
-          <TabsContent value="mentors">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Star className="h-5 w-5 text-primary" /> Pending Mentor Applications
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {mentorsLoading ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Loading mentors...</p>
-                ) : pendingMentors.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Check className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                    <p>No pending mentor applications</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {pendingMentors.map((m) => (
-                      <div key={m._id} className="flex flex-col sm:flex-row sm:items-start justify-between p-4 rounded-lg border bg-card gap-4">
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-lg">{m.user_id?.full_name} (@{m.user_id?.username})</h3>
-                          </div>
-                          <p className="text-sm font-medium">{m.title} at {m.company}</p>
-                          <p className="text-sm text-muted-foreground">{m.bio}</p>
-                          
-                          <div className="flex flex-wrap gap-2 pt-2">
-                            {m.expertise?.map((e: string) => <Badge key={e} variant="outline" className="text-xs">{e}</Badge>)}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0 sm:flex-col">
-                          <Button size="sm" variant="outline" className="w-full text-destructive hover:bg-destructive/10" onClick={() => handleMentorAction(m._id, 'reject')}>
-                            <X className="mr-1 h-4 w-4" /> Reject
-                          </Button>
-                          <Button size="sm" variant="success" className="w-full" onClick={() => handleMentorAction(m._id, 'approve')}>
-                            <Check className="mr-1 h-4 w-4" /> Approve
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* DISPUTES TAB */}
-          <TabsContent value="disputes">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShieldAlert className="h-5 w-5 text-destructive" /> Booking Disputes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {disputesLoading ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Loading disputes...</p>
-                ) : disputes.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Check className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                    <p>No disputes to review</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {disputes.map((d) => (
-                      <div key={d._id} className="p-4 rounded-lg border bg-card gap-4 flex flex-col">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant={d.status === 'open' ? 'destructive' : 'secondary'} className="uppercase">
-                                {d.status}
-                              </Badge>
-                              <Badge variant="outline" className="capitalize">{d.category.replace('_', ' ')}</Badge>
-                              <span className="text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleString()}</span>
-                            </div>
-                            <p className="text-sm font-medium">Mentee: {d.menteeId?.full_name || 'Unknown'}</p>
-                            <p className="text-sm font-medium">Mentor: {d.mentorId?.user_id?.full_name || 'Unknown'}</p>
-                            <p className="text-sm text-muted-foreground mt-2 border-l-2 pl-3 py-1 bg-muted/30">{d.description}</p>
-                          </div>
-                          
-                          {d.status === 'open' && (
-                            <div className="flex flex-col gap-2 min-w-[140px]">
-                              <Button size="sm" variant="destructive" onClick={() => handleResolveDispute(d._id, 'refund_mentee')}>Refund Mentee</Button>
-                              <Button size="sm" variant="outline" onClick={() => handleResolveDispute(d._id, 'pay_mentor')}>Pay Mentor</Button>
-                              <Button size="sm" variant="ghost" onClick={() => handleResolveDispute(d._id, 'dismiss')}>Dismiss</Button>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {d.status === 'resolved' && (
-                          <div className="text-xs bg-muted p-2 rounded">
-                            <span className="font-semibold text-primary">Resolution ({d.resolutionAction}):</span> {d.adminNotes}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* NEW TABS FOR MENTORS PHASE 9 */}
-          <TabsContent value="referrals">
-            <Card>
-              <CardHeader><CardTitle>Referrals Overview</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Referrer</TableHead>
-                      <TableHead>Referred User</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {referrals.map((r) => (
-                      <TableRow key={r._id}>
-                        <TableCell className="font-mono">{r.referralCode}</TableCell>
-                        <TableCell>{r.referrer?.full_name}</TableCell>
-                        <TableCell>{r.referredUser?.full_name}</TableCell>
-                        <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
-                        <TableCell>{new Date(r.createdAt).toLocaleDateString()}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="forums">
-            <Card>
-              <CardHeader><CardTitle>Forums</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Author</TableHead>
-                      <TableHead>Replies</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {forums.map((f) => (
-                      <TableRow key={f._id}>
-                        <TableCell>{f.title}</TableCell>
-                        <TableCell>{f.author?.full_name}</TableCell>
-                        <TableCell>{f.replyCount}</TableCell>
-                        <TableCell>
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteMentorsOverviewItem('forums', f._id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="qa">
-            <Card>
-              <CardHeader><CardTitle>Peer Q&A</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Question</TableHead>
-                      <TableHead>Author</TableHead>
-                      <TableHead>Answers</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {qa.map((q) => (
-                      <TableRow key={q._id}>
-                        <TableCell className="max-w-[300px] truncate">{q.title}</TableCell>
-                        <TableCell>{q.author?.full_name}</TableCell>
-                        <TableCell>{q.answerCount}</TableCell>
-                        <TableCell>
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteMentorsOverviewItem('qa', q._id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="learning-paths">
-            <Card>
-              <CardHeader><CardTitle>Learning Paths</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Creator</TableHead>
-                      <TableHead>Enrollments</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {learningPaths.map((lp) => (
-                      <TableRow key={lp._id}>
-                        <TableCell>{lp.title}</TableCell>
-                        <TableCell>{lp.creator?.full_name}</TableCell>
-                        <TableCell>{lp.enrollmentCount}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="institutions">
-            <Card>
-              <CardHeader><CardTitle>Institutions</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Seats Used/Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {institutions.map((inst) => (
-                      <TableRow key={inst._id}>
-                        <TableCell>{inst.name}</TableCell>
-                        <TableCell>{inst.type}</TableCell>
-                        <TableCell>{inst.seatsUsed} / {inst.totalSeats}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="cohorts">
-            <Card>
-              <CardHeader><CardTitle>Cohorts</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Institution</TableHead>
-                      <TableHead>Teacher</TableHead>
-                      <TableHead>Students</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {cohorts.map((c) => (
-                      <TableRow key={c._id}>
-                        <TableCell>{c.name}</TableCell>
-                        <TableCell>{c.institutionId?.name}</TableCell>
-                        <TableCell>{c.teacherId?.full_name}</TableCell>
-                        <TableCell>{c.students?.length || 0}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="subscriptions">
-            <Card>
-              <CardHeader><CardTitle>Active Subscriptions</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Tier</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {subscriptions.map((s) => (
-                      <TableRow key={s._id}>
-                        <TableCell>{s.full_name}</TableCell>
-                        <TableCell>{s.email}</TableCell>
-                        <TableCell><Badge>{s.subscriptionTier}</Badge></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="consistency">
-            <Card>
-              <CardHeader>
-                <CardTitle>Data Consistency Check</CardTitle>
-                <CardDescription>Verify denormalized counts and orphaned records across Mentors models</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {consistencyCheck ? (
-                  <div>
-                    <div className="mb-4">
-                      <Badge variant={consistencyCheck.status === 'clean' ? 'default' : 'destructive'} className="text-lg px-4 py-1">
-                        {consistencyCheck.status.toUpperCase()}
-                      </Badge>
-                    </div>
-                    {consistencyCheck.issues && consistencyCheck.issues.length > 0 ? (
-                      <ul className="list-disc pl-5 space-y-2">
-                        {consistencyCheck.issues.map((issue: string, idx: number) => (
-                          <li key={idx} className="text-destructive font-mono text-sm">{issue}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-muted-foreground">No consistency issues found!</p>
-                    )}
-                  </div>
-                ) : (
-                  <p>Loading consistency check...</p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
-      </div>
-
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {deleteTarget?.type}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete "{deleteTarget?.title}". This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => {
-                if (deleteTarget?.type === "note") deleteNote(deleteTarget.id);
-                else if (deleteTarget?.type === "comment") deleteComment(deleteTarget.id);
-                setDeleteTarget(null);
-              }}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      </main>
     </div>
   );
 };

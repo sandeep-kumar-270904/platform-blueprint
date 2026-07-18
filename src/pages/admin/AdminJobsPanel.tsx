@@ -59,12 +59,15 @@ const AdminJobsPanel: React.FC = () => {
   };
 
   const handleVerifyRecruiter = async (userId: string, approve: boolean) => {
+    const note = approve ? '' : window.prompt('Enter rejection reason:');
+    if (!approve && !note) return;
+
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${API_URL}/api/admin/recruiters/${userId}/verify`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approve, note: approve ? '' : 'Does not meet verification criteria' })
+        body: JSON.stringify({ approve, note })
       });
       if (res.ok) {
         toast.success(`Recruiter ${approve ? 'verified' : 'rejected'}`);
