@@ -25,6 +25,15 @@ import Mentors from "./pages/Mentors";
 import Dashboard from "./pages/Dashboard";
 import ResumeDashboard from "./pages/ResumeDashboard";
 import ResumeEditorPage from "./pages/ResumeEditorPage";
+import { FeedbackThreads } from "./pages/FeedbackThreads";
+import { CampaignTracker } from "./pages/CampaignTracker";
+import { PeerBenchmarking } from "./pages/PeerBenchmarking";
+
+import PortfolioEditorPage from "./pages/PortfolioEditorPage";
+import SuccessStoriesPage from "./pages/SuccessStoriesPage";
+import InstitutionResumeStats from "./pages/InstitutionResumeStats";
+import PublicPortfolioPage from "./pages/PublicPortfolioPage";
+import CareerInsightsPage from "./pages/CareerInsightsPage";
 import CoverLetterEditorPage from "./pages/CoverLetterEditorPage";
 import SharedResumeView from "./pages/SharedResumeView";
 import CollegeInsights from "./pages/CollegeInsights";
@@ -113,6 +122,11 @@ import CreatorDashboard from "./pages/CreatorDashboard";
 import CreatorAnalytics from "./pages/CreatorAnalytics";
 import Leaderboard from "./pages/Leaderboard";
 import QuestionBank from "./pages/QuestionBank";
+import { PublicTestimonialForm } from "./pages/PublicTestimonialForm";
+import { PublicRecommendationForm } from "./pages/PublicRecommendationForm";
+import { ResumeWorkshops } from "./pages/ResumeWorkshops";
+import { WorkshopSession } from "./pages/WorkshopSession";
+import { DeveloperSettings } from "./pages/DeveloperSettings";
 
 const queryClient = new QueryClient();
 
@@ -157,6 +171,15 @@ const App = () => (
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/resume-builder" element={<ProtectedRoute><ResumeDashboard /></ProtectedRoute>} />
           <Route path="/resume-builder/editor/:id" element={<ProtectedRoute><ResumeEditorPage /></ProtectedRoute>} />
+            <Route path="/resume-builder/portfolio" element={<ProtectedRoute><PortfolioEditorPage /></ProtectedRoute>} />
+          <Route path="/resume-builder/feedback" element={<ProtectedRoute><FeedbackThreads /></ProtectedRoute>} />
+          <Route path="/resume-builder/campaigns" element={<ProtectedRoute><CampaignTracker /></ProtectedRoute>} />
+          <Route path="/resume-builder/benchmarking" element={<ProtectedRoute><PeerBenchmarking /></ProtectedRoute>} />
+
+            <Route path="/resume-builder/insights" element={<ProtectedRoute><CareerInsightsPage /></ProtectedRoute>} />
+            <Route path="/portfolio/:slug" element={<PublicPortfolioPage />} />
+          <Route path="/success-stories" element={<SuccessStoriesPage />} />
+          <Route path="/institution-dashboard" element={<InstitutionResumeStats />} />
           <Route path="/resume-builder/cover-letter/:id" element={<ProtectedRoute><CoverLetterEditorPage /></ProtectedRoute>} />
           <Route path="/college-insights" element={<ProtectedRoute><CollegeInsights /></ProtectedRoute>} />
           <Route path="/colleges/:id" element={<ProtectedRoute><CollegeDetail /></ProtectedRoute>} />
@@ -237,7 +260,14 @@ const App = () => (
           <Route path="/settings/notifications" element={<ProtectedRoute><NotificationSettings /></ProtectedRoute>} />
           
           <Route path="*" element={<NotFound />} />
-          </Routes>
+          
+        <Route path="/public/testimonial/:token" element={<PublicTestimonialForm />} />
+        <Route path="/public/recommendation/:token" element={<PublicRecommendationForm />} />
+      
+        <Route path="/resume/workshops" element={<ResumeWorkshops />} />
+        <Route path="/resume/workshops/:id" element={<WorkshopSession />} />
+        <Route path="/resume/developer" element={<DeveloperSettings />} />
+      </Routes>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

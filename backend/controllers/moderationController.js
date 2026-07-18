@@ -10,7 +10,7 @@ exports.createReport = async (req, res) => {
     const { targetType, targetId, reason } = req.body;
     
     // Basic validation
-    if (!['Idea', 'IdeaComment', 'BrainstormThought', 'CirclePost', 'User'].includes(targetType)) {
+    if (!['Idea', 'IdeaComment', 'BrainstormThought', 'CirclePost', 'User', 'SharedResume', 'PortfolioPage', 'ResumeTemplate'].includes(targetType)) {
       return res.status(400).json({ message: 'Invalid target type' });
     }
 

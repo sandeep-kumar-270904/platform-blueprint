@@ -132,6 +132,10 @@ async function updateApplicationStatus({ applicationId, newStatus, changedBy, no
 
   // 3. Set status on the document
   application.status = newStatus;
+  if (newStatus === 'rejected') {
+    if (rejectionFeedback) application.rejectionFeedback = rejectionFeedback;
+    if (rejectionFeedbackNote) application.rejectionFeedbackNote = rejectionFeedbackNote;
+  }
 
   // 4. Save
   await application.save();
@@ -189,6 +193,10 @@ async function withdrawApplication({ applicationId, applicantId, io }) {
   });
 
   application.status = newStatus;
+  if (newStatus === 'rejected') {
+    if (rejectionFeedback) application.rejectionFeedback = rejectionFeedback;
+    if (rejectionFeedbackNote) application.rejectionFeedbackNote = rejectionFeedbackNote;
+  }
   await application.save();
 
   if (io) {

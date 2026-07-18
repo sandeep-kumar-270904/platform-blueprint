@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { toast } from "sonner";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -164,25 +164,38 @@ export const useResumeEditor = (resumeId: string | null) => {
     fetchResume();
   }, [fetchResume]);
 
-  const updateResume = async (updates: Partial<ResumeData>) => {
+  const pendingUpdatesRef = useRef<Partial<ResumeData>>({});
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const updateResume = useCallback(async (updates: Partial<ResumeData>) => {
     if (!resumeId) return;
     const token = localStorage.getItem('token');
     if (!token) return;
     
     // Optimistic update
     setResume(prev => prev ? { ...prev, ...updates } : null);
+    
+    // Accumulate updates
+    pendingUpdatesRef.current = { ...pendingUpdatesRef.current, ...updates };
 
-    try {
-      await fetch(`${API_URL}/api/resumes/${resumeId}`, {
-        method: 'PUT',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to autosave");
-    }
-  };
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    
+    debounceTimerRef.current = setTimeout(async () => {
+      const payload = { ...pendingUpdatesRef.current };
+      pendingUpdatesRef.current = {}; // clear pending
+
+      try {
+        await fetch(`${API_URL}/api/resumes/${resumeId}`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to autosave");
+      }
+    }, 1000);
+  }, [resumeId]);
 
   const scoreResume = async () => {
     if (!resumeId) return;

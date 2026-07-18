@@ -8,12 +8,21 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Progress } from "@/components/ui/progress";
-import { Loader2, Plus, Trash2, Sparkles, LayoutPanelLeft, History } from "lucide-react";
+import { Loader2, Plus, Trash2, Sparkles, LayoutPanelLeft, History, Download } from "lucide-react";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { ResumePDF } from "./PDFRenderer";
 import { ResumeHistory } from "./ResumeHistory";
 import { ResumeSharing } from "./ResumeSharing";
 import { SortableList } from "./SortableList";
+import { TailorReview } from "./TailorReview";
+import { LinkedInExportModal } from "./LinkedInExportModal";
+import { ResumeCompleteness } from "./ResumeCompleteness";
+import { TranslationModal } from "./TranslationModal";
+
+import { AiEditingAssistant } from "./AiEditingAssistant";
+import { TestimonialManager } from "./TestimonialManager";
+import { RecommendationManager } from "./RecommendationManager";
+
 
 // Simple debounce helper could be added, but for now we'll save onBlur
 interface Props {
@@ -63,6 +72,7 @@ export const ResumeEditor = ({ resumeId }: Props) => {
     <div className="grid lg:grid-cols-3 gap-8">
       {/* Editor Column */}
       <div className="lg:col-span-2 space-y-6">
+        <TailorReview resume={resume} updateResume={updateResume} />
         
         {/* Personal Info */}
         <Card>
@@ -161,7 +171,8 @@ export const ResumeEditor = ({ resumeId }: Props) => {
                   />
                 </div>
               </div>
-            ))}
+            )}
+          />
           </CardContent>
         </Card>
 

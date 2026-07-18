@@ -26,10 +26,15 @@ const jobApplicationSchema = new mongoose.Schema({
     note: { type: String } 
   }],
   recruiterNotes: { type: String },
-  rejectionReason: { type: String }
+  rejectionReason: { type: String },
+  rejectionFeedback: { type: String, enum: ['skills_gap', 'experience_level', 'culture_fit', 'other', null] },
+  rejectionFeedbackNote: { type: String }
 }, { timestamps: true });
 
 // Compound unique index so user cannot apply twice to the same job
 jobApplicationSchema.index({ job: 1, applicant: 1 }, { unique: true });
+
+jobApplicationSchema.index({ applicant: 1, createdAt: -1 });
+jobApplicationSchema.index({ job: 1, status: 1 });
 
 module.exports = mongoose.model('JobApplication', jobApplicationSchema);

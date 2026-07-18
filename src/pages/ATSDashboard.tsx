@@ -123,6 +123,48 @@ const ATSDashboard: React.FC = () => {
   }
 
   return (
+    <>
+
+      {rejectModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Reject Application</h2>
+            <p className="text-sm text-gray-500 mb-4">Optional: Provide constructive feedback to the applicant.</p>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="text-sm font-medium">Primary Reason</label>
+                <select 
+                  className="w-full mt-1 border rounded p-2 dark:bg-gray-700" 
+                  value={rejectionFeedback || ''}
+                  onChange={e => setRejectionFeedback(e.target.value || null)}
+                >
+                  <option value="">-- No specific reason --</option>
+                  <option value="skills_gap">Skills Gap</option>
+                  <option value="experience_level">Experience Level</option>
+                  <option value="culture_fit">Culture Fit</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Additional Note (Private & Supportive)</label>
+                <textarea 
+                  className="w-full mt-1 border rounded p-2 dark:bg-gray-700 min-h-[100px]" 
+                  value={rejectionFeedbackNote}
+                  onChange={e => setRejectionFeedbackNote(e.target.value)}
+                  placeholder="e.g. We loved your portfolio, but need more React experience."
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRejectModalOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleConfirmReject}>Reject Applicant</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-900">
       <div className="p-4 bg-white dark:bg-gray-800 border-b flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -283,6 +325,47 @@ const ATSDashboard: React.FC = () => {
         </div>
       </div>
     </div>
+
+      {rejectModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Reject Application</h2>
+            <p className="text-sm text-gray-500 mb-4">Optional: Provide constructive feedback to the applicant.</p>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="text-sm font-medium">Primary Reason</label>
+                <select 
+                  className="w-full mt-1 border rounded p-2 dark:bg-gray-700" 
+                  value={rejectionFeedback || ''}
+                  onChange={e => setRejectionFeedback(e.target.value || null)}
+                >
+                  <option value="">-- No specific reason --</option>
+                  <option value="skills_gap">Skills Gap</option>
+                  <option value="experience_level">Experience Level</option>
+                  <option value="culture_fit">Culture Fit</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Additional Note (Private & Supportive)</label>
+                <textarea 
+                  className="w-full mt-1 border rounded p-2 dark:bg-gray-700 min-h-[100px]" 
+                  value={rejectionFeedbackNote}
+                  onChange={e => setRejectionFeedbackNote(e.target.value)}
+                  placeholder="e.g. We loved your portfolio, but need more React experience."
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRejectModalOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleConfirmReject}>Reject Applicant</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
