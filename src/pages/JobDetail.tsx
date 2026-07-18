@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { useResumes } from '@/hooks/useResume';
+import { useResumes, useCoverLetters } from '@/hooks/useResume';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -22,7 +22,9 @@ const JobDetail: React.FC = () => {
 
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const { resumes, loading: resumesLoading } = useResumes();
+  const { coverLetters } = useCoverLetters();
   const [selectedResumeId, setSelectedResumeId] = useState<string>('');
+  const [selectedCoverLetterId, setSelectedCoverLetterId] = useState<string>('none');
   const [coverLetter, setCoverLetter] = useState('');
   const [applying, setApplying] = useState(false);
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
@@ -125,11 +127,15 @@ const JobDetail: React.FC = () => {
     try {
       const res = await fetch(`${API_URL}/api/jobs/${id}/apply`, {
         method: 'POST',
-        headers: {
+        headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ resumeId: selectedResumeId, coverLetter })
+        body: JSON.stringify({ 
+          resumeId: selectedResumeId, 
+          coverLetterId: selectedCoverLetterId !== 'none' ? selectedCoverLetterId : undefined,
+          coverLetter: selectedCoverLetterId === 'none' ? coverLetter : undefined 
+        })
       });
 
       const data = await res.json();
@@ -442,7 +448,28 @@ const JobDetail: React.FC = () => {
                       </div>
                       <div className="space-y-2">
                         <Label>Cover Letter (Optional)</Label>
-                        <Textarea rows={5} placeholder="Tell them why you're a great fit..." value={coverLetter} onChange={e => setCoverLetter(e.target.value)} />
+                        {coverLetters.length > 0 ? (
+                          <Select value={selectedCoverLetterId} onValueChange={setSelectedCoverLetterId}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a cover letter or write one" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Write manually</SelectItem>
+                              {coverLetters.map(cl => (
+                                <SelectItem key={cl._id} value={cl._id as string}>{cl.title}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : null}
+                        
+                        {selectedCoverLetterId === 'none' && (
+                          <Textarea 
+                            rows={5} 
+                            placeholder="Tell them why you're a great fit..." 
+                            value={coverLetter} 
+                            onChange={e => setCoverLetter(e.target.value)} 
+                          />
+                        )}
                       </div>
                       <Button type="submit" className="w-full" disabled={applying}>
                         {applying ? 'Submitting...' : 'Submit Application'}

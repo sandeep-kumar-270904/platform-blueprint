@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const reportSchema = new mongoose.Schema({
-  content_type: { type: String, enum: ['note', 'comment', 'qa_question', 'qa_answer', 'college_question', 'college_answer', 'user', 'mentor', 'mentor_booking', 'forum_thread', 'forum_reply'], required: true },
+  content_type: { type: String, enum: ['note', 'comment', 'qa_question', 'qa_answer', 'college_question', 'college_answer', 'user', 'mentor', 'mentor_booking', 'forum_thread', 'forum_reply', 'resume', 'cover_letter'], required: true },
   content_id: { type: mongoose.Schema.Types.ObjectId, required: true },
   reported_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   reason: { type: String, required: true },

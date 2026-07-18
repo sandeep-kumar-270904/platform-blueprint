@@ -6,6 +6,8 @@ const jobApplicationSchema = new mongoose.Schema({
   applyMode: { type: String, enum: ['in-app', 'external'], required: true },
   resumeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Resume' },
   resumeSnapshot: { type: mongoose.Schema.Types.Mixed },
+  coverLetterId: { type: mongoose.Schema.Types.ObjectId, ref: 'CoverLetter' },
+  coverLetterSnapshot: { type: mongoose.Schema.Types.Mixed },
   resumeUrl: { type: String }, // For backward compatibility / external applies
   coverLetter: { type: String },
   screeningAnswers: [{ 

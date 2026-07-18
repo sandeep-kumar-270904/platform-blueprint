@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Users, AlertTriangle, ShieldAlert, BarChart3, 
-  DollarSign, Briefcase, GraduationCap, Link as LinkIcon 
+  DollarSign, Briefcase, GraduationCap, FileText
 } from "lucide-react";
 import { AdminModerationQueue } from "@/components/admin/AdminModerationQueue";
 import { AdminFinancials } from "@/components/admin/AdminFinancials";
@@ -138,6 +138,9 @@ const AdminPanel = () => {
                   </Button>
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
                     <Link to="/admin/colleges"><GraduationCap className="mr-3 h-5 w-5 text-purple-500" /> College Insights</Link>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/resumes"><FileText className="mr-3 h-5 w-5 text-indigo-500" /> Resume Builder & AI</Link>
                   </Button>
                 </CardContent>
               </Card>

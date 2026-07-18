@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 const authMiddleware = require('../middleware/auth');
 const resumeController = require('../controllers/resumeController');
 
@@ -8,6 +10,7 @@ router.use(authMiddleware);
 
 router.get('/', resumeController.getResumes);
 router.post('/', resumeController.createResume);
+router.post('/import/file', upload.single('file'), resumeController.importFromFile);
 router.get('/:id', resumeController.getResumeById);
 router.put('/:id', resumeController.updateResume);
 router.delete('/:id', resumeController.deleteResume);
