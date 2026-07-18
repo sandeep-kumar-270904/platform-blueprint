@@ -11,14 +11,15 @@ const liveSessionSchema = new mongoose.Schema({
     ref: 'User', 
     required: true 
   },
-  scheduledStartAt: { 
-    type: Date, 
-    required: true 
-  },
+  teamMode: { type: String, enum: ['none', 'best_individual', 'relay'], default: 'none' },
   status: { 
     type: String, 
     enum: ['scheduled', 'waiting_room', 'in_progress', 'completed', 'cancelled'], 
     default: 'scheduled' 
+  },
+  scheduledStartAt: { 
+    type: Date, 
+    required: true 
   },
   joinCode: { 
     type: String, 

@@ -35,6 +35,7 @@ class CronService {
     // Run every hour to check job application deadlines
     cron.schedule('0 * * * *', async () => {
       this.checkJobDeadlines();
+      this.checkClassQuizDeadlines();
     });
 
     // Run every day at midnight for daily job alerts
@@ -530,6 +531,46 @@ class CronService {
       }
     } catch (error) {
       console.error('Error in checkAbandonedQuizAttempts:', error);
+    }
+  }
+
+  async checkClassQuizDeadlines() {
+    try {
+      const Quiz = require('../models/Quiz');
+      const ClassRoster = require('../models/ClassRoster');
+      const notificationService = require('./notificationService');
+      const now = new Date();
+      const in48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+
+      const upcomingDeadlineQuizzes = await Quiz.find({
+        classId: { $ne: null },
+        dueDate: {
+          $gte: now,
+          $lte: in48Hours
+        },
+        deadlineReminderSent: { $ne: true }
+      });
+
+      for (const quiz of upcomingDeadlineQuizzes) {
+        const roster = await ClassRoster.findById(quiz.classId);
+        if (roster) {
+          for (const studentId of roster.studentIds) {
+            await notificationService.createNotification({
+              userId: studentId,
+              type: 'class_quiz_deadline_approaching',
+              title: 'Quiz Deadline Approaching',
+              message: `The deadline for your class quiz "${quiz.title}" is approaching.`,
+              channel: 'both',
+              emailData: { quizTitle: quiz.title, className: roster.name || 'Class' },
+              actionUrl: `/quizzes/${quiz._id}`
+            });
+          }
+        }
+        quiz.deadlineReminderSent = true;
+        await quiz.save();
+      }
+    } catch (err) {
+      console.error('Error in checkClassQuizDeadlines:', err);
     }
   }
 }

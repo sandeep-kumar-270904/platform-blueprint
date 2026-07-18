@@ -249,6 +249,12 @@ export default function MentorProfilePage() {
                     {mentor.verificationStatus === 'approved' && <CheckCircle2 className="h-5 w-5 text-accent" />}
                   </h1>
                   <p className="text-xl text-muted-foreground mb-2">{mentor.title} {mentor.company ? `at ${mentor.company}` : ''}</p>
+                  {mentor.verificationTier && mentor.verificationTier !== 'unverified' && (
+                    <Badge variant="outline" className="mb-3 capitalize bg-accent/10 text-accent border-accent/20">
+                      <CheckCircle2 className="mr-1 h-3 w-3" />
+                      {mentor.verificationTier.replace('_', ' ')}
+                    </Badge>
+                  )}
                   
                   <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">

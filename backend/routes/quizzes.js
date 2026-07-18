@@ -4,7 +4,8 @@ const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
 const QuizReport = require('../models/QuizReport');
 const User = require('../models/User');
-const QuestionBankItem = require('../models/QuestionBankItem');
+const QuestionBank = require('../models/QuestionBank');
+const Syllabus = require('../models/Syllabus');
 const authMiddleware = require('../middleware/auth');
 const notificationService = require('../services/notificationService');
 const multer = require('multer');
@@ -23,6 +24,10 @@ const aiLimiter = rateLimit({
 // Quiz serializer for "taking" (strips correctOptionIndex and explanation)
 const serializeQuizForTaking = (quiz) => {
   const qObj = quiz.toObject();
+  if (qObj.mode === 'adaptive_practice') {
+    // For adaptive practice, we need correctOptionIndex on the frontend to evaluate and pick next question
+    return qObj;
+  }
   qObj.questions = qObj.questions.map(q => {
     delete q.correctOptionIndex;
     delete q.explanation;
@@ -157,11 +162,16 @@ router.get('/:id/analytics', authMiddleware, async (req, res) => {
       }}
     ]);
 
-    const questionDifficulty = correctAnswers.map(c => ({
-      questionIndex: c._id,
-      questionText: quiz.questions[c._id]?.questionText,
-      correctRate: c.totalAnswers > 0 ? (c.correctAnswers / c.totalAnswers) * 100 : 0
-    })).sort((a, b) => a.questionIndex - b.questionIndex);
+    const questionDifficulty = correctAnswers.map(c => {
+      const q = quiz.questions[c._id];
+      return {
+        questionIndex: c._id,
+        questionText: q?.questionText,
+        correctRate: c.totalAnswers > 0 ? (c.correctAnswers / c.totalAnswers) * 100 : 0,
+        authorDifficulty: q?.authorDifficulty,
+        calibratedDifficulty: q?.calibratedDifficulty
+      };
+    }).sort((a, b) => a.questionIndex - b.questionIndex);
 
     res.json({
       attemptCount: quiz.attemptCount,
@@ -206,11 +216,41 @@ router.post('/', authMiddleware, async (req, res) => {
       mode: mode || 'solo',
       difficulty: difficulty || 'medium',
       durationMinutes,
-      questions
+      questions,
+      syllabusId: req.body.syllabusId,
+      sections: req.body.sections
     });
 
     await quiz.save();
-    res.status(201).json(quiz);
+    
+    let warning = null;
+    if (req.body.syllabusId) {
+      const syllabus = await Syllabus.findById(req.body.syllabusId);
+      if (syllabus) {
+        const counts = {};
+        let qCount = 0;
+        if (req.body.sections) {
+          req.body.sections.forEach((s) => s.questions.forEach((q) => {
+            if (q.topicName) counts[q.topicName] = (counts[q.topicName] || 0) + 1;
+            qCount++;
+          }));
+        } else {
+          questions.forEach((q) => {
+            if (q.topicName) counts[q.topicName] = (counts[q.topicName] || 0) + 1;
+            qCount++;
+          });
+        }
+        
+        syllabus.topics.forEach((t) => {
+          const actual = qCount > 0 ? ((counts[t.name] || 0) / qCount) * 100 : 0;
+          if (Math.abs(actual - t.weightPercentage) > 20) {
+            warning = "Warning: Topic weights are significantly skewed compared to the syllabus.";
+          }
+        });
+      }
+    }
+
+    res.status(201).json({ quiz, warning });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -234,47 +274,6 @@ router.patch('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/quizzes/:id/add-from-bank
-router.post('/:id/add-from-bank', authMiddleware, async (req, res) => {
-  try {
-    const { itemIds } = req.body;
-    if (!itemIds || !Array.isArray(itemIds)) {
-      return res.status(400).json({ message: 'itemIds array is required' });
-    }
-
-    const quiz = await Quiz.findById(req.params.id);
-    if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
-    
-    if (quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    const items = await QuestionBankItem.find({ _id: { $in: itemIds } });
-    
-    const newQuestions = items.map(item => ({
-      questionText: item.questionText,
-      options: item.options,
-      correctOptionIndex: item.correctOptionIndex,
-      explanation: item.explanation,
-      points: item.points
-    }));
-
-    if (newQuestions.length > 0) {
-      quiz.questions.push(...newQuestions);
-      await quiz.save();
-      
-      // increment usageCount
-      await QuestionBankItem.updateMany(
-        { _id: { $in: items.map(i => i._id) } },
-        { $inc: { usageCount: 1 } }
-      );
-    }
-
-    res.json(quiz);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
 
 // POST /api/quizzes/import-questions
 router.post('/import-questions', authMiddleware, upload.single('file'), async (req, res) => {
@@ -448,17 +447,54 @@ router.post('/:id/start', authMiddleware, async (req, res) => {
     });
 
     if (existingAttempt) {
+      const now = new Date();
+      const allowedTimeMs = quiz.durationMinutes * 60 * 1000 + 10000;
+      if (now.getTime() - existingAttempt.startedAt.getTime() > allowedTimeMs) {
+        existingAttempt.status = 'abandoned';
+        existingAttempt.completedAt = now;
+        await existingAttempt.save();
+        return res.status(403).json({ message: 'Previous attempt expired and was abandoned. Start a new attempt.' });
+      }
       return res.json({ attempt: existingAttempt, quiz: serializeQuizForTaking(quiz) });
     }
+
+    // Versioning snapshot
+    const allQuestions = [];
+    if (quiz.mode === 'sectioned_exam' && quiz.sections && quiz.sections.length > 0) {
+      quiz.sections.forEach(s => {
+        if (s.questions) allQuestions.push(...s.questions);
+      });
+    } else {
+      if (quiz.questions) allQuestions.push(...quiz.questions);
+    }
+
+    const answers = allQuestions.map((q, idx) => ({
+      questionIndex: idx,
+      questionSnapshot: {
+        text: q.questionText,
+        options: q.options,
+        correctIndex: q.correctOptionIndex,
+        explanation: q.explanation,
+        authorDifficulty: q.authorDifficulty,
+        calibratedDifficulty: q.calibratedDifficulty,
+        bankQuestionId: q.bankQuestionId
+      },
+      selectedOptionIndex: -1,
+      isCorrect: false,
+      timeTakenSeconds: 0
+    }));
 
     const newAttempt = new QuizAttempt({
       quiz: quiz._id,
       user: req.user.id,
+      classId: quiz.classId,
       startedAt: new Date(),
       status: 'in_progress',
       score: 0,
       totalPossibleScore: 0,
-      percentageScore: 0
+      percentageScore: 0,
+      answers,
+      mode: 'standard'
     });
 
     await newAttempt.save();
@@ -468,6 +504,81 @@ router.post('/:id/start', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
+
+// POST /api/quizzes/adaptive/start
+router.post('/adaptive/start', authMiddleware, async (req, res) => {
+  try {
+    const { bankId } = req.body;
+    if (!bankId) return res.status(400).json({ message: 'bankId is required' });
+
+    const bank = await QuestionBank.findById(bankId);
+    if (!bank) return res.status(404).json({ message: 'Bank not found' });
+    if (bank.questions.length === 0) return res.status(400).json({ message: 'Bank has no questions' });
+
+    // Create an ephemeral Quiz for this session
+    const quiz = new Quiz({
+      title: `Adaptive Practice: ${bank.title}`,
+      description: 'System-generated adaptive practice session',
+      category: bank.category,
+      createdBy: req.user.id,
+      mode: 'adaptive_practice',
+      difficulty: 'medium',
+      durationMinutes: 60, // Arbitrary large number
+      questions: bank.questions.map(q => ({
+        bankQuestionId: q._id,
+        questionText: q.questionText,
+        options: q.options,
+        correctOptionIndex: q.correctOptionIndex,
+        explanation: q.explanation,
+        points: 1,
+        authorDifficulty: q.authorDifficulty,
+        calibratedDifficulty: q.calibratedDifficulty,
+        source: q.source
+      })),
+      status: 'draft' // Hide from public listings
+    });
+    await quiz.save();
+
+    const answers = quiz.questions.map((q, idx) => ({
+      questionIndex: idx,
+      questionSnapshot: {
+        text: q.questionText,
+        options: q.options,
+        correctIndex: q.correctOptionIndex,
+        explanation: q.explanation,
+        authorDifficulty: q.authorDifficulty,
+        calibratedDifficulty: q.calibratedDifficulty,
+        bankQuestionId: q.bankQuestionId
+      },
+      selectedOptionIndex: -1,
+      isCorrect: false,
+      timeTakenSeconds: 0
+    }));
+
+    const newAttempt = new QuizAttempt({
+      quiz: quiz._id,
+      user: req.user.id,
+      startedAt: new Date(),
+      status: 'in_progress',
+      score: 0,
+      totalPossibleScore: 0,
+      percentageScore: 0,
+      answers,
+      mode: 'adaptive_practice'
+    });
+    await newAttempt.save();
+
+    // Include calibratedDifficulty/authorDifficulty in the taking payload so frontend can sort
+    const takingQuiz = serializeQuizForTaking(quiz);
+    // serialize strips correctOptionIndex and explanation, which is correct.
+    // It keeps calibratedDifficulty and authorDifficulty.
+
+    res.status(201).json({ attempt: newAttempt, quiz: takingQuiz });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 
 // POST /api/quizzes/:id/report
 router.post('/:id/report', authMiddleware, async (req, res) => {
@@ -557,6 +668,8 @@ router.delete('/:id/subscribe', authMiddleware, async (req, res) => {
 // POST /api/quizzes/ai-draft-questions
 router.post('/ai-draft-questions', authMiddleware, aiLimiter, async (req, res) => {
   try {
+    const user = await User.findById(req.user.id);
+    if (user?.banned) return res.status(403).json({ error: 'Cannot generate AI questions while banned' });
     const { topic, difficulty, count } = req.body;
     
     if (!topic) return res.status(400).json({ message: 'Topic is required' });
@@ -620,5 +733,49 @@ Do not include markdown blocks like \`\`\`json or any other text.`;
     res.status(500).json({ message: 'AI generation failed', error: error.message });
   }
 });
+
+// POST /api/quizzes/ai-check
+router.post('/ai-check', authMiddleware, aiLimiter, async (req, res) => {
+  try {
+    const { questionText, options, correctOptionIndex } = req.body;
+    
+    if (!questionText || !options || correctOptionIndex === undefined) {
+      return res.status(400).json({ message: 'Question details required' });
+    }
+    
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '');
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const prompt = `You are a quiz quality reviewer. Evaluate the following multiple choice question:
+Question: "${questionText}"
+Options: ${JSON.stringify(options)}
+Correct Option Index (0-based): ${correctOptionIndex}
+
+Check for:
+1. Ambiguity in the question.
+2. Factual errors.
+3. Multiple plausible answers.
+
+Return ONLY a valid JSON object matching this schema (do not include markdown blocks):
+{
+  "issuesFound": true/false,
+  "feedback": "string explaining the issue and suggesting an improvement, or 'Looks good!' if no issues."
+}`;
+
+    const result = await model.generateContent(prompt);
+    let text = result.response.text().trim();
+    if (text.startsWith('\`\`\`json')) text = text.replace('\`\`\`json', '');
+    if (text.startsWith('\`\`\`')) text = text.replace('\`\`\`', '');
+    if (text.endsWith('\`\`\`')) text = text.replace(/\`\`\`$/, '');
+    text = text.trim();
+
+    const analysis = JSON.parse(text);
+    res.json(analysis);
+  } catch (error) {
+    console.error('AI Check Error:', error);
+    res.status(500).json({ message: 'AI check failed', error: error.message });
+  }
+});
+
 
 module.exports = router;

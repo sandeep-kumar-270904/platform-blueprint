@@ -185,53 +185,122 @@ const UserSchema = new mongoose.Schema({
     course_streak_milestone: { type: Boolean, default: true },
     applicationUpdates: { 
       inApp: { type: Boolean, default: true }, 
-      email: { type: Boolean, default: true } 
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
     },
     newApplicants: { 
       inApp: { type: Boolean, default: true }, 
-      email: { type: Boolean, default: true } 
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
     },
     accountVerification: { 
       inApp: { type: Boolean, default: true }, 
-      email: { type: Boolean, default: true } 
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
     },
     deadlines: { 
       inApp: { type: Boolean, default: true }, 
-      email: { type: Boolean, default: true } 
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
     },
     profileViews: {
       inApp: { type: Boolean, default: true },
-      email: { type: Boolean, default: true }
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
     },
     companyUpdates: {
       inApp: { type: Boolean, default: true },
-      email: { type: Boolean, default: true }
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
     },
     jobAlerts: {
       inApp: { type: Boolean, default: true },
-      email: { type: Boolean, default: true }
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
     },
     liveSessionReminders: {
       inApp: { type: Boolean, default: true },
-      email: { type: Boolean, default: true }
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
     },
     liveSessionResults: {
       inApp: { type: Boolean, default: true },
-      email: { type: Boolean, default: true }
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
     },
     quizModeration: {
       inApp: { type: Boolean, default: true },
-      email: { type: Boolean, default: true }
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
+    },
+    quizChallenges: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
+    },
+    quizTournaments: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
+    },
+    classQuizzes: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
+    },
+    aiQuestionsReview: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
     },
     leaderboardActivity: {
       inApp: { type: Boolean, default: true },
-      email: { type: Boolean, default: true }
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
+    },
+    mentorUpdates: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
+    },
+    subscriptions: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
+    },
+    communityForums: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
+    },
+    cohorts: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
+    },
+    learningPaths: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
+    },
+    innovationHub: {
+      inApp: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: true }
     }
   },
   newsPreferences: {
     followedCategories: [{ type: String }],
     followedTags: [{ type: String }]
-  }
+  },
+  
+  // Referrals & Wallet
+  referralCode: { type: String, unique: true, sparse: true },
+  referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  walletCredit: { type: Number, default: 0 },
+
+  // Subscriptions
+  subscriptionTier: { type: String, enum: ['free', 'plus', 'pro'], default: 'free' }
 });
 
 // Query helper for privacy

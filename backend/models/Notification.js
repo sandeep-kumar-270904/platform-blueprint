@@ -49,7 +49,14 @@ const notificationSchema = new mongoose.Schema({
       'quiz_deleted',
       'leaderboard_overtaken',
       'live_session_results',
-      'badge_earned'
+      'badge_earned',
+      'dispute_update',
+      'referral_credit_earned',
+      'subscription_renewal',
+      'subscription_failure',
+      'forum_reply',
+      'cohort_session_scheduled',
+      'learning_path_step_suggestion'
     ],
     required: true
   },
@@ -62,6 +69,7 @@ const notificationSchema = new mongoose.Schema({
   message: { type: String, required: true },
   actionUrl: { type: String },
   channel: { type: String, enum: ['in_app', 'email', 'both'], default: 'in_app' },
+  deliveryChannels: [{ type: String, enum: ['in_app', 'email', 'push'] }],
   emailSent: { type: Boolean, default: false },
   emailSentAt: { type: Date },
   emailFailureReason: { type: String },

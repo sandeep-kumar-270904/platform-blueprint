@@ -19,7 +19,8 @@ import {
 } from "@/components/ui/select";
 import {
   Users, FileText, AlertTriangle, Shield, Trash2, XCircle,
-  RefreshCw, Search, Star, Flag, MessageSquare, BarChart3, Calendar, Check, X
+  RefreshCw, Search, Star, Flag, MessageSquare, BarChart3, Calendar, Check, X, ShieldAlert,
+  Link as LinkIcon, BookOpen, GraduationCap, LayoutList, HelpCircle
 } from "lucide-react";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 
@@ -38,6 +39,17 @@ const AdminPanel = () => {
   const [pendingEvents, setPendingEvents] = useState<any[]>([]);
   const [pendingMentors, setPendingMentors] = useState<any[]>([]);
   const [mentorsLoading, setMentorsLoading] = useState(false);
+  const [disputesLoading, setDisputesLoading] = useState(false);
+
+  // Phase 9 Mentors Overview State
+  const [referrals, setReferrals] = useState<any[]>([]);
+  const [forums, setForums] = useState<any[]>([]);
+  const [qa, setQa] = useState<any[]>([]);
+  const [learningPaths, setLearningPaths] = useState<any[]>([]);
+  const [institutions, setInstitutions] = useState<any[]>([]);
+  const [cohorts, setCohorts] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [consistencyCheck, setConsistencyCheck] = useState<any>(null);
 
   const fetchPendingEvents = async () => {
     try {
@@ -75,10 +87,55 @@ const AdminPanel = () => {
     }
   };
 
+  const fetchDisputes = async () => {
+    try {
+      setDisputesLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/disputes`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDisputes(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDisputesLoading(false);
+    }
+  };
+
+  const fetchMentorsOverview = async (type: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${API_URL}/api/admin/mentors-overview/${type}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (type === 'referrals') setReferrals(data);
+        if (type === 'forums') setForums(data);
+        if (type === 'qa') setQa(data);
+        if (type === 'learning-paths') setLearningPaths(data);
+        if (type === 'institutions') setInstitutions(data);
+        if (type === 'cohorts') setCohorts(data);
+        if (type === 'subscriptions') setSubscriptions(data);
+        if (type === 'consistency-check') setConsistencyCheck(data);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     if (isAdmin) {
       if (activeTab === "events") fetchPendingEvents();
       if (activeTab === "mentors") fetchPendingMentors();
+      if (activeTab === "disputes") fetchDisputes();
+      if (['referrals', 'forums', 'qa', 'learning-paths', 'institutions', 'cohorts', 'subscriptions', 'consistency'].includes(activeTab)) {
+        fetchMentorsOverview(activeTab === 'consistency' ? 'consistency-check' : activeTab);
+      }
     }
   }, [isAdmin, activeTab]);
 
@@ -118,6 +175,44 @@ const AdminPanel = () => {
       });
       if (res.ok) {
         fetchPendingMentors();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleResolveDispute = async (id: string, action: 'refund_mentee' | 'pay_mentor' | 'dismiss') => {
+    try {
+      const token = localStorage.getItem('token');
+      const notes = prompt("Admin Resolution Notes:") || `Resolved via ${action}`;
+      
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/disputes/${id}/resolve`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolutionAction: action, adminNotes: notes })
+      });
+      
+      if (res.ok) {
+        fetchDisputes();
+      } else {
+        alert((await res.json()).message || "Failed to resolve dispute");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const deleteMentorsOverviewItem = async (type: string, id: string) => {
+    if (!confirm('Are you sure you want to delete this item?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${API_URL}/api/admin/mentors-overview/${type}/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        fetchMentorsOverview(type);
       }
     } catch (e) {
       console.error(e);
@@ -230,6 +325,22 @@ const AdminPanel = () => {
             <TabsTrigger value="mentors">
               <Star className="mr-1.5 h-3.5 w-3.5" />Mentors
             </TabsTrigger>
+            <TabsTrigger value="disputes">
+              <ShieldAlert className="mr-1.5 h-3.5 w-3.5" />Disputes
+              {disputes.filter((d: any) => d.status === 'open').length > 0 && (
+                <Badge variant="destructive" className="ml-1.5 text-xs px-1.5">
+                  {disputes.filter((d: any) => d.status === 'open').length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="referrals"><LinkIcon className="mr-1.5 h-3.5 w-3.5" />Referrals</TabsTrigger>
+            <TabsTrigger value="forums"><MessageSquare className="mr-1.5 h-3.5 w-3.5" />Forums</TabsTrigger>
+            <TabsTrigger value="qa"><HelpCircle className="mr-1.5 h-3.5 w-3.5" />Q&A</TabsTrigger>
+            <TabsTrigger value="learning-paths"><LayoutList className="mr-1.5 h-3.5 w-3.5" />Paths</TabsTrigger>
+            <TabsTrigger value="institutions"><GraduationCap className="mr-1.5 h-3.5 w-3.5" />Institutions</TabsTrigger>
+            <TabsTrigger value="cohorts"><Users className="mr-1.5 h-3.5 w-3.5" />Cohorts</TabsTrigger>
+            <TabsTrigger value="subscriptions"><Star className="mr-1.5 h-3.5 w-3.5" />Subs</TabsTrigger>
+            <TabsTrigger value="consistency"><ShieldAlert className="mr-1.5 h-3.5 w-3.5" />Consistency</TabsTrigger>
           </TabsList>
 
           {/* OVERVIEW */}
@@ -615,6 +726,294 @@ const AdminPanel = () => {
                       </div>
                     ))}
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* DISPUTES TAB */}
+          <TabsContent value="disputes">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShieldAlert className="h-5 w-5 text-destructive" /> Booking Disputes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {disputesLoading ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">Loading disputes...</p>
+                ) : disputes.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Check className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                    <p>No disputes to review</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {disputes.map((d) => (
+                      <div key={d._id} className="p-4 rounded-lg border bg-card gap-4 flex flex-col">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Badge variant={d.status === 'open' ? 'destructive' : 'secondary'} className="uppercase">
+                                {d.status}
+                              </Badge>
+                              <Badge variant="outline" className="capitalize">{d.category.replace('_', ' ')}</Badge>
+                              <span className="text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleString()}</span>
+                            </div>
+                            <p className="text-sm font-medium">Mentee: {d.menteeId?.full_name || 'Unknown'}</p>
+                            <p className="text-sm font-medium">Mentor: {d.mentorId?.user_id?.full_name || 'Unknown'}</p>
+                            <p className="text-sm text-muted-foreground mt-2 border-l-2 pl-3 py-1 bg-muted/30">{d.description}</p>
+                          </div>
+                          
+                          {d.status === 'open' && (
+                            <div className="flex flex-col gap-2 min-w-[140px]">
+                              <Button size="sm" variant="destructive" onClick={() => handleResolveDispute(d._id, 'refund_mentee')}>Refund Mentee</Button>
+                              <Button size="sm" variant="outline" onClick={() => handleResolveDispute(d._id, 'pay_mentor')}>Pay Mentor</Button>
+                              <Button size="sm" variant="ghost" onClick={() => handleResolveDispute(d._id, 'dismiss')}>Dismiss</Button>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {d.status === 'resolved' && (
+                          <div className="text-xs bg-muted p-2 rounded">
+                            <span className="font-semibold text-primary">Resolution ({d.resolutionAction}):</span> {d.adminNotes}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* NEW TABS FOR MENTORS PHASE 9 */}
+          <TabsContent value="referrals">
+            <Card>
+              <CardHeader><CardTitle>Referrals Overview</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Code</TableHead>
+                      <TableHead>Referrer</TableHead>
+                      <TableHead>Referred User</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {referrals.map((r) => (
+                      <TableRow key={r._id}>
+                        <TableCell className="font-mono">{r.referralCode}</TableCell>
+                        <TableCell>{r.referrer?.full_name}</TableCell>
+                        <TableCell>{r.referredUser?.full_name}</TableCell>
+                        <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
+                        <TableCell>{new Date(r.createdAt).toLocaleDateString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="forums">
+            <Card>
+              <CardHeader><CardTitle>Forums</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Author</TableHead>
+                      <TableHead>Replies</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {forums.map((f) => (
+                      <TableRow key={f._id}>
+                        <TableCell>{f.title}</TableCell>
+                        <TableCell>{f.author?.full_name}</TableCell>
+                        <TableCell>{f.replyCount}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteMentorsOverviewItem('forums', f._id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="qa">
+            <Card>
+              <CardHeader><CardTitle>Peer Q&A</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Question</TableHead>
+                      <TableHead>Author</TableHead>
+                      <TableHead>Answers</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {qa.map((q) => (
+                      <TableRow key={q._id}>
+                        <TableCell className="max-w-[300px] truncate">{q.title}</TableCell>
+                        <TableCell>{q.author?.full_name}</TableCell>
+                        <TableCell>{q.answerCount}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteMentorsOverviewItem('qa', q._id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="learning-paths">
+            <Card>
+              <CardHeader><CardTitle>Learning Paths</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Title</TableHead>
+                      <TableHead>Creator</TableHead>
+                      <TableHead>Enrollments</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {learningPaths.map((lp) => (
+                      <TableRow key={lp._id}>
+                        <TableCell>{lp.title}</TableCell>
+                        <TableCell>{lp.creator?.full_name}</TableCell>
+                        <TableCell>{lp.enrollmentCount}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="institutions">
+            <Card>
+              <CardHeader><CardTitle>Institutions</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Seats Used/Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {institutions.map((inst) => (
+                      <TableRow key={inst._id}>
+                        <TableCell>{inst.name}</TableCell>
+                        <TableCell>{inst.type}</TableCell>
+                        <TableCell>{inst.seatsUsed} / {inst.totalSeats}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="cohorts">
+            <Card>
+              <CardHeader><CardTitle>Cohorts</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Institution</TableHead>
+                      <TableHead>Teacher</TableHead>
+                      <TableHead>Students</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cohorts.map((c) => (
+                      <TableRow key={c._id}>
+                        <TableCell>{c.name}</TableCell>
+                        <TableCell>{c.institutionId?.name}</TableCell>
+                        <TableCell>{c.teacherId?.full_name}</TableCell>
+                        <TableCell>{c.students?.length || 0}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="subscriptions">
+            <Card>
+              <CardHeader><CardTitle>Active Subscriptions</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Tier</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {subscriptions.map((s) => (
+                      <TableRow key={s._id}>
+                        <TableCell>{s.full_name}</TableCell>
+                        <TableCell>{s.email}</TableCell>
+                        <TableCell><Badge>{s.subscriptionTier}</Badge></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="consistency">
+            <Card>
+              <CardHeader>
+                <CardTitle>Data Consistency Check</CardTitle>
+                <CardDescription>Verify denormalized counts and orphaned records across Mentors models</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {consistencyCheck ? (
+                  <div>
+                    <div className="mb-4">
+                      <Badge variant={consistencyCheck.status === 'clean' ? 'default' : 'destructive'} className="text-lg px-4 py-1">
+                        {consistencyCheck.status.toUpperCase()}
+                      </Badge>
+                    </div>
+                    {consistencyCheck.issues && consistencyCheck.issues.length > 0 ? (
+                      <ul className="list-disc pl-5 space-y-2">
+                        {consistencyCheck.issues.map((issue: string, idx: number) => (
+                          <li key={idx} className="text-destructive font-mono text-sm">{issue}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-muted-foreground">No consistency issues found!</p>
+                    )}
+                  </div>
+                ) : (
+                  <p>Loading consistency check...</p>
                 )}
               </CardContent>
             </Card>

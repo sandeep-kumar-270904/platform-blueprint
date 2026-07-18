@@ -12,7 +12,11 @@ const forumThreadSchema = new mongoose.Schema({
   liked_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   is_pinned: { type: Boolean, default: false },
   is_locked: { type: Boolean, default: false },
-  last_activity_at: { type: Date, default: Date.now }
+  last_activity_at: { type: Date, default: Date.now },
+  isHidden: { type: Boolean, default: false }
 }, { timestamps: true });
+
+forumThreadSchema.index({ category: 1 });
+forumThreadSchema.index({ last_activity_at: -1 });
 
 module.exports = mongoose.model('ForumThread', forumThreadSchema);

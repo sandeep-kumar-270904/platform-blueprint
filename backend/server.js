@@ -5,8 +5,15 @@ const connectDB = require('./db');
 const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
+const morgan = require('morgan');
+const logger = require('./utils/logger');
+const mongoose = require('mongoose');
 
-dotenv.config();
+// Determine environment
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : 
+                process.env.NODE_ENV === 'staging' ? '.env.staging' : '.env';
+dotenv.config({ path: envFile });
+
 
 const http = require('http');
 const { Server } = require('socket.io');
@@ -112,6 +119,14 @@ connectDB().then(async () => {
       } catch (err) {
         console.error('Error in 24h event reminder cron:', err);
       }
+
+      // --- Quiz Difficulty Calibration Cron Job ---
+      try {
+        const calibrateDifficulty = require('./jobs/quizCalibrationJob');
+        await calibrateDifficulty();
+      } catch (err) {
+        console.error('Error in Quiz Calibration Job:', err);
+      }
     }, 60 * 60 * 1000); // Check every hour
   } catch (err) {
     console.error('Seed events error:', err);
@@ -121,10 +136,10 @@ connectDB().then(async () => {
 
 
 // Middleware
-const allowedOrigins = ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:5173'];
-if (process.env.FRONTEND_URL) {
-  allowedOrigins.push(process.env.FRONTEND_URL);
-}
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? [process.env.FRONTEND_URL] // No wildcards or localhost in production
+  : ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:5173', process.env.FRONTEND_URL].filter(Boolean);
+
 app.use(cors({
   origin: function(origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -135,6 +150,9 @@ app.use(cors({
   },
   credentials: true
 }));
+
+// Request Logging using Morgan + Winston
+app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 
 // Webhooks must be parsed as raw body for signature verification
 const webhooksRoutes = require('./routes/webhooks');
@@ -175,8 +193,28 @@ app.use((req, res, next) => {
 
 // Define Routes
 app.get('/', (req, res) => res.send('Student Hub backend is running'));
+
+// Health Check Endpoint
+app.get('/api/health', async (req, res) => {
+  try {
+    const dbState = mongoose.connection.readyState;
+    const dbStatus = dbState === 1 ? 'connected' : 'disconnected';
+    res.json({
+      status: 'ok',
+      timestamp: new Date(),
+      database: dbStatus,
+      environment: process.env.NODE_ENV || 'development'
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: 'Health check failed' });
+  }
+});
+
 const authRoutes = require('./routes/auth');
 const settingsRoutes = require('./routes/settings');
+const disputeRoutes = require('./routes/disputes');
+const platformReferralRoutes = require('./routes/platformReferrals');
+const adminMentorsOverviewRoutes = require('./routes/adminMentorsOverview');
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -197,6 +235,7 @@ app.use('/api/notes', require('./routes/notes'));
 app.use('/api/classrooms', require('./routes/classrooms'));
 app.use('/api/forum', require('./routes/forum'));
 app.use('/api/qa', require('./routes/qa'));
+app.use('/api/classes', require('./routes/classes'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/community', require('./routes/community'));
@@ -206,6 +245,8 @@ app.use('/api/resumes', require('./routes/resumes'));
 app.use('/api/study-groups', require('./routes/studyGroups'));
 app.use('/api/quizzes', require('./routes/quizzes'));
 app.use('/api/attempts', require('./routes/attempts'));
+app.use('/api/challenges', require('./routes/challenges'));
+app.use('/api/tournaments', require('./routes/tournaments'));
 app.use('/api/flashcards', require('./routes/flashcards'));
 app.use('/api/roadmaps', require('./routes/roadmaps'));
 app.use('/api/learning-sessions', require('./routes/learningSessions'));
@@ -217,7 +258,11 @@ app.use('/api/recruiter', require('./routes/recruiter'));
 app.use('/api/innovation', require('./routes/innovation'));
 app.use('/api/colleges', require('./routes/colleges'));
 app.use('/api/college-qa', require('./routes/collegeQA'));
-app.use('/api/ideas', require('./routes/ideas')); // kept for any backwards compatibility
+app.use('/api/ideas', require('./routes/ideas'));
+app.use('/api/brainstorm', require('./routes/brainstorm'));
+app.use('/api/idea-circles', require('./routes/ideaCircles'));
+app.use('/api/direct-messages', require('./routes/directMessages'));
+app.use('/api/moderation', require('./routes/moderation'));
 app.use('/api/amas', require('./routes/amas'));
 app.use('/api/video', require('./routes/video'));
 app.use('/api/calendar', require('./routes/calendar'));
@@ -245,6 +290,15 @@ app.use('/api/creators', require('./routes/creators'));
 app.use('/api/admin/quizzes-overview', require('./routes/adminQuizzesOverview'));
 app.use('/api/question-bank', require('./routes/questionBank'));
 app.use('/api/me', require('./routes/me'));
+app.use('/api/mentor-community', require('./routes/mentorCommunity'));
+app.use('/api/ai-paths', require('./routes/aiPaths'));
+app.use('/api/institutions', require('./routes/institutions'));
+app.use('/api/disputes', disputeRoutes);
+app.use('/api/platform-referrals', platformReferralRoutes);
+app.use('/api/subscriptions', require('./routes/subscriptions'));
+app.use('/api/admin/mentors-overview', adminMentorsOverviewRoutes);
+
+// Optional integration (mocked if unused)
 
 // Serve static files from the uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -313,6 +367,16 @@ io.on('connection', (socket) => {
     console.log(`Socket ${socket.id} joined recruiter:${userId}`);
   });
 
+  socket.on('join_brainstorm_session', (sessionId) => {
+    socket.join(`brainstorm_${sessionId}`);
+    console.log(`Socket ${socket.id} joined brainstorm_${sessionId}`);
+  });
+
+  socket.on('leave_brainstorm_session', (sessionId) => {
+    socket.leave(`brainstorm_${sessionId}`);
+    console.log(`Socket ${socket.id} left brainstorm_${sessionId}`);
+  });
+
   // Attach Live Session socket handlers
   require('./sockets/liveSessions')(io, socket);
 
@@ -323,16 +387,50 @@ io.on('connection', (socket) => {
 
 // Global Error Handler (Item 6 & 7)
 app.use((err, req, res, next) => {
-  console.error('Unhandled Error:', err); // Server-side logging
+  // Determine if it's a client error or internal server error
+  const statusCode = err.statusCode || 500;
+  
+  if (statusCode >= 500) {
+    logger.error(`${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`, { stack: err.stack });
+  } else {
+    logger.warn(`${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`);
+  }
   
   if (process.env.NODE_ENV === 'production') {
-    res.status(500).json({ message: 'Internal Server Error' });
+    res.status(statusCode).json({ message: statusCode >= 500 ? 'Internal Server Error' : err.message });
   } else {
-    res.status(500).json({ message: err.message, stack: err.stack });
+    res.status(statusCode).json({ message: err.message, stack: err.stack });
   }
 });
 
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, () => console.log(`Server started on port ${PORT}`));
-// trigger restart
+const serverInstance = server.listen(PORT, () => {
+  logger.info(`Server started on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+});
+
+// Graceful Shutdown Logic
+const shutdown = () => {
+  logger.info('Received shutdown signal, shutting down gracefully...');
+  serverInstance.close(async () => {
+    logger.info('Closed out remaining connections.');
+    try {
+      await mongoose.connection.close();
+      logger.info('MongoDB connection closed.');
+      process.exit(0);
+    } catch (err) {
+      logger.error('Error during shutdown', err);
+      process.exit(1);
+    }
+  });
+
+  // Force close if it takes too long
+  setTimeout(() => {
+    logger.error('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+

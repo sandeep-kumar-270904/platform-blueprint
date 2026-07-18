@@ -50,10 +50,14 @@ router.use('/', apiLimiter);
 // ==========================================
 router.get('/', async (req, res) => {
   try {
-    const { search, expertise, isFree, minRating, maxPrice, page = 1, limit = 10, sort = 'rating' } = req.query;
+    const { search, expertise, isFree, minRating, maxPrice, page = 1, limit = 10, sort = 'rating', verifiedOnly } = req.query;
     
     // Only show approved, active mentors
     const query = { verificationStatus: 'approved', isActive: true };
+
+    if (verifiedOnly === 'true') {
+      query.verificationTier = { $in: ['email_verified', 'institution_verified', 'identity_verified'] };
+    }
 
     if (expertise) {
       query.expertise = { $in: expertise.split(',') };
@@ -403,7 +407,17 @@ router.post('/bookings', authMiddleware, bookingLimiter, async (req, res) => {
     let stripeSessionId = null;
     let paymentExpiresAt = null;
 
-    if (mentor.pricePerHour > 0) {
+    let finalPrice = mentor.pricePerHour;
+    const menteeUser = await User.findById(req.user.id);
+    if (menteeUser && menteeUser.subscriptionTier) {
+      if (menteeUser.subscriptionTier === 'pro') {
+        finalPrice = finalPrice * 0.85; // 15% off
+      } else if (menteeUser.subscriptionTier === 'plus') {
+        finalPrice = finalPrice * 0.95; // 5% off
+      }
+    }
+
+    if (finalPrice > 0) {
       // Create Stripe Checkout Session
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
@@ -414,7 +428,7 @@ router.post('/bookings', authMiddleware, bookingLimiter, async (req, res) => {
               name: `Mentorship Session with ${mentor.title}`,
               description: `1-on-1 session on ${slotDate.toLocaleString()}`
             },
-            unit_amount: Math.round(mentor.pricePerHour * 100),
+            unit_amount: Math.round(finalPrice * 100),
           },
           quantity: 1,
         }],
@@ -435,10 +449,10 @@ router.post('/bookings', authMiddleware, bookingLimiter, async (req, res) => {
       scheduledAt: slotDate,
       durationMinutes: 60,
       menteeNotes,
-      status: mentor.pricePerHour > 0 ? 'requested' : 'confirmed',
+      status: finalPrice > 0 ? 'requested' : 'confirmed',
       sessionType: '1-on-1',
-      pricePaid: mentor.pricePerHour,
-      paymentStatus: mentor.pricePerHour > 0 ? 'pending' : 'paid',
+      pricePaid: finalPrice,
+      paymentStatus: finalPrice > 0 ? 'pending' : 'paid',
       stripeSessionId,
       paymentExpiresAt,
       meetingLink: mentor.pricePerHour === 0 ? `https://meet.studenthub.com/${new mongoose.Types.ObjectId()}` : null

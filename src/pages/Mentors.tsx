@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { BookingModal } from "@/components/BookingModal";
 import { MentorAMA } from "@/components/mentors/MentorAMA";
 import { BecomeMentorModal } from "@/components/mentors/BecomeMentorModal";
@@ -22,10 +24,12 @@ const Mentors = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 300);
   const [selectedExpertise, setSelectedExpertise] = useState<string | null>(null);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   
   const { mentors, loading } = useMentors({
     search: debouncedSearch,
-    expertise: selectedExpertise
+    expertise: selectedExpertise,
+    verifiedOnly
   });
   
   const { mentors: recommended, loading: loadingRecommended } = useRecommendedMentors();
@@ -85,11 +89,17 @@ const Mentors = () => {
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input placeholder="Search by name, role, or expertise..." className="pl-10 bg-card/50" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant={selectedExpertise === null ? "default" : "outline"} size="sm" onClick={() => setSelectedExpertise(null)}>All Skills</Button>
-                {allExpertise.slice(0, 10).map((e) => (
-                  <Button key={e} variant={selectedExpertise === e ? "default" : "outline"} size="sm" onClick={() => setSelectedExpertise(e)}>{e}</Button>
-                ))}
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-wrap gap-2 flex-1">
+                  <Button variant={selectedExpertise === null ? "default" : "outline"} size="sm" onClick={() => setSelectedExpertise(null)}>All Skills</Button>
+                  {allExpertise.slice(0, 10).map((e) => (
+                    <Button key={e} variant={selectedExpertise === e ? "default" : "outline"} size="sm" onClick={() => setSelectedExpertise(e)}>{e}</Button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 border bg-card/50 px-3 py-1.5 rounded-md">
+                  <Switch id="verified-only" checked={verifiedOnly} onCheckedChange={setVerifiedOnly} />
+                  <Label htmlFor="verified-only" className="cursor-pointer">Verified Only</Label>
+                </div>
               </div>
             </div>
 
@@ -136,6 +146,11 @@ const Mentors = () => {
                               <p className="text-sm text-muted-foreground">{mentor.title}</p>
                               {mentor.tier !== 'new' && (
                                 <Badge variant="secondary" className="text-[10px] uppercase h-5 bg-primary/10 text-primary border-primary/20">{mentor.tier}</Badge>
+                              )}
+                              {mentor.verificationTier && mentor.verificationTier !== 'unverified' && (
+                                <Badge variant="outline" className="text-[10px] capitalize h-5 bg-accent/10 text-accent border-accent/20">
+                                  {mentor.verificationTier.replace('_', ' ')}
+                                </Badge>
                               )}
                             </div>
                             {mentor.company && <p className="text-sm font-medium text-primary">{mentor.company}</p>}
@@ -194,6 +209,11 @@ const Mentors = () => {
                                 <p className="text-sm text-muted-foreground">{mentor.title}</p>
                                 {mentor.tier !== 'new' && (
                                   <Badge variant="secondary" className="text-[10px] uppercase h-5 bg-primary/10 text-primary border-primary/20">{mentor.tier}</Badge>
+                                )}
+                                {mentor.verificationTier && mentor.verificationTier !== 'unverified' && (
+                                  <Badge variant="outline" className="text-[10px] capitalize h-5 bg-accent/10 text-accent border-accent/20">
+                                    {mentor.verificationTier.replace('_', ' ')}
+                                  </Badge>
                                 )}
                               </div>
                               {mentor.company && <p className="text-sm font-medium text-primary">{mentor.company}</p>}

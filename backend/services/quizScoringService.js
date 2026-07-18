@@ -116,7 +116,53 @@ async function submitQuizAttempt({ attemptId, submittedAnswers, io }) {
     io.to(`user:${attempt.user}`).emit('quiz_dashboard_updated', { reason: 'quiz_completed' });
   }
 
-  // 11. Return attempt
+  // 11. Syllabus Progress Tracking
+  if (quiz.syllabusId) {
+    const SyllabusProgress = require('../models/SyllabusProgress');
+    let progress = await SyllabusProgress.findOne({ userId: attempt.user, subjectId: quiz.syllabusId });
+    if (!progress) {
+      progress = new SyllabusProgress({ userId: attempt.user, subjectId: quiz.syllabusId, topicCoverage: [] });
+    }
+    
+    // We need to count correct answers per topic in this attempt
+    const topicStats = {};
+    processedAnswers.forEach(ans => {
+      // Find the question to get its topic
+      let topic = null;
+      if (quiz.sections && quiz.sections.length > 0) {
+        // Sections mode not fully supported in this flat answers array without section lookup, 
+        // assuming standard mode for topic tracking in this MVP or flat questions.
+        // For standard questions:
+        if (quiz.questions[ans.questionIndex]) {
+          topic = quiz.questions[ans.questionIndex].topicName;
+        }
+      } else {
+        if (quiz.questions[ans.questionIndex]) {
+          topic = quiz.questions[ans.questionIndex].topicName;
+        }
+      }
+      
+      if (topic) {
+        if (!topicStats[topic]) topicStats[topic] = { attempts: 0, correct: 0 };
+        topicStats[topic].attempts += 1;
+        if (ans.isCorrect) topicStats[topic].correct += 1;
+      }
+    });
+
+    Object.keys(topicStats).forEach(topic => {
+      let tc = progress.topicCoverage.find((t) => t.topicName === topic);
+      if (!tc) {
+        tc = { topicName: topic, questionsAttempted: 0, correctCount: 0 };
+        progress.topicCoverage.push(tc);
+      }
+      tc.questionsAttempted += topicStats[topic].attempts;
+      tc.correctCount += topicStats[topic].correct;
+    });
+
+    await progress.save();
+  }
+
+  // 12. Return attempt
   return attempt;
 }
 

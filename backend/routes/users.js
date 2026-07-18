@@ -146,7 +146,27 @@ router.delete('/me', authMiddleware, async (req, res) => {
       await mentorProfile.save();
     }
     
-    // 4. Finally delete the User record
+    // 4. Cleanup Phase 5-8 Mentors Module models
+    const ForumThread = require('../models/ForumThread');
+    const QAQuestion = require('../models/QAQuestion');
+    const Dispute = require('../models/Dispute');
+    const Cohort = require('../models/Cohort');
+    const Referral = require('../models/Referral');
+
+    // Anonymize forum threads and Q&A (so community content stays)
+    await ForumThread.updateMany({ user_id: userId }, { $set: { user_id: null } });
+    await QAQuestion.updateMany({ user_id: userId }, { $set: { user_id: null } });
+    
+    // Anonymize disputes raised by user
+    await Dispute.updateMany({ raisedBy: userId }, { $set: { raisedBy: null } });
+    
+    // Remove user from any cohorts they joined as a mentee
+    await Cohort.updateMany({ menteeIds: userId }, { $pull: { menteeIds: userId } });
+    
+    // Anonymize referrals where they were the referrer (keep records for tracking)
+    await Referral.updateMany({ referrer: userId }, { $set: { referrer: null } });
+
+    // 5. Finally delete the User record
     await User.findByIdAndDelete(userId);
     
     res.json({ message: 'Account and associated personal data deleted/anonymized successfully' });

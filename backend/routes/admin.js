@@ -428,7 +428,9 @@ router.get('/mentors/analytics', authMiddleware, isAdmin, async (req, res) => {
         { $group: { _id: '$mentorId', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 5 },
-        { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'user' } },
+        { $lookup: { from: 'mentorprofiles', localField: '_id', foreignField: '_id', as: 'mentor' } },
+        { $unwind: '$mentor' },
+        { $lookup: { from: 'users', localField: 'mentor.user_id', foreignField: '_id', as: 'user' } },
         { $unwind: '$user' },
         { $project: { _id: 1, count: 1, name: '$user.full_name', email: '$user.email' } }
       ])
@@ -567,6 +569,63 @@ router.post('/qa-trigger-abandoned', authMiddleware, async (req, res) => {
     res.json(updated);
   } catch (err) {
     res.status(500).json({ message: 'Error', error: err.message });
+  }
+});
+
+// GET /api/admin/disputes
+router.get('/disputes', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const Dispute = require('../models/Dispute');
+    const disputes = await Dispute.find()
+      .populate('raisedBy', 'full_name username')
+      .populate({ path: 'bookingId', populate: { path: 'mentorId', populate: { path: 'user_id', select: 'full_name' } } })
+      .sort({ createdAt: -1 });
+    res.json(disputes);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PUT /api/admin/disputes/:id/resolve
+router.put('/disputes/:id/resolve', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const Dispute = require('../models/Dispute');
+    const { resolution, adminNotes } = req.body;
+    const dispute = await Dispute.findById(req.params.id).populate('bookingId');
+    if (!dispute) return res.status(404).json({ message: 'Dispute not found' });
+    
+    dispute.status = 'resolved';
+    dispute.resolution = resolution;
+    dispute.adminNotes = adminNotes;
+    dispute.resolvedBy = req.adminUser._id;
+    await dispute.save();
+
+    if (resolution === 'refunded') {
+      // In a real app, call Stripe API here to refund the payment intent
+      // Stripe.refunds.create({ payment_intent: dispute.bookingId.paymentIntentId });
+      dispute.bookingId.status = 'cancelled';
+      dispute.bookingId.paymentStatus = 'refunded';
+      await dispute.bookingId.save();
+    } else if (resolution === 'banned') {
+      const mentor = await MentorProfile.findById(dispute.bookingId.mentorId);
+      if (mentor) {
+        mentor.verificationStatus = 'suspended';
+        mentor.suspensionReason = 'Banned after dispute resolution: ' + adminNotes;
+        await mentor.save();
+      }
+    }
+
+    // Notify user
+    await notificationService.createNotification({
+      userId: dispute.raisedBy,
+      type: 'dispute_resolved',
+      relatedContentId: dispute._id,
+      message: `Your dispute has been resolved. Resolution: ${resolution}.`
+    });
+    
+    res.json({ message: 'Dispute resolved', dispute });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 

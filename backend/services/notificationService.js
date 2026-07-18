@@ -118,6 +118,63 @@ const createNotification = async (data, io = null) => {
             shouldSendEmail = shouldSendEmail && prefs.quizModeration.email !== false;
           }
           break;
+        case 'quiz_challenge_received':
+          if (prefs.quizChallenges) {
+            shouldSendInApp = prefs.quizChallenges.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.quizChallenges.email !== false;
+          }
+          break;
+        case 'tournament_round_result':
+          if (prefs.quizTournaments) {
+            shouldSendInApp = prefs.quizTournaments.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.quizTournaments.email !== false;
+          }
+          break;
+        case 'class_quiz_assigned':
+        case 'class_quiz_deadline_approaching':
+          if (prefs.classQuizzes) {
+            shouldSendInApp = prefs.classQuizzes.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.classQuizzes.email !== false;
+          }
+          break;
+        case 'ai_questions_review_ready':
+          if (prefs.aiQuestionsReview) {
+            shouldSendInApp = prefs.aiQuestionsReview.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.aiQuestionsReview.email !== false;
+          }
+          break;
+        case 'dispute_update':
+        case 'referral_credit_earned':
+          if (prefs.mentorUpdates) {
+            shouldSendInApp = prefs.mentorUpdates.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.mentorUpdates.email !== false;
+          }
+          break;
+        case 'subscription_renewal':
+        case 'subscription_failure':
+          if (prefs.subscriptions) {
+            shouldSendInApp = prefs.subscriptions.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.subscriptions.email !== false;
+          }
+          break;
+        case 'forum_reply':
+          if (prefs.communityForums) {
+            shouldSendInApp = prefs.communityForums.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.communityForums.email !== false;
+          }
+          break;
+        case 'cohort_session_scheduled':
+          if (prefs.cohorts) {
+            shouldSendInApp = prefs.cohorts.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.cohorts.email !== false;
+          }
+          break;
+        case 'learning_path_step_suggestion':
+          if (prefs.learningPaths) {
+            shouldSendInApp = prefs.learningPaths.inApp !== false;
+            shouldSendEmail = shouldSendEmail && prefs.learningPaths.email !== false;
+          }
+          break;
         // Always send in-app and email for critical admin actions if channel requested it
         case 'job_auto_hidden':
         case 'job_deleted_by_admin':
@@ -177,6 +234,21 @@ const createNotification = async (data, io = null) => {
             break;
           case 'live_session_results':
             await emailService.sendLiveSessionResultsEmail(user.email, emailData.quizTitle, emailData.score, data.actionUrl);
+            break;
+          case 'quiz_challenge_received':
+            await emailService.sendQuizChallengeEmail(user.email, emailData.challengerName, data.actionUrl);
+            break;
+          case 'tournament_round_result':
+            await emailService.sendTournamentResultEmail(user.email, emailData.tournamentName, emailData.result, data.actionUrl);
+            break;
+          case 'class_quiz_assigned':
+            await emailService.sendClassQuizAssignedEmail(user.email, emailData.quizTitle, emailData.className, data.actionUrl);
+            break;
+          case 'class_quiz_deadline_approaching':
+            await emailService.sendClassQuizDeadlineEmail(user.email, emailData.quizTitle, emailData.className, data.actionUrl);
+            break;
+          case 'ai_questions_review_ready':
+            await emailService.sendAiQuestionsReviewEmail(user.email, emailData.bankName, data.actionUrl);
             break;
         }
         data.emailSent = true;

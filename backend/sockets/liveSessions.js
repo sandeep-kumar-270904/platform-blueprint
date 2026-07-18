@@ -33,6 +33,8 @@ module.exports = (io, socket) => {
       }
 
       socket.join(`liveSession:${session._id}`);
+      socket._userId = userId;
+      socket._sessionId = session._id.toString();
 
       // Add user if not present
       const participantIndex = session.participants.findIndex(p => p.user && (p.user._id || p.user).toString() === userId);
@@ -421,9 +423,25 @@ module.exports = (io, socket) => {
     }
   });
 
-  socket.on('disconnecting', () => {
+  socket.on('disconnecting', async () => {
     // We could mark status as 'disconnected' here if we knew the userId and sessionId for this socket,
     // but the generic disconnect event doesn't have that context easily without tracking socketId -> userId.
     // For now we assume they reconnect and state is resumed via standard socket techniques.
+    
+    if (socket._userId && socket._sessionId) {
+      try {
+        const session = await LiveSession.findById(socket._sessionId);
+        if (session && session.status !== 'completed' && session.status !== 'cancelled') {
+          const p = session.participants.find(p => p.user && p.user.toString() === socket._userId);
+          if (p) {
+            p.status = 'disconnected';
+            await session.save();
+            io.to(`liveSession:${session._id}`).emit('participantLeft', { userId: socket._userId });
+          }
+        }
+      } catch (e) {
+        console.error('Socket cleanup error:', e);
+      }
+    }
   });
 };

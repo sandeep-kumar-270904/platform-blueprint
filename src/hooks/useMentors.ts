@@ -21,6 +21,7 @@ export interface MentorRow {
   availability_text: string | null;
   is_active: boolean;
   tier: 'new' | 'rising' | 'top-rated' | 'elite';
+  verificationTier: 'unverified' | 'email_verified' | 'institution_verified' | 'identity_verified';
   profile?: { username: string | null; full_name: string | null; avatar_url: string | null };
 }
 
@@ -33,7 +34,7 @@ export interface AvailabilitySlot {
   is_booked: boolean;
 }
 
-export const useMentors = (filters?: { search?: string; expertise?: string | null; isFree?: string; minRating?: string; sort?: string; page?: number }) => {
+export const useMentors = (filters?: { search?: string; expertise?: string | null; isFree?: string; minRating?: string; sort?: string; page?: number; verifiedOnly?: boolean }) => {
   const [mentors, setMentors] = useState<MentorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -48,6 +49,7 @@ export const useMentors = (filters?: { search?: string; expertise?: string | nul
       if (filters?.minRating) query += `minRating=${filters.minRating}&`;
       if (filters?.sort) query += `sort=${filters.sort}&`;
       if (filters?.page) query += `page=${filters.page}&`;
+      if (filters?.verifiedOnly) query += `verifiedOnly=${filters.verifiedOnly}&`;
 
       const res = await fetch(query);
       if (res.ok) {
@@ -61,7 +63,7 @@ export const useMentors = (filters?: { search?: string; expertise?: string | nul
     } finally {
       setLoading(false);
     }
-  }, [filters?.search, filters?.expertise, filters?.isFree, filters?.minRating, filters?.sort, filters?.page]);
+  }, [filters?.search, filters?.expertise, filters?.isFree, filters?.minRating, filters?.sort, filters?.page, filters?.verifiedOnly]);
 
   useEffect(() => {
     fetchMentors();

@@ -4,44 +4,15 @@ import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { ParallaxSection } from "@/components/animations/ParallaxSection";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
-import { FileText, Download, CheckCircle2, AlertCircle, Sparkles, Save, Loader2 } from "lucide-react";
-
-import { useResume, ResumeData } from "@/hooks/useResume";
-import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { FileText, Plus, Copy, Trash2, Star, ArrowLeft } from "lucide-react";
+import { useResumes } from "@/hooks/useResume";
+import { ResumeEditor } from "@/components/resume/ResumeEditor";
+import { formatDistanceToNow } from "date-fns";
 
 const ResumeBuilder = () => {
-  const { user } = useAuth();
-  const { resume, loading, saveResume } = useResume(user?.id);
-  const [resumeData, setResumeData] = useState<Partial<ResumeData>>({
-    name: "",
-    email: "",
-    phone: "",
-    summary: "",
-  });
-
-  useEffect(() => {
-    if (resume) {
-      setResumeData({
-        name: resume.name || "",
-        email: resume.email || "",
-        phone: resume.phone || "",
-        summary: resume.summary || ""
-      });
-    }
-  }, [resume]);
-
-  const handleSave = () => {
-    saveResume(resumeData);
-  };
-
-  const atsScore = resume?.ats_score || 0;
-  const atsTips = resume?.ats_tips || [];
+  const { resumes, loading, createResume, deleteResume, duplicateResume, setDefaultResume } = useResumes();
+  const [activeResumeId, setActiveResumeId] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-background">
@@ -60,7 +31,7 @@ const ResumeBuilder = () => {
                   Build Your <span className="text-primary display-font">Perfect Resume</span>
                 </h1>
                 <p className="mx-auto mb-6 max-w-2xl text-lg text-muted-foreground">
-                  Create professional, ATS-optimized resumes in minutes. Export to PDF and get instant feedback.
+                  Create multiple professional, ATS-optimized resumes. Export to PDF and get AI-powered feedback.
                 </p>
               </div>
             </ScrollReveal>
@@ -68,93 +39,76 @@ const ResumeBuilder = () => {
         </section>
       </ParallaxSection>
 
-      <div className="container mx-auto px-4 py-12">
-        {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+      <div className="container mx-auto px-4 py-8">
+        {activeResumeId ? (
+          <div className="space-y-6">
+            <Button variant="ghost" onClick={() => setActiveResumeId(null)} className="gap-2">
+              <ArrowLeft className="h-4 w-4" /> Back to Resumes
+            </Button>
+            <ResumeEditor resumeId={activeResumeId} />
+          </div>
         ) : (
-          <div className="grid lg:grid-cols-2 gap-8">
-            {/* Resume Editor */}
-            <ScrollReveal delay={0.1}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Resume Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" value={resumeData.name} onChange={(e) => setResumeData({ ...resumeData, name: e.target.value })} placeholder="John Doe" />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" value={resumeData.email} onChange={(e) => setResumeData({ ...resumeData, email: e.target.value })} placeholder="john@example.com" />
-                  </div>
-                  <div>
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input id="phone" value={resumeData.phone} onChange={(e) => setResumeData({ ...resumeData, phone: e.target.value })} placeholder="+91 98765 43210" />
-                  </div>
-                  <div>
-                    <Label htmlFor="summary">Professional Summary</Label>
-                    <Textarea id="summary" value={resumeData.summary} onChange={(e) => setResumeData({ ...resumeData, summary: e.target.value })} placeholder="Brief overview of your experience and skills... Use numbers/metrics!" rows={4} />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={handleSave} className="flex-1 gap-2"><Save className="h-4 w-4" /> Save Profile</Button>
-                    <Button variant="outline" className="flex-1 gap-2"><Download className="h-4 w-4" /> Export PDF</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </ScrollReveal>
-
-            {/* ATS Score & Tips */}
-            <div className="space-y-6">
-              <ScrollReveal delay={0.2}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      ATS Score
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="text-center">
-                        <div className="text-5xl font-bold text-primary mb-2">{atsScore}%</div>
-                        <Progress value={atsScore} className="h-3" />
-                      </div>
-                      <p className="text-sm text-muted-foreground text-center">
-                        Your resume is {atsScore >= 80 ? "excellent" : atsScore >= 60 ? "good" : "needs improvement"}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </ScrollReveal>
-
-              <ScrollReveal delay={0.3}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Improvement Tips</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {atsTips.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Save your resume to generate tips.</p>
-                    ) : (
-                      atsTips.map((tip, index) => (
-                        <div key={index} className="flex gap-3 p-3 rounded-lg bg-muted/50">
-                          {tip.severity === "high" ? (
-                            <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
-                          ) : (
-                            <CheckCircle2 className="h-4 w-4 text-warning flex-shrink-0" />
-                          )}
-                          <div>
-                            <p className="font-medium text-sm">{tip.issue}</p>
-                            <p className="text-xs text-muted-foreground">{tip.tip}</p>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </CardContent>
-                </Card>
-              </ScrollReveal>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">My Resumes</h2>
+              <Button onClick={() => createResume()} className="gap-2">
+                <Plus className="h-4 w-4" /> Create New
+              </Button>
             </div>
+            
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[1,2,3].map(i => <Card key={i} className="h-48 animate-pulse bg-muted/50" />)}
+              </div>
+            ) : resumes.length === 0 ? (
+              <div className="text-center py-20 border-2 border-dashed rounded-xl">
+                <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                <h3 className="text-xl font-bold mb-2">No resumes yet</h3>
+                <p className="text-muted-foreground mb-4">Create your first resume to get started</p>
+                <Button onClick={() => createResume()}>Create Resume</Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {resumes.map(resume => (
+                  <Card key={resume._id} className={`hover:border-primary transition-colors ${resume.isDefault ? 'border-primary shadow-sm' : ''}`}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="flex items-center gap-2">
+                            {resume.title}
+                            {resume.isDefault && <Star className="h-4 w-4 fill-primary text-primary" />}
+                          </CardTitle>
+                          <CardDescription>
+                            Updated {resume.updated_at ? formatDistanceToNow(new Date(resume.updated_at), { addSuffix: true }) : 'recently'}
+                          </CardDescription>
+                        </div>
+                        <Badge variant={resume.atsScore?.score >= 80 ? 'default' : 'secondary'}>
+                          {resume.atsScore?.score || 0} ATS
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <Button className="w-full" onClick={() => setActiveResumeId(resume._id as string)}>
+                        Edit Resume
+                      </Button>
+                      <div className="flex justify-between">
+                        <Button variant="ghost" size="sm" onClick={() => setDefaultResume(resume._id as string)} disabled={resume.isDefault}>
+                          Set Default
+                        </Button>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => duplicateResume(resume._id as string)}>
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteResume(resume._id as string)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

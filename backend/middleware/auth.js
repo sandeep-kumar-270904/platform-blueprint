@@ -26,11 +26,11 @@ module.exports = async function (req, res, next) {
       return res.status(401).json({ message: 'User no longer exists' });
     }
     
-    if (user.banned) {
-      return res.status(403).json({ message: 'Account suspended' });
-    }
-
-    req.user = { id: user._id.toString(), role: user.role };
+    req.user = { 
+      id: user._id.toString(), 
+      role: user.role,
+      banned: user.banned
+    };
     if (user.role === 'recruiter' || user.role === 'admin') {
       req.user.recruiterProfile = user.recruiterProfile;
     }

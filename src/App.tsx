@@ -46,6 +46,10 @@ import RecruiterDashboard from "./pages/RecruiterDashboard";
 import JobAnalytics from "./pages/JobAnalytics";
 import CandidateSearch from "./pages/CandidateSearch";
 import QuizHub from "./pages/QuizHub";
+import Challenges from "./pages/Challenges";
+import Tournaments from "./pages/Tournaments";
+import TeacherDashboard from "./pages/TeacherDashboard";
+import SyllabusProgressTracker from "./pages/SyllabusProgressTracker";
 import QuizCreate from "./pages/QuizCreate";
 import QuizDetail from "./pages/QuizDetail";
 import QuizTake from "./pages/QuizTake";
@@ -88,6 +92,9 @@ import Search from "./pages/Search";
 import EventDetail from "./pages/EventDetail";
 import PublicSkillsProfile from "./pages/PublicSkillsProfile";
 import MentorProfilePage from "./pages/MentorProfilePage";
+import MentorCommunity from "./pages/MentorCommunity";
+import AlumniDirectory from "./pages/AlumniDirectory";
+import AILearningPaths from "./pages/AILearningPaths";
 import AMASessionsPage from "./pages/AMASessionsPage";
 import AMADetailPage from "./pages/AMADetailPage";
 import NotificationSettings from "./pages/NotificationSettings";
@@ -138,6 +145,9 @@ const App = () => (
           <Route path="/mentors/amas" element={<ProtectedRoute><AMASessionsPage /></ProtectedRoute>} />
           <Route path="/mentors/amas/:id" element={<ProtectedRoute><AMADetailPage /></ProtectedRoute>} />
           <Route path="/mentors/:id" element={<ProtectedRoute><MentorProfilePage /></ProtectedRoute>} />
+          <Route path="/mentors/community" element={<ProtectedRoute><MentorCommunity /></ProtectedRoute>} />
+          <Route path="/mentors/alumni" element={<ProtectedRoute><AlumniDirectory /></ProtectedRoute>} />
+          <Route path="/mentors/ai-paths" element={<ProtectedRoute><AILearningPaths /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/resume-builder" element={<ProtectedRoute><ResumeBuilder /></ProtectedRoute>} />
           <Route path="/college-insights" element={<ProtectedRoute><CollegeInsights /></ProtectedRoute>} />
@@ -161,6 +171,11 @@ const App = () => (
           <Route path="/recruiter/jobs/:id/applicants" element={<ProtectedRoute><ATSDashboard /></ProtectedRoute>} />
           <Route path="/recruiter/jobs/:id/analytics" element={<ProtectedRoute><JobAnalytics /></ProtectedRoute>} />
           <Route path="/quizzes" element={<ProtectedRoute><QuizHub /></ProtectedRoute>} />
+          <Route path="/quiz" element={<ProtectedRoute><QuizHub /></ProtectedRoute>} />
+          <Route path="/quiz/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
+          <Route path="/quiz/tournaments" element={<ProtectedRoute><Tournaments /></ProtectedRoute>} />
+          <Route path="/quiz/classes" element={<ProtectedRoute><TeacherDashboard /></ProtectedRoute>} />
+          <Route path="/quiz/progress" element={<ProtectedRoute><SyllabusProgressTracker /></ProtectedRoute>} />
           <Route path="/quizzes/new" element={<ProtectedRoute><QuizCreate /></ProtectedRoute>} />
           <Route path="/quizzes/:id" element={<ProtectedRoute><QuizDetail /></ProtectedRoute>} />
           <Route path="/quizzes/:id/take" element={<ProtectedRoute><QuizTake /></ProtectedRoute>} />

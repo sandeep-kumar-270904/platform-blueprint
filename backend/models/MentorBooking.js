@@ -48,7 +48,11 @@ const mentorBookingSchema = new mongoose.Schema({
     rescheduledBy: { type: String, enum: ['mentee', 'mentor'] },
     reason: String,
     rescheduledAt: { type: Date, default: Date.now }
-  }]
+  }],
+  
+  // Phase 8: Goal Tracking
+  linkedGoalStepId: { type: mongoose.Schema.Types.ObjectId },
+  goalSelfAssessment: { type: String, enum: ['yes', 'somewhat', 'no', null], default: null }
 }, { timestamps: true });
 
 // Prevent double bookings for a mentor at the exact same time

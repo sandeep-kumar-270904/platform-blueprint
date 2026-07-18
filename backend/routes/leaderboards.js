@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const QuizAttempt = require('../models/QuizAttempt');
+const Idea = require('../models/Idea');
 const authMiddleware = require('../middleware/auth');
 const mongoose = require('mongoose');
 
@@ -118,7 +119,39 @@ router.get('/global/me', authMiddleware, async (req, res) => {
 
       return res.json({ rank, points: me.totalQuizPoints });
     }
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
 
+// GET /api/leaderboards/ideas
+router.get('/ideas', async (req, res) => {
+  try {
+    const { category, period, limit = 10 } = req.query;
+    const filter = { status: { $ne: 'Launched' } };
+    
+    if (category) filter.category = category;
+    
+    if (period) {
+      const date = new Date();
+      if (period === 'daily') date.setDate(date.getDate() - 1);
+      else if (period === 'weekly') date.setDate(date.getDate() - 7);
+      else if (period === 'monthly') date.setMonth(date.getMonth() - 1);
+      filter.created_at = { $gte: date };
+    }
+
+    const leaders = await Idea.find(filter)
+      .sort({ upvoteCount: -1, commentCount: -1 })
+      .limit(parseInt(limit))
+      .populate('owner', 'username avatar_url full_name');
+      
+    const formattedLeaders = leaders.map((idea, index) => ({
+      idea,
+      upvotes: idea.upvoteCount,
+      rank: index + 1
+    }));
+    
+    res.json(formattedLeaders);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
