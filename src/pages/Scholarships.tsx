@@ -6,7 +6,7 @@ import { ParallaxSection } from "@/components/animations/ParallaxSection";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { DollarSign, Calendar, CheckCircle2, Search, Filter, Loader2, BookmarkPlus, BookmarkCheck, ArrowRight, Sparkles } from "lucide-react";
+import { DollarSign, Calendar, CheckCircle2, Search, Filter, Loader2, BookmarkPlus, BookmarkCheck, ArrowRight, Sparkles, Calculator } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useScholarships, Scholarship } from "@/hooks/useScholarships";
@@ -74,10 +74,18 @@ const Scholarships = () => {
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
-                <Badge variant="accent" className="mb-6 px-3 py-1 text-sm font-medium">
-                  <DollarSign className="mr-1 h-4 w-4" />
-                  Financial Aid
-                </Badge>
+                <div className="flex justify-center items-center gap-3 mb-6">
+                  <Badge variant="accent" className="px-3 py-1 text-sm font-medium">
+                    <DollarSign className="mr-1 h-4 w-4" />
+                    Financial Aid
+                  </Badge>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/scholarships/my-scholarships')} className="rounded-full h-7 text-xs border-primary/20 hover:bg-primary/5">
+                    <BookmarkCheck className="mr-1 h-3 w-3" /> My Scholarships
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/scholarships/calculator')} className="rounded-full h-7 text-xs border-primary/20 hover:bg-primary/5">
+                    <Calculator className="mr-1 h-3 w-3" /> Calculator
+                  </Button>
+                </div>
                 <h1 className="mb-4 text-4xl font-extrabold tracking-tight md:text-6xl text-foreground">
                   Find Your{" "}
                   <span className="text-primary bg-clip-text">

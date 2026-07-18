@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowLeft, Upload, FileText, CheckCircle2 } from "lucide-react";
+import { Loader2, ArrowLeft, FileText, CheckCircle2, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Scholarship } from "@/hooks/useScholarships";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -26,11 +27,15 @@ const ScholarshipApply = () => {
   // Form State
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [essayResponses, setEssayResponses] = useState<Record<string, string>>({});
+  const [recommendationLetters, setRecommendationLetters] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchDetail = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/scholarships/${id}`);
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/scholarships/${id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
         if (res.ok) {
           const data = await res.json();
           if (data.applicationMode === 'external_link') {
@@ -38,6 +43,14 @@ const ScholarshipApply = () => {
               return;
           }
           setScholarship(data);
+        }
+
+        const recRes = await fetch(`${API_URL}/api/recommendation-letters/my-requests`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (recRes.ok) {
+            const data = await recRes.json();
+            setRecommendationLetters(data.filter((l: any) => l.status === 'submitted'));
         }
       } catch (err) {
         console.error(err);
@@ -52,8 +65,19 @@ const ScholarshipApply = () => {
     if (!scholarship) return;
     setSubmitting(true);
     
-    // Formatting data to match backend model
-    const formattedResponses = Object.entries(responses).map(([k, v]) => ({ fieldKey: k, value: v }));
+    // Extract recommendation letter if present
+    let attachedRecommendationLetterId = null;
+    const finalResponses: any[] = [];
+    
+    scholarship.inAppRequirements?.forEach((req: any) => {
+        const key = req.fieldKey || req.prompt;
+        if (req.type === 'recommendation_letter') {
+            if (responses[key]) attachedRecommendationLetterId = responses[key];
+        } else if (req.type !== 'textarea') {
+            if (responses[key]) finalResponses.push({ fieldKey: key, value: responses[key] });
+        }
+    });
+
     const formattedEssays = Object.entries(essayResponses).map(([k, v]) => ({ prompt: k, response: v }));
 
     try {
@@ -62,8 +86,9 @@ const ScholarshipApply = () => {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            responses: formattedResponses,
-            essayResponses: formattedEssays
+            responses: finalResponses,
+            essayResponses: formattedEssays,
+            attachedRecommendationLetterId
         })
       });
 
@@ -152,6 +177,34 @@ const ScholarshipApply = () => {
                                         className="min-h-[150px]"
                                         placeholder="Write your response here..."
                                     />
+                                ) : req.type === 'recommendation_letter' ? (
+                                    <div className="border-2 border-dashed border-border rounded-lg p-6 text-center bg-muted/20">
+                                        <Mail className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                                        <h3 className="font-semibold mb-1">Recommendation Letter Required</h3>
+                                        <p className="text-sm text-muted-foreground mb-4">You can select a completed letter from your Resume Builder profile.</p>
+                                        <Select 
+                                            value={responses[req.fieldKey || req.prompt] || ''}
+                                            onValueChange={v => setResponses(prev => ({...prev, [req.fieldKey || req.prompt]: v}))}
+                                        >
+                                            <SelectTrigger className="w-full max-w-md mx-auto">
+                                                <SelectValue placeholder="Select a recommendation letter" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {recommendationLetters.length === 0 ? (
+                                                    <SelectItem value="none" disabled>No letters available</SelectItem>
+                                                ) : (
+                                                    recommendationLetters.map(l => (
+                                                        <SelectItem key={l._id} value={l._id}>
+                                                            Letter from {l.writtenBy?.name || l.externalEmail} ({l.relationship})
+                                                        </SelectItem>
+                                                    ))
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        <div className="mt-4 text-xs text-muted-foreground">
+                                            Need a new one? <a href="/resume-builder/feedback" className="text-primary hover:underline">Request via Resume Builder</a>
+                                        </div>
+                                    </div>
                                 ) : (
                                     <Input 
                                         type={req.type || 'text'}

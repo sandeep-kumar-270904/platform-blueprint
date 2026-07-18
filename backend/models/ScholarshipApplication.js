@@ -31,6 +31,13 @@ const scholarshipApplicationSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Resume',
   },
+  attachedRecommendationLetterId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'RecommendationLetter',
+  },
+  attachedLetterSnapshot: {
+    type: mongoose.Schema.Types.Mixed
+  },
   submittedAt: {
     type: Date,
   },

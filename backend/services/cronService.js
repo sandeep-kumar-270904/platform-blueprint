@@ -38,9 +38,15 @@ class CronService {
       this.checkClassQuizDeadlines();
     });
 
-    // Run every day at midnight for daily job alerts
+    // Run every day at midnight for daily job alerts & scholarship deadlines
     cron.schedule('0 0 * * *', async () => {
       this.checkDailyJobAlerts();
+      this.checkScholarshipDeadlines();
+    });
+
+    // Run every Sunday at 9 AM for weekly scholarship digest
+    cron.schedule('0 9 * * 0', async () => {
+      this.sendWeeklyScholarshipDigest();
     });
 
     // Run every hour to check ingestion health
@@ -571,6 +577,122 @@ class CronService {
       }
     } catch (err) {
       console.error('Error in checkClassQuizDeadlines:', err);
+    }
+  }
+
+  async checkScholarshipDeadlines() {
+    try {
+      const Scholarship = require('../models/Scholarship');
+      const SavedScholarship = require('../models/SavedScholarship');
+      const ScholarshipApplication = require('../models/ScholarshipApplication');
+      const Notification = require('../models/Notification');
+      const User = require('../models/User');
+
+      const now = new Date();
+      // Look for active scholarships
+      const activeScholarships = await Scholarship.find({ status: 'published' });
+
+      for (const scholarship of activeScholarships) {
+        // Handle recurring calculation if the deadline is passed by 1 day
+        // to move it to next year.
+        const passedDeadline = new Date(scholarship.applicationDeadline) < now;
+        if (passedDeadline && scholarship.isRecurring) {
+           const nextYear = new Date(scholarship.applicationDeadline);
+           nextYear.setFullYear(nextYear.getFullYear() + 1);
+           scholarship.applicationDeadline = nextYear;
+           await scholarship.save();
+           // Continue processing with the new deadline
+        } else if (passedDeadline) {
+           // Skip past deadlines
+           continue;
+        }
+
+        // Calculate days remaining
+        const diffTime = new Date(scholarship.applicationDeadline) - now;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        // We trigger on exactly 14, 3, or 1 days before
+        if ([14, 3, 1].includes(diffDays)) {
+           // Find engaged users (saved or applied but not submitted)
+           const saved = await SavedScholarship.find({ scholarshipId: scholarship._id });
+           const apps = await ScholarshipApplication.find({ 
+               scholarshipId: scholarship._id, 
+               status: { $nin: ['submitted', 'awarded', 'rejected'] } 
+           });
+
+           const userIdsToNotify = new Set();
+           saved.forEach(s => userIdsToNotify.add(s.userId.toString()));
+           apps.forEach(a => userIdsToNotify.add(a.userId.toString()));
+
+           for (const userId of Array.from(userIdsToNotify)) {
+               // Check user preferences - assuming defaults for now as no schema update for prefs yet
+               // But we only notify engaged users.
+               
+               const existingNotif = await Notification.findOne({
+                   userId,
+                   type: 'scholarship_deadline',
+                   relatedContentId: scholarship._id,
+                   message: { $regex: `${diffDays} day` }
+               });
+
+               if (!existingNotif) {
+                   await Notification.create({
+                       userId,
+                       type: 'scholarship_deadline',
+                       relatedContentId: scholarship._id,
+                       message: `Reminder: The scholarship "${scholarship.title}" is due in ${diffDays} day(s).`
+                   });
+               }
+           }
+        }
+      }
+    } catch (err) {
+      console.error('Error in checkScholarshipDeadlines:', err);
+    }
+  }
+
+  async sendWeeklyScholarshipDigest() {
+    try {
+      const Scholarship = require('../models/Scholarship');
+      const SavedScholarship = require('../models/SavedScholarship');
+      const ScholarshipApplication = require('../models/ScholarshipApplication');
+      const Notification = require('../models/Notification');
+      const User = require('../models/User');
+
+      const now = new Date();
+      const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      const users = await User.find({});
+      for (const user of users) {
+          // Find engaged scholarships
+          const saved = await SavedScholarship.find({ userId: user._id }).populate('scholarshipId');
+          const apps = await ScholarshipApplication.find({ 
+              userId: user._id, 
+              status: { $nin: ['submitted', 'awarded', 'rejected'] } 
+          }).populate('scholarshipId');
+
+          const allEngagedScholarships = new Map(); // deduplicate
+          saved.forEach(s => { if (s.scholarshipId) allEngagedScholarships.set(s.scholarshipId._id.toString(), s.scholarshipId); });
+          apps.forEach(a => { if (a.scholarshipId) allEngagedScholarships.set(a.scholarshipId._id.toString(), a.scholarshipId); });
+
+          let dueThisWeek = 0;
+          for (const [id, sch] of allEngagedScholarships) {
+              const deadline = new Date(sch.applicationDeadline);
+              if (deadline > now && deadline <= nextWeek) {
+                  dueThisWeek++;
+              }
+          }
+
+          if (dueThisWeek > 0) {
+              await Notification.create({
+                 userId: user._id,
+                 type: 'scholarship_weekly_digest',
+                 message: `Weekly Digest: You have ${dueThisWeek} scholarship(s) due in the next 7 days. Check your dashboard!`
+              });
+          }
+      }
+    } catch (err) {
+      console.error('Error in sendWeeklyScholarshipDigest:', err);
     }
   }
 }
