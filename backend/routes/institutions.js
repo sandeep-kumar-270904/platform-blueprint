@@ -33,6 +33,39 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
+router.post('/:id/suspend', auth, async (req, res) => {
+  try {
+    const adminUser = await User.findById(req.user.id);
+    if (!adminUser || adminUser.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const inst = await Institution.findById(req.params.id);
+    if (!inst) return res.status(404).json({ message: 'Institution not found' });
+
+    inst.status = 'suspended';
+    await inst.save();
+
+    // Cascade seat downgrades per Mentors Phase 9 transition logic
+    await User.updateMany(
+      { institutionId: inst._id, tier: 'pro' },
+      { $set: { tier: 'free', institutionVerified: false } }
+    );
+
+    const AdminActionLog = require('../models/AdminActionLog');
+    await AdminActionLog.create({
+      adminId: req.user.id,
+      actionType: 'suspend_institution',
+      targetId: inst._id,
+      reason: 'Admin initiated suspension'
+    });
+
+    res.json({ message: 'Institution suspended and seats downgraded.' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.post('/claim-seat', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);

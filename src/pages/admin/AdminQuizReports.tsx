@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, AlertTriangle, CheckCircle, Trash2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -22,6 +23,41 @@ const AdminQuizReports = () => {
   const [actionType, setActionType] = useState<string>('');
   const [adminNote, setAdminNote] = useState('');
   const [actioning, setActioning] = useState(false);
+
+  const [aiReviews, setAiReviews] = useState<any[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  
+  const fetchAiReviews = async () => {
+    setLoadingReviews(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/quiz-review/pending`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) setAiReviews(await res.json());
+    } catch (err) {
+      toast.error("Failed to load AI reviews");
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  const handleReviewAction = async (quizId: string, action: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/quiz-review/${quizId}/action`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ action })
+      });
+      if (!res.ok) throw new Error("Failed to process action");
+      toast.success(`Quiz ${action}d successfully`);
+      fetchAiReviews();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
 
   const fetchReports = async () => {
     setLoading(true);
@@ -45,6 +81,7 @@ const AdminQuizReports = () => {
 
   useEffect(() => {
     fetchReports();
+    fetchAiReviews();
   }, [statusFilter]);
 
   const openActionDialog = (report: any) => {
@@ -107,7 +144,14 @@ const AdminQuizReports = () => {
           </Select>
         </div>
 
-        <div className="bg-background rounded-lg border shadow-sm">
+        <Tabs defaultValue="reports" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="reports">User Reports</TabsTrigger>
+            <TabsTrigger value="ai-reviews">AI Review Queue ({aiReviews.length})</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="reports">
+            <div className="bg-background rounded-lg border shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>
@@ -177,7 +221,45 @@ const AdminQuizReports = () => {
             </TableBody>
           </Table>
         </div>
-      </div>
+      </TabsContent>
+
+      <TabsContent value="ai-reviews">
+        <div className="bg-background rounded-lg border shadow-sm">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Quiz Title</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Created By</TableHead>
+                <TableHead>Questions</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loadingReviews ? (
+                <TableRow><TableCell colSpan={5} className="h-32 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></TableCell></TableRow>
+              ) : aiReviews.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="h-32 text-center text-muted-foreground">No pending AI quizzes.</TableCell></TableRow>
+              ) : (
+                aiReviews.map((quiz) => (
+                  <TableRow key={quiz._id}>
+                    <TableCell className="font-medium">{quiz.title}</TableCell>
+                    <TableCell>{quiz.category}</TableCell>
+                    <TableCell>{quiz.createdBy?.full_name || 'Unknown'}</TableCell>
+                    <TableCell>{quiz.questions?.length || 0}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="outline" size="sm" className="mr-2" onClick={() => handleReviewAction(quiz._id, 'approve')}>Approve</Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleReviewAction(quiz._id, 'reject')}>Reject</Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </TabsContent>
+    </Tabs>
+  </div>
 
       <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
         <DialogContent>
