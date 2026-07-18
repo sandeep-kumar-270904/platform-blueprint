@@ -12,10 +12,11 @@ import { ResumeAnalytics } from "@/components/resume/ResumeAnalytics";
 import { formatDistanceToNow } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CoverLetterList } from "@/components/resume/CoverLetterList";
+import { useNavigate } from "react-router-dom";
 
-const ResumeBuilder = () => {
+const ResumeDashboard = () => {
   const { resumes, loading, createResume, deleteResume, duplicateResume, setDefaultResume } = useResumes();
-  const [activeResumeId, setActiveResumeId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
@@ -43,16 +44,8 @@ const ResumeBuilder = () => {
       </ParallaxSection>
 
       <div className="container mx-auto px-4 py-8">
-        {activeResumeId ? (
-          <div className="space-y-6">
-            <Button variant="ghost" onClick={() => setActiveResumeId(null)} className="gap-2">
-              <ArrowLeft className="h-4 w-4" /> Back to Resumes
-            </Button>
-            <ResumeEditor resumeId={activeResumeId} />
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="flex gap-4 items-center">
+        <div className="space-y-6">
+          <div className="flex gap-4 items-center">
               <ResumeAnalytics />
               
               <div className="flex gap-2">
@@ -81,7 +74,7 @@ const ResumeBuilder = () => {
                       if (res.ok) {
                         const { resumeData } = await res.json();
                         const newResume = await createResume(resumeData);
-                        if (newResume) setActiveResumeId(newResume._id);
+                        if (newResume) navigate(`/resume-builder/editor/${newResume._id}`);
                       }
                     } catch (err) {
                       console.error(err);
@@ -95,7 +88,7 @@ const ResumeBuilder = () => {
 
                 <Button size="lg" className="gap-2" onClick={async () => {
                   const newResume = await createResume();
-                  if (newResume) setActiveResumeId(newResume._id);
+                  if (newResume) navigate(`/resume-builder/editor/${newResume._id}`);
                 }}>
                   <Plus className="h-5 w-5" />
                   Create New Resume
@@ -142,7 +135,7 @@ const ResumeBuilder = () => {
                           </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                          <Button className="w-full" onClick={() => setActiveResumeId(resume._id as string)}>
+                          <Button className="w-full" onClick={() => navigate(`/resume-builder/editor/${resume._id}`)}>
                             Edit Resume
                           </Button>
                           <div className="flex justify-between">
@@ -170,11 +163,10 @@ const ResumeBuilder = () => {
                 <CoverLetterList />
               </TabsContent>
             </Tabs>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
 };
 
-export default ResumeBuilder;
+export default ResumeDashboard;

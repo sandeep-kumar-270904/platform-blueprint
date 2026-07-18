@@ -11,4 +11,6 @@ const coverLetterSchema = new mongoose.Schema({
   tone: { type: String, enum: ['formal', 'conversational', 'enthusiastic'], default: 'formal' },
 }, { timestamps: true });
 
+coverLetterSchema.index({ userId: 1, updatedAt: -1 });
+
 module.exports = mongoose.model('CoverLetter', coverLetterSchema);

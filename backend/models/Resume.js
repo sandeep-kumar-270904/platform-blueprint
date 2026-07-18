@@ -106,4 +106,6 @@ const resumeSchema = new mongoose.Schema({
   }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
+resumeSchema.index({ userId: 1, updated_at: -1 });
+
 module.exports = mongoose.model('Resume', resumeSchema);
