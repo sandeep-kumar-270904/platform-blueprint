@@ -257,6 +257,7 @@ app.use('/api/admin', require('./routes/adminJobs'));
 app.use('/api/admin/mentors', require('./routes/adminMentorsOverview'));
 app.use('/api/admin/moderation', require('./routes/adminModeration'));
 app.use('/api/admin/financials', require('./routes/adminFinancials'));
+app.use('/api/admin/quiz-review', require('./routes/adminQuizReview'));
 app.use('/api/recruiter', require('./routes/recruiter'));
 app.use('/api/innovation', require('./routes/innovation'));
 app.use('/api/career', require('./routes/career'));

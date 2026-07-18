@@ -121,6 +121,19 @@ export default function MentorsAdminDashboard() {
     }
   };
 
+  const handleSuspendInstitution = async (id: string) => {
+    if (!confirm("Are you sure you want to suspend this institution? This will downgrade all claimed seats.")) return;
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/institutions/${id}/suspend`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.ok) {
+      toast({ title: "Institution suspended and seats downgraded." });
+      fetchEnterprise();
+    }
+  };
+
   const handleCreateInstitution = async (e: React.FormEvent) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
@@ -270,14 +283,12 @@ export default function MentorsAdminDashboard() {
                 {institutions.map(inst => (
                   <div key={inst._id} className="flex justify-between items-center p-3 bg-muted/20 rounded border">
                     <div>
-                      <h4 className="font-semibold">{inst.name}</h4>
-                      <p className="text-xs text-muted-foreground">{inst.domain}</p>
+                      <h4 className="font-medium">{inst.name} ({inst.domain})</h4>
+                      <p className="text-sm text-muted-foreground">{inst.seatsUsed} / {inst.seatLimit} seats used • Status: {inst.status || 'active'}</p>
                     </div>
-                    <div className="text-right">
-                      <Badge variant={inst.seatsUsed >= inst.seatLimit ? "destructive" : "default"}>
-                        {inst.seatsUsed} / {inst.seatLimit} Seats
-                      </Badge>
-                    </div>
+                    {(!inst.status || inst.status === 'active') && (
+                      <Button size="sm" variant="destructive" onClick={() => handleSuspendInstitution(inst._id)}>Suspend</Button>
+                    )}
                   </div>
                 ))}
               </CardContent>
