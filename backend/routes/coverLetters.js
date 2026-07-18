@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const coverLetterController = require('../controllers/coverLetterController');
-const { requireAuth } = require('../middleware/auth');
+const auth = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 
 const aiLimiter = rateLimit({
@@ -11,7 +11,7 @@ const aiLimiter = rateLimit({
   keyGenerator: (req) => req.user.id
 });
 
-router.use(requireAuth);
+router.use(auth);
 
 router.get('/', coverLetterController.getCoverLetters);
 router.post('/', coverLetterController.createCoverLetter);

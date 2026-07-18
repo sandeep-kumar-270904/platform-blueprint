@@ -13,7 +13,17 @@ const { parse } = require('csv-parse/sync');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const rateLimit = require('express-rate-limit');
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB for CSV
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only CSV allowed.'));
+    }
+  }
+});
 
 const aiLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
@@ -777,5 +787,23 @@ Return ONLY a valid JSON object matching this schema (do not include markdown bl
   }
 });
 
+
+
+// GET /api/quizzes/check-skill?skill=X
+router.get('/check-skill', authMiddleware, async (req, res) => {
+  try {
+    const { skill } = req.query;
+    if (!skill) return res.status(400).json({ message: 'Skill required' });
+    
+    // Check if any quiz category exactly matches (case-insensitive) the skill
+    const quiz = await Quiz.findOne({ category: { $regex: new RegExp(`^${skill}$`, 'i') }, status: 'published' });
+    if (quiz) {
+      return res.json({ exists: true, quizId: quiz._id });
+    }
+    res.json({ exists: false });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
 
 module.exports = router;

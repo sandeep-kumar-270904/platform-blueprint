@@ -7,6 +7,8 @@ const institutionSchema = new mongoose.Schema({
   seatsUsed: { type: Number, default: 0 },
   billingContact: { type: String, required: true },
   adminUserIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  branding: { logoUrl: String, primaryColor: String },
+  resumeGuidelines: [{ type: String }],
   status: { type: String, enum: ['active', 'trial', 'suspended'], default: 'trial' }
 }, { timestamps: true });
 

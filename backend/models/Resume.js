@@ -79,6 +79,16 @@ const resumeSchema = new mongoose.Schema({
   
   template: { type: String, default: "modern" },
 
+  // Phase 6: AI Tailoring
+  tailoredForJobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job' },
+  tailorSuggestions: [{
+    section: String,
+    originalText: String,
+    suggestedText: String,
+    status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' }
+  }],
+
+
   atsScore: {
     score: { type: Number, default: 0 },
     lastCalculatedAt: { type: Date, default: null },
@@ -106,6 +116,6 @@ const resumeSchema = new mongoose.Schema({
   }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
-resumeSchema.index({ userId: 1, updated_at: -1 });
+resumeSchema.index({ user_id: 1, updated_at: -1 });
 
 module.exports = mongoose.model('Resume', resumeSchema);

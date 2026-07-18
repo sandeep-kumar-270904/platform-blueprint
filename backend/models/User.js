@@ -104,6 +104,8 @@ const UserSchema = new mongoose.Schema({
   videoIntroUploadedAt: { type: Date },
   institutionVerified: { type: Boolean, default: false },
   institutionVerifiedAt: { type: Date },
+  lastAnnualReflection: { type: Date }, // Phase 12
+  institutionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institution' },
   role: {
     type: String,
     enum: ['user', 'student', 'recruiter', 'admin'],
@@ -177,6 +179,10 @@ const UserSchema = new mongoose.Schema({
   defaultApplicationProfile: {
     resumeUrl: { type: String },
     defaultCoverLetter: { type: String }
+  },
+  resumeBackupSettings: {
+    interval: { type: String, enum: ['none', 'monthly', 'quarterly'], default: 'none' },
+    lastBackupAt: { type: Date, default: null }
   },
   notificationPreferences: {
     question_answered: { type: Boolean, default: true },

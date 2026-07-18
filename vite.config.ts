@@ -18,7 +18,8 @@ export default defineConfig(({ mode }) => ({
       filename: 'sw.ts',
       registerType: 'autoUpdate',
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        maximumFileSizeToCacheInBytes: 5242880 // 5 MB
       },
       manifest: {
         name: 'StudentHub Mentors',

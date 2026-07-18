@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const JobApplication = require('../models/JobApplication');
 const Job = require('../models/Job');
+const mongoose = require('mongoose');
 const authMiddleware = require('../middleware/auth');
 const { updateApplicationStatus, withdrawApplication } = require('../services/applicationService');
 
@@ -43,7 +44,7 @@ router.patch('/:id/withdraw', authMiddleware, async (req, res) => {
 // PATCH /api/applications/:id/status
 router.patch('/:id/status', authMiddleware, async (req, res) => {
   try {
-    const { newStatus, note } = req.body;
+    const { newStatus, note, rejectionFeedback, rejectionFeedbackNote } = req.body;
     
     // Auth check: Only the recruiter of the job or admin can update status
     const application = await JobApplication.findById(req.params.id).populate('job');
@@ -58,6 +59,8 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
       newStatus,
       changedBy: req.user.id,
       note,
+      rejectionFeedback,
+      rejectionFeedbackNote,
       io: req.io
     });
 
@@ -103,6 +106,22 @@ router.patch('/bulk-status', authMiddleware, async (req, res) => {
     }
 
     res.json({ updated: updatedApplications, errors });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+
+// GET /api/applications/insights/rejections
+router.get('/insights/rejections', authMiddleware, async (req, res) => {
+  try {
+    const rawInsights = await JobApplication.aggregate([
+      { $match: { applicant: mongoose.Types.ObjectId(req.user.id), status: 'rejected', rejectionFeedback: { $ne: null } } },
+      { $group: { _id: "$rejectionFeedback", count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    const insights = rawInsights.map(i => ({ feedback: i._id, count: i.count }));
+    res.json(insights);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

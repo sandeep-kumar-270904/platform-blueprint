@@ -91,10 +91,10 @@ class GeminiService {
       
       // Clean up markdown block if present
       let jsonString = responseText;
-      if (jsonString.startsWith('\`\`\`json')) {
-        jsonString = jsonString.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
-      } else if (jsonString.startsWith('\`\`\`')) {
-        jsonString = jsonString.replace(/\`\`\`/g, '').trim();
+      if (jsonString.startsWith('```json')) {
+        jsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+      } else if (jsonString.startsWith('```')) {
+        jsonString = jsonString.replace(/```/g, '').trim();
       }
 
       return JSON.parse(jsonString);
@@ -146,7 +146,7 @@ class GeminiService {
 
       const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const prompt = `
-        You are an expert resume parser. Extract the structured data from the following raw resume text and map it to this JSON schema:
+        You are an expert resume parser. Extract the structured data from the following raw resume text (which might be from OCR of an image or a messy format) and map it to this JSON schema:
         {
           "personalInfo": { "fullName": "", "email": "", "phone": "", "location": "" },
           "professionalSummary": "",
@@ -165,10 +165,10 @@ class GeminiService {
       const result = await withRetry(() => model.generateContent(prompt));
       let jsonString = result.response.text();
       
-      if (jsonString.startsWith('\`\`\`json')) {
-        jsonString = jsonString.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
-      } else if (jsonString.startsWith('\`\`\`')) {
-        jsonString = jsonString.replace(/\`\`\`/g, '').trim();
+      if (jsonString.startsWith('```json')) {
+        jsonString = jsonString.replace(/```json/g, '').replace(/```/g, '').trim();
+      } else if (jsonString.startsWith('```')) {
+        jsonString = jsonString.replace(/```/g, '').trim();
       }
 
       return JSON.parse(jsonString);
@@ -177,6 +177,172 @@ class GeminiService {
       throw new Error('Parsing temporarily unavailable, try again');
     }
   }
+
+  async generateCareerNextSteps(userSkills, gapSkills, userId) {
+    if (this.isMock) {
+      return [
+        `Consider taking a course in ${gapSkills[0] || 'advanced skills'} to match market demand.`,
+        "Your experience section lacks quantified metrics (e.g., 'increased sales by 20%').",
+        "Add a project demonstrating your practical knowledge of the skills in your profile."
+      ];
+    }
+    await this.trackUsage(userId, 'career_insights');
+    const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+    const prompt = `You are an expert career coach. The user has these skills on their resume: ${userSkills.join(', ')}. 
+    Based on the jobs they applied to, they are missing these key skills: ${gapSkills.join(', ')}.
+    Provide 3 concrete, actionable next steps (1 sentence each) they should take to improve their resume and career readiness.
+    Format as a raw JSON array of strings.`;
+    
+    try {
+      const result = await withRetry(() => model.generateContent(prompt));
+      const response = await result.response;
+      let text = response.text();
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      return JSON.parse(text);
+    } catch (error) {
+      logger.error('Gemini insights error:', error);
+      return ["Consider adding missing skills to your profile.", "Review job requirements and align your experience.", "Add more quantifiable achievements."];
+    }
+  }
+
+
+  async generateTailoringSuggestions(resume, jobDescription, userId) {
+    if (this.isMock) {
+      return [
+        { section: 'experience', originalText: 'Built web applications', suggestedText: 'Built scalable web applications matching the job requirements' }
+      ];
+    }
+    await this.trackUsage(userId, 'resume_tailoring');
+    const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+    const prompt = `You are an expert resume writer. The user is applying for a job with this description:
+    ${jobDescription}
+    
+    Here is their current resume data:
+    ${JSON.stringify(resume)}
+    
+    Suggest specific rewording of bullet points to better align with the job description. Do not fabricate experience they don't have.
+    Return the result as a raw JSON array of objects with the following keys:
+    "section" (e.g. "experience", "projects"), "originalText" (the exact text to replace), "suggestedText" (the new text).
+    Return ONLY the raw JSON array.`;
+    
+    try {
+      const result = await withRetry(() => model.generateContent(prompt));
+      const response = await result.response;
+      let text = response.text();
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      return JSON.parse(text);
+    } catch (error) {
+      logger.error('Gemini tailoring error:', error);
+      return [];
+    }
+  }
+  
+  async generateNarrative(resumeData, userId) {
+    if (this.isMock) {
+      return "I am a professional with extensive experience.";
+    }
+    try {
+      if (userId) await this.trackUsage(userId, 'narrative');
+      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+      const prompt = `
+      You are an expert career coach and storyteller.
+      Take the following structured resume data and weave it into a flowing, professional 3-4 paragraph narrative.
+      It should read like an engaging "About Me" or professional biography that could be used on a portfolio page.
+      Highlight the progression, key achievements, and core skills without just listing them.
+      Do not use bullet points. Make it engaging, professional, and authentic to the person's real experience.
+  
+      Resume Data:
+      ${JSON.stringify(resumeData, null, 2)}
+      `;
+  
+      const result = await withRetry(() => model.generateContent(prompt));
+      const response = await result.response;
+      return response.text().trim();
+    } catch (error) {
+      console.error('Gemini Narrative Error:', error);
+      throw new Error('Failed to generate narrative');
+    }
+  }
+  
+  async panicRebuild(resumeContext, targetRole, focus, topSkills, userId) {
+    if (this.isMock) {
+      return resumeContext; // Unmodified for mock
+    }
+    try {
+      if (userId) await this.trackUsage(userId, 'panic_rebuild');
+      const prompt = `You are an expert resume editor working under extreme time pressure for a user.
+      The user is applying for: "${targetRole}"
+      They want to emphasize this recent experience: "${focus}"
+      Their top skills for this job: "${topSkills}"
+      
+      Here is their EXISTING resume data:
+      ${JSON.stringify(resumeContext)}
+      
+      YOUR ONLY TASK: Reorder and prioritize the EXISTING bullets, experience entries, and skills so that the most relevant information for "${targetRole}" appears first.
+      DO NOT FABRICATE OR INVENT NEW EXPERIENCE, SKILLS, OR BULLET POINTS. Only reorder and re-weigh what is provided.
+      
+      Return the restructured resume data in the exact same JSON format (summary, experience array, education array, skills array, projects array).`;
+  
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const result = await withRetry(() => model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" }
+      }));
+  
+      return JSON.parse((await result.response).text());
+    } catch (error) {
+      console.error("Gemini Panic Rebuild Error:", error);
+      throw new Error("Failed to rapidly rebuild resume via Gemini");
+    }
+  }
+
+  async chatWithCoach(sessionHistory, userMessage, resumeContext, userId) {
+    if (this.isMock) {
+      return {
+        message: "This is a mock response from your AI resume coach.",
+        newFocusAreas: ["Mock Strategy", "Mock Interviewing"]
+      };
+    }
+    try {
+      if (userId) await this.trackUsage(userId, 'coach_chat');
+      const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      
+      const promptText = `You are an AI Resume Coach assisting the user with their career goals.
+YOUR ROLE: You provide objective, task-focused advice based on their actual resume data and past conversation.
+DO NOT act as a human relationship or emotional support figure. Stay strictly task-focused and professional.
+
+Resume Data:
+${JSON.stringify(resumeContext)}
+
+Conversation History:
+${JSON.stringify(sessionHistory.map(m => m.role + ': ' + m.message))}
+
+User Message:
+${userMessage}
+
+Based on the context, provide a helpful and constructive response. Also extract up to 3 "focusAreas" (topics the user should work on, like "quantifying impact" or "interview confidence").
+Respond STRICTLY with a valid JSON object matching this schema, without markdown blocks:
+{
+  "message": "Your response to the user",
+  "newFocusAreas": ["area1", "area2"]
+}`;
+
+      const result = await withRetry(() => model.generateContent(promptText));
+      let jsonString = result.response.text();
+      
+      if (jsonString.startsWith('\`\`\`json')) {
+        jsonString = jsonString.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+      } else if (jsonString.startsWith('\`\`\`')) {
+        jsonString = jsonString.replace(/\`\`\`/g, '').trim();
+      }
+
+      return JSON.parse(jsonString);
+    } catch (error) {
+      logger.error('Gemini API Error in Coach Chat:', error);
+      throw new Error('Coach temporarily unavailable, try again');
+    }
+  }
+
 }
 
 module.exports = new GeminiService();

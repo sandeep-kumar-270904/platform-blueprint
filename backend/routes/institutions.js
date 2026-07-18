@@ -5,6 +5,7 @@ const Institution = require('../models/Institution');
 const Cohort = require('../models/Cohort');
 const User = require('../models/User');
 const MentorBooking = require('../models/MentorBooking');
+const Resume = require('../models/Resume');
 
 // --- INSTITUTIONS ---
 
@@ -126,6 +127,55 @@ router.post('/:id/remove-seat', auth, async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+
+// Institutional Resume Review Tools (Phase 6)
+router.get('/:id/resumes/stats', auth, async (req, res) => {
+  try {
+    const admin = await User.findById(req.user.id);
+    if (!admin || !admin.institutionId || admin.institutionId.toString() !== req.params.id) {
+      if (admin.role !== 'admin') { // Super admin can bypass
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+
+    // Find all users belonging to this institution
+    const students = await User.find({ institutionId: req.params.id, tier: 'pro' }).select('_id');
+    const studentIds = students.map(s => s._id);
+
+    // Aggregate resume stats for these students
+    const resumes = await Resume.find({ user_id: { $in: studentIds }, 'atsScore.score': { $gt: 0 } });
+    
+    let totalScore = 0;
+    let weaknessCounts = {};
+
+    resumes.forEach(r => {
+      totalScore += r.atsScore.score;
+      if (r.atsScore.tips) {
+        r.atsScore.tips.forEach(tip => {
+          if (tip.severity === 'high') {
+            weaknessCounts[tip.issue] = (weaknessCounts[tip.issue] || 0) + 1;
+          }
+        });
+      }
+    });
+
+    const avgScore = resumes.length > 0 ? (totalScore / resumes.length).toFixed(1) : 0;
+    const topWeaknesses = Object.entries(weaknessCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(entry => entry[0]);
+
+    res.json({
+      studentCount: studentIds.length,
+      resumesAnalyzed: resumes.length,
+      avgAtsScore: avgScore,
+      topWeaknesses
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
