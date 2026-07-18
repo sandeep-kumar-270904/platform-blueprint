@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
 
 export default function NotificationSettings() {
   const { user } = useAuth();
@@ -25,10 +26,15 @@ export default function NotificationSettings() {
       recruiter_banned: true,
       application_deadline_approaching: true,
     },
-    liveSessionReminders: { inApp: true, email: true },
-    liveSessionResults: { inApp: true, email: true },
-    quizModeration: { inApp: true, email: true },
-    leaderboardActivity: { inApp: true, email: true }
+    liveSessionReminders: { inApp: true, email: true, push: false },
+    liveSessionResults: { inApp: true, email: true, push: false },
+    quizModeration: { inApp: true, email: true, push: false },
+    leaderboardActivity: { inApp: true, email: true, push: false },
+    mentorUpdates: { inApp: true, email: true, push: false },
+    subscriptions: { inApp: true, email: true, push: false },
+    communityForums: { inApp: true, email: true, push: false },
+    cohorts: { inApp: true, email: true, push: false },
+    learningPaths: { inApp: true, email: true, push: false }
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -48,8 +54,8 @@ export default function NotificationSettings() {
               job_board: { ...prev.job_board, ...data.preferences.job_board }
             }));
           }
-          // Merge phase 3 fields
-          const p3 = ['liveSessionReminders', 'liveSessionResults', 'quizModeration', 'leaderboardActivity'];
+          // Merge phase 3-9 fields
+          const p3 = ['liveSessionReminders', 'liveSessionResults', 'quizModeration', 'leaderboardActivity', 'mentorUpdates', 'subscriptions', 'communityForums', 'cohorts', 'learningPaths'];
           p3.forEach(field => {
             if (data.preferences?.[field]) {
               setPreferences(prev => ({
@@ -78,7 +84,52 @@ export default function NotificationSettings() {
     }));
   };
 
-  const handleQuizToggle = (category: string, channel: 'inApp' | 'email') => {
+  const subscribeToPush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        const publicVapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBtc3sOEz0y5ZlX5O4iL-sMjk';
+        const convertedVapidKey = urlBase64ToUint8Array(publicVapidKey);
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: convertedVapidKey
+        });
+      }
+      const token = localStorage.getItem('token');
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/push/subscribe`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscription)
+      });
+    } catch (err) {
+      console.error('Failed to subscribe to push', err);
+    }
+  };
+
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  const handleQuizToggle = async (category: string, channel: 'inApp' | 'email' | 'push') => {
+    if (channel === 'push' && !(preferences as any)[category].push) {
+      // User is enabling push
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        await subscribeToPush();
+      } else {
+        toast({ title: "Permission Denied", description: "You must allow notifications in your browser.", variant: "destructive" });
+        return;
+      }
+    }
     setPreferences(prev => ({
       ...prev,
       [category]: {
@@ -173,6 +224,62 @@ export default function NotificationSettings() {
                       id={`${cat.key}-email`} 
                       checked={(preferences as any)[cat.key].email} 
                       onCheckedChange={() => handleQuizToggle(cat.key, 'email')} 
+                    />
+                  </div>
+                  <div className="flex items-center justify-between ml-4">
+                    <Label htmlFor={`${cat.key}-push`} className="cursor-pointer text-muted-foreground flex items-center gap-2">
+                      Push Notification <Badge variant="secondary" className="text-[10px] px-1 py-0">New</Badge>
+                    </Label>
+                    <Switch 
+                      id={`${cat.key}-push`} 
+                      checked={(preferences as any)[cat.key].push || false} 
+                      onCheckedChange={() => handleQuizToggle(cat.key, 'push')} 
+                    />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Mentors & Community</CardTitle>
+              <CardDescription>Manage alerts for mentorship, subscriptions, forums, and learning paths</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {[
+                { key: 'mentorUpdates', label: 'Mentor Updates (Disputes, Referrals)' },
+                { key: 'subscriptions', label: 'Subscription Renewals & Failures' },
+                { key: 'communityForums', label: 'Community Forum Replies' },
+                { key: 'cohorts', label: 'Cohort Sessions' },
+                { key: 'learningPaths', label: 'AI Learning Path Suggestions' }
+              ].map(cat => (
+                <div key={cat.key} className="space-y-3">
+                  <h4 className="font-medium">{cat.label}</h4>
+                  <div className="flex items-center justify-between ml-4">
+                    <Label htmlFor={`${cat.key}-inApp`} className="cursor-pointer text-muted-foreground">In-App Notification</Label>
+                    <Switch 
+                      id={`${cat.key}-inApp`} 
+                      checked={(preferences as any)[cat.key].inApp} 
+                      onCheckedChange={() => handleQuizToggle(cat.key, 'inApp')} 
+                    />
+                  </div>
+                  <div className="flex items-center justify-between ml-4">
+                    <Label htmlFor={`${cat.key}-email`} className="cursor-pointer text-muted-foreground">Email Notification</Label>
+                    <Switch 
+                      id={`${cat.key}-email`} 
+                      checked={(preferences as any)[cat.key].email} 
+                      onCheckedChange={() => handleQuizToggle(cat.key, 'email')} 
+                    />
+                  </div>
+                  <div className="flex items-center justify-between ml-4">
+                    <Label htmlFor={`${cat.key}-push`} className="cursor-pointer text-muted-foreground flex items-center gap-2">
+                      Push Notification <Badge variant="secondary" className="text-[10px] px-1 py-0">New</Badge>
+                    </Label>
+                    <Switch 
+                      id={`${cat.key}-push`} 
+                      checked={(preferences as any)[cat.key].push || false} 
+                      onCheckedChange={() => handleQuizToggle(cat.key, 'push')} 
                     />
                   </div>
                 </div>

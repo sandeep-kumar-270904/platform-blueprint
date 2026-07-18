@@ -149,6 +149,19 @@ export const draftQuestionsWithAI = async (topic: string, difficulty: string, co
   return await res.json();
 };
 
+export const checkQuestionWithAI = async (questionText: string, options: string[], correctOptionIndex: number) => {
+  const res = await fetch(`${API_URL}/api/quizzes/ai-check`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ questionText, options, correctOptionIndex })
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || 'Failed to check question');
+  }
+  return await res.json();
+};
+
 export const startAttempt = async (quizId: string): Promise<{ attempt: QuizAttempt; quiz: Quiz & { questions: QuizQuestion[] } }> => {
   const res = await fetch(`${API_URL}/api/quizzes/${quizId}/start`, {
     method: 'POST',
@@ -157,6 +170,19 @@ export const startAttempt = async (quizId: string): Promise<{ attempt: QuizAttem
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.message || 'Failed to start quiz');
+  }
+  return await res.json();
+};
+
+export const startAdaptivePractice = async (bankId: string): Promise<{ attempt: QuizAttempt; quiz: Quiz & { questions: QuizQuestion[] } }> => {
+  const res = await fetch(`${API_URL}/api/quizzes/adaptive/start`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ bankId })
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || 'Failed to start adaptive practice');
   }
   return await res.json();
 };

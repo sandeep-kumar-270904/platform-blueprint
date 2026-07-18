@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { createQuiz, importQuestions, draftQuestionsWithAI } from "@/hooks/useQuizHub";
-import { Plus, Trash2, ArrowLeft, Loader2, Upload, Download, Library, Sparkles } from "lucide-react";
+import { createQuiz, importQuestions, draftQuestionsWithAI, checkQuestionWithAI } from "@/hooks/useQuizHub";
+import { Plus, Trash2, ArrowLeft, Loader2, Upload, Download, Library, Sparkles, CheckCircle, XCircle, Bot } from "lucide-react";
 import { toast } from "sonner";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -29,9 +29,13 @@ const QuizCreate = () => {
   const [mode, setMode] = useState("solo");
   const [durationMinutes, setDurationMinutes] = useState(15);
   
-  const [questions, setQuestions] = useState([
+  const [questions, setQuestions] = useState<any[]>([
     { questionText: "", options: ["", ""], correctOptionIndex: 0, explanation: "", points: 1 }
   ]);
+
+  const [aiDrafts, setAiDrafts] = useState<any[]>([]);
+  const [checkingAi, setCheckingAi] = useState<Record<number, boolean>>({});
+  const [aiFeedback, setAiFeedback] = useState<Record<number, { issuesFound: boolean, feedback: string }>>({});
 
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -39,9 +43,10 @@ const QuizCreate = () => {
   const [importResults, setImportResults] = useState<{successful: number, failed: number, errors: any[]} | null>(null);
 
   const [bankOpen, setBankOpen] = useState(false);
-  const [bankItems, setBankItems] = useState<any[]>([]);
+  const [bankItems, setBankItems] = useState<any[]>([]); // These are banks now
   const [loadingBank, setLoadingBank] = useState(false);
-  const [selectedBankIds, setSelectedBankIds] = useState<Set<string>>(new Set());
+  const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());
 
   const fetchBank = async () => {
     setLoadingBank(true);
@@ -51,7 +56,7 @@ const QuizCreate = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        setBankItems(data.items);
+        setBankItems(data.banks || []); // It's banks now
       }
     } catch (err) {
       toast.error("Failed to fetch bank items");
@@ -60,6 +65,7 @@ const QuizCreate = () => {
     }
   };
 
+  // ... (AI code left unchanged for now) ...
   const [aiOpen, setAiOpen] = useState(false);
   const [aiTopic, setAiTopic] = useState("");
   const [aiCount, setAiCount] = useState(5);
@@ -71,20 +77,61 @@ const QuizCreate = () => {
     try {
       const res = await draftQuestionsWithAI(aiTopic, difficulty, aiCount);
       if (res.questions && res.questions.length > 0) {
-        setQuestions(prev => {
-          const qs = [...prev];
-          if (qs.length === 1 && qs[0].questionText === "" && qs[0].options[0] === "") {
-            return res.questions;
-          }
-          return [...qs, ...res.questions];
-        });
-        toast.success(`Generated ${res.questions.length} questions`);
+        setAiDrafts(prev => [...prev, ...res.questions]);
+        toast.success(`Generated ${res.questions.length} questions for review`);
         setAiOpen(false);
       }
     } catch (err: any) {
       toast.error(err.message);
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleApproveDraft = (idx: number) => {
+    const q = aiDrafts[idx];
+    setQuestions(prev => {
+      const qs = [...prev];
+      if (qs.length === 1 && qs[0].questionText === "" && qs[0].options[0] === "") {
+        return [q];
+      }
+      return [...qs, q];
+    });
+    setAiDrafts(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleRejectDraft = (idx: number) => {
+    setAiDrafts(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateDraft = (idx: number, field: string, value: any) => {
+    setAiDrafts(prev => {
+      const qs = [...prev];
+      qs[idx] = { ...qs[idx], [field]: value };
+      return qs;
+    });
+  };
+
+  const updateDraftOption = (qIdx: number, optIdx: number, value: string) => {
+    setAiDrafts(prev => {
+      const qs = [...prev];
+      qs[qIdx].options[optIdx] = value;
+      return qs;
+    });
+  };
+
+  const handleCheckWithAi = async (idx: number, isDraft = false) => {
+    const q = isDraft ? aiDrafts[idx] : questions[idx];
+    if (!q.questionText || q.options.length < 2) return toast.error("Incomplete question");
+
+    setCheckingAi(prev => ({ ...prev, [isDraft ? `draft_${idx}` : idx]: true }));
+    try {
+      const res = await checkQuestionWithAI(q.questionText, q.options, q.correctOptionIndex);
+      setAiFeedback(prev => ({ ...prev, [isDraft ? `draft_${idx}` : idx]: res }));
+    } catch (err: any) {
+      toast.error(err.message || "AI check failed");
+    } finally {
+      setCheckingAi(prev => ({ ...prev, [isDraft ? `draft_${idx}` : idx]: false }));
     }
   };
 
@@ -112,28 +159,37 @@ const QuizCreate = () => {
   };
 
   const handleAddFromBank = () => {
-    const selected = bankItems.filter(i => selectedBankIds.has(i._id));
-    if (selected.length === 0) return toast.error("Select at least one question");
+    if (!selectedBankId || selectedQuestionIds.size === 0) return toast.error("Select at least one question");
     
-    const mapped = selected.map(item => ({
+    const bank = bankItems.find(b => b._id === selectedBankId);
+    if (!bank) return;
+
+    const selectedQuestions = bank.questions.filter((q: any) => selectedQuestionIds.has(q._id));
+    
+    const mapped = selectedQuestions.map((item: any) => ({
+      bankQuestionId: item._id, // Add reference
       questionText: item.questionText,
       options: item.options,
       correctOptionIndex: item.correctOptionIndex,
-      explanation: item.explanation,
-      points: item.points
+      explanation: item.explanation || "",
+      points: item.points || 1,
+      authorDifficulty: item.authorDifficulty || difficulty,
+      calibratedDifficulty: item.calibratedDifficulty,
+      source: item.source || 'manual'
     }));
 
     setQuestions(prev => {
       const qs = [...prev];
       if (qs.length === 1 && qs[0].questionText === "" && qs[0].options[0] === "") {
-        return mapped;
+        return mapped as any;
       }
-      return [...qs, ...mapped];
+      return [...qs, ...mapped] as any;
     });
     
     toast.success(`Added ${mapped.length} questions from bank`);
     setBankOpen(false);
-    setSelectedBankIds(new Set());
+    setSelectedBankId(null);
+    setSelectedQuestionIds(new Set());
   };
 
   const addQuestion = () => {
@@ -329,9 +385,107 @@ const QuizCreate = () => {
                       </div>
                     </div>
                   </div>
+                  <div className="flex justify-end gap-2 pt-2 border-t mt-4">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => handleCheckWithAi(qIdx, false)}
+                      disabled={checkingAi[qIdx]}
+                    >
+                      {checkingAi[qIdx] ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <Bot className="h-3 w-3 mr-2" />}
+                      Check with AI
+                    </Button>
+                  </div>
+                  {aiFeedback[qIdx] && (
+                    <div className={`mt-2 p-3 text-sm rounded ${aiFeedback[qIdx].issuesFound ? 'bg-orange-100 text-orange-900 border border-orange-200' : 'bg-green-100 text-green-900 border border-green-200'}`}>
+                      <strong>AI Review: </strong> {aiFeedback[qIdx].feedback}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
+
+            {aiDrafts.length > 0 && (
+              <div className="mt-8 space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Sparkles className="h-5 w-5 text-purple-600" />
+                  <h2 className="text-2xl font-bold text-purple-900">AI Generated Drafts ({aiDrafts.length})</h2>
+                </div>
+                {aiDrafts.map((q, qIdx) => (
+                  <Card key={`draft-${qIdx}`} className="relative overflow-visible border-purple-200 bg-purple-50/30">
+                    <CardContent className="pt-6 space-y-4">
+                      <div className="flex gap-4 items-start">
+                        <span className="font-bold text-xl mt-1 text-purple-400">D{qIdx + 1}.</span>
+                        <div className="flex-1 space-y-4">
+                          <Input 
+                            value={q.questionText} 
+                            onChange={e => updateDraft(qIdx, 'questionText', e.target.value)} 
+                            placeholder="Type your question here..."
+                            className="text-lg font-medium border-purple-200"
+                          />
+                          
+                          <div className="space-y-3 pl-4 border-l-2 border-purple-300">
+                            {q.options.map((opt: string, optIdx: number) => (
+                              <div key={optIdx} className="flex gap-3 items-center">
+                                <input 
+                                  type="radio" 
+                                  name={`draft-correct-${qIdx}`} 
+                                  checked={q.correctOptionIndex === optIdx}
+                                  onChange={() => updateDraft(qIdx, 'correctOptionIndex', optIdx)}
+                                  className="h-5 w-5 text-purple-600 focus:ring-purple-600 border-purple-300"
+                                />
+                                <Input 
+                                  value={opt} 
+                                  onChange={e => updateDraftOption(qIdx, optIdx, e.target.value)} 
+                                  placeholder={`Option ${optIdx + 1}`}
+                                  className="border-purple-200"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          
+                          <div className="pt-4 space-y-2">
+                            <Label className="text-purple-700">Explanation</Label>
+                            <Textarea 
+                              value={q.explanation || ""} 
+                              onChange={e => updateDraft(qIdx, 'explanation', e.target.value)} 
+                              className="border-purple-200"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-between items-center pt-4 border-t border-purple-100">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleCheckWithAi(qIdx, true)}
+                          disabled={checkingAi[`draft_${qIdx}` as any]}
+                          className="text-purple-700 border-purple-200 hover:bg-purple-100"
+                        >
+                          {checkingAi[`draft_${qIdx}` as any] ? <Loader2 className="h-3 w-3 mr-2 animate-spin" /> : <Bot className="h-3 w-3 mr-2" />}
+                          Re-Check with AI
+                        </Button>
+                        <div className="flex gap-2">
+                          <Button variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => handleRejectDraft(qIdx)}>
+                            <XCircle className="h-4 w-4 mr-2" /> Reject
+                          </Button>
+                          <Button className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => handleApproveDraft(qIdx)}>
+                            <CheckCircle className="h-4 w-4 mr-2" /> Approve
+                          </Button>
+                        </div>
+                      </div>
+
+                      {aiFeedback[`draft_${qIdx}` as any] && (
+                        <div className={`mt-2 p-3 text-sm rounded ${aiFeedback[`draft_${qIdx}` as any].issuesFound ? 'bg-orange-100 text-orange-900 border border-orange-200' : 'bg-green-100 text-green-900 border border-green-200'}`}>
+                          <strong>AI Review: </strong> {aiFeedback[`draft_${qIdx}` as any].feedback}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row gap-4">
               <Button variant="outline" className="flex-1 py-8 border-dashed border-2" onClick={addQuestion}>
@@ -349,41 +503,59 @@ const QuizCreate = () => {
                 </DialogTrigger>
                 <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Personal Question Bank</DialogTitle>
+                    <DialogTitle>Personal Question Banks</DialogTitle>
                   </DialogHeader>
                   <div className="py-4">
                     {loadingBank ? (
                       <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
                     ) : bankItems.length === 0 ? (
                       <p className="text-center text-muted-foreground py-8">Your question bank is empty.</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {bankItems.map(item => (
-                          <div key={item._id} className="flex items-start gap-3 p-3 border rounded-md hover:bg-muted/50 transition-colors">
-                            <input 
-                              type="checkbox" 
-                              className="mt-1 h-4 w-4"
-                              checked={selectedBankIds.has(item._id)}
-                              onChange={(e) => {
-                                const s = new Set(selectedBankIds);
-                                if (e.target.checked) s.add(item._id);
-                                else s.delete(item._id);
-                                setSelectedBankIds(s);
-                              }}
-                            />
-                            <div>
-                              <p className="font-medium text-sm">{item.questionText}</p>
-                              <p className="text-xs text-muted-foreground">{item.category} • {item.points} pts</p>
-                            </div>
+                    ) : !selectedBankId ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        {bankItems.map(bank => (
+                          <div 
+                            key={bank._id} 
+                            className="p-4 border rounded-md hover:bg-muted cursor-pointer transition-colors"
+                            onClick={() => setSelectedBankId(bank._id)}
+                          >
+                            <h3 className="font-semibold">{bank.title}</h3>
+                            <p className="text-sm text-muted-foreground">{bank.questions?.length || 0} questions</p>
                           </div>
                         ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedBankId(null)}>
+                          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Banks
+                        </Button>
+                        <div className="space-y-3">
+                          {bankItems.find(b => b._id === selectedBankId)?.questions?.map((q: any) => (
+                            <div key={q._id} className="flex items-start gap-3 p-3 border rounded-md hover:bg-muted/50 transition-colors">
+                              <input 
+                                type="checkbox" 
+                                className="mt-1 h-4 w-4"
+                                checked={selectedQuestionIds.has(q._id)}
+                                onChange={(e) => {
+                                  const s = new Set(selectedQuestionIds);
+                                  if (e.target.checked) s.add(q._id);
+                                  else s.delete(q._id);
+                                  setSelectedQuestionIds(s);
+                                }}
+                              />
+                              <div>
+                                <p className="font-medium text-sm">{q.questionText}</p>
+                                <p className="text-xs text-muted-foreground capitalize">Difficulty: {q.authorDifficulty}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button variant="outline" onClick={() => setBankOpen(false)}>Cancel</Button>
-                    <Button onClick={handleAddFromBank} disabled={selectedBankIds.size === 0}>
-                      Add Selected ({selectedBankIds.size})
+                    <Button onClick={handleAddFromBank} disabled={selectedQuestionIds.size === 0}>
+                      Add Selected ({selectedQuestionIds.size})
                     </Button>
                   </div>
                 </DialogContent>

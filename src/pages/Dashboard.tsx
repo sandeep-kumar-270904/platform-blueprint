@@ -38,8 +38,9 @@ import { NotificationSettings } from "@/components/dashboard/NotificationSetting
 import { MyMentorBookings } from "@/components/dashboard/MyMentorBookings";
 import { MentorSessionManagement } from "@/components/dashboard/MentorSessionManagement";
 import { CareerVisibilityManager } from "@/components/dashboard/CareerVisibilityManager";
+import { MenteeSubscription } from "@/components/dashboard/MenteeSubscription";
 
-type Section = "overview" | "courses" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "notification-settings" | "live" | "analytics" | "profile" | "referrals" | "career-visibility" | "security" | "links" | "saved-colleges" | "activity" | "mentor-bookings" | "mentor-management";
+type Section = "overview" | "courses" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "notification-settings" | "live" | "analytics" | "profile" | "referrals" | "subscription" | "career-visibility" | "security" | "links" | "saved-colleges" | "activity" | "mentor-bookings" | "mentor-management";
 
 const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -58,7 +59,8 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "mentor-bookings", label: "My Mentorship", icon: Handshake },
   { id: "mentor-management", label: "Mentor Dashboard", icon: Briefcase },
   { id: "profile", label: "Profile", icon: User },
-  { id: "referrals", label: "Referrals", icon: Users },
+  { id: "referrals", label: "Wallet & Referrals", icon: Users },
+  { id: "subscription", label: "My Subscription", icon: Star },
   { id: "career-visibility", label: "Career Visibility", icon: Briefcase },
   { id: "security", label: "Security", icon: Lock },
   { id: "links", label: "Quick Links", icon: ArrowRight },
@@ -118,7 +120,7 @@ const Dashboard = () => {
     { title: "Jobs Portal", href: "/jobs", icon: Briefcase, desc: "Opportunities", color: "text-green-500" },
     { title: "Study Groups", href: "/study-groups", icon: Users, desc: "Collaborate", color: "text-blue-500" },
     { title: "Mentors", href: "/mentors", icon: GraduationCap, desc: "Book sessions", color: "text-purple-500" },
-    { title: "Quiz Hub", href: "/quiz", icon: Target, desc: "Test knowledge", color: "text-orange-500" },
+    { title: "Quiz Hub", href: "/quizzes", icon: Target, desc: "Test knowledge", color: "text-orange-500" },
     { title: "Forum", href: "/forum", icon: MessageSquare, desc: "Discuss", color: "text-pink-500" },
     { title: "Passport", href: "/founders-passport", icon: Flame, desc: "Innovation ID", color: "text-orange-500" },
   ];
@@ -229,6 +231,8 @@ const Dashboard = () => {
         return <ProfileManager userId={user.id} email={user.email || ""} />;
       case "referrals":
         return <ReferralsManager />;
+      case "subscription":
+        return <MenteeSubscription />;
       case "career-visibility":
         return <CareerVisibilityManager />;
       case "security":

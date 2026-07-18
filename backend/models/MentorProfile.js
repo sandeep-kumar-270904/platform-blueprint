@@ -44,7 +44,14 @@ const mentorProfileSchema = new mongoose.Schema({
     github: String,
     twitter: String
   },
-  isActive: { type: Boolean, default: true } // false if they unpublish their profile
+  isActive: { type: Boolean, default: true }, // false if they unpublish their profile
+  
+  // Phase 8: Alumni Network
+  graduationYear: { type: Number },
+  currentCompany: { type: String, trim: true },
+  currentRole: { type: String, trim: true },
+  willingToRefer: { type: Boolean, default: false },
+  openToInformalChat: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // Indexes for fast lookup

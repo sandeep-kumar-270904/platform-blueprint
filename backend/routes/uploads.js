@@ -39,7 +39,13 @@ const upload = multer({
   fileFilter: fileFilter
 });
 
-// POST /api/uploads - Upload a file
+const uploadEvidence = multer({ 
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit for evidence/identity
+  fileFilter: fileFilter
+});
+
+// POST /api/uploads - Upload a general file
 router.post('/', (req, res) => {
   upload.single('file')(req, res, function (err) {
     if (err instanceof multer.MulterError) {
@@ -58,6 +64,36 @@ router.post('/', (req, res) => {
       
       res.status(200).json({ 
         message: 'File uploaded successfully', 
+        url: publicUrl 
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error during upload' });
+    }
+  });
+});
+
+// POST /api/uploads/evidence - Upload identity/evidence file (stricter limit)
+router.post('/evidence', (req, res) => {
+  uploadEvidence.single('file')(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'Evidence file cannot exceed 5MB' });
+      }
+      return res.status(400).json({ message: 'Multer error', error: err.message });
+    } else if (err) {
+      return res.status(400).json({ message: 'Upload error', error: err.message });
+    }
+    
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+      }
+      
+      const publicUrl = `/uploads/${req.file.filename}`;
+      
+      res.status(200).json({ 
+        message: 'Evidence uploaded successfully', 
         url: publicUrl 
       });
     } catch (error) {

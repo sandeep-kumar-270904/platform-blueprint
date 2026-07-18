@@ -16,7 +16,7 @@ import {
   Cell
 } from 'recharts';
 import api from '@/lib/api';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from "@/hooks/useAuth";
 
 interface AnalyticsData {
   attemptCount: number;
@@ -34,6 +34,8 @@ interface AnalyticsData {
     questionIndex: number;
     questionText: string;
     correctRate: number;
+    authorDifficulty?: string;
+    calibratedDifficulty?: string;
   }[];
 }
 
@@ -186,19 +188,44 @@ export default function CreatorAnalytics() {
           </div>
           
           <div className="mt-4 space-y-2">
-            <h4 className="font-semibold text-sm text-muted-foreground">Questions needing review (Low correct rate &lt; 30%):</h4>
-            <ul className="text-sm space-y-1">
-              {data.questionDifficulty
-                .filter(q => q.correctRate < 30)
-                .map(q => (
-                  <li key={q.questionIndex} className="flex items-center text-red-500">
-                    <span className="font-bold w-8">Q{q.questionIndex + 1}:</span>
-                    <span className="truncate flex-1">{q.questionText}</span>
-                    <span className="font-mono ml-4">{q.correctRate.toFixed(1)}%</span>
+            <h4 className="font-semibold text-sm text-muted-foreground">Difficulty Discrepancies & Low Scores:</h4>
+            <ul className="text-sm space-y-2">
+              {data.questionDifficulty.map(q => {
+                const isLowScore = q.correctRate < 30;
+                
+                const diffMap: Record<string, number> = { easy: 1, medium: 2, hard: 3 };
+                const aDiff = diffMap[q.authorDifficulty || 'medium'] || 2;
+                const cDiff = diffMap[q.calibratedDifficulty || q.authorDifficulty || 'medium'] || 2;
+                const hasDiscrepancy = Math.abs(aDiff - cDiff) >= 1 && q.calibratedDifficulty;
+
+                if (!isLowScore && !hasDiscrepancy) return null;
+
+                return (
+                  <li key={q.questionIndex} className="p-3 border rounded bg-muted/30">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold w-8">Q{q.questionIndex + 1}:</span>
+                      <span className="truncate flex-1 font-medium">{q.questionText}</span>
+                      <span className="font-mono text-xs">{q.correctRate.toFixed(1)}% Correct</span>
+                    </div>
+                    <div className="pl-10 text-xs flex gap-4">
+                      {isLowScore && <span className="text-red-500 font-semibold">Critical Low Score</span>}
+                      {hasDiscrepancy && (
+                        <span className="text-orange-500 font-semibold flex items-center gap-1">
+                          Author: <span className="capitalize">{q.authorDifficulty}</span> →
+                          System: <span className="capitalize">{q.calibratedDifficulty}</span>
+                        </span>
+                      )}
+                    </div>
                   </li>
-                ))}
-              {data.questionDifficulty.filter(q => q.correctRate < 30).length === 0 && (
-                <li className="text-muted-foreground">None of your questions have a critical low score.</li>
+                );
+              })}
+              {data.questionDifficulty.filter(q => {
+                const diffMap: Record<string, number> = { easy: 1, medium: 2, hard: 3 };
+                const aDiff = diffMap[q.authorDifficulty || 'medium'] || 2;
+                const cDiff = diffMap[q.calibratedDifficulty || q.authorDifficulty || 'medium'] || 2;
+                return q.correctRate < 30 || (Math.abs(aDiff - cDiff) >= 1 && q.calibratedDifficulty);
+              }).length === 0 && (
+                <li className="text-muted-foreground">No critical issues or discrepancies found.</li>
               )}
             </ul>
           </div>

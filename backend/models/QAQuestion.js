@@ -10,8 +10,11 @@ const qaQuestionSchema = new mongoose.Schema({
   upvoted_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   answer_count: { type: Number, default: 0 },
   view_count: { type: Number, default: 0 },
-  is_resolved: { type: Boolean, default: false },
+  status: { type: String, enum: ['open', 'answered', 'closed'], default: 'open' },
   is_pinned: { type: Boolean, default: false }
 }, { timestamps: true });
+
+qaQuestionSchema.index({ subject: 1 });
+qaQuestionSchema.index({ isResolved: 1 });
 
 module.exports = mongoose.model('QAQuestion', qaQuestionSchema);

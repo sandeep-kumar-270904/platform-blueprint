@@ -1,44 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const Idea = require('../models/Idea');
-const User = require('../models/User');
+const auth = require('../middleware/auth');
+const checkSuspended = require('../middleware/checkSuspended');
+const ideaController = require('../controllers/ideaController');
 
-// Get public ideas
-router.get('/', async (req, res) => {
-  try {
-    const ideas = await Idea.find({ is_public: true }).sort({ created_at: -1 });
-    
-    // Enrich with profiles
-    const userIds = [...new Set(ideas.map(i => i.user_id))];
-    const profiles = await User.find({ _id: { $in: userIds } }).select('username avatar_url');
-    const profileMap = profiles.reduce((acc, p) => { acc[p._id] = p; return acc; }, {});
-    
-    const enriched = ideas.map(i => {
-      const iObj = i.toObject();
-      iObj.profile = profileMap[i.user_id] || undefined;
-      return iObj;
-    });
-    
-    res.json(enriched);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+// Public read routes
+router.get('/', ideaController.getIdeas);
+router.get('/:id', ideaController.getIdeaById);
+router.get('/:id/comments', ideaController.getComments);
 
-// Upvote an idea
-router.post('/:id/upvote', async (req, res) => {
-  try {
-    const idea = await Idea.findByIdAndUpdate(req.params.id, { $inc: { upvotes: 1 } }, { new: true });
-    if (!idea) return res.status(404).json({ message: 'Idea not found' });
-    
-    if (req.io) {
-      req.io.emit('ideas-realtime', { action: 'update', data: idea });
-    }
-    
-    res.json(idea);
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-});
+// Protected write routes
+router.use(auth);
+router.post('/', checkSuspended, ideaController.createIdea);
+router.put('/:id', checkSuspended, ideaController.updateIdea);
+router.delete('/:id', checkSuspended, ideaController.deleteIdea);
+
+// Upvotes and Saves
+router.post('/:id/upvote', checkSuspended, ideaController.toggleUpvote);
+router.post('/:id/save', checkSuspended, ideaController.toggleSave);
+
+// Comments
+router.post('/:id/comments', checkSuspended, ideaController.addComment);
+router.put('/:id/comments/:commentId', checkSuspended, ideaController.updateComment);
+router.delete('/:id/comments/:commentId', checkSuspended, ideaController.deleteComment);
 
 module.exports = router;

@@ -7,6 +7,12 @@ const LiveSession = require('../models/LiveSession');
 const QuizReport = require('../models/QuizReport');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const QuizChallenge = require('../models/QuizChallenge');
+const QuizTournament = require('../models/QuizTournament');
+const ClassRoster = require('../models/ClassRoster');
+const Syllabus = require('../models/Syllabus');
+const SyllabusProgress = require('../models/SyllabusProgress');
+const Team = require('../models/Team');
 const authMiddleware = require('../middleware/auth');
 
 // Middleware to enforce admin role
@@ -108,6 +114,15 @@ router.get('/', async (req, res) => {
       .limit(5)
       .select('title averageScore attemptCount mode');
 
+    // 8. Extended Entities
+    const [challengesCount, tournamentsCount, teamsCount, classesCount, syllabusesCount] = await Promise.all([
+      QuizChallenge.countDocuments(),
+      QuizTournament.countDocuments(),
+      Team.countDocuments(),
+      ClassRoster.countDocuments(),
+      Syllabus.countDocuments()
+    ]);
+
     res.json({
       quizzes: {
         published: publishedQuizzes,
@@ -146,6 +161,13 @@ router.get('/', async (req, res) => {
       topContent: {
         mostAttempted: topAttemptedQuizzes,
         highestRated: highestRatedQuizzes
+      },
+      extendedEntities: {
+        challenges: challengesCount,
+        tournaments: tournamentsCount,
+        teams: teamsCount,
+        classes: classesCount,
+        syllabuses: syllabusesCount
       }
     });
 
@@ -225,6 +247,28 @@ router.get('/consistency-check', async (req, res) => {
           notificationId: failure._id
         });
       }
+    }
+
+    // 5. Tournament Bracket State
+    const activeTournaments = await QuizTournament.find({ status: 'active' });
+    for (const t of activeTournaments) {
+      if (!t.bracket || !t.bracket.rounds || t.bracket.rounds.length === 0) {
+        issues.push({
+          type: 'tournament_bracket_missing',
+          message: `Tournament ${t.name} is active but has no bracket.`,
+          tournamentId: t._id
+        });
+      }
+    }
+
+    // 6. Syllabus Progress Overflow
+    const invalidSyllabusProgress = await SyllabusProgress.find({ progress: { $gt: 100 } });
+    for (const p of invalidSyllabusProgress) {
+      issues.push({
+        type: 'syllabus_progress_overflow',
+        message: `Syllabus progress for syllabus ${p.syllabusId} (user ${p.userId}) is over 100% (${p.progress}%).`,
+        progressId: p._id
+      });
     }
 
     res.json({ issues, totalIssues: issues.length });

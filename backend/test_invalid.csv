@@ -1,5 +1,0 @@
-questionText,option1,option2,option3,option4,option5,option6,correctOptionNumber,explanation,points
-"Valid Q1",A,B,C,D,,,1,"Exp 1",1
-"",A,B,,,,,1,"Missing QText",1
-"Invalid Q2",A,,,,,,1,"Only 1 option",1
-"Invalid Q3",A,B,C,D,,,10,"Option out of bounds",1

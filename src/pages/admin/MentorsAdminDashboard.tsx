@@ -11,13 +11,33 @@ export default function MentorsAdminDashboard() {
   const [stats, setStats] = useState<any>(null);
   const [pending, setPending] = useState<any[]>([]);
   const [flaggedReviews, setFlaggedReviews] = useState<any[]>([]);
+  const [institutions, setInstitutions] = useState<any[]>([]);
+  const [cohorts, setCohorts] = useState<any[]>([]);
+  const [newInstName, setNewInstName] = useState("");
+  const [newInstDomain, setNewInstDomain] = useState("");
+  const [newInstLimit, setNewInstLimit] = useState(10);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchStats();
     fetchPending();
+    fetchPending();
     fetchFlagged();
+    fetchEnterprise();
   }, []);
+
+  const fetchEnterprise = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const instRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/institutions`, { headers: { Authorization: `Bearer ${token}` } });
+      if (instRes.ok) setInstitutions((await instRes.json()).institutions);
+      
+      const cohRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/institutions/cohorts`, { headers: { Authorization: `Bearer ${token}` } });
+      if (cohRes.ok) setCohorts((await cohRes.json()).cohorts);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchStats = async () => {
     const token = localStorage.getItem('token');
@@ -101,6 +121,34 @@ export default function MentorsAdminDashboard() {
     }
   };
 
+  const handleCreateInstitution = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/institutions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newInstName, domain: newInstDomain, seatLimit: newInstLimit, billingContact: 'admin@' + newInstDomain })
+    });
+    if (res.ok) {
+      toast({ title: "Institution created" });
+      setNewInstName("");
+      setNewInstDomain("");
+      fetchEnterprise();
+    }
+  };
+
+  const handleAutoSchedule = async (id: string) => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/institutions/cohorts/${id}/auto-schedule`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      toast({ title: data.message });
+    }
+  };
+
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-6">Mentors Admin Dashboard</h1>
@@ -110,6 +158,7 @@ export default function MentorsAdminDashboard() {
           <TabsTrigger value="overview">Overview & Analytics</TabsTrigger>
           <TabsTrigger value="applications">Applications ({pending.length})</TabsTrigger>
           <TabsTrigger value="moderation">Review Moderation</TabsTrigger>
+          <TabsTrigger value="enterprise">Enterprise</TabsTrigger>
           <TabsTrigger value="actions">Mentor Actions</TabsTrigger>
         </TabsList>
 
@@ -183,6 +232,68 @@ export default function MentorsAdminDashboard() {
               </Card>
             ))
           )}
+        </TabsContent>
+
+        <TabsContent value="enterprise" className="space-y-6">
+          <Card>
+            <CardHeader><CardTitle>Add Institution</CardTitle></CardHeader>
+            <CardContent>
+              <form onSubmit={handleCreateInstitution} className="flex gap-4 items-end">
+                <div>
+                  <label className="text-sm font-medium">Name</label>
+                  <input className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={newInstName} onChange={e => setNewInstName(e.target.value)} required />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Domain (e.g. mit.edu)</label>
+                  <input className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={newInstDomain} onChange={e => setNewInstDomain(e.target.value)} required />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Seat Limit</label>
+                  <input type="number" className="flex h-10 w-24 rounded-md border border-input bg-background px-3 py-2 text-sm" value={newInstLimit} onChange={e => setNewInstLimit(Number(e.target.value))} required />
+                </div>
+                <Button type="submit">Create</Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader><CardTitle>Institutions</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                {institutions.map(inst => (
+                  <div key={inst._id} className="flex justify-between items-center p-3 bg-muted/20 rounded border">
+                    <div>
+                      <h4 className="font-semibold">{inst.name}</h4>
+                      <p className="text-xs text-muted-foreground">{inst.domain}</p>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant={inst.seatsUsed >= inst.seatLimit ? "destructive" : "default"}>
+                        {inst.seatsUsed} / {inst.seatLimit} Seats
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader><CardTitle>Cohorts</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                {cohorts.map(coh => (
+                  <div key={coh._id} className="p-3 bg-muted/20 rounded border space-y-2">
+                    <div className="flex justify-between">
+                      <h4 className="font-semibold">{coh.title}</h4>
+                      <Badge variant="outline">{coh.sessionCadence}</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Institution: {coh.institutionId?.name || 'Platform-run'}</p>
+                    <Button size="sm" variant="secondary" className="w-full" onClick={() => handleAutoSchedule(coh._id)}>
+                      Auto-Schedule Sessions
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="actions">

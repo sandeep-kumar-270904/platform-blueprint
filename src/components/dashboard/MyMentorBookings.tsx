@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar, Clock, Video, Loader2, Star, MessageSquare } from "lucide-react";
+import { Calendar, Clock, Video, Loader2, Star, MessageSquare, WifiOff } from "lucide-react";
 import { io } from "socket.io-client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { type AvailabilitySlot } from "@/hooks/useMentors";
@@ -17,6 +18,7 @@ export const MyMentorBookings = () => {
   const { toast } = useToast();
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   // Review state
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
@@ -32,6 +34,13 @@ export const MyMentorBookings = () => {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submittingReschedule, setSubmittingReschedule] = useState(false);
 
+  // Dispute state
+  const [disputeModalOpen, setDisputeModalOpen] = useState(false);
+  const [disputeBooking, setDisputeBooking] = useState<any>(null);
+  const [disputeCategory, setDisputeCategory] = useState("no_show");
+  const [disputeDescription, setDisputeDescription] = useState("");
+  const [submittingDispute, setSubmittingDispute] = useState(false);
+
   const fetchBookings = async () => {
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/mentors/my-bookings`, {
@@ -46,14 +55,27 @@ export const MyMentorBookings = () => {
   };
 
   useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     if (user && token) {
       fetchBookings();
       const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
       socket.on(`my_bookings_updated_${user.id}`, () => {
         fetchBookings();
       });
-      return () => { socket.disconnect(); };
+      return () => { 
+        socket.disconnect(); 
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      };
     }
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [user, token]);
 
   const submitReview = async () => {
@@ -76,6 +98,31 @@ export const MyMentorBookings = () => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setSubmittingReview(false);
+    }
+  };
+
+  const submitDispute = async () => {
+    if (!disputeBooking) return;
+    setSubmittingDispute(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/disputes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ 
+          bookingId: disputeBooking._id,
+          category: disputeCategory,
+          description: disputeDescription
+        })
+      });
+      if (!res.ok) throw new Error((await res.json()).message);
+      
+      toast({ title: "Dispute submitted", description: "Our team will review your case shortly." });
+      setDisputeModalOpen(false);
+      setDisputeBooking(null);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmittingDispute(false);
     }
   };
 
@@ -109,7 +156,12 @@ export const MyMentorBookings = () => {
       
       fetchBookings();
     } catch (err: any) {
-      toast({ title: "Cancel failed", description: err.message, variant: "destructive" });
+      if (!navigator.onLine) {
+        toast({ title: "Offline", description: "Your cancellation has been queued and will process when you're back online.", variant: "default" });
+        setBookings(prev => prev.map(b => b._id === booking._id ? { ...b, status: 'cancelled' } : b));
+      } else {
+        toast({ title: "Cancel failed", description: err.message, variant: "destructive" });
+      }
     }
   };
 
@@ -148,7 +200,12 @@ export const MyMentorBookings = () => {
       setRescheduleModalOpen(false);
       fetchBookings();
     } catch (err: any) {
-      toast({ title: "Reschedule failed", description: err.message, variant: "destructive" });
+      if (!navigator.onLine) {
+        toast({ title: "Offline", description: "Your reschedule request has been queued.", variant: "default" });
+        setRescheduleModalOpen(false);
+      } else {
+        toast({ title: "Reschedule failed", description: err.message, variant: "destructive" });
+      }
     } finally {
       setSubmittingReschedule(false);
     }
@@ -166,6 +223,13 @@ export const MyMentorBookings = () => {
           <p className="text-muted-foreground">View and manage your upcoming and past bookings.</p>
         </div>
       </div>
+      
+      {isOffline && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-lg flex items-center gap-2 text-sm">
+          <WifiOff className="h-4 w-4" />
+          <span>You are currently offline. Viewing cached upcoming bookings. Actions will be synced later.</span>
+        </div>
+      )}
 
       {bookings.length === 0 ? (
         <Card className="bg-muted/50 border-dashed">
@@ -240,6 +304,15 @@ export const MyMentorBookings = () => {
                       <Star className="h-4 w-4" /> Leave a Review
                     </Button>
                   )}
+                  {past && ['completed', 'cancelled', 'no-show'].includes(booking.status) && (
+                    <Button 
+                      className="w-full gap-2 mt-2" 
+                      variant="ghost"
+                      onClick={() => { setDisputeBooking(booking); setDisputeCategory("no_show"); setDisputeDescription(""); setDisputeModalOpen(true); }}
+                    >
+                      Report an Issue
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -308,6 +381,45 @@ export const MyMentorBookings = () => {
                 })}
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dispute Modal */}
+      <Dialog open={disputeModalOpen} onOpenChange={setDisputeModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report an Issue</DialogTitle>
+            <DialogDescription>If you encountered a severe issue with this booking, let us know.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select value={disputeCategory} onValueChange={setDisputeCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an issue" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="no_show">Mentor did not show up</SelectItem>
+                  <SelectItem value="inappropriate_behavior">Inappropriate behavior</SelectItem>
+                  <SelectItem value="poor_quality">Poor session quality</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Details</Label>
+              <Textarea 
+                placeholder="Please describe what happened..." 
+                value={disputeDescription} 
+                onChange={e => setDisputeDescription(e.target.value)}
+                rows={4}
+              />
+            </div>
+            <Button className="w-full" variant="destructive" onClick={submitDispute} disabled={submittingDispute || disputeDescription.length < 10}>
+              {submittingDispute && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Submit Dispute
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -8,6 +8,13 @@ const authMiddleware = require('../middleware/auth');
 const { createNotification } = require('../services/notificationService');
 const { onJobPublished } = require('../services/jobNotifications');
 const { createJobApplication } = require('../services/applicationService');
+const rateLimit = require('express-rate-limit');
+
+const referLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: { message: 'Too many referrals sent, please try again later.' }
+});
 
 // Check if user is owner or admin
 const isOwnerOrAdmin = (job, user) => {
@@ -381,7 +388,7 @@ router.post('/:id/easy-apply', authMiddleware, async (req, res) => {
 });
 
 // POST /api/jobs/:id/refer
-router.post('/:id/refer', authMiddleware, async (req, res) => {
+router.post('/:id/refer', authMiddleware, referLimiter, async (req, res) => {
   try {
     const job = await Job.findById(req.params.id);
     if (!job) return res.status(404).json({ message: 'Job not found' });
