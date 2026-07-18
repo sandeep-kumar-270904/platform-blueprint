@@ -1,4 +1,10 @@
-import React from 'react';
+import os
+
+file_path = "src/components/resume/PDFRenderer.tsx"
+with open(file_path, "r", encoding="utf-8") as f:
+    content = f.read()
+
+replacement = """import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
 import { ResumeData } from '@/hooks/useResume';
 
@@ -241,3 +247,9 @@ export const ResumePDF = ({ resume }: Props) => {
     </Document>
   );
 };
+"""
+
+with open(file_path, "w", encoding="utf-8") as f:
+    f.write(replacement)
+
+print("Updated PDFRenderer.tsx with 3 templates and all sections")

@@ -2,6 +2,27 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const logger = require('../utils/logger');
 const GeminiUsage = require('../models/GeminiUsage');
 
+// Helper for exponential backoff
+const withRetry = async (fn, maxRetries = 3) => {
+  let attempt = 0;
+  while (attempt < maxRetries) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error.status === 429 || error.status >= 500) {
+        attempt++;
+        if (attempt >= maxRetries) throw error;
+        const delay = Math.pow(2, attempt) * 1000;
+        logger.warn(`Gemini API transient error, retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
+
 class GeminiService {
   constructor() {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'mock_key');
@@ -65,7 +86,7 @@ class GeminiService {
         }
       `;
 
-      const result = await model.generateContent(prompt);
+      const result = await withRetry(() => model.generateContent(prompt));
       const responseText = result.response.text();
       
       // Clean up markdown block if present
@@ -107,7 +128,7 @@ class GeminiService {
         Output ONLY the cover letter text.
       `;
 
-      const result = await model.generateContent(prompt);
+      const result = await withRetry(() => model.generateContent(prompt));
       return result.response.text().trim();
     } catch (error) {
       logger.error('Gemini API Error generating cover letter:', error);
@@ -141,7 +162,7 @@ class GeminiService {
         Respond STRICTLY with a valid JSON object matching this schema. Do not include markdown formatting or code blocks. Best effort parsing.
       `;
 
-      const result = await model.generateContent(prompt);
+      const result = await withRetry(() => model.generateContent(prompt));
       let jsonString = result.response.text();
       
       if (jsonString.startsWith('\`\`\`json')) {

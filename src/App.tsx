@@ -23,7 +23,9 @@ import Events from "./pages/Events";
 import Community from "./pages/Community";
 import Mentors from "./pages/Mentors";
 import Dashboard from "./pages/Dashboard";
-import ResumeBuilder from "./pages/ResumeBuilder";
+import ResumeDashboard from "./pages/ResumeDashboard";
+import ResumeEditorPage from "./pages/ResumeEditorPage";
+import CoverLetterEditorPage from "./pages/CoverLetterEditorPage";
 import SharedResumeView from "./pages/SharedResumeView";
 import CollegeInsights from "./pages/CollegeInsights";
 import CollegeDetail from "./pages/CollegeDetail";
@@ -153,7 +155,9 @@ const App = () => (
           <Route path="/mentors/alumni" element={<ProtectedRoute><AlumniDirectory /></ProtectedRoute>} />
           <Route path="/mentors/ai-paths" element={<ProtectedRoute><AILearningPaths /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/resume-builder" element={<ProtectedRoute><ResumeBuilder /></ProtectedRoute>} />
+          <Route path="/resume-builder" element={<ProtectedRoute><ResumeDashboard /></ProtectedRoute>} />
+          <Route path="/resume-builder/editor/:id" element={<ProtectedRoute><ResumeEditorPage /></ProtectedRoute>} />
+          <Route path="/resume-builder/cover-letter/:id" element={<ProtectedRoute><CoverLetterEditorPage /></ProtectedRoute>} />
           <Route path="/college-insights" element={<ProtectedRoute><CollegeInsights /></ProtectedRoute>} />
           <Route path="/colleges/:id" element={<ProtectedRoute><CollegeDetail /></ProtectedRoute>} />
           <Route path="/compare" element={<ProtectedRoute><CompareColleges /></ProtectedRoute>} />
