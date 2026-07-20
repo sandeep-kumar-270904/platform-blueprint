@@ -18,6 +18,7 @@ export interface Scholarship {
     location?: string[];
     financialNeedRequired?: boolean;
     otherCriteria?: string[];
+    diversityTags?: string[];
   };
   applicationDeadline: string;
   isRecurring: boolean;
@@ -28,6 +29,11 @@ export interface Scholarship {
   saveCount: number;
   applicationCount: number;
   inAppRequirements?: any[];
+  averageRating?: number;
+  reviewCount?: number;
+  institutionExclusivity?: 'none' | 'exclusive' | 'priority';
+  institutionId?: any;
+  isEmergencyAid?: boolean;
 }
 
 export const useScholarships = (filters: any = {}) => {
@@ -40,16 +46,28 @@ export const useScholarships = (filters: any = {}) => {
     const token = localStorage.getItem('token');
     try {
       const queryParams = new URLSearchParams();
-      Object.entries(filters).forEach(([key, val]) => {
-        if (val) queryParams.append(key, String(val));
-      });
+        Object.entries(filters).forEach(([key, val]) => {
+          if (val && key !== 'sort') {
+            if (Array.isArray(val)) {
+              val.forEach(v => queryParams.append(key, String(v)));
+            } else {
+              queryParams.append(key, String(val));
+            }
+          }
+          if (val && key === 'sort' && val !== 'low_competition') queryParams.append(key, String(val));
+        });
+        
+        let endpoint = `${API_URL}/api/scholarships`;
+        if (filters.sort === 'low_competition') {
+          endpoint = `${API_URL}/api/scholarships/low-competition`;
+        }
 
-      const res = await fetch(`${API_URL}/api/scholarships?${queryParams.toString()}`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      });
+        const res = await fetch(`${endpoint}?${queryParams.toString()}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
       if (res.ok) {
         const data = await res.json();
-        setScholarships(data.scholarships);
+        setScholarships(prev => filters.page > 1 ? [...prev, ...data.scholarships] : data.scholarships);
         setTotal(data.total);
       }
     } catch (err) {
@@ -103,5 +121,35 @@ export const useScholarships = (filters: any = {}) => {
     }
   };
 
-  return { scholarships, total, loading, refetch: fetchScholarships, toggleSave, getMatchExplanation };
+  const trackExternalClick = async (id: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      await fetch(`${API_URL}/api/scholarships/${id}/track-external-click`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error('Failed to track external click', err);
+    }
+  };
+
+  const [matched, setMatched] = useState<Scholarship[]>([]);
+  const fetchMatched = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/scholarships/matched`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMatched(data.map((m: any) => ({ ...m.scholarshipId, matchReasons: m.matchReasons })));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  return { scholarships, matched, fetchMatched, total, loading, refetch: fetchScholarships, toggleSave, getMatchExplanation, trackExternalClick };
 };

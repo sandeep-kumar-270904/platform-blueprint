@@ -179,6 +179,38 @@ router.get('/:id/resumes/stats', auth, async (req, res) => {
   }
 });
 
+// Institutional Scholarship Analytics (Phase 3)
+router.get('/:id/scholarship-analytics', auth, async (req, res) => {
+  try {
+    const admin = await User.findById(req.user.id);
+    if (!admin || !admin.institutionId || admin.institutionId.toString() !== req.params.id) {
+      if (admin.role !== 'admin' && admin.role !== 'institution-admin') { // Super admin / inst admin check
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
+
+    const Scholarship = require('../models/Scholarship');
+    const ScholarshipApplication = require('../models/ScholarshipApplication');
+    const SavedScholarship = require('../models/SavedScholarship');
+
+    const students = await User.find({ institutionId: req.params.id }).select('_id');
+    const studentIds = students.map(s => s._id);
+
+    const savedCount = await SavedScholarship.countDocuments({ userId: { $in: studentIds } });
+    const appliedCount = await ScholarshipApplication.countDocuments({ userId: { $in: studentIds } });
+    const awardedCount = await ScholarshipApplication.countDocuments({ userId: { $in: studentIds }, status: 'awarded' });
+
+    res.json({
+      studentCount: studentIds.length,
+      savedCount,
+      appliedCount,
+      awardedCount
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // --- COHORTS ---
 
 router.get('/cohorts', auth, async (req, res) => {

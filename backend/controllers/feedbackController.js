@@ -25,7 +25,7 @@ exports.requestFeedback = async (req, res) => {
 
     if (requestedFrom !== 'open') {
       // Notify the specific mentor
-      await Notification.create({
+      await require("../services/notificationService").sendNotification({
         user_id: requestedFrom,
         title: 'New Resume Feedback Request',
         message: 'A mentee has requested your feedback on their resume.',
@@ -94,7 +94,7 @@ exports.pickupOpenRequest = async (req, res) => {
     await feedbackReq.save();
 
     // Notify owner
-    await Notification.create({
+    await require("../services/notificationService").sendNotification({
       user_id: feedbackReq.requestedBy,
       title: 'Feedback Request Picked Up',
       message: 'A mentor has picked up your open resume feedback request.',
@@ -139,7 +139,7 @@ exports.addComment = async (req, res) => {
       feedbackReq.requestedBy;
 
     if (notifyId && notifyId !== 'open') {
-      await Notification.create({
+      await require("../services/notificationService").sendNotification({
         user_id: notifyId,
         title: 'New Resume Comment',
         message: 'A new comment was added to the resume feedback thread.',

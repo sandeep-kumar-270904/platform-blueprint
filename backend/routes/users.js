@@ -6,6 +6,26 @@ const Review = require('../models/Review');
 const CollegeQuestion = require('../models/CollegeQuestion');
 const CollegeAnswer = require('../models/CollegeAnswer');
 
+// GET /api/users/search
+router.get('/search', async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.length < 1) return res.json([]);
+    
+    const searchRegex = new RegExp(q, 'i');
+    const users = await User.find({
+      $or: [
+        { username: searchRegex },
+        { full_name: searchRegex }
+      ]
+    }).select('username full_name avatar_url').limit(10).lean();
+    
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // PUT /api/users/me
 router.put('/me', authMiddleware, async (req, res) => {
   try {

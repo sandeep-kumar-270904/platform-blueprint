@@ -45,6 +45,33 @@ const uploadEvidence = multer({
   fileFilter: fileFilter
 });
 
+// POST /api/uploads/multiple - Upload multiple general files (up to 4)
+router.post('/multiple', (req, res) => {
+  upload.array('files', 4)(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ message: 'Multer error', error: err.message });
+    } else if (err) {
+      return res.status(400).json({ message: 'Upload error', error: err.message });
+    }
+    
+    try {
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: 'No files uploaded' });
+      }
+      
+      const publicUrls = req.files.map(file => `/uploads/${file.filename}`);
+      
+      res.status(200).json({ 
+        message: 'Files uploaded successfully', 
+        urls: publicUrls 
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Server error during upload' });
+    }
+  });
+});
+
 // POST /api/uploads - Upload a general file
 router.post('/', (req, res) => {
   upload.single('file')(req, res, function (err) {

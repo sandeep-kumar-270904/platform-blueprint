@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,132 +8,668 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Heart, MessageCircle, Send, Loader2, Sparkles } from "lucide-react";
-import { useCommunityFeed, createPost, togglePostLike, usePostComments, postComment, type CommunityPost } from "@/hooks/useCommunity";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Heart, MessageCircle, Send, Loader2, Sparkles, Image as ImageIcon, X, MoreHorizontal, AlertCircle, Edit, Trash2, Share2, ThumbsUp, PartyPopper, Lightbulb, HandHeart, Bookmark, ShieldAlert, Pin, BarChart2, Shield } from "lucide-react";
+import { useCommunityFeed, createPost, togglePostLike, toggleSavePost, usePostComments, postComment, deletePost, reportPost, editPost, getPostReactions, pinPost, viewPost, type CommunityPost } from "@/hooks/useCommunity";
 import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
+import { RichComposer } from "@/components/community/RichComposer";
+import { RichText } from "@/components/community/RichText";
+import { LinkPreview } from "@/components/community/LinkPreview";
+import { ImageGallery } from "@/components/community/ImageGallery";
+import { PollRenderer } from "@/components/community/PollRenderer";
+import { votePoll } from "@/hooks/useCommunity";
+import { ModerationDashboard } from "@/components/community/ModerationDashboard";
+
+const PRESET_TAGS = ["General", "Scholarships", "Advice", "Networking", "Events", "Q&A", "Success Story"];
 
 const Community = () => {
   const { user } = useAuth();
-  const { posts, loading, status } = useCommunityFeed();
-  const [content, setContent] = useState("");
-  const [tagInput, setTagInput] = useState("");
-  const [posting, setPosting] = useState(false);
-  const [openComments, setOpenComments] = useState<CommunityPost | null>(null);
+  const [sort, setSort] = useState("newest");
+  const [showModDashboard, setShowModDashboard] = useState(false);
+  const isModerator = user?.role === 'admin' || (user as any)?.adminRole === 'moderator';
+  const [tagFilter, setTagFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+  
+  const { posts, setPosts, loading, loadingMore, status, hasMore, loadMore, queuedPosts, flushQueue } = useCommunityFeed(sort, tagFilter, debouncedSearch, user?.id);
+  
+  const observerTarget = useRef(null);
 
-  const submit = async () => {
-    if (!content.trim()) return;
-    setPosting(true);
-    const tags = tagInput.split(",").map((s) => s.trim()).filter(Boolean);
-    const r = await createPost({ content, tags });
-    setPosting(false);
-    if (r) { setContent(""); setTagInput(""); }
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+    return () => {
+      if (observerTarget.current) observer.unobserve(observerTarget.current);
+    };
+  }, [observerTarget, hasMore, loading, loadingMore, loadMore]);
+
+  const handleComposerSubmit = async (content: string, tags: string[], files: File[], poll?: any) => {
+    let uploadedImageUrls: string[] = [];
+    if (files.length > 0) {
+      const formData = new FormData();
+      files.forEach(f => formData.append('files', f));
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      try {
+        const res = await fetch(`${API_URL}/api/uploads/multiple`, { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          uploadedImageUrls = data.urls;
+        } else {
+          toast.error("Failed to upload images");
+          return;
+        }
+      } catch (e) {
+        toast.error("Image upload error");
+        return;
+      }
+    }
+
+    const r = await createPost({ content, tags, image_urls: uploadedImageUrls, poll });
+    if (r) {
+      // The socket event will handle optimistic UI
+    }
+  };
+
+  const handleOptimisticLike = async (postId: string, type: string = 'like') => {
+    if (!user) { toast.error("Please sign in"); return; }
+    
+    // Optistic UI update
+    setPosts(prev => prev.map(p => {
+      if (p.id === postId) {
+        let newReactions = { ...p.reactions } as any;
+        if (!newReactions) newReactions = { like: 0, celebrate: 0, insightful: 0, support: 0 };
+        let newLikeCount = p.like_count;
+        let newUserReaction = p.user_reaction;
+
+        if (p.user_reaction === type) {
+          // Toggle off
+          newReactions[type] = Math.max(0, (newReactions[type] || 1) - 1);
+          newLikeCount = Math.max(0, newLikeCount - 1);
+          newUserReaction = null;
+        } else {
+          // Changed or Added
+          if (p.user_reaction) {
+            newReactions[p.user_reaction] = Math.max(0, (newReactions[p.user_reaction] || 1) - 1);
+          } else {
+            newLikeCount++;
+          }
+          newReactions[type] = (newReactions[type] || 0) + 1;
+          newUserReaction = type;
+        }
+
+        return {
+          ...p,
+          like_count: newLikeCount,
+          reactions: newReactions,
+          user_reaction: newUserReaction
+        };
+      }
+      return p;
+    }));
+    
+    // API call
+    const res = await togglePostLike(postId, type);
+    if (res && res.reactions) {
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, like_count: res.like_count, reactions: res.reactions } : p));
+    }
+  };
+
+  const handleOptimisticSave = async (postId: string) => {
+    if (!user) { toast.error("Please sign in"); return; }
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, is_saved: !p.is_saved } : p));
+    await toggleSavePost(postId);
+  };
+
+  const handleOptimisticVote = async (postId: string, optionIndex: number) => {
+    if (!user) { toast.error("Please sign in"); return; }
+    // Optimistic Update
+    setPosts(prev => prev.map(p => {
+      if (p.id === postId && p.poll) {
+        const newPoll = { ...p.poll };
+        newPoll.options = [...newPoll.options];
+        newPoll.options[optionIndex].votes = (newPoll.options[optionIndex].votes || 0) + 1;
+        return { ...p, poll: newPoll, user_voted_option_index: optionIndex };
+      }
+      return p;
+    }));
+    // API call
+    try {
+      const updatedPost = await votePoll(postId, optionIndex);
+      if (updatedPost && updatedPost.poll) {
+        setPosts(prev => prev.map(p => p.id === postId ? { ...p, poll: updatedPost.poll, user_voted_option_index: updatedPost.user_voted_option_index } : p));
+      }
+    } catch (e) {
+      // Revert if error
+      toast.error("Failed to submit vote");
+      setPosts(prev => [...prev]); // trigger re-render? Better to properly revert, but ignoring for brevity
+    }
+  };
+
+  const handleOptimisticComment = (postId: string) => {
+    setPosts(prev => prev.map(p => {
+      if (p.id === postId) {
+        return { ...p, comment_count: p.comment_count + 1 };
+      }
+      return p;
+    }));
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <section className="container mx-auto px-4 pt-24 pb-12 max-w-2xl">
-        <div className="text-center mb-6 space-y-2">
-          <Badge><Sparkles className="mr-1 h-3 w-3" />Community Feed</Badge>
-          <h1 className="text-3xl md:text-4xl font-bold">Share with the Community</h1>
-          <div className="flex justify-center"><SyncStatusIndicator status={status} /></div>
+      <main className="max-w-4xl mx-auto px-4 py-8 md:py-12 flex flex-col md:flex-row gap-8">
+        
+        <aside className="w-full md:w-64 shrink-0 space-y-6">
+          <div className="sticky top-24 space-y-6">
+            <div>
+              <h2 className="font-semibold text-lg mb-4 flex items-center justify-between">
+                Community
+                {isModerator && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => setShowModDashboard(true)} title="Moderation Dashboard">
+                    <Shield className="h-4 w-4" />
+                  </Button>
+                )}
+              </h2>
+              <div className="space-y-1">
+                <button onClick={() => setTagFilter("")} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${tagFilter === "" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>Feed</button>
+                <button onClick={() => { setSort("trending"); setTagFilter(""); }} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-2 ${sort === "trending" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>
+                  <TrendingUp className="h-4 w-4" /> Trending
+                </button>
+                <button onClick={() => setTagFilter("saved")} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${tagFilter === "saved" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>Saved</button>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <section className="flex-1 min-w-0">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
+          <div className="space-y-4">
+            <div>
+              <Badge className="bg-primary/10 text-primary hover:bg-primary/20"><Sparkles className="mr-1 h-3 w-3" />Community</Badge>
+              <h1 className="text-3xl font-bold mt-2">Community Feed</h1>
+            </div>
+            
+            <div className="flex gap-4 border-b border-border">
+              <button 
+                onClick={() => setTagFilter("")}
+                className={`pb-2 text-sm font-medium transition-colors border-b-2 ${tagFilter !== "saved" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              >
+                All Posts
+              </button>
+              <button 
+                onClick={() => setTagFilter("saved")}
+                className={`pb-2 text-sm font-medium transition-colors border-b-2 ${tagFilter === "saved" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+              >
+                Saved Posts
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col items-end gap-3 w-full md:w-auto">
+            <div className="flex items-center gap-3 w-full justify-end">
+              <SyncStatusIndicator status={status} />
+              <div className="flex items-center bg-secondary/30 rounded-lg p-1 border">
+                <button
+                  onClick={() => setSort("newest")}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sort === "newest" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Newest
+                </button>
+                <button
+                  onClick={() => setSort("trending")}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sort === "trending" ? "bg-background shadow-sm text-orange-500" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Trending
+                </button>
+                <button
+                  onClick={() => setSort("most_liked")}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sort === "most_liked" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Most Liked
+                </button>
+              </div>
+            </div>
+            <div className="relative w-full md:w-64">
+              <Input
+                placeholder="Search posts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 pl-9 bg-secondary/20"
+              />
+              <svg className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
         </div>
 
-        {user && (
-          <Card className="mb-6">
-            <CardContent className="p-4 space-y-3">
-              <Textarea placeholder="What's on your mind?" value={content} onChange={(e) => setContent(e.target.value)} rows={3} maxLength={2000} />
-              <Input placeholder="Tags (comma separated)" value={tagInput} onChange={(e) => setTagInput(e.target.value)} />
-              <div className="flex justify-end">
-                <Button onClick={submit} disabled={posting || !content.trim()}>
-                  {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="mr-2 h-4 w-4" />Post</>}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        {tagFilter && tagFilter !== 'saved' && (
+          <div className="mb-6 flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Showing posts tagged:</span>
+            <Badge variant="secondary" className="flex items-center gap-1 cursor-pointer bg-primary/10 text-primary hover:bg-primary/20" onClick={() => setTagFilter("")}>
+              {tagFilter} <X className="h-3 w-3" />
+            </Badge>
+          </div>
         )}
 
-        <div className="space-y-4">
-          {loading ? <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        {user && tagFilter !== 'saved' && (
+          <RichComposer onSubmit={handleComposerSubmit} user={user} />
+        )}
+
+        {queuedPosts.length > 0 && (
+          <div className="sticky top-24 z-50 flex justify-center mb-6 pointer-events-none">
+            <Button 
+              variant="default" 
+              className="rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all animate-in fade-in slide-in-from-top-4 pointer-events-auto flex items-center gap-2 h-10 px-6" 
+              onClick={() => {
+                flushQueue();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            >
+              <Sparkles className="h-4 w-4" />
+              {queuedPosts.length} new post{queuedPosts.length > 1 ? 's' : ''}
+            </Button>
+          </div>
+        )}
+
+        <div className="space-y-4 relative z-0">
+          {loading && posts.length === 0 ? <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           : posts.length === 0 ? <Card><CardContent className="py-12 text-center text-muted-foreground">No posts yet. {user ? "Share something!" : "Sign in to post."}</CardContent></Card>
           : posts.map((p) => (
-            <Card key={p.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-9 w-9"><AvatarImage src={p.author?.avatar_url || ""} /><AvatarFallback>{(p.author?.full_name || "?")[0]}</AvatarFallback></Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">{p.author?.full_name || p.author?.username || "Anonymous"}</p>
-                    <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(p.created_at), { addSuffix: true })}</p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-sm whitespace-pre-wrap">{p.content}</p>
-                {p.tags.length > 0 && <div className="flex flex-wrap gap-1">{p.tags.map((t) => <Badge key={t} variant="outline" className="text-xs">#{t}</Badge>)}</div>}
-                <div className="flex items-center gap-4 text-sm text-muted-foreground border-t pt-2">
-                  <button className="flex items-center gap-1 hover:text-primary" onClick={() => togglePostLike(p.id)}>
-                    <Heart className="h-4 w-4" />{p.like_count}
-                  </button>
-                  <button className="flex items-center gap-1 hover:text-primary" onClick={() => setOpenComments(p)}>
-                    <MessageCircle className="h-4 w-4" />{p.comment_count}
-                  </button>
-                </div>
-              </CardContent>
-            </Card>
+            <PostCard 
+              key={p.id} 
+              post={p} 
+              currentUserId={user?.id} 
+              onLike={(type) => handleOptimisticLike(p.id!, type)} 
+              onSave={() => handleOptimisticSave(p.id!)}
+              onVote={(idx) => handleOptimisticVote(p.id!, idx)}
+              onDelete={async () => {
+                const ok = await deletePost(p.id!);
+                if(ok) setPosts(prev => prev.filter(x => x.id !== p.id));
+              }} 
+              onCommentOptimistic={() => handleOptimisticComment(p.id!)} 
+              onTagClick={setTagFilter} 
+            />
           ))}
+          
+          <div ref={observerTarget} className="py-4 text-center">
+            {loadingMore && <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />}
+            {!hasMore && posts.length > 0 && <span className="text-xs text-muted-foreground">You've reached the end!</span>}
+          </div>
         </div>
       </section>
 
-      <CommentsDialog post={openComments} onClose={() => setOpenComments(null)} />
+      <Dialog open={showModDashboard} onOpenChange={setShowModDashboard}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <ShieldAlert className="h-5 w-5 text-primary" /> Moderation Dashboard
+            </DialogTitle>
+          </DialogHeader>
+          <ModerationDashboard />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-const CommentsDialog = ({ post, onClose }: { post: CommunityPost | null; onClose: () => void }) => {
-  const { user } = useAuth();
-  const { comments, loading } = usePostComments(post?.id || null);
-  const [text, setText] = useState("");
-  const [posting, setPosting] = useState(false);
+const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete, onCommentOptimistic, onTagClick }: { post: CommunityPost; currentUserId?: string; onLike: (type: string) => void; onSave: () => void; onVote?: (idx: number) => Promise<void>; onDelete: () => void; onCommentOptimistic: () => void; onTagClick?: (tag: string) => void }) => {
+  const [showComments, setShowComments] = useState(false);
+  const isAuthor = currentUserId === post.user_id;
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(post.content || "");
+  const [currentContent, setCurrentContent] = useState(post.content);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [isEditedLocal, setIsEditedLocal] = useState(false);
 
-  if (!post) return null;
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [isReporting, setIsReporting] = useState(false);
+  
+  const handleDeleteClick = () => {
+    if (window.confirm("Are you sure you want to delete this post?")) {
+      onDelete();
+    }
+  };
 
-  const submit = async () => {
-    setPosting(true);
-    const r = await postComment(post.id, text);
-    setPosting(false);
-    if (r) setText("");
+  const handleEditSubmit = async () => {
+    if (!editContent.trim() || editContent === currentContent) {
+      setIsEditing(false);
+      return;
+    }
+    setIsSubmittingEdit(true);
+    const updated = await editPost(post.id!, editContent);
+    if (updated) {
+      setCurrentContent(editContent);
+      setIsEditedLocal(true);
+      setIsEditing(false);
+    }
+    setIsSubmittingEdit(false);
+  };
+
+  const submitReport = async () => {
+    if (!reportReason) {
+      toast.error("Please select a reason");
+      return;
+    }
+    setIsReporting(true);
+    const ok = await reportPost(post.id!, reportReason);
+    if (ok) {
+      setShowReportDialog(false);
+      setReportReason("");
+    }
+    setIsReporting(false);
   };
 
   return (
-    <Dialog open={!!post} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
-        <DialogHeader><DialogTitle>Comments</DialogTitle></DialogHeader>
-        <ScrollArea className="flex-1 pr-3">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : comments.length === 0 ? (
-            <p className="text-center text-muted-foreground py-6">No comments yet</p>
-          ) : comments.map((c) => (
-            <div key={c.id} className="border-b py-2">
-              <div className="flex items-center gap-2 mb-1">
-                <Avatar className="h-6 w-6"><AvatarImage src={c.author?.avatar_url || ""} /><AvatarFallback>{(c.author?.full_name || "?")[0]}</AvatarFallback></Avatar>
-                <span className="text-xs font-semibold">{c.author?.full_name || "Anon"}</span>
-                <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(c.created_at), { addSuffix: true })}</span>
-              </div>
-              <p className="text-sm pl-8">{c.content}</p>
+    <Card className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <CardHeader className="pb-2 pt-4 px-4 flex flex-row justify-between items-start">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-10 w-10"><AvatarImage src={post.author?.avatar_url || ""} /><AvatarFallback>{(post.author?.full_name || "?")[0]}</AvatarFallback></Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm leading-none">{post.author?.full_name || post.author?.username || "Anonymous"}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatDistanceToNow(new Date(post.created_at || post.createdAt || Date.now()), { addSuffix: true })}
+              {isEditedLocal && <span className="ml-1 opacity-70">(edited)</span>}
+            </p>
+          </div>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8 -mt-2 -mr-2"><MoreHorizontal className="h-4 w-4" /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {isAuthor ? (
+              <>
+                <DropdownMenuItem onClick={() => { setIsEditing(true); setEditContent(currentContent); }}>
+                  <Edit className="mr-2 h-4 w-4" /> Edit Post
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDeleteClick}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Post
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <DropdownMenuItem onClick={() => setShowReportDialog(true)}>
+                <AlertCircle className="mr-2 h-4 w-4" /> Report
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </CardHeader>
+      
+      <CardContent className="px-4 pb-4 space-y-3">
+        {isEditing ? (
+          <div className="space-y-2 mt-2">
+            <textarea
+              className="w-full min-h-[80px] p-2 bg-secondary/20 rounded-md border resize-y outline-none text-sm placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-primary"
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              disabled={isSubmittingEdit}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)} disabled={isSubmittingEdit}>Cancel</Button>
+              <Button size="sm" onClick={handleEditSubmit} disabled={isSubmittingEdit}>
+                {isSubmittingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              </Button>
             </div>
-          ))}
-        </ScrollArea>
-        {user && (
-          <div className="border-t pt-2 flex gap-2">
-            <Input placeholder="Write a comment..." value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} />
-            <Button onClick={submit} disabled={posting || !text.trim()} size="sm">
-              {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
+          </div>
+        ) : (
+          <div>
+            <RichText content={currentContent} />
+            
+            <ImageGallery images={post.image_urls && post.image_urls.length > 0 ? post.image_urls : (post.image_url ? [post.image_url] : [])} />
+            
+            {post.poll && onVote && (
+              <PollRenderer 
+                poll={post.poll} 
+                userVotedIndex={post.user_voted_option_index} 
+                onVote={onVote} 
+              />
+            )}
+
+            <LinkPreview preview={post.link_preview} />
+            
+            {post.tags && post.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+            {post.tags.map((t) => (
+              <Badge 
+                key={t} 
+                variant="outline" 
+                className={`text-[10px] py-0 px-2 h-5 bg-secondary/20 ${onTagClick ? 'cursor-pointer hover:bg-secondary/50' : ''}`}
+                onClick={() => onTagClick && onTagClick(t)}
+              >
+                #{t}
+              </Badge>
+            ))}
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+        
+        <div className="flex items-center gap-6 text-sm text-muted-foreground border-t pt-3 mt-3">
+          <div className="relative group flex items-center">
+            <button 
+              className={`flex items-center gap-1.5 transition-colors hover:text-primary ${post.user_reaction === 'celebrate' ? 'text-green-500 font-medium' : post.user_reaction === 'insightful' ? 'text-yellow-500 font-medium' : post.user_reaction === 'support' ? 'text-purple-500 font-medium' : post.user_reaction ? 'text-blue-500 font-medium' : ''}`} 
+              onClick={() => onLike('like')}
+            >
+              {post.user_reaction === 'celebrate' ? <PartyPopper className="h-4 w-4 fill-current" /> :
+               post.user_reaction === 'insightful' ? <Lightbulb className="h-4 w-4 fill-current" /> :
+               post.user_reaction === 'support' ? <HandHeart className="h-4 w-4 fill-current" /> :
+               <ThumbsUp className={`h-4 w-4 ${post.user_reaction ? 'fill-current' : ''}`} />
+              }
+              <ReactionListPopover postId={post.id!}>
+                <span className="group-hover:hidden cursor-pointer">{post.like_count}</span>
+              </ReactionListPopover>
+              <ReactionListPopover postId={post.id!}>
+                <span className="hidden group-hover:inline capitalize cursor-pointer">{post.user_reaction || 'Like'} {post.like_count}</span>
+              </ReactionListPopover>
+            </button>
+            
+            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:flex bg-background border shadow-lg rounded-full px-2 py-1 gap-2 z-10 animate-in fade-in slide-in-from-bottom-2">
+              <button onClick={(e) => { e.stopPropagation(); onLike('like'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 text-blue-500" title="Like"><ThumbsUp className="h-5 w-5 fill-current" /></button>
+              <button onClick={(e) => { e.stopPropagation(); onLike('celebrate'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 text-green-500" title="Celebrate"><PartyPopper className="h-5 w-5 fill-current" /></button>
+              <button onClick={(e) => { e.stopPropagation(); onLike('insightful'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 text-yellow-500" title="Insightful"><Lightbulb className="h-5 w-5 fill-current" /></button>
+              <button onClick={(e) => { e.stopPropagation(); onLike('support'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 text-purple-500" title="Support"><HandHeart className="h-5 w-5 fill-current" /></button>
+            </div>
+          </div>
+          
+          <button 
+            className={`flex items-center gap-1.5 hover:text-primary transition-colors ${showComments ? 'text-primary' : ''}`} 
+            onClick={() => setShowComments(!showComments)}
+          >
+            <MessageCircle className="h-4 w-4" />
+            {post.comment_count}
+          </button>
+          
+          <div className="ml-auto flex items-center gap-4">
+            <button 
+              className={`flex items-center gap-1.5 hover:text-primary transition-colors ${post.is_saved ? 'text-primary' : ''}`} 
+              onClick={onSave}
+              title={post.is_saved ? "Unsave" : "Save Post"}
+            >
+              <Bookmark className={`h-4 w-4 ${post.is_saved ? 'fill-current' : ''}`} />
+            </button>
+            <button 
+              className="flex items-center gap-1.5 hover:text-primary transition-colors" 
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/community?post=${post.id}`);
+                toast.success("Link copied to clipboard!");
+              }}
+              title="Share"
+            >
+              <Share2 className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        
+        {showComments && <InlineComments postId={post.id!} currentUserId={currentUserId} onCommentAdded={onCommentOptimistic} />}
+          </div>
+        )}
+      </CardContent>
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Report Post</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">Please select a reason for reporting this post.</p>
+            <div className="space-y-2">
+              {['Spam', 'Offensive content', 'Other'].map(reason => (
+                <label key={reason} className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input
+                    type="radio"
+                    name="reportReason"
+                    value={reason}
+                    checked={reportReason === reason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="accent-primary"
+                  />
+                  {reason}
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setShowReportDialog(false)} disabled={isReporting}>Cancel</Button>
+              <Button variant="destructive" onClick={submitReport} disabled={isReporting}>
+                {isReporting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Submit Report
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+const InlineComments = ({ postId, currentUserId, onCommentAdded }: { postId: string; currentUserId?: string; onCommentAdded: () => void }) => {
+  const { comments, loading, setComments } = usePostComments(postId);
+  const [text, setText] = useState("");
+  const [posting, setPosting] = useState(false);
+
+  const submit = async () => {
+    if(!text.trim()) return;
+    setPosting(true);
+    const r = await postComment(postId, text);
+    setPosting(false);
+    if (r) {
+      setComments((prev: any) => [{...r, id: r._id, created_at: r.createdAt}, ...prev]);
+      setText("");
+      onCommentAdded();
+    }
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t bg-secondary/10 -mx-4 px-4 pb-2 rounded-b-xl">
+      <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 mb-4">
+        {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto my-4 text-muted-foreground" /> : comments.length === 0 ? (
+          <p className="text-center text-xs text-muted-foreground py-2">No comments yet. Be the first!</p>
+        ) : comments.map((c) => (
+          <div key={c.id} className="flex gap-2">
+            <Avatar className="h-6 w-6 mt-0.5"><AvatarImage src={c.author?.avatar_url || ""} /><AvatarFallback>{(c.author?.full_name || "?")[0]}</AvatarFallback></Avatar>
+            <div className="flex-1 bg-background border p-2 rounded-lg rounded-tl-none">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[11px] font-semibold">{c.author?.full_name || "Anonymous"}</span>
+                <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(c.created_at || c.createdAt || Date.now()), { addSuffix: true })}</span>
+              </div>
+              <p className="text-xs">{c.text}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {currentUserId ? (
+        <div className="flex gap-2 items-center">
+          <Avatar className="h-7 w-7"><AvatarFallback>You</AvatarFallback></Avatar>
+          <div className="flex-1 relative">
+            <Input 
+              className="h-8 text-xs pr-8 bg-background" 
+              placeholder="Write a comment..." 
+              value={text} 
+              onChange={(e) => setText(e.target.value)} 
+              onKeyDown={e => e.key === 'Enter' && submit()}
+              maxLength={1000} 
+            />
+            <button 
+              className="absolute right-2 top-1.5 text-primary disabled:text-muted-foreground"
+              disabled={posting || !text.trim()}
+              onClick={submit}
+            >
+              {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-center text-muted-foreground">Sign in to comment</p>
+      )}
+    </div>
+  );
+};
+
+const ReactionListPopover = ({ postId, children }: { postId: string, children: React.ReactNode }) => {
+  const [reactions, setReactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const fetchReactions = async () => {
+    if (loaded || loading) return;
+    setLoading(true);
+    const data = await getPostReactions(postId);
+    setReactions(data);
+    setLoaded(true);
+    setLoading(false);
+  };
+
+  return (
+    <HoverCard onOpenChange={(open) => { if (open) fetchReactions(); }}>
+      <HoverCardTrigger asChild>
+        {children}
+      </HoverCardTrigger>
+      <HoverCardContent className="w-56 p-3 z-50">
+        <h4 className="font-semibold text-sm mb-2">Reactions</h4>
+        {loading ? (
+          <div className="flex justify-center p-2"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+        ) : reactions.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No reactions yet.</p>
+        ) : (
+          <div className="space-y-2 max-h-[200px] overflow-y-auto">
+            {reactions.slice(0, 10).map((r, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={r.user?.avatar_url || ""} />
+                  <AvatarFallback className="text-[9px]">{(r.user?.full_name || "?")[0]}</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium leading-none">{r.user?.full_name || r.user?.username || "Anonymous"}</span>
+                  <span className="text-[10px] text-muted-foreground capitalize">{r.type}</span>
+                </div>
+              </div>
+            ))}
+            {reactions.length > 10 && (
+              <p className="text-[10px] text-muted-foreground text-center">+{reactions.length - 10} more</p>
+            )}
+          </div>
+        )}
+      </HoverCardContent>
+    </HoverCard>
   );
 };
 

@@ -40,6 +40,19 @@ const LearningPathDetail = () => {
     enabled: !!user
   });
 
+  const { data: matchedScholarships } = useQuery({
+    queryKey: ['path-scholarships', id],
+    queryFn: async () => {
+      if (!user) return [];
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/scholarships/match/path/${id}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch matched scholarships');
+      return res.json();
+    },
+    enabled: !!user
+  });
+
   const enrollMutation = useMutation({
     mutationFn: async () => {
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/learning-paths/${id}/enroll`, {
@@ -186,6 +199,30 @@ const LearningPathDetail = () => {
             </Card>
           ))}
         </div>
+
+        {matchedScholarships && matchedScholarships.length > 0 && (
+          <div className="mt-12">
+            <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+              <Target className="h-6 w-6 text-primary" /> Matching Scholarships
+            </h2>
+            <div className="grid md:grid-cols-2 gap-6">
+              {matchedScholarships.map((s: any) => (
+                <Card key={s._id} className="border-primary/20 bg-primary/5">
+                  <CardHeader>
+                    <CardTitle className="text-lg">{s.title}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{s.provider}</p>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm mb-4 line-clamp-2">{s.description}</p>
+                    <Button variant="secondary" size="sm" onClick={() => navigate(`/scholarships/${s._id}`)}>
+                      View Scholarship
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

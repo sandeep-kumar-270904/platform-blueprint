@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
@@ -13,6 +13,9 @@ import { useScholarships, Scholarship } from "@/hooks/useScholarships";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RegionalScholarships } from "@/components/scholarships/RegionalScholarships";
+import { ProviderTrustBadge } from '@/components/scholarships/ProviderTrustBadge';
 
 const Scholarships = () => {
   const navigate = useNavigate();
@@ -32,17 +35,34 @@ const Scholarships = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, minAmount, academicLevel, applicationMode]);
+
   const filters = {
     q: debouncedSearch,
     minAmount: minAmount === "all" ? "" : minAmount,
     academicLevel: academicLevel === "all" ? "" : academicLevel,
     applicationMode: applicationMode === "all" ? "" : applicationMode,
+    status: 'published',
     page,
     limit: 9
   };
 
   const { scholarships, total, loading, toggleSave, getMatchExplanation } = useScholarships(filters);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  const observerTarget = useRef(null);
+  useEffect(() => {
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && !loading && scholarships.length < total) {
+        setPage(p => p + 1);
+      }
+    }, { threshold: 0.1 });
+    if (observerTarget.current) observer.observe(observerTarget.current);
+    return () => observer.disconnect();
+  }, [loading, scholarships.length, total]);
 
   // Handle save toggle
   const handleSave = async (id: string) => {
@@ -183,11 +203,19 @@ const Scholarships = () => {
           {/* Results Grid */}
           <div className="flex-1 space-y-6">
             
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold tracking-tight">
-                {loading ? "Searching..." : `${total} Scholarships found`}
-              </h2>
-            </div>
+            <Tabs defaultValue="all" className="w-full">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h2 className="text-2xl font-bold tracking-tight">
+                  {loading ? "Searching..." : `${total} Scholarships found`}
+                </h2>
+                <TabsList>
+                  <TabsTrigger value="all">All Scholarships</TabsTrigger>
+                  <TabsTrigger value="matched">Matched for You</TabsTrigger>
+                  <TabsTrigger value="local">Near You</TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="all" className="m-0">
 
             {loading ? (
               <div className="flex justify-center items-center py-32">
@@ -228,7 +256,10 @@ const Scholarships = () => {
                             </Button>
                           </div>
                           <h3 className="text-lg font-bold leading-tight mb-1">{scholarship.title}</h3>
-                          <p className="text-sm text-muted-foreground">{scholarship.provider}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-muted-foreground">{scholarship.provider}</p>
+                            <ProviderTrustBadge status={scholarship.providerVerification} />
+                          </div>
                         </CardHeader>
                         
                         <CardContent className="flex-1 space-y-4">
@@ -276,30 +307,84 @@ const Scholarships = () => {
                   ))}
                 </div>
 
-                {/* Pagination */}
-                {total > filters.limit && (
-                  <div className="flex justify-center gap-2 pt-8">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                    >
-                      Previous
-                    </Button>
-                    <div className="flex items-center px-4 text-sm font-medium">
-                      Page {page} of {Math.ceil(total / filters.limit)}
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setPage(p => p + 1)}
-                      disabled={page >= Math.ceil(total / filters.limit)}
-                    >
-                      Next
-                    </Button>
+                {/* Infinite Scroll Target */}
+                {total > scholarships.length && (
+                  <div ref={observerTarget} className="py-8 flex justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   </div>
                 )}
               </>
             )}
+              </TabsContent>
+
+              <TabsContent value="matched" className="m-0">
+                {!user ? (
+                  <div className="text-center py-12 bg-card rounded-xl border border-border shadow-sm">
+                    <p className="text-muted-foreground mb-4">Sign in to see scholarships matched to your profile.</p>
+                    <Button onClick={() => navigate('/auth')}>Sign In</Button>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-5">
+                    {scholarships.slice(0, 4).map((scholarship, index) => (
+                      <ScrollReveal key={scholarship._id} delay={0.05 * (index % 6)}>
+                        <Card className="h-full flex flex-col hover:border-primary/50 transition-colors bg-card/60 backdrop-blur-sm border-primary/20 shadow-md">
+                          <CardHeader className="pb-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <Badge variant="default" className="capitalize bg-green-500 hover:bg-green-600">
+                                98% Match
+                              </Badge>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 -mt-2 -mr-2 text-muted-foreground hover:text-primary"
+                                onClick={() => handleSave(scholarship._id)}
+                              >
+                                {savedIds.has(scholarship._id) ? 
+                                  <BookmarkCheck className="h-5 w-5 text-primary" /> : 
+                                  <BookmarkPlus className="h-5 w-5" />
+                                }
+                              </Button>
+                            </div>
+                            <h3 className="text-lg font-bold leading-tight mb-1">{scholarship.title}</h3>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm text-muted-foreground">{scholarship.provider}</p>
+                              <ProviderTrustBadge status={scholarship.providerVerification} />
+                            </div>
+                          </CardHeader>
+                          <CardContent className="flex-1 space-y-4">
+                            <div className="bg-primary/5 p-3 rounded-md border border-primary/10">
+                               <p className="text-sm text-primary/80 font-medium flex items-start gap-2">
+                                  <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
+                                  {getMatchExplanation(scholarship._id) || "Matches your academic level and field of study."}
+                               </p>
+                            </div>
+                            <div className="flex items-center gap-2 text-lg font-bold text-foreground">
+                              <DollarSign className="h-5 w-5 text-primary" />
+                              {scholarship.amountType === 'fixed' ? scholarship.amount.min?.toLocaleString() : 
+                               scholarship.amountType === 'range' ? `${scholarship.amount.min?.toLocaleString()} - ${scholarship.amount.max?.toLocaleString()}` : 
+                               scholarship.amountType === 'full_tuition' ? 'Full Tuition' : 'Varies'}
+                            </div>
+                          </CardContent>
+                          <CardFooter className="pt-2">
+                            <Button 
+                              className="w-full gap-2 group" 
+                              onClick={() => navigate(`/scholarships/${scholarship._id}`)}
+                            >
+                              View Details
+                              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      </ScrollReveal>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="local" className="m-0">
+                <RegionalScholarships />
+              </TabsContent>
+            </Tabs>
             
           </div>
         </div>

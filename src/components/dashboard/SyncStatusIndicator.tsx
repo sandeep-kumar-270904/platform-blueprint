@@ -7,7 +7,7 @@ interface Props {
   className?: string;
 }
 
-const meta: Record<SyncStatus, { label: string; tip: string; icon: typeof Wifi; color: string; dot: string }> = {
+const meta: Record<string, { label: string; tip: string; icon: typeof Wifi; color: string; dot: string }> = {
   connecting: {
     label: "Connecting",
     tip: "Establishing real-time connection…",
@@ -28,6 +28,13 @@ const meta: Record<SyncStatus, { label: string; tip: string; icon: typeof Wifi; 
     icon: RefreshCw,
     color: "text-amber-600",
     dot: "bg-amber-500",
+  },
+  offline: {
+    label: "Reconnecting",
+    tip: "Connection dropped. Reconnecting...",
+    icon: WifiOff,
+    color: "text-muted-foreground",
+    dot: "bg-muted-foreground",
   },
   error: {
     label: "Offline",

@@ -41,6 +41,7 @@ import CollegeDetail from "./pages/CollegeDetail";
 import CompareColleges from "./pages/CompareColleges";
 import InnovationHub from "./pages/InnovationHub";
 import Scholarships from "./pages/Scholarships";
+import ScholarshipCommunity from "./pages/ScholarshipCommunity";
 import Courses from "./pages/Courses";
 import CourseDetail from "./pages/CourseDetail";
 import LearningPathDetail from "./pages/LearningPathDetail";
@@ -156,6 +157,7 @@ const App = () => (
           <Route path="/recruiter/verify" element={<RecruiterVerify />} />
           <Route path="/recruiter/candidates" element={<CandidateSearch />} />
           <Route path="/scholarships" element={<Scholarships />} />
+          <Route path="/scholarships/community" element={<ScholarshipCommunity />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
           <Route path="/search" element={<Search />} />
           <Route path="/profile/:userId/skills" element={<PublicSkillsProfile />} />

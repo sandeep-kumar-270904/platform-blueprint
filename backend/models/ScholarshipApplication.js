@@ -11,33 +11,42 @@ const scholarshipApplicationSchema = new mongoose.Schema({
     ref: 'Scholarship',
     required: true,
   },
-  // the status tracks both in_app depth and external_link lightweight tracking
   status: {
     type: String,
     enum: ['draft', 'submitted', 'under_review', 'awarded', 'rejected', 'withdrawn', 'link_opened'],
     default: 'draft',
   },
-  // Array of responses to the custom inAppRequirements
   responses: [{
     fieldKey: { type: String },
     value: { type: mongoose.Schema.Types.Mixed }
   }],
   essayResponses: [{
+    fieldKey: { type: String },
     prompt: { type: String },
     response: { type: String }
   }],
-  // Reference to Resume snapshot pattern if they attach a resume
   attachedResumeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Resume',
   },
-  attachedRecommendationLetterId: {
+  resumeSnapshot: {
+    type: Object, // full resume content snapshotted at submission time
+  },
+  attachedLetterId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'RecommendationLetter',
   },
-  attachedLetterSnapshot: {
-    type: mongoose.Schema.Types.Mixed
+  letterSnapshot: {
+    type: Object, // full letter content snapshotted at submission time
   },
+  documentUploads: [{
+    fieldKey: { type: String },
+    fileUrl: { type: String },
+    fileName: { type: String },
+    fileType: { type: String },
+    fileSize: { type: Number },
+    uploadedAt: { type: Date, default: Date.now }
+  }],
   submittedAt: {
     type: Date,
   },
@@ -47,5 +56,7 @@ const scholarshipApplicationSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 scholarshipApplicationSchema.index({ userId: 1, scholarshipId: 1 }, { unique: true });
+scholarshipApplicationSchema.index({ userId: 1, status: 1 });
+scholarshipApplicationSchema.index({ scholarshipId: 1, status: 1 });
 
 module.exports = mongoose.model('ScholarshipApplication', scholarshipApplicationSchema);

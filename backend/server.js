@@ -238,9 +238,39 @@ app.use('/api/qa', require('./routes/qa'));
 app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/coach', require('./routes/coach'));
 
-// Add auth routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/classes', require('./routes/classes'));
+const applicationsRoutes = require('./routes/applications');
+const resumesRoutes = require('./routes/resumes');
+const mentorsRoutes = require('./routes/mentors');
+const scholarshipRoutes = require('./routes/scholarships');
+const scholarshipTrustRoutes = require('./routes/scholarshipTrust');
+const jobRoutes = require('./routes/jobs');
+const quizzesRoutes = require('./routes/quizzes');
+
+app.use('/api/auth', authRoutes);
+app.use('/api/users', require('./routes/users'));
+app.use('/api/applications', applicationsRoutes);
+app.use('/api/resumes', resumesRoutes);
+app.use('/api/mentors', mentorsRoutes);
+app.use('/api/scholarships', scholarshipRoutes);
+app.use('/api/scholarships', scholarshipTrustRoutes);
+app.use('/api/jobs', jobRoutes);
+app.use('/api/quizzes', quizzesRoutes);
+
+// app.use('/api/classes', require('./routes/classes'));
+// app.use('/api/courses', require('./routes/courses'));
+// app.use('/api/skills', require('./routes/skills'));
+// app.use('/api/projects', require('./routes/projects'));
+// app.use('/api/companies', require('./routes/companies'));
+app.use('/api/insights', require('./routes/insights'));
+app.use('/api/assessments', require('./routes/assessments'));
+app.use('/api/scholarships/circles', require('./routes/scholarshipCircles'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/study-groups', require('./routes/studyGroups'));
+app.use('/api/interviews', require('./routes/interviews'));
+app.use('/api/negotiation', require('./routes/negotiation'));
+app.use('/api/portfolios', require('./routes/portfolios'));
+app.use('/api/resume-feedback', require('./routes/feedback'));
+app.use('/api/cover-letters', require('./routes/coverLetters'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/community', require('./routes/community'));
@@ -314,8 +344,21 @@ app.use('/api/me', require('./routes/me'));
 app.use('/api/mentor-community', require('./routes/mentorCommunity'));
 app.use('/api/ai-paths', require('./routes/aiPaths'));
 app.use('/api/institutions', require('./routes/institutions'));
-app.use('/api/disputes', disputeRoutes);
-app.use('/api/platform-referrals', platformReferralRoutes);
+app.use('/api/essays', require('./routes/essays'));
+  app.use('/api/essay-bank', require('./routes/essayBank'));
+  app.use('/api/essay-templates', require('./routes/essayTemplates'));
+  app.use('/api/scholarships/savings-goal', require('./routes/savingsGoals'));
+  app.use('/api/scholarship-coach', require('./routes/scholarshipCoach'));
+  app.use('/api/awardee-stories', require('./routes/awardeeStories'));
+  app.use('/api/admin/scholarships', require('./routes/scholarshipAdmin'));
+  app.use('/api/scholarship-buddies', require('./routes/scholarshipBuddies'));
+  app.use('/api/institutions/:institutionId/scholarships', require('./routes/institutionScholarships'));
+  app.use('/api/compliance-checks', require('./routes/complianceChecks'));
+  app.use('/api/disputes', disputeRoutes);
+  app.use('/api/platform-referrals', platformReferralRoutes);
+  app.use('/api/alt-funding-resources', require('./routes/altFunding'));
+  app.use('/api/admin/alt-funding-resources', require('./routes/adminAltFunding'));
+  app.use('/api/scholarships', require('./routes/providerFeedback'));
 app.use('/api/subscriptions', require('./routes/subscriptions'));
 app.use('/api/admin/mentors-overview', adminMentorsOverviewRoutes);
 
@@ -454,4 +497,5 @@ const shutdown = () => {
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
+
 
