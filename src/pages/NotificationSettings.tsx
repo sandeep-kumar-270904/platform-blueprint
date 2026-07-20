@@ -34,7 +34,15 @@ export default function NotificationSettings() {
     subscriptions: { inApp: true, email: true, push: false },
     communityForums: { inApp: true, email: true, push: false },
     cohorts: { inApp: true, email: true, push: false },
-    learningPaths: { inApp: true, email: true, push: false }
+    learningPaths: { inApp: true, email: true, push: false },
+    scholarships: {
+      deadline_reminders: true,
+      weekly_digest: true,
+      recommendation_updates: true,
+      review_outcomes: true,
+      compliance_reminders: true,
+      award_updates: true
+    }
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -64,6 +72,13 @@ export default function NotificationSettings() {
               }));
             }
           });
+          
+          if (data.preferences?.scholarships) {
+            setPreferences(prev => ({
+              ...prev,
+              scholarships: { ...prev.scholarships, ...data.preferences.scholarships }
+            }));
+          }
         }
       } catch (err) {
         console.error("Error fetching notification settings", err);
@@ -139,6 +154,16 @@ export default function NotificationSettings() {
     }));
   };
 
+  const handleScholarshipToggle = (field: keyof typeof preferences.scholarships) => {
+    setPreferences(prev => ({
+      ...prev,
+      scholarships: {
+        ...prev.scholarships,
+        [field]: !prev.scholarships[field]
+      }
+    }));
+  };
+
   const saveSettings = async () => {
     setIsLoading(true);
     try {
@@ -175,6 +200,27 @@ export default function NotificationSettings() {
         <h1 className="text-3xl font-bold mb-6">Notification Settings</h1>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Scholarships</CardTitle>
+              <CardDescription>Manage alerts for deadlines, reviews, and compliance</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {Object.entries(preferences.scholarships).map(([key, value]) => (
+                <div key={`schol-${key}`} className="flex items-center justify-between">
+                  <Label htmlFor={`schol-${key}`} className="cursor-pointer capitalize">
+                    {key.replace(/_/g, ' ')}
+                  </Label>
+                  <Switch 
+                    id={`schol-${key}`} 
+                    checked={value} 
+                    onCheckedChange={() => handleScholarshipToggle(key as keyof typeof preferences.scholarships)} 
+                  />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Job Board Notifications</CardTitle>

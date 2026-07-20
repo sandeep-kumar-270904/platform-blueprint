@@ -21,8 +21,9 @@ router.get('/', async (req, res) => {
     const BrainstormSession = require('../models/BrainstormSession');
     const IdeaCircle = require('../models/IdeaCircle');
     const User = require('../models/User');
+    const CommunityPost = require('../models/CommunityPost');
 
-    const [colleges, events, courses, paths, ideas, brainstorms, ideaCircles, users] = await Promise.all([
+    const [colleges, events, courses, paths, ideas, brainstorms, ideaCircles, users, posts, matchedTags] = await Promise.all([
       College.find({
         $or: [
           { name: regex },
@@ -105,7 +106,20 @@ router.get('/', async (req, res) => {
         ]
       })
       .select('username full_name avatar_url role')
-      .limit(5)
+      .limit(5),
+      
+      CommunityPost.find({
+        $or: [
+          { content: regex },
+          { tags: regex }
+        ]
+      })
+      .select('content tags like_count user_id createdAt')
+      .populate('user_id', 'full_name username avatar_url')
+      .sort({ createdAt: -1 })
+      .limit(5),
+      
+      CommunityPost.distinct('tags', { tags: regex })
     ]);
 
     // Combine courses and paths into one results array for the frontend "Courses" section
@@ -114,7 +128,7 @@ router.get('/', async (req, res) => {
       ...paths.map(p => ({ ...p.toObject(), searchType: 'path' }))
     ];
 
-    res.json({ colleges, events, courses: combinedCourses, ideas, brainstorms, ideaCircles, users });
+    res.json({ colleges, events, courses: combinedCourses, ideas, brainstorms, ideaCircles, users, posts, tags: matchedTags.slice(0, 5) });
   } catch (err) {
     console.error('Search error:', err);
     res.status(500).json({ message: 'Server error during search' });

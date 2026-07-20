@@ -38,10 +38,27 @@ class CronService {
       this.checkClassQuizDeadlines();
     });
 
-    // Run every day at midnight for daily job alerts & scholarship deadlines
+    // Run every day at midnight for daily job alerts, scholarship deadlines, and API syncs
     cron.schedule('0 0 * * *', async () => {
       this.checkDailyJobAlerts();
       this.checkScholarshipDeadlines();
+      this.computeCompetitionSignals();
+      this.expireNonRecurringScholarships();
+      
+      try {
+        const { runApiSync, flagStaleDataSources } = require('../services/apiSyncService');
+        await runApiSync(); // This could be enhanced to respect hourly/daily/weekly syncFrequency
+        await flagStaleDataSources();
+      } catch (apiErr) {
+        console.error('API sync error', apiErr);
+      }
+
+      try {
+        const { runApiSync } = require('../jobs/apiSyncJob');
+        await runApiSync();
+      } catch (err) {
+        console.error('Error running API Sync Job:', err);
+      }
     });
 
     // Run every Sunday at 9 AM for weekly scholarship digest
@@ -81,13 +98,13 @@ class CronService {
           relatedContentId: b._id
         });
         if (!existing) {
-          await Notification.create({
+          await require("./notificationService").sendNotification({
             userId: b.menteeId,
             type: 'session_reminder',
             relatedContentId: b._id,
             message: `Reminder: You have an upcoming 1-on-1 session in 24 hours.`
           });
-          await Notification.create({
+          await require("./notificationService").sendNotification({
             userId: b.mentorId,
             type: 'session_reminder',
             relatedContentId: b._id,
@@ -114,7 +131,7 @@ class CronService {
             relatedContentId: ama._id
           });
           if (!existing) {
-            await Notification.create({
+            await require("./notificationService").sendNotification({
               userId: attendee.user_id,
               type: 'ama_reminder',
               relatedContentId: ama._id,
@@ -129,7 +146,7 @@ class CronService {
           relatedContentId: ama._id
         });
         if (!existingHost) {
-          await Notification.create({
+          await require("./notificationService").sendNotification({
             userId: ama.mentor_id,
             type: 'ama_reminder',
             relatedContentId: ama._id,
@@ -486,6 +503,27 @@ class CronService {
     }
   }
 
+  async expireNonRecurringScholarships() {
+    try {
+      const Scholarship = require('../models/Scholarship');
+      
+      const expired = await Scholarship.updateMany(
+        {
+          isRecurring: false,
+          status: 'published',
+          applicationDeadline: { $lt: new Date() }
+        },
+        { $set: { status: 'expired' } }
+      );
+      
+      if (expired.modifiedCount > 0) {
+        console.log(`[Cron] Expired ${expired.modifiedCount} non-recurring scholarships past deadline.`);
+      }
+    } catch (err) {
+      console.error('Error expiring non-recurring scholarships:', err);
+    }
+  }
+
   async checkNewsIngestionHealth() {
     try {
       const NewsIngestionLog = require('../models/NewsIngestionLog');
@@ -580,70 +618,283 @@ class CronService {
     }
   }
 
+  async checkScholarshipsAgainstScamPatterns(scholarshipId = null) {
+    try {
+      const ScamPatternRule = require('../models/ScamPatternRule');
+      const Scholarship = require('../models/Scholarship');
+
+      const rules = await ScamPatternRule.find({ isActive: true });
+      if (!rules.length) return;
+
+      const query = { status: 'published' };
+      if (scholarshipId) query._id = scholarshipId;
+
+      const scholarships = await Scholarship.find(query);
+
+      for (const scholarship of scholarships) {
+        let matched = false;
+        let isHighPriority = false;
+        
+        const fullText = (scholarship.description + ' ' + (scholarship.eligibility?.otherCriteria?.join(' ') || '')).toLowerCase();
+
+        for (const rule of rules) {
+          let hasMatch = false;
+          if (rule.matchType === 'contains' && fullText.includes(rule.patternText.toLowerCase())) {
+            hasMatch = true;
+          } else if (rule.matchType === 'regex') {
+            const regex = new RegExp(rule.patternText, 'i');
+            if (regex.test(fullText)) {
+              hasMatch = true;
+            }
+          }
+
+          if (hasMatch && !scholarship.scamFlagMatches.includes(rule.patternText)) {
+            scholarship.scamFlagMatches.push(rule.patternText);
+            matched = true;
+            if (rule.severity === 'high_priority') isHighPriority = true;
+          }
+        }
+
+        if (matched) {
+          await scholarship.save();
+          // The prompt says: "if any match has severity='high_priority', and the scholarship has been reported via the existing moderation pipeline, that report is surfaced with elevated priority in the admin review queue"
+          // We achieve this dynamically in the GET /reports/priority endpoint using scamFlagMatches or isScamFlagged. Let's explicitly set isScamFlagged for high priority to power that endpoint.
+          if (isHighPriority) {
+            await Scholarship.updateOne({ _id: scholarship._id }, { $set: { isScamFlagged: true } });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error in checkScholarshipsAgainstScamPatterns:', err);
+    }
+  }
+
+  async archiveExpiredRecurringScholarships() {
+    try {
+      const Scholarship = require('../models/Scholarship');
+      const Notification = require('../models/Notification');
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      const activeScholarships = await Scholarship.find({ status: 'published', isRecurring: true });
+
+      for (const scholarship of activeScholarships) {
+          const deadline = new Date(scholarship.applicationDeadline);
+          const deadlineDay = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
+          
+          if (deadlineDay < today) {
+             scholarship.status = 'archived';
+             await scholarship.save();
+
+             // Notify submitter/admin prompting renewal
+             let userIdToNotify = scholarship.submittedBy;
+             if (!userIdToNotify && scholarship.source === 'admin') {
+                // If it's an admin, we'd ideally get the admin user list, but for now we fallback if there's an author
+                const User = require('../models/User');
+                const admin = await User.findOne({ role: 'admin' });
+                if (admin) userIdToNotify = admin._id;
+             }
+
+             if (userIdToNotify) {
+               await require("./notificationService").sendNotification({
+                 userId: userIdToNotify,
+                 type: 'scholarship_needs_renewal',
+                 relatedContentId: scholarship._id,
+                 message: `Your recurring scholarship "${scholarship.title}" has expired and been archived. Please review and update details to publish the next cycle.`
+               });
+             }
+          }
+      }
+    } catch (err) {
+      console.error('Error in archiveExpiredRecurringScholarships:', err);
+    }
+  }
+
+  async generateComplianceChecks() {
+    try {
+      const ScholarshipApplication = require('../models/ScholarshipApplication');
+      const ComplianceCheck = require('../models/ComplianceCheck');
+      const Scholarship = require('../models/Scholarship');
+
+      // Find all awarded applications where we haven't generated the *initial* compliance checks
+      // In a robust system, this might look for apps awarded in the last 24h, or use a boolean flag on the app.
+      // For idempotency, we can just find awarded apps for scholarships with reporting requirements,
+      // and check if a ComplianceCheck already exists.
+      
+      // First find scholarships that require reporting
+      const requiringScholarships = await Scholarship.find({
+        'renewalRequirements.reportingRequired': true
+      }).select('_id renewalRequirements');
+
+      const reqSchMap = {};
+      requiringScholarships.forEach(s => {
+        reqSchMap[s._id.toString()] = s;
+      });
+
+      const schIds = Object.keys(reqSchMap);
+      if (!schIds.length) return;
+
+      const awardedApps = await ScholarshipApplication.find({
+        status: 'awarded',
+        scholarshipId: { $in: schIds }
+      });
+
+      for (const app of awardedApps) {
+        // Did we already generate checks?
+        const existing = await ComplianceCheck.findOne({ applicationId: app._id });
+        if (existing) continue; // Already generated
+
+        const scholarship = reqSchMap[app.scholarshipId.toString()];
+        const freq = scholarship.renewalRequirements.reportingFrequency;
+        
+        let dueDates = [];
+        const now = new Date();
+        
+        // Example logic: generate the first check based on frequency
+        if (freq === 'monthly') {
+          const nextMonth = new Date(now);
+          nextMonth.setMonth(now.getMonth() + 1);
+          dueDates.push(nextMonth);
+        } else if (freq === 'quarterly') {
+          const nextQuarter = new Date(now);
+          nextQuarter.setMonth(now.getMonth() + 3);
+          dueDates.push(nextQuarter);
+        } else if (freq === 'annually') {
+          const nextYear = new Date(now);
+          nextYear.setFullYear(now.getFullYear() + 1);
+          dueDates.push(nextYear);
+        }
+
+        for (const d of dueDates) {
+          await ComplianceCheck.create({
+            applicationId: app._id,
+            dueDate: d,
+            status: 'pending'
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error in generateComplianceChecks:', err);
+    }
+  }
+
+  async sendComplianceReminders() {
+    try {
+      const ComplianceCheck = require('../models/ComplianceCheck');
+      const SentReminder = require('../models/SentReminder');
+      const Notification = require('../models/Notification');
+      
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      // Target window: due in 7 days
+      const targetDate = new Date(today);
+      targetDate.setDate(targetDate.getDate() + 7);
+
+      const pendingChecks = await ComplianceCheck.find({
+        status: 'pending',
+        dueDate: {
+          $gte: targetDate,
+          $lt: new Date(targetDate.getTime() + 24 * 60 * 60 * 1000)
+        }
+      }).populate({
+        path: 'applicationId',
+        populate: { path: 'scholarshipId userId' }
+      });
+
+      for (const check of pendingChecks) {
+        const userId = check.applicationId.userId._id;
+        const dedupeKey = `compliance_7_day_${check._id.toString()}`;
+
+        const alreadySent = await SentReminder.findOne({
+          userId: userId,
+          reminderKey: dedupeKey
+        });
+
+        if (!alreadySent) {
+          await require("./notificationService").sendNotification({
+            userId: userId,
+            type: 'compliance_reminder',
+            relatedContentId: check._id,
+            message: `Reminder: Post-award compliance proof for "${check.applicationId.scholarshipId.title}" is due in 7 days.`
+          });
+
+          await SentReminder.create({
+            userId: userId,
+            reminderKey: dedupeKey,
+            sentAt: new Date()
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error in sendComplianceReminders:', err);
+    }
+  }
+
   async checkScholarshipDeadlines() {
     try {
       const Scholarship = require('../models/Scholarship');
       const SavedScholarship = require('../models/SavedScholarship');
       const ScholarshipApplication = require('../models/ScholarshipApplication');
       const Notification = require('../models/Notification');
-      const User = require('../models/User');
+      const UserReminderPreference = require('../models/UserReminderPreference');
+      const SentReminder = require('../models/SentReminder');
 
       const now = new Date();
-      // Look for active scholarships
+      // Only get start of today for precise day differences
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
       const activeScholarships = await Scholarship.find({ status: 'published' });
 
       for (const scholarship of activeScholarships) {
-        // Handle recurring calculation if the deadline is passed by 1 day
-        // to move it to next year.
-        const passedDeadline = new Date(scholarship.applicationDeadline) < now;
-        if (passedDeadline && scholarship.isRecurring) {
-           const nextYear = new Date(scholarship.applicationDeadline);
-           nextYear.setFullYear(nextYear.getFullYear() + 1);
-           scholarship.applicationDeadline = nextYear;
-           await scholarship.save();
-           // Continue processing with the new deadline
-        } else if (passedDeadline) {
-           // Skip past deadlines
-           continue;
-        }
+          const deadline = new Date(scholarship.applicationDeadline);
+          const deadlineDay = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
+          
+          if (deadlineDay < today) {
+            // Expire non-recurring here (Recurring is handled by archiveExpiredRecurringScholarships)
+            if (!scholarship.isRecurring) {
+               scholarship.status = 'expired';
+               await scholarship.save();
+            }
+            continue;
+          }
 
-        // Calculate days remaining
-        const diffTime = new Date(scholarship.applicationDeadline) - now;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        // We trigger on exactly 14, 3, or 1 days before
-        if ([14, 3, 1].includes(diffDays)) {
-           // Find engaged users (saved or applied but not submitted)
-           const saved = await SavedScholarship.find({ scholarshipId: scholarship._id });
-           const apps = await ScholarshipApplication.find({ 
-               scholarshipId: scholarship._id, 
-               status: { $nin: ['submitted', 'awarded', 'rejected'] } 
-           });
+        const diffTime = deadlineDay - today;
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-           const userIdsToNotify = new Set();
-           saved.forEach(s => userIdsToNotify.add(s.userId.toString()));
-           apps.forEach(a => userIdsToNotify.add(a.userId.toString()));
+        const saved = await SavedScholarship.find({ scholarshipId: scholarship._id });
+        const apps = await ScholarshipApplication.find({ 
+             scholarshipId: scholarship._id, 
+             status: { $nin: ['submitted', 'awarded', 'rejected'] } 
+        });
 
-           for (const userId of Array.from(userIdsToNotify)) {
-               // Check user preferences - assuming defaults for now as no schema update for prefs yet
-               // But we only notify engaged users.
-               
-               const existingNotif = await Notification.findOne({
-                   userId,
-                   type: 'scholarship_deadline',
-                   relatedContentId: scholarship._id,
-                   message: { $regex: `${diffDays} day` }
-               });
+        const userIds = new Set();
+        saved.forEach(s => userIds.add(s.userId.toString()));
+        apps.forEach(a => userIds.add(a.userId.toString()));
 
-               if (!existingNotif) {
-                   await Notification.create({
-                       userId,
-                       type: 'scholarship_deadline',
-                       relatedContentId: scholarship._id,
-                       message: `Reminder: The scholarship "${scholarship.title}" is due in ${diffDays} day(s).`
-                   });
-               }
-           }
+        for (const userId of Array.from(userIds)) {
+            let pref = await UserReminderPreference.findOne({ userId });
+            const intervals = pref ? pref.scholarshipReminderIntervals : [7, 1];
+            
+            if (intervals.includes(diffDays)) {
+                // Ensure idempotency
+                const existingReminder = await SentReminder.findOne({ userId, scholarshipId: scholarship._id, interval: diffDays });
+                
+                if (!existingReminder) {
+                    await require("./notificationService").sendNotification({
+                        userId,
+                        type: 'scholarship_deadline',
+                        relatedContentId: scholarship._id,
+                        message: `Reminder: The scholarship "${scholarship.title}" is due in ${diffDays} day(s).`
+                    });
+                    
+                    try {
+                        await SentReminder.create({ userId, scholarshipId: scholarship._id, interval: diffDays });
+                    } catch (dupErr) {
+                        // Ignore unique index collision if somehow raced
+                    }
+                }
+            }
         }
       }
     } catch (err) {
@@ -657,35 +908,46 @@ class CronService {
       const SavedScholarship = require('../models/SavedScholarship');
       const ScholarshipApplication = require('../models/ScholarshipApplication');
       const Notification = require('../models/Notification');
-      const User = require('../models/User');
+      const UserReminderPreference = require('../models/UserReminderPreference');
 
       const now = new Date();
       const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-      const users = await User.find({});
-      for (const user of users) {
-          // Find engaged scholarships
-          const saved = await SavedScholarship.find({ userId: user._id }).populate('scholarshipId');
-          const apps = await ScholarshipApplication.find({ 
-              userId: user._id, 
-              status: { $nin: ['submitted', 'awarded', 'rejected'] } 
-          }).populate('scholarshipId');
+      // Only find users who have weekly digest enabled (or default)
+      const prefs = await UserReminderPreference.find({ weeklyDigestEnabled: false });
+      const disabledUserIds = new Set(prefs.map(p => p.userId.toString()));
 
-          const allEngagedScholarships = new Map(); // deduplicate
-          saved.forEach(s => { if (s.scholarshipId) allEngagedScholarships.set(s.scholarshipId._id.toString(), s.scholarshipId); });
-          apps.forEach(a => { if (a.scholarshipId) allEngagedScholarships.set(a.scholarshipId._id.toString(), a.scholarshipId); });
+      // Get all saved or draft applications
+      const saved = await SavedScholarship.find({}).populate('scholarshipId');
+      const apps = await ScholarshipApplication.find({ 
+          status: { $nin: ['submitted', 'awarded', 'rejected'] } 
+      }).populate('scholarshipId');
 
-          let dueThisWeek = 0;
-          for (const [id, sch] of allEngagedScholarships) {
-              const deadline = new Date(sch.applicationDeadline);
-              if (deadline > now && deadline <= nextWeek) {
-                  dueThisWeek++;
-              }
+      const userEngagements = new Map();
+
+      const processEngagement = (doc) => {
+          if (!doc.scholarshipId) return;
+          const uId = doc.userId.toString();
+          if (disabledUserIds.has(uId)) return;
+          
+          if (!userEngagements.has(uId)) {
+             userEngagements.set(uId, new Map());
           }
+          
+          const deadline = new Date(doc.scholarshipId.applicationDeadline);
+          if (deadline > now && deadline <= nextWeek) {
+              userEngagements.get(uId).set(doc.scholarshipId._id.toString(), doc.scholarshipId);
+          }
+      };
 
+      saved.forEach(processEngagement);
+      apps.forEach(processEngagement);
+
+      for (const [userId, scholarshipsMap] of userEngagements.entries()) {
+          const dueThisWeek = scholarshipsMap.size;
           if (dueThisWeek > 0) {
-              await Notification.create({
-                 userId: user._id,
+              await require("./notificationService").sendNotification({
+                 userId,
                  type: 'scholarship_weekly_digest',
                  message: `Weekly Digest: You have ${dueThisWeek} scholarship(s) due in the next 7 days. Check your dashboard!`
               });
@@ -693,6 +955,45 @@ class CronService {
       }
     } catch (err) {
       console.error('Error in sendWeeklyScholarshipDigest:', err);
+    }
+  }
+
+  async computeCompetitionSignals() {
+    console.log('Running computeCompetitionSignals cron job...');
+    try {
+      // Find all active scholarships
+      const scholarships = await Scholarship.find({ status: 'published' });
+      for (const scholarship of scholarships) {
+        // Evaluate data volume (views or application count relative)
+        // If data is very sparse, set limited_data_available
+        // Assuming we have fields: viewCount, saveCount, applicationCount (if tracked)
+        // Since we didn't explicitly add viewCount/saveCount to schema in phase 1, we check if they exist or fallback to applications
+        const apps = await ScholarshipApplication.countDocuments({ scholarshipId: scholarship._id });
+        const viewCount = scholarship.viewCount || 0; 
+        
+        let signal = 'limited_data_available';
+        
+        if (apps > 0 && viewCount > 50) {
+          const ratio = apps / viewCount;
+          if (ratio >= 0.5) {
+            signal = 'higher_competition';
+          } else if (ratio >= 0.1) {
+            signal = 'moderate_competition';
+          }
+        } else if (apps > 20) {
+           // Fallback heuristic if viewCount isn't tracked robustly
+           signal = 'higher_competition';
+        } else if (apps > 5) {
+           signal = 'moderate_competition';
+        }
+
+        if (scholarship.competitionSignal !== signal) {
+          scholarship.competitionSignal = signal;
+          await scholarship.save();
+        }
+      }
+    } catch (err) {
+      console.error('Error in computeCompetitionSignals:', err);
     }
   }
 }

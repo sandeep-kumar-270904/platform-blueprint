@@ -80,7 +80,7 @@ exports.verifyCertification = async (req, res) => {
     });
     
     if (status === 'platform_verified') {
-      await Notification.create({
+      await require("../services/notificationService").sendNotification({
         user_id: cert.userId,
         title: 'Certification Verified',
         message: `Your certification "${cert.name}" has been verified by an admin.`,

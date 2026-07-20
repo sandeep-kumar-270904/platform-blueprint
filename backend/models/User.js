@@ -111,6 +111,7 @@ const UserSchema = new mongoose.Schema({
     enum: ['user', 'student', 'recruiter', 'admin'],
     default: 'user'
   },
+  communityTitle: { type: String, default: null }, // e.g. 'NSS President', 'Club Lead'
   adminRole: {
     type: String,
     enum: ['super', 'moderator', null],
@@ -204,6 +205,14 @@ const UserSchema = new mongoose.Schema({
       inApp: { type: Boolean, default: true }, 
       email: { type: Boolean, default: true },
       push: { type: Boolean, default: true }
+    },
+    scholarships: {
+      deadline_reminders: { type: Boolean, default: true },
+      weekly_digest: { type: Boolean, default: true },
+      recommendation_updates: { type: Boolean, default: true },
+      review_outcomes: { type: Boolean, default: true },
+      compliance_reminders: { type: Boolean, default: true },
+      award_updates: { type: Boolean, default: true }
     },
     accountVerification: { 
       inApp: { type: Boolean, default: true }, 
@@ -312,7 +321,14 @@ const UserSchema = new mongoose.Schema({
   walletCredit: { type: Number, default: 0 },
 
   // Subscriptions
-  subscriptionTier: { type: String, enum: ['free', 'plus', 'pro'], default: 'free' }
+  subscriptionTier: { type: String, enum: ['free', 'plus', 'pro'], default: 'free' },
+
+  // Phase 11: Scholarship Submissions
+  scholarshipSubmissionStats: {
+    approvedCount: { type: Number, default: 0 },
+    rejectedCount: { type: Number, default: 0 },
+    spotCheckEligible: { type: Boolean, default: false }
+  }
 });
 
 // Query helper for privacy

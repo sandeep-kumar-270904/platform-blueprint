@@ -137,6 +137,10 @@ export const NotificationBell = () => {
       return '/dashboard';
     }
     
+    if (n.type === 'communityForums') {
+      return '/community';
+    }
+    
     if (n.relatedCollegeId) {
       return `/colleges/${n.relatedCollegeId}`;
     }

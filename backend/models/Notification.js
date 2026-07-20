@@ -56,7 +56,11 @@ const notificationSchema = new mongoose.Schema({
       'subscription_failure',
       'forum_reply',
       'cohort_session_scheduled',
-      'learning_path_step_suggestion'
+      'learning_path_step_suggestion',
+      'communityForums',
+      'community_post_liked',
+      'community_post_commented',
+      'community_post_reported'
     ],
     required: true
   },

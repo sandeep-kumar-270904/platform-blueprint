@@ -112,7 +112,7 @@ exports.approveStory = async (req, res) => {
     story.status = 'published';
     await story.save();
 
-    await Notification.create({
+    await require("../services/notificationService").sendNotification({
       user_id: story.userId,
       title: 'Success Story Published!',
       message: 'Your success story has been approved and published on the platform.',

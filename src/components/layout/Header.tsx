@@ -50,6 +50,7 @@ const navigationGroups = [
       { title: "Team Hunt", href: "/team-hunt", desc: "Find collaborators" },
       { title: "Tech Vault", href: "/tech-vault", desc: "Code snippets and docs" },
       { title: "Skill Swap", href: "/skill-swap", desc: "Exchange knowledge" },
+      { title: "Scholarship Community", href: "/scholarships/community", desc: "Coach, Buddies & Circles" },
       { title: "Creators Zone", href: "/creators", desc: "Content platform" },
       { title: "Q&A Board", href: "/qa-board", desc: "Stack Overflow style" },
       { title: "Forum", href: "/forum", desc: "Discussion threads" },
@@ -296,11 +297,10 @@ export const Header = () => {
                         ))}
                       </div>
                     )}
-                    
-                    {searchResults.courses?.length > 0 && (
+                                        {searchResults.courses?.length > 0 && (
                       <div className="space-y-1 mt-2">
                         <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Courses</div>
-                        {searchResults.courses.slice(0, 5).map(course => (
+                        {searchResults.courses.slice(0, 3).map(course => (
                           <div 
                             key={course._id} 
                             onClick={() => { setShowSearchDropdown(false); navigate(course.searchType === 'path' ? `/learning-paths/${course._id}` : `/courses/${course._id}`); }}
@@ -319,8 +319,46 @@ export const Header = () => {
                         ))}
                       </div>
                     )}
+
+                    {searchResults.posts?.length > 0 && (
+                      <div className="space-y-1 mt-2">
+                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Community Posts</div>
+                        {searchResults.posts.slice(0, 3).map(post => (
+                          <div 
+                            key={post._id} 
+                            onClick={() => { setShowSearchDropdown(false); navigate(`/community`); }}
+                            className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                          >
+                            <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center">
+                              <MessageCircle className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="overflow-hidden">
+                              <div className="text-sm font-medium truncate">{post.content}</div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                By {post.user_id?.full_name || 'Anonymous'}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     
-                    {searchResults.colleges.length === 0 && searchResults.events.length === 0 && (!searchResults.courses || searchResults.courses.length === 0) ? (
+                    {searchResults.tags?.length > 0 && (
+                      <div className="space-y-1 mt-2 flex flex-wrap gap-1 px-2 pb-2">
+                        <div className="w-full py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tags</div>
+                        {searchResults.tags.map(tag => (
+                          <div 
+                            key={tag} 
+                            onClick={() => { setShowSearchDropdown(false); navigate(`/community?tag=${tag}`); }}
+                            className="bg-secondary/50 text-xs px-2 py-1 rounded-full cursor-pointer hover:bg-secondary transition-colors"
+                          >
+                            #{tag}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {searchResults.colleges.length === 0 && searchResults.events.length === 0 && (!searchResults.courses || searchResults.courses.length === 0) && (!searchResults.posts || searchResults.posts.length === 0) ? (
                       <div className="p-4 text-center text-sm text-muted-foreground">No results for "{searchQuery}"</div>
                     ) : (
                       <div 

@@ -32,6 +32,12 @@ class GeminiService {
   async trackUsage(userId, feature) {
     if (!userId) return;
     const date = new Date().toISOString().split('T')[0];
+    
+    const usage = await GeminiUsage.findOne({ userId, date, feature });
+    if (usage && usage.calls >= 50) {
+      throw new Error(`Rate limit exceeded for feature: ${feature}. Try again tomorrow.`);
+    }
+
     await GeminiUsage.findOneAndUpdate(
       { userId, date, feature },
       { $inc: { calls: 1 } },
@@ -237,6 +243,33 @@ class GeminiService {
     }
   }
   
+  async adaptEssay(originalEssay, newPrompt, userId) {
+    if (this.isMock) {
+      return "This is a mock adaptation of your essay tailored for the new prompt.";
+    }
+    try {
+      if (userId) await this.trackUsage(userId, 'essay_adaptation');
+      const model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+      const prompt = `You are an expert scholarship essay consultant.
+      The applicant has previously written this essay:
+      "${originalEssay}"
+      
+      They are now applying for a scholarship with this specific prompt:
+      "${newPrompt}"
+      
+      Suggest how they should adapt their original essay to perfectly answer the new prompt. 
+      Provide a revised draft that repurposes their original content but explicitly addresses the new prompt's constraints and themes.
+      Return ONLY the revised text. Do not include any meta-commentary or JSON formatting.`;
+      
+      const result = await withRetry(() => model.generateContent(prompt));
+      const response = await result.response;
+      return response.text().trim();
+    } catch (error) {
+      logger.error('Gemini API Error adapting essay:', error);
+      throw new Error('AI Adaptation temporarily unavailable, please try again');
+    }
+  }
+
   async generateNarrative(resumeData, userId) {
     if (this.isMock) {
       return "I am a professional with extensive experience.";
@@ -296,7 +329,7 @@ class GeminiService {
     }
   }
 
-  async chatWithCoach(sessionHistory, userMessage, resumeContext, userId) {
+  async chatWithCoach(sessionHistory, userMessage, dynamicContext, userId) {
     if (this.isMock) {
       return {
         message: "This is a mock response from your AI resume coach.",
@@ -307,12 +340,13 @@ class GeminiService {
       if (userId) await this.trackUsage(userId, 'coach_chat');
       const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       
-      const promptText = `You are an AI Resume Coach assisting the user with their career goals.
-YOUR ROLE: You provide objective, task-focused advice based on their actual resume data and past conversation.
+      const isScholarship = dynamicContext.type === 'scholarships';
+      const promptText = `You are an AI ${isScholarship ? 'Scholarship & Career Coach' : 'Resume Coach'} assisting the user with their career goals.
+YOUR ROLE: You provide objective, task-focused advice based on their actual ${isScholarship ? 'scholarship applications and essays' : 'resume data'} and past conversation.
 DO NOT act as a human relationship or emotional support figure. Stay strictly task-focused and professional.
 
-Resume Data:
-${JSON.stringify(resumeContext)}
+User Context:
+${JSON.stringify(dynamicContext)}
 
 Conversation History:
 ${JSON.stringify(sessionHistory.map(m => m.role + ': ' + m.message))}
