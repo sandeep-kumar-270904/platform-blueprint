@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const CompanyPrep = require('../models/CompanyPrep');
 const InterviewExperience = require('../models/InterviewExperience');
 const InterviewPrepProgress = require('../models/InterviewPrepProgress');
+const UserActivity = require('../models/UserActivity');
 
 // @route   GET /api/interview-prep/companies
 // @desc    Get all companies with search and filters
@@ -145,6 +146,12 @@ router.post('/progress/:companyId/toggle', auth, async (req, res) => {
     if (reviewed) {
       if (!progress[arrName].includes(questionId)) {
         progress[arrName].push(questionId);
+        
+        await UserActivity.create({
+          user_id: req.user.id,
+          action_type: 'interview_prep_review',
+          target_id: questionId
+        });
       }
     } else {
       progress[arrName] = progress[arrName].filter(id => id.toString() !== questionId.toString());

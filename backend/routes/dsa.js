@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const DSAProblem = require('../models/DSAProblem');
 const DSAProgress = require('../models/DSAProgress');
+const UserActivity = require('../models/UserActivity');
 
 // @route   GET /api/dsa/problems
 // @desc    Get all DSA problems with pagination, search, and filters
@@ -81,6 +82,12 @@ router.post('/problems/:id/solve', auth, async (req, res) => {
     if (solved) {
       if (!progress.solved_problems.includes(problemId)) {
         progress.solved_problems.push(problemId);
+        
+        await UserActivity.create({
+          user_id: req.user.id,
+          action_type: 'dsa_solve',
+          target_id: problemId
+        });
       }
     } else {
       progress.solved_problems = progress.solved_problems.filter(
