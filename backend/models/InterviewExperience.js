@@ -9,7 +9,7 @@ const interviewExperienceSchema = new mongoose.Schema({
     roundName: { type: String, required: true },
     details: { type: String, required: true }
   }],
-  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' }
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('InterviewExperience', interviewExperienceSchema);

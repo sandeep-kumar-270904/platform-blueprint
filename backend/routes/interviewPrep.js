@@ -77,17 +77,28 @@ router.get('/companies/:id/experiences', auth, async (req, res) => {
 router.post('/companies/:id/experiences', auth, async (req, res) => {
   try {
     const { title, outcome, rounds } = req.body;
+
+    // Check if user already has a pending experience for this company
+    const existingPending = await InterviewExperience.findOne({
+      companyId: req.params.id,
+      author: req.user.id,
+      status: 'pending'
+    });
+
+    if (existingPending) {
+      return res.status(400).json({ msg: 'You already have a pending experience for this company.' });
+    }
+
     const newExperience = new InterviewExperience({
       companyId: req.params.id,
       author: req.user.id,
       title,
       outcome,
       rounds,
-      status: 'approved' // auto-approve for now
+      status: 'pending'
     });
     const saved = await newExperience.save();
     
-    // populate author before returning to immediately display
     await saved.populate('author', 'full_name username avatarUrl');
     res.json(saved);
   } catch (err) {
