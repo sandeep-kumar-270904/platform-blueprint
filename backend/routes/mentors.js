@@ -403,6 +403,25 @@ router.post('/bookings', authMiddleware, bookingLimiter, async (req, res) => {
       return res.status(400).json({ message: 'Cannot book in the past' });
     }
 
+    // Check for overlapping bookings for the mentee
+    const menteeBookings = await MentorBooking.find({
+      menteeId: req.user.id,
+      status: { $in: ['requested', 'confirmed'] },
+      scheduledAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // past 24h just in case
+    }).lean();
+    
+    const hasOverlap = menteeBookings.some(b => {
+      const bStart = new Date(b.scheduledAt).getTime();
+      const bEnd = bStart + (b.durationMinutes || 60) * 60000;
+      const targetStart = slotDate.getTime();
+      const targetEnd = targetStart + 60 * 60000; // Assuming 60 min session
+      return (targetStart < bEnd && targetEnd > bStart);
+    });
+
+    if (hasOverlap) {
+      return res.status(409).json({ message: 'You already have a booked session that overlaps with this time slot.' });
+    }
+
     let checkoutUrl = null;
     let stripeSessionId = null;
     let paymentExpiresAt = null;
@@ -539,6 +558,10 @@ router.post('/bookings/:id/cancel', authMiddleware, async (req, res) => {
     // Refund Logic
     const hoursUntilSession = (new Date(booking.scheduledAt) - new Date()) / (1000 * 60 * 60);
     
+    if (isMentee && hoursUntilSession < 4) {
+      return res.status(400).json({ message: 'Cancellations are not permitted within 4 hours of the session start time.' });
+    }
+    
     booking.status = 'cancelled';
     booking.cancellationReason = reason;
     booking.cancelledBy = isMentee ? 'mentee' : 'mentor';
@@ -632,6 +655,11 @@ router.post('/bookings/:id/reschedule', authMiddleware, async (req, res) => {
 
     if (['completed', 'cancelled'].includes(booking.status)) {
       return res.status(400).json({ message: `Cannot reschedule a ${booking.status} booking` });
+    }
+
+    const hoursUntilSession = (new Date(booking.scheduledAt) - new Date()) / (1000 * 60 * 60);
+    if (isMentee && hoursUntilSession < 4) {
+      return res.status(400).json({ message: 'Rescheduling is not permitted within 4 hours of the session start time.' });
     }
 
     const slotDate = new Date(newDate);

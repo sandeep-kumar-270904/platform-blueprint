@@ -284,6 +284,36 @@ connectDB().then(async () => {
         console.error('Error in 24h event reminder cron:', err);
       }
 
+      // --- Mentor Booking Auto-Completion Cron Job ---
+      try {
+        const MentorBooking = require('./models/MentorBooking');
+        const notificationService = require('./services/notificationService');
+        const now = new Date();
+        
+        // Find confirmed bookings that have ended
+        const pastBookings = await MentorBooking.find({
+          status: 'confirmed'
+        }).populate('mentorId');
+        
+        for (const booking of pastBookings) {
+          const sessionEnd = new Date(booking.scheduledAt.getTime() + (booking.durationMinutes || 60) * 60000);
+          if (sessionEnd < now) {
+            booking.status = 'completed';
+            await booking.save();
+            
+            // Notify mentee to leave a review
+            await notificationService.createNotification({
+              userId: booking.menteeId,
+              type: 'mentor_review_request',
+              relatedContentId: booking._id,
+              message: `Your session is complete. Please leave a review!`
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error in Mentor Booking Auto-Completion cron:', err);
+      }
+
       // --- Quiz Difficulty Calibration Cron Job ---
       try {
         const calibrateDifficulty = require('./jobs/quizCalibrationJob');
