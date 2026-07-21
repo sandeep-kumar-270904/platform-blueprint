@@ -284,6 +284,55 @@ connectDB().then(async () => {
         console.error('Error in 24h event reminder cron:', err);
       }
 
+      // --- Mentor Booking Reminders Cron Job (24h & 1h) ---
+      try {
+        const MentorBooking = require('./models/MentorBooking');
+        const notificationService = require('./services/notificationService');
+        const now = new Date();
+        const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const in25Hours = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+        const in1Hour = new Date(now.getTime() + 60 * 60 * 1000);
+        const in2Hours = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+
+        // 24 Hour Reminders
+        const upcoming24h = await MentorBooking.find({
+          scheduledAt: { $gte: in24Hours, $lt: in25Hours },
+          status: 'confirmed',
+          reminded24h: { $ne: true }
+        }).populate('mentorId');
+
+        for (const booking of upcoming24h) {
+          booking.reminded24h = true;
+          await booking.save();
+          await notificationService.createNotification({
+            userId: booking.menteeId,
+            type: 'placement_mock_reminder',
+            message: `Your mock interview with ${booking.mentorId?.name || 'your mentor'} is in 24 hours.`,
+            relatedContentId: booking._id
+          });
+        }
+
+        // 1 Hour Reminders
+        const upcoming1h = await MentorBooking.find({
+          scheduledAt: { $gte: in1Hour, $lt: in2Hours },
+          status: 'confirmed',
+          reminded1h: { $ne: true }
+        }).populate('mentorId');
+
+        for (const booking of upcoming1h) {
+          booking.reminded1h = true;
+          await booking.save();
+          await notificationService.createNotification({
+            userId: booking.menteeId,
+            type: 'placement_mock_reminder',
+            message: `Your mock interview with ${booking.mentorId?.name || 'your mentor'} starts in 1 hour!`,
+            relatedContentId: booking._id
+          });
+        }
+      } catch (err) {
+        console.error('Error in Mentor Booking reminders cron:', err);
+      }
+
       // --- Mentor Booking Auto-Completion Cron Job ---
       try {
         const MentorBooking = require('./models/MentorBooking');
@@ -312,14 +361,68 @@ connectDB().then(async () => {
             // Notify mentee to leave a review
             await notificationService.createNotification({
               userId: booking.menteeId,
-              type: 'mentor_review_request',
-              relatedContentId: booking._id,
-              message: `Your session is complete. Please leave a review!`
+              type: 'placement_feedback_prompt',
+              message: `Your mock session is complete. Please rate your interview with ${booking.mentorId?.name || 'your mentor'}!`,
+              relatedContentId: booking._id
             });
           }
         }
       } catch (err) {
         console.error('Error in Mentor Booking Auto-Completion cron:', err);
+      }
+
+      // --- Placement Streak Alert Cron Job ---
+      try {
+        const UserActivity = require('./models/UserActivity');
+        const User = require('./models/User');
+        const NotificationPreference = require('./models/NotificationPreference');
+        const notificationService = require('./services/notificationService');
+        const now = new Date();
+        
+        // Find users with recent activity (within 48 hours to find those with an active streak)
+        const recentActivities = await UserActivity.find({
+          date: { $gte: new Date(now.getTime() - 48 * 60 * 60 * 1000) }
+        });
+        const activeUserIds = [...new Set(recentActivities.map(a => a.user_id.toString()))];
+
+        for (const userId of activeUserIds) {
+          // Fetch their timezone
+          const pref = await NotificationPreference.findOne({ user_id: userId });
+          const tz = pref?.quiet_hours?.timezone || 'UTC';
+          
+          // Get current local time in their timezone
+          const formatter = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour12: false, hour: 'numeric' });
+          const localHour = parseInt(formatter.format(now), 10);
+          
+          // Only send alert between 18:00 (6 PM) and 20:00 (8 PM) local time to avoid spamming
+          if (localHour >= 18 && localHour <= 20) {
+            // Check if they have logged activity *today* in their local timezone
+            const userActivities = await UserActivity.find({ user_id: userId }).sort({ date: 1 });
+            const localDays = userActivities.map(a => {
+              const d = new Date(a.date);
+              const df = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(d); // YYYY-MM-DD
+              return df;
+            });
+            
+            const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(now);
+            
+            const hasActivityToday = localDays.includes(todayStr);
+            const hasActivityYesterday = localDays.includes(
+              new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(now.getTime() - 24 * 60 * 60 * 1000))
+            );
+            
+            // If they had activity yesterday but NOT today, they are about to lose their streak
+            if (hasActivityYesterday && !hasActivityToday) {
+              await notificationService.createNotification({
+                userId,
+                type: 'placement_streak_alert',
+                message: "Your streak ends today — do one activity to keep it going!"
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error in Placement Streak Alert cron:', err);
       }
 
       // --- Quiz Difficulty Calibration Cron Job ---

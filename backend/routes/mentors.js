@@ -514,6 +514,15 @@ router.post('/bookings', authMiddleware, bookingLimiter, async (req, res) => {
           : `New free session booked for ${slotDate.toLocaleString()}`
       });
 
+      if (booking.status === 'confirmed') {
+        await notificationService.createNotification({
+          userId: req.user.id,
+          type: 'placement_booking_status',
+          relatedContentId: booking._id,
+          message: `Your mock interview with ${mentor.name || 'your mentor'} is confirmed for ${slotDate.toLocaleString()}.`
+        });
+      }
+
       // Increment mentor sessions if free and confirmed immediately
       if (booking.status === 'confirmed') {
         mentor.totalSessions += 1;
@@ -610,6 +619,16 @@ router.post('/bookings/:id/cancel', authMiddleware, async (req, res) => {
     booking.paymentExpiresAt = null;
 
     await booking.save();
+
+    // Notify the other party about the cancellation
+    const targetUserId = isMentee ? booking.mentorId.user_id : booking.menteeId;
+    const actorName = isMentee ? 'Mentee' : 'Mentor';
+    await notificationService.createNotification({
+      userId: targetUserId,
+      type: 'placement_booking_status',
+      relatedContentId: booking._id,
+      message: `Your mock interview was cancelled by the ${actorName}. Reason: ${reason}`
+    });
 
     // Notify waitlist atomically
     try {

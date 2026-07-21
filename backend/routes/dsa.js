@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
 const DSAProblem = require('../models/DSAProblem');
 const DSAProgress = require('../models/DSAProgress');
 const UserActivity = require('../models/UserActivity');
+const notificationService = require('../services/notificationService');
+const auth = require('../middleware/auth');
 
 // @route   GET /api/dsa/problems
 // @desc    Get all DSA problems with pagination, search, and filters
@@ -88,6 +89,15 @@ router.post('/problems/:id/solve', auth, async (req, res) => {
           action_type: 'dsa_solve',
           target_id: problemId
         });
+        
+        // Milestone trigger
+        if (progress.solved_problems.length === 50) {
+          await notificationService.createNotification({
+            userId: req.user.id,
+            type: 'placement_milestone',
+            message: 'Incredible! You solved 50 DSA problems!'
+          });
+        }
       }
     } else {
       progress.solved_problems = progress.solved_problems.filter(
