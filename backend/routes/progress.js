@@ -10,6 +10,15 @@ const UserActivity = require('../models/UserActivity');
 const TargetCompany = require('../models/TargetCompany');
 const CompanyPrep = require('../models/CompanyPrep');
 
+const PROGRESS_WEIGHTS = {
+  dsaTarget: 50,
+  dsaWeight: 0.40,
+  prepTargetScore: 100, // 100% readiness
+  prepWeight: 0.30,
+  mockTarget: 2,
+  mockWeight: 0.30
+};
+
 // @route   GET /api/progress/dashboard
 // @desc    Get aggregated progress dashboard metrics
 // @access  Private
@@ -31,7 +40,7 @@ router.get('/dashboard', auth, async (req, res) => {
 
     // 2. Interview Prep & Target Companies
     let targetCompanyDoc = await TargetCompany.findOne({ user_id: userId }).populate('company_ids');
-    let targetCompanies = targetCompanyDoc ? targetCompanyDoc.company_ids : [];
+    let targetCompanies = targetCompanyDoc ? targetCompanyDoc.company_ids.filter(c => c != null) : [];
     
     // Calculate readiness for target companies
     const prepProgress = await InterviewPrepProgress.find({ user_id: userId });
@@ -41,12 +50,26 @@ router.get('/dashboard', auth, async (req, res) => {
       let totalItems = 0;
       let totalReviewed = 0;
       
+      const userSolvedIds = new Set(dsaProgress ? dsaProgress.solved_problems.map(p => p._id.toString()) : []);
+      const targetCompanyNames = targetCompanies.map(c => c.name);
+      const targetDSAProblems = await DSAProblem.find({ companies: { $in: targetCompanyNames } });
+      
       for (const comp of targetCompanies) {
-        totalItems += (comp.tech_questions?.length || 0) + (comp.hr_tips?.length || 0);
+        // Interview Prep Items
+        let compTotal = (comp.tech_questions?.length || 0) + (comp.hr_tips?.length || 0);
+        let compReviewed = 0;
         const p = prepProgress.find(prog => prog.company_id.toString() === comp._id.toString());
         if (p) {
-          totalReviewed += (p.reviewed_tech?.length || 0) + (p.reviewed_hr?.length || 0);
+          compReviewed += (p.reviewed_tech?.length || 0) + (p.reviewed_hr?.length || 0);
         }
+        
+        // DSA Items for this company
+        const compDSA = targetDSAProblems.filter(prob => prob.companies.includes(comp.name));
+        compTotal += compDSA.length;
+        compReviewed += compDSA.filter(prob => userSolvedIds.has(prob._id.toString())).length;
+        
+        totalItems += compTotal;
+        totalReviewed += compReviewed;
       }
       
       interviewPrepStats.itemsReviewed = totalReviewed;
@@ -62,52 +85,48 @@ router.get('/dashboard', auth, async (req, res) => {
       else if (b.status === 'confirmed') mockStats.upcoming++;
     });
 
-    // We can also fetch the average rating they *received*? The prompt said "average rating received", but mentors don't rate mentees in this model, mentees rate mentors! Wait, maybe they mean "average rating given"? The prompt says "sessions completed, average rating received, upcoming sessions count". 
-    // Since mentees don't get rated by mentors in the current schema (MentorReview is mentee -> mentor), let's just skip it or leave it 0, or we can use the ratings they left. Let's just output the mockStats.
-    
     // 4. Overall Readiness Calculation
-    // DSA Target: 50
-    const dsaScore = Math.min(dsaStats.totalSolved / 50, 1) * 40; // 40%
-    const prepScore = (interviewPrepStats.targetReadiness / 100) * 30; // 30%
-    const mockScore = Math.min(mockStats.completed / 2, 1) * 30; // 30%
+    const dsaScore = Math.min(dsaStats.totalSolved / PROGRESS_WEIGHTS.dsaTarget, 1) * (PROGRESS_WEIGHTS.dsaWeight * 100);
+    const prepScore = (interviewPrepStats.targetReadiness / PROGRESS_WEIGHTS.prepTargetScore) * (PROGRESS_WEIGHTS.prepWeight * 100);
+    const mockScore = Math.min(mockStats.completed / PROGRESS_WEIGHTS.mockTarget, 1) * (PROGRESS_WEIGHTS.mockWeight * 100);
     const overallReadiness = Math.round(dsaScore + prepScore + mockScore);
 
-    // 5. Streaks and Heatmap (UserActivity)
+    // 5. Raw Activities (Streaks calculated on frontend for timezone accuracy)
     const activities = await UserActivity.find({ user_id: userId }).sort({ date: 1 });
+    const history = activities.map(a => a.date);
     
-    // Calculate streaks based on unique days
-    const uniqueDays = new Set(activities.map(a => new Date(a.date).toISOString().split('T')[0]));
-    const sortedDays = Array.from(uniqueDays).sort();
-    
-    let currentStreak = 0;
-    let longestStreak = 0;
-    
-    if (sortedDays.length > 0) {
-      let tempStreak = 1;
-      longestStreak = 1;
-      for (let i = 1; i < sortedDays.length; i++) {
-        const prev = new Date(sortedDays[i - 1]);
-        const curr = new Date(sortedDays[i]);
-        const diffTime = Math.abs(curr - prev);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        if (diffDays === 1) {
-          tempStreak++;
-          longestStreak = Math.max(longestStreak, tempStreak);
-        } else {
-          tempStreak = 1;
-        }
-      }
-      
-      // Check if current streak is active (today or yesterday)
-      const lastDay = new Date(sortedDays[sortedDays.length - 1]);
-      const today = new Date();
-      const diffToday = Math.ceil(Math.abs(today - lastDay) / (1000 * 60 * 60 * 24));
-      if (diffToday <= 1) {
-        currentStreak = tempStreak;
-      } else {
-        currentStreak = 0;
-      }
+    // 6. Focus Area Detection (Server-Side Rules)
+    const focusAreas = [];
+    if (dsaStats.totalSolved < 10) {
+      focusAreas.push({
+        title: "Low DSA Progress",
+        desc: "Solve more problems to build foundational logic.",
+        link: "/placement/dsa",
+        btnText: "Practice DSA"
+      });
+    }
+    if (interviewPrepStats.companiesTargeted === 0) {
+      focusAreas.push({
+        title: "No Target Companies",
+        desc: "Select companies to track interview-specific readiness.",
+        link: "#targets",
+        btnText: "Select Targets"
+      });
+    } else if (interviewPrepStats.targetReadiness < 50) {
+      focusAreas.push({
+        title: "Target Prep is Low",
+        desc: "Review more technical and HR questions for your target companies.",
+        link: "/placement/interview-prep",
+        btnText: "Review Prep"
+      });
+    }
+    if (mockStats.completed === 0) {
+      focusAreas.push({
+        title: "No Mock Interviews",
+        desc: "Practice with professionals to reduce real-world anxiety.",
+        link: "/placement/mock-interviews",
+        btnText: "Book Session"
+      });
     }
 
     res.json({
@@ -115,11 +134,8 @@ router.get('/dashboard', auth, async (req, res) => {
       dsaStats,
       interviewPrepStats,
       mockStats,
-      streaks: {
-        currentStreak,
-        longestStreak,
-        history: sortedDays // for heatmap
-      },
+      history,
+      focusAreas,
       targetCompanies
     });
 
@@ -160,8 +176,9 @@ router.post('/target-companies', auth, async (req, res) => {
 // @access  Private
 router.get('/target-companies', auth, async (req, res) => {
   try {
-    let targets = await TargetCompany.findOne({ user_id: req.user.id }).populate('company_ids');
-    res.json(targets ? targets.company_ids : []);
+    let targetCompanyDoc = await TargetCompany.findOne({ user_id: req.user.id }).populate('company_ids');
+    let targetCompanies = targetCompanyDoc ? targetCompanyDoc.company_ids.filter(c => c != null) : [];
+    res.json(targetCompanies);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

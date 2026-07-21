@@ -33,39 +33,77 @@ export default function PlacementDashboard() {
   if (isLoading) return <div className="min-h-screen bg-background flex items-center justify-center">Loading dashboard...</div>;
   if (isError || !progress) return <div className="min-h-screen bg-background flex items-center justify-center">Failed to load progress</div>;
 
-  // Compute Focus Areas dynamically
-  const focusAreas = [];
-  if (progress.dsaStats.totalSolved < 10) {
-    focusAreas.push({
-      title: "Low DSA Progress",
-      desc: "Solve more problems to build foundational logic.",
-      link: "/placement/dsa",
-      btnText: "Practice DSA"
-    });
+  // Zero Activity State (Get Started)
+  if (progress.overallReadiness === 0 && progress.history.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8 mt-16 flex flex-col items-center justify-center min-h-[70vh] text-center">
+          <div className="bg-primary/10 p-6 rounded-full mb-6">
+            <Target className="w-16 h-16 text-primary" />
+          </div>
+          <h1 className="text-4xl font-bold tracking-tight mb-4">Get Started with Placement Prep</h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
+            Your dashboard is empty because you haven't started your preparation journey yet. Solve DSA problems, review interview questions, or book mock interviews to see your progress here!
+          </p>
+          <div className="flex gap-4">
+            <Button size="lg" asChild>
+              <Link to="/placement/dsa">Practice DSA</Link>
+            </Button>
+            <Button size="lg" variant="outline" asChild>
+              <Link to="/placement/interview-prep">Explore Companies</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
-  if (progress.interviewPrepStats.companiesTargeted === 0) {
-    focusAreas.push({
-      title: "No Target Companies",
-      desc: "Select companies to track interview-specific readiness.",
-      link: "#targets",
-      btnText: "Select Targets"
+
+  // Calculate streaks in local timezone
+  const calculateStreaks = (rawHistory: string[]) => {
+    // Map to local calendar days (YYYY-MM-DD in local time)
+    const localDays = rawHistory.map(d => {
+      const date = new Date(d);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     });
-  } else if (progress.interviewPrepStats.targetReadiness < 50) {
-    focusAreas.push({
-      title: "Target Prep is Low",
-      desc: "Review more technical and HR questions for your target companies.",
-      link: "/placement/interview-prep",
-      btnText: "Review Prep"
-    });
-  }
-  if (progress.mockStats.completed === 0) {
-    focusAreas.push({
-      title: "No Mock Interviews",
-      desc: "Practice with professionals to reduce real-world anxiety.",
-      link: "/placement/mock-interviews",
-      btnText: "Book Session"
-    });
-  }
+    const uniqueDays = Array.from(new Set(localDays)).sort();
+    
+    let currentStreak = 0;
+    let longestStreak = 0;
+    
+    if (uniqueDays.length > 0) {
+      let tempStreak = 1;
+      longestStreak = 1;
+      for (let i = 1; i < uniqueDays.length; i++) {
+        const prev = new Date(uniqueDays[i - 1]);
+        const curr = new Date(uniqueDays[i]);
+        // Difference in local calendar days
+        const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 1) {
+          tempStreak++;
+          longestStreak = Math.max(longestStreak, tempStreak);
+        } else {
+          tempStreak = 1;
+        }
+      }
+      
+      const lastDay = new Date(uniqueDays[uniqueDays.length - 1]);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Local midnight today
+      lastDay.setHours(0, 0, 0, 0); // Local midnight last active day
+      
+      const diffToday = Math.round((today.getTime() - lastDay.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffToday <= 1) {
+        currentStreak = tempStreak;
+      }
+    }
+    
+    return { currentStreak, longestStreak, history: uniqueDays };
+  };
+
+  const { currentStreak, longestStreak, history } = calculateStreaks(progress.history);
+  const focusAreas = progress.focusAreas || [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -158,9 +196,9 @@ export default function PlacementDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="targets">
             <ScrollReveal delay={0.2}>
               <ActivityHeatmap 
-                history={progress.streaks.history} 
-                currentStreak={progress.streaks.currentStreak}
-                longestStreak={progress.streaks.longestStreak}
+                history={history} 
+                currentStreak={currentStreak}
+                longestStreak={longestStreak}
               />
             </ScrollReveal>
             <ScrollReveal delay={0.3}>

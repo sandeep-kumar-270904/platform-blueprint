@@ -8,7 +8,8 @@ export interface ProgressData {
   dsaStats: { totalSolved: number; easy: number; medium: number; hard: number; };
   interviewPrepStats: { companiesTargeted: number; targetReadiness: number; itemsReviewed: number; };
   mockStats: { completed: number; upcoming: number; averageRating: number; };
-  streaks: { currentStreak: number; longestStreak: number; history: string[]; };
+  history: string[]; // Raw date strings
+  focusAreas: { title: string; desc: string; link: string; btnText: string; }[];
   targetCompanies: any[]; // Populated company_ids array
 }
 
