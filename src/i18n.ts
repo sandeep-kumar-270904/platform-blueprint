@@ -25,7 +25,26 @@ const resources = {
       "Thinking...": "Thinking...",
       "Add to Calendar": "Add to Calendar",
       "Host Tools": "Host Tools",
-      "Discover Sessions": "Discover Sessions"
+      "Discover Sessions": "Discover Sessions",
+      "Community": "Community",
+      "Community Feed": "Community Feed",
+      "Share an update, idea, or achievement...": "Share an update, idea, or achievement...",
+      "Post": "Post",
+      "Drafts": "Drafts",
+      "Saved": "Saved",
+      "Trending Tags": "Trending Tags",
+      "Followers": "Followers",
+      "Following": "Following",
+      "Search community...": "Search community...",
+      "Sort by": "Sort by",
+      "Recent": "Recent",
+      "Top": "Top",
+      "No posts found": "No posts found",
+      "Moderation": "Moderation",
+      "Approve": "Approve",
+      "Reject": "Reject",
+      "Warn User": "Warn User",
+      "Flagged Posts": "Flagged Posts"
     }
   },
   es: {
@@ -50,7 +69,26 @@ const resources = {
       "Thinking...": "Pensando...",
       "Add to Calendar": "Añadir al Calendario",
       "Host Tools": "Herramientas de Anfitrión",
-      "Discover Sessions": "Descubrir Sesiones"
+      "Discover Sessions": "Descubrir Sesiones",
+      "Community": "Comunidad",
+      "Community Feed": "Feed de la Comunidad",
+      "Share an update, idea, or achievement...": "Comparte una actualización, idea o logro...",
+      "Post": "Publicar",
+      "Drafts": "Borradores",
+      "Saved": "Guardado",
+      "Trending Tags": "Etiquetas Populares",
+      "Followers": "Seguidores",
+      "Following": "Siguiendo",
+      "Search community...": "Buscar en la comunidad...",
+      "Sort by": "Ordenar por",
+      "Recent": "Reciente",
+      "Top": "Mejor",
+      "No posts found": "No se encontraron publicaciones",
+      "Moderation": "Moderación",
+      "Approve": "Aprobar",
+      "Reject": "Rechazar",
+      "Warn User": "Advertir Usuario",
+      "Flagged Posts": "Publicaciones Marcadas"
     }
   },
   ar: {
@@ -75,7 +113,26 @@ const resources = {
       "Thinking...": "يفكر...",
       "Add to Calendar": "إضافة للتقويم",
       "Host Tools": "أدوات المضيف",
-      "Discover Sessions": "اكتشاف الجلسات"
+      "Discover Sessions": "اكتشاف الجلسات",
+      "Community": "المجتمع",
+      "Community Feed": "تغذية المجتمع",
+      "Share an update, idea, or achievement...": "شارك تحديثاً أو فكرة أو إنجازاً...",
+      "Post": "نشر",
+      "Drafts": "مسودات",
+      "Saved": "محفوظ",
+      "Trending Tags": "العلامات الرائجة",
+      "Followers": "متابعون",
+      "Following": "يتابع",
+      "Search community...": "ابحث في المجتمع...",
+      "Sort by": "ترتيب حسب",
+      "Recent": "الأحدث",
+      "Top": "الأفضل",
+      "No posts found": "لم يتم العثور على منشورات",
+      "Moderation": "إشراف",
+      "Approve": "موافقة",
+      "Reject": "رفض",
+      "Warn User": "تحذير المستخدم",
+      "Flagged Posts": "المنشورات المبلغ عنها"
     }
   }
 };

@@ -412,3 +412,5 @@ Respond STRICTLY with a valid JSON object matching this schema, without markdown
 }
 
 module.exports = new GeminiService();
+
+exports.getStackingStrategy = async () => { /* stacking strategy */ };

@@ -9,7 +9,7 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
-import { GraduationCap, Menu, X, LayoutDashboard, Search, Loader2, MapPin, Calendar, Building2 } from "lucide-react";
+import { GraduationCap, Menu, X, LayoutDashboard, Search, Loader2, MapPin, Calendar, Building2, Moon, Sun, BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -95,9 +95,33 @@ export const Header = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('theme') === 'dark' || document.documentElement.classList.contains('dark');
+  });
+
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode;
+    setIsDarkMode(newTheme);
+    if (newTheme) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<{colleges: any[], events: any[], courses: any[]}>({ colleges: [], events: [], courses: [] });
+  const [searchResults, setSearchResults] = useState<{colleges: any[], events: any[], courses: any[], posts?: any[], tags?: any[]}>({ colleges: [], events: [], courses: [] });
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -374,7 +398,17 @@ export const Header = () => {
             )}
           </div>
 
-          {user && (
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={toggleTheme} 
+            className="hidden sm:inline-flex mr-1"
+            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+
+          {user ? (
             <>
               <NotificationBell />
               <Link to="/dashboard">
@@ -384,8 +418,21 @@ export const Header = () => {
                 </Button>
               </Link>
             </>
+          ) : (
+            <Link to="/auth">
+              <Button className="hidden md:inline-flex">Sign In</Button>
+            </Link>
           )}
           
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={toggleTheme} 
+            className="sm:hidden"
+          >
+            {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+
           {/* Mobile Menu Button */}
           <Button
             variant="ghost"

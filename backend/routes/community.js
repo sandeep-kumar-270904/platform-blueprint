@@ -9,6 +9,8 @@ const CommunityReport = require('../models/CommunityReport');
 const UserFollow = require('../models/UserFollow');
 const UserInterest = require('../models/UserInterest');
 const User = require('../models/User');
+const CertificationRecord = require('../models/CertificationRecord');
+const Notification = require('../models/Notification');
 const authMiddleware = require('../middleware/auth');
 const notificationService = require('../services/notificationService');
 const jwt = require('jsonwebtoken');
@@ -41,10 +43,75 @@ const optionalAuth = async (req, res, next) => {
   next();
 };
 
+// GET /api/community/dashboard/stats
+router.get('/dashboard/stats', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Add caching for dashboard reads (short-lived for aggregates)
+    res.set('Cache-Control', 'private, max-age=60');
+    
+    const [posts, followers, unsharedCerts, unreadNotifications, savedPostsAll] = await Promise.all([
+      CommunityPost.find({ user_id: userId }).lean(),
+      UserFollow.countDocuments({ followed_id: userId }),
+      CertificationRecord.find({ userId: userId, is_shared_to_community: { $ne: true } }).lean(),
+      Notification.find({ 
+        userId: userId, 
+        isRead: false, 
+        type: { $regex: '^community_' } 
+      }).sort({ createdAt: -1 }).limit(5).lean(),
+      SavedCommunityPost.find({ user_id: userId }).populate('post_id').sort({ createdAt: -1 }).lean()
+    ]);
+    
+    const totalPosts = posts.length;
+    const totalLikes = posts.reduce((sum, p) => sum + (p.like_count || 0), 0);
+    const totalComments = posts.reduce((sum, p) => sum + (p.comment_count || 0), 0);
+    
+    const recentPosts = posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 3);
+    const pendingPosts = posts.filter(p => p.status === 'pending_review');
+    const hasWarnings = pendingPosts.length > 0;
+    
+    // Process saved posts
+    const savedPostsCount = savedPostsAll.length;
+    const recentSavedPosts = savedPostsAll.slice(0, 3).map(s => s.post_id).filter(p => p);
+    
+    res.json({
+      stats: {
+        posts: totalPosts,
+        likesReceived: totalLikes,
+        commentsReceived: totalComments,
+        followers: followers
+      },
+      recentPosts,
+      recentNotifications: unreadNotifications,
+      savedPosts: {
+        count: savedPostsCount,
+        recent: recentSavedPosts
+      },
+      unsharedCerts,
+      hasWarnings,
+      pendingPostsCount: pendingPosts.length
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // GET /api/community/posts
 router.get('/posts', optionalAuth, async (req, res) => {
   try {
     res.set('Cache-Control', 'public, max-age=0, must-revalidate');
+    
+    // Generate weak ETag based on total post count and latest update timestamp
+    const latestPost = await CommunityPost.findOne({}, 'updatedAt').sort({ updatedAt: -1 }).lean();
+    const postCount = await CommunityPost.countDocuments();
+    const etag = `W/"${postCount}-${latestPost ? new Date(latestPost.updatedAt).getTime() : 0}"`;
+    
+    if (req.headers['if-none-match'] === etag) {
+      return res.status(304).end();
+    }
+    res.set('ETag', etag);
+
     const { page = 1, limit = 20, sort = 'newest', tag, search } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
@@ -431,6 +498,19 @@ router.post('/posts', authMiddleware, async (req, res) => {
       status = 'pending_review';
     }
 
+    // Basic NSFW mock check on uploaded images
+    if (req.body.image_urls && req.body.image_urls.length > 0) {
+      const inappropriateKeywords = ['nsfw', 'naked', 'blood', 'violence', 'gore', 'porn', 'explicit'];
+      const hasInappropriateImage = req.body.image_urls.some(url => {
+        const lowerUrl = url.toLowerCase();
+        return inappropriateKeywords.some(keyword => lowerUrl.includes(keyword));
+      });
+      if (hasInappropriateImage) {
+        auto_flag_reason = 'Image flagged for inappropriate content';
+        status = 'pending_review';
+      }
+    }
+
     // Parse @mentions
     const mentionMatches = content.match(/(^|\s)@([a-zA-Z0-9_]+)/g);
     let mentionedUserIds = [];
@@ -440,23 +520,37 @@ router.post('/posts', authMiddleware, async (req, res) => {
       mentionedUserIds = users.map(u => u._id);
     }
 
-    // Parse link preview
+    // Parse link preview and YouTube
     let link_preview = undefined;
-    const urlMatch = content.match(/(https?:\/\/[^\s]+)/);
-    if (urlMatch) {
-      try {
-        const url = urlMatch[0];
-        const response = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
-        const $ = cheerio.load(response.data);
-        const title = $('meta[property="og:title"]').attr('content') || $('title').text() || '';
-        const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
-        const image = $('meta[property="og:image"]').attr('content') || '';
-        const siteName = $('meta[property="og:site_name"]').attr('content') || new URL(url).hostname;
-        
-        if (title || image) {
-          link_preview = { title, description, image, siteName, url };
-        }
-      } catch (err) {}
+    const ytMatch = content.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+    
+    if (ytMatch && ytMatch[1]) {
+      const youtube_video_id = ytMatch[1];
+      link_preview = {
+        title: 'YouTube Video',
+        description: '',
+        image: `https://img.youtube.com/vi/${youtube_video_id}/0.jpg`,
+        siteName: 'YouTube',
+        url: `https://www.youtube.com/watch?v=${youtube_video_id}`,
+        youtube_video_id: youtube_video_id
+      };
+    } else {
+      const urlMatch = content.match(/(https?:\/\/[^\s]+)/);
+      if (urlMatch) {
+        try {
+          const url = urlMatch[0];
+          const response = await axios.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 5000 });
+          const $ = cheerio.load(response.data);
+          const title = $('meta[property="og:title"]').attr('content') || $('title').text() || '';
+          const description = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || '';
+          const image = $('meta[property="og:image"]').attr('content') || '';
+          const siteName = $('meta[property="og:site_name"]').attr('content') || new URL(url).hostname;
+          
+          if (title || image) {
+            link_preview = { title, description, image, siteName, url };
+          }
+        } catch (err) {}
+      }
     }
 
     const newPost = new CommunityPost({
@@ -478,6 +572,10 @@ router.post('/posts', authMiddleware, async (req, res) => {
     });
 
     const savedPost = await newPost.save();
+    
+    if (req.body.template === 'achievement' && req.body.certification_id) {
+      await CertificationRecord.findByIdAndUpdate(req.body.certification_id, { is_shared_to_community: true });
+    }
     
     const user = await User.findById(req.user.id, 'full_name username avatar_url').lean();
     
@@ -541,13 +639,18 @@ router.post('/posts/:id/like', authMiddleware, async (req, res) => {
       
       // Notify author if they didn't like their own post
       if (post.user_id.toString() !== userId) {
-          await notificationService.createNotification({
-            userId: post.user_id,
-            message: `Someone reacted to your community post.`,
-            type: 'community_post_liked',
-            relatedContentId: post._id,
-            actionUrl: `/community`
-          });
+          const targetUser = await User.findById(post.user_id).lean();
+          const isMuted = targetUser && targetUser.muted_posts && targetUser.muted_posts.some(id => id.toString() === post._id.toString());
+          if (!isMuted) {
+            await notificationService.createNotification({
+              userId: post.user_id,
+              message: `Someone reacted to your community post.`,
+              type: 'community_post_liked',
+              relatedContentId: post._id,
+              actionUrl: `/community`,
+              actorId: req.user.id
+            });
+          }
       }
     }
 
@@ -596,6 +699,27 @@ router.get('/posts/:id', optionalAuth, async (req, res) => {
       
       if (isBlockedByAuthor || hasBlockedAuthor) {
         return res.status(403).json({ message: 'Post is no longer available' });
+      }
+    }
+    
+    // Privacy enforcement
+    if (post.privacy && post.privacy !== 'public' && post.user_id && (!req.user || (req.user.role !== 'admin' && req.user.id !== post.user_id._id.toString()))) {
+      if (!req.user) {
+        return res.status(403).json({ message: 'Authentication required to view this post' });
+      }
+      
+      const currentUser = await User.findById(req.user.id, 'following clubs').lean();
+      
+      if (post.privacy === 'followers') {
+        const isFollowing = currentUser && currentUser.following && currentUser.following.some(id => id.toString() === post.user_id._id.toString());
+        if (!isFollowing) {
+          return res.status(403).json({ message: 'Post is available to followers only' });
+        }
+      } else if (post.privacy === 'club' && post.club_id) {
+        const isMember = currentUser && currentUser.clubs && currentUser.clubs.some(id => id.toString() === post.club_id);
+        if (!isMember) {
+          return res.status(403).json({ message: 'Post is available to club members only' });
+        }
       }
     }
 
@@ -686,13 +810,18 @@ router.post('/posts/:id/comments', authMiddleware, async (req, res) => {
     
     const post = await CommunityPost.findById(postId);
     if (post && post.user_id.toString() !== req.user.id) {
-        await notificationService.createNotification({
-          userId: post.user_id,
-          message: 'Someone commented on your community post.',
-          type: 'community_post_commented',
-          relatedContentId: post._id,
-          actionUrl: `/community`
-        });
+        const targetUser = await User.findById(post.user_id).lean();
+        const isMuted = targetUser && targetUser.muted_posts && targetUser.muted_posts.some(id => id.toString() === post._id.toString());
+        if (!isMuted) {
+          await notificationService.createNotification({
+            userId: post.user_id,
+            message: 'Someone commented on your community post.',
+            type: 'community_post_commented',
+            relatedContentId: post._id,
+            actionUrl: `/community`,
+            actorId: req.user.id
+          });
+        }
     }
 
     req.io.to(`community_post_${postId}`).emit('community_comment_created', savedComment);
@@ -719,6 +848,30 @@ router.get('/posts/:id/reactions', optionalAuth, async (req, res) => {
     }));
     
     res.json(reactions);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/community/posts/:id/mute
+router.post('/posts/:id/mute', authMiddleware, async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    const mutedIndex = user.muted_posts.findIndex(id => id.toString() === postId);
+    let isMuted = false;
+    
+    if (mutedIndex === -1) {
+      user.muted_posts.push(postId);
+      isMuted = true;
+    } else {
+      user.muted_posts.splice(mutedIndex, 1);
+    }
+    
+    await user.save();
+    res.json({ action: isMuted ? 'muted' : 'unmuted' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

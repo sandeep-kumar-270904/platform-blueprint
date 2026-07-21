@@ -497,6 +497,23 @@ export async function toggleMuteUser(userId: string) {
   }
 }
 
+export async function toggleMutePost(postId: string) {
+  const token = localStorage.getItem("token");
+  if (!token) { toast.error("Please sign in"); return null; }
+  
+  try {
+    const res = await fetch(`${API_URL}/api/community/posts/${postId}/mute`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+    });
+    if (!res.ok) throw new Error("Failed to mute post");
+    return await res.json();
+  } catch (err: any) {
+    toast.error(err.message);
+    return null;
+  }
+}
+
 export async function toggleBlockUser(userId: string) {
   const token = localStorage.getItem("token");
   if (!token) { toast.error("Please sign in"); return null; }

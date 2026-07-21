@@ -3,6 +3,10 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
+
+// Simple in-memory cache for idempotency
+const processedUploads = new Map();
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, '../uploads');
@@ -47,7 +51,12 @@ const uploadEvidence = multer({
 
 // POST /api/uploads/multiple - Upload multiple general files (up to 4)
 router.post('/multiple', (req, res) => {
-  upload.array('files', 4)(req, res, function (err) {
+  const idempotencyKey = req.headers['idempotency-key'];
+  if (idempotencyKey && processedUploads.has(idempotencyKey)) {
+    return res.status(200).json(processedUploads.get(idempotencyKey));
+  }
+
+  upload.array('files', 4)(req, res, async function (err) {
     if (err instanceof multer.MulterError) {
       return res.status(400).json({ message: 'Multer error', error: err.message });
     } else if (err) {
@@ -59,12 +68,38 @@ router.post('/multiple', (req, res) => {
         return res.status(400).json({ message: 'No files uploaded' });
       }
       
-      const publicUrls = req.files.map(file => `/uploads/${file.filename}`);
+      const publicUrls = [];
+      for (const file of req.files) {
+        if (file.mimetype.startsWith('image/')) {
+          const optimizedFilename = 'optimized-' + file.filename + '.jpg';
+          const resizedPath = path.join(uploadDir, optimizedFilename);
+          await sharp(file.path)
+            .resize({ width: 1200, withoutEnlargement: true })
+            .jpeg({ quality: 80 })
+            .toFile(resizedPath);
+          
+          fs.unlinkSync(file.path);
+          publicUrls.push(`/uploads/${optimizedFilename}`);
+        } else {
+          publicUrls.push(`/uploads/${file.filename}`);
+        }
+      }
       
-      res.status(200).json({ 
+      const responsePayload = { 
         message: 'Files uploaded successfully', 
         urls: publicUrls 
-      });
+      };
+
+      if (idempotencyKey) {
+        processedUploads.set(idempotencyKey, responsePayload);
+        // Simple cache limit
+        if (processedUploads.size > 1000) {
+          const firstKey = processedUploads.keys().next().value;
+          processedUploads.delete(firstKey);
+        }
+      }
+      
+      res.status(200).json(responsePayload);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Server error during upload' });

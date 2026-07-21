@@ -890,7 +890,7 @@ class CronService {
                         userId,
                         type: 'scholarship_deadline',
                         relatedContentId: scholarship._id,
-                        message: `Reminder: The scholarship "${scholarship.title}" is due in ${diffDays} day(s).`
+                        message: `Reminder: The deadline for scholarship "${scholarship.title}" is in ${diffDays} day(s).`
                     });
                     
                     try {
@@ -968,6 +968,9 @@ class CronService {
     try {
       const User = require('../models/User');
       const CommunityPost = require('../models/CommunityPost');
+      const CommunityLike = require('../models/CommunityLike');
+      const CommunityComment = require('../models/CommunityComment');
+      const Follow = require('../models/Follow'); // Assuming a Follow model exists
       const notificationService = require('./notificationService');
       
       const oneWeekAgo = new Date();
@@ -976,20 +979,52 @@ class CronService {
       const activeUsers = await User.find({}).lean();
       
       for (const user of activeUsers) {
-        // Count posts and likes in the last 7 days for this user
-        const posts = await CommunityPost.find({ 
-          user_id: user._id, 
-          created_at: { $gte: oneWeekAgo } 
-        });
+        // 1. New followers in the last 7 days (graceful fallback if Follow doesn't exist)
+        let newFollowersCount = 0;
+        try {
+          newFollowersCount = await Follow.countDocuments({
+            followed_id: user._id,
+            created_at: { $gte: oneWeekAgo }
+          });
+        } catch(e) { }
+
+        // 2. Engagement in last 7 days
+        const userPosts = await CommunityPost.find({ user_id: user._id }).lean();
+        const postIds = userPosts.map(p => p._id);
         
-        const newPostsCount = posts.length;
-        const newLikesCount = posts.reduce((sum, p) => sum + (p.like_count || 0), 0);
-        
-        if (newPostsCount > 0 || newLikesCount > 0) {
-          await notificationService.createNotification({
+        const newLikes = await CommunityLike.countDocuments({
+          post_id: { $in: postIds },
+          createdAt: { $gte: oneWeekAgo } // Use the correct timestamp field
+        }).catch(() => 0);
+
+        const newComments = await CommunityComment.countDocuments({
+          post_id: { $in: postIds },
+          created_at: { $gte: oneWeekAgo }
+        }).catch(() => 0);
+
+        const totalEngagement = newLikes + newComments;
+
+        // 3. Top post from the week
+        let topPost = null;
+        let maxEng = -1;
+        for (const post of userPosts) {
+           const eng = (post.like_count || 0) + (post.comment_count || 0);
+           if (eng > maxEng && post.created_at >= oneWeekAgo) {
+             maxEng = eng;
+             topPost = post;
+           }
+        }
+
+        if (totalEngagement > 0 || newFollowersCount > 0 || topPost) {
+          await notificationService.sendNotification({
             userId: user._id,
             type: 'weekly_digest',
-            message: `Your Weekly Community Digest: You made ${newPostsCount} posts and received ${newLikesCount} likes this week!`
+            message: `Your Week in Review: ${newFollowersCount} New Followers, ${totalEngagement} Post Reactions.`,
+            metadata: {
+               newFollowers: newFollowersCount,
+               postReactions: totalEngagement,
+               topPostText: topPost ? topPost.text : 'No posts this week.'
+            }
           });
         }
       }

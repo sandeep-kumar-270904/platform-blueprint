@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const NotificationPreference = require('../models/NotificationPreference');
+const CommunityPost = require('../models/CommunityPost');
+const CommunityComment = require('../models/CommunityComment');
+const CommunityLike = require('../models/CommunityLike');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
@@ -108,22 +112,31 @@ router.post('/change-password', auth, async (req, res) => {
   }
 });
 
-router.post('/export-data', auth, async (req, res) => {
+router.post('/request-data-export', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-
-    // In a real app, this would trigger a background job (e.g. BullMQ) 
-    // to gather all data (notes, flashcards, etc.), create a zip/json file, 
-    // and email a signed download link.
-    // For now, we simulate success.
     
-    // Simulate background process
-    setTimeout(() => {
-      console.log(`[Background Job] Data export ready for ${user.email}`);
-    }, 5000);
-
-    res.json({ message: 'Data export initiated' });
+    const posts = await CommunityPost.find({ user_id: req.user.id });
+    const comments = await CommunityComment.find({ user_id: req.user.id });
+    const likes = await CommunityLike.find({ user_id: req.user.id });
+    
+    const exportData = {
+      profile: {
+        username: user.username,
+        email: user.email,
+        joinedAt: user.createdAt
+      },
+      communityActivity: {
+        posts,
+        comments,
+        likes
+      }
+    };
+    
+    res.setHeader('Content-disposition', 'attachment; filename=my-activity.json');
+    res.setHeader('Content-type', 'application/json');
+    return res.status(200).send(JSON.stringify(exportData, null, 2));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -139,8 +152,13 @@ router.post('/delete-account', auth, async (req, res) => {
       return res.status(400).json({ message: 'Email does not match' });
     }
 
-    // Soft delete: keep the record but mark as deleted
+    // Soft delete & anonymize: keep the record but strip PII so posts remain as "Deleted User"
     user.deletedAt = new Date();
+    user.username = `DeletedUser_${user._id}`;
+    user.full_name = "Deleted User";
+    user.avatar_url = null;
+    user.email = `${user._id}@deleted.local`;
+    
     // Invalidate sessions
     user.refreshToken = null;
     await user.save();
@@ -162,9 +180,26 @@ router.post('/delete-account', auth, async (req, res) => {
 // GET /api/settings/notifications
 router.get('/notifications', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).lean();
     if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json({ preferences: user.notificationPreferences });
+    
+    let pref = await NotificationPreference.findOne({ user_id: req.user.id }).lean();
+    if (!pref) {
+      pref = {
+        toggles: {
+          community_like: true, community_comment: true, community_mention: true, community_follow: true, community_post: true, weekly_digest: true
+        },
+        quiet_hours: { enabled: false, start_time: '22:00', end_time: '08:00' }
+      };
+    }
+    
+    res.json({ 
+      preferences: {
+        ...user.notificationPreferences,
+        toggles: pref.toggles,
+        quiet_hours: pref.quiet_hours
+      } 
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -203,9 +238,24 @@ router.put('/notifications', auth, async (req, res) => {
         };
       }
     }
-    
     await user.save();
-    res.json({ message: 'Preferences updated', preferences: user.notificationPreferences });
+
+    // Update NotificationPreference
+    if (preferences.toggles || preferences.quiet_hours) {
+      let pref = await NotificationPreference.findOne({ user_id: req.user.id });
+      if (!pref) {
+        pref = new NotificationPreference({ user_id: req.user.id });
+      }
+      if (preferences.toggles) {
+        pref.toggles = { ...pref.toggles, ...preferences.toggles };
+      }
+      if (preferences.quiet_hours) {
+        pref.quiet_hours = { ...pref.quiet_hours, ...preferences.quiet_hours };
+      }
+      await pref.save();
+    }
+
+    res.json({ message: 'Preferences updated' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

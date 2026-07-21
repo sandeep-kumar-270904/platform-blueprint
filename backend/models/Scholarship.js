@@ -152,6 +152,8 @@ const scholarshipSchema = new mongoose.Schema({
   
   // Later Phases Fields (retained so they don't break)
   isEmergencyAid: { type: Boolean, default: false },
+  isMicroScholarship: { type: Boolean, default: false },
+  optInToHiring: { type: Boolean, default: false },
   stackingRules: {
     canCombineWithOthers: { type: Boolean, default: true },
     excludedScholarshipIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Scholarship' }],
@@ -205,10 +207,7 @@ const scholarshipSchema = new mongoose.Schema({
     translationSource: { type: String, enum: ['gemini', 'manual'], required: true },
     translatedAt: { type: Date }
   }],
-  institutionExclusivity: {
-    institutionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institution', default: null },
-    exclusivityType: { type: String, enum: ['exclusive', 'priority'], default: null }
-  },
+
   managedByInstitution: { type: Boolean, default: false },
   isEmergencyAid: { type: Boolean, default: false },
   
@@ -228,19 +227,21 @@ const scholarshipSchema = new mongoose.Schema({
 
   // Phase 9 & 11: Trust and Staleness
   communityTrustScore: { type: Number, default: 0 },
-  isScamFlagged: { type: Boolean, default: false }
+  isScamFlagged: { type: Boolean, default: false },
+  // learning-path field
+  learningPathUrl: { type: String },
+  subtype: { type: String, enum: ["micro", "full", "partial"] } // Micro-scholarship
 }, { timestamps: true });
 
 // Pre-validate hook for emergency aid constraints
-scholarshipSchema.pre('validate', function(next) {
+scholarshipSchema.pre('validate', function() {
   if (this.isEmergencyAid && this.inAppRequirements && this.inAppRequirements.length > 4) {
     this.invalidate('inAppRequirements', 'Emergency aid scholarships cannot have more than 4 in-app requirements.');
   }
-  next();
 });
 
 // Pre-save to derive providerVerification
-scholarshipSchema.pre('save', async function(next) {
+scholarshipSchema.pre('save', async function() {
   if (this.isModified('source') || this.isModified('submittedBy') || this.isNew) {
     if (this.source === 'admin') {
       this.providerVerification = 'admin_added';
@@ -262,29 +263,26 @@ scholarshipSchema.pre('save', async function(next) {
       }
     }
   }
-  next();
 });
 
 // Pre-save to auto-close if pool exhausted or award count reached
-scholarshipSchema.pre('save', function(next) {
+scholarshipSchema.pre('save', function() {
   if (this.institutionAllocation && this.institutionAllocation.institutionId) {
     if (this.institutionAllocation.remainingPoolAmount <= 0 && this.status !== 'expired') {
       this.status = 'archived';
     }
   }
-  next();
 });
 
 // Pre-save to enforce fieldKey uniqueness in inAppRequirements
-scholarshipSchema.pre('save', function(next) {
+scholarshipSchema.pre('save', function() {
   if (this.applicationMode === 'in_app' && this.inAppRequirements) {
     const keys = this.inAppRequirements.map(req => req.fieldKey);
     const uniqueKeys = new Set(keys);
     if (uniqueKeys.size !== keys.length) {
-      return next(new Error('inAppRequirements fieldKeys must be unique'));
+      throw new Error('inAppRequirements fieldKeys must be unique');
     }
   }
-  next();
 });
 
 // Indexes

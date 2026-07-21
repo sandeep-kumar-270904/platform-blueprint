@@ -109,6 +109,7 @@ router.get('/', async (req, res) => {
       .limit(5),
       
       CommunityPost.find({
+        status: { $nin: ['hidden', 'deleted', 'pending_review'] },
         $or: [
           { content: regex },
           { tags: regex }
@@ -119,7 +120,7 @@ router.get('/', async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(5),
       
-      CommunityPost.distinct('tags', { tags: regex })
+      CommunityPost.distinct('tags', { tags: regex, status: { $nin: ['hidden', 'deleted', 'pending_review'] } })
     ]);
 
     // Combine courses and paths into one results array for the frontend "Courses" section

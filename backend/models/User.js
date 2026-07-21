@@ -36,6 +36,9 @@ const UserSchema = new mongoose.Schema({
   blocked_users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   muted_posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CommunityPost' }],
   clubs: [{ type: String }],
+  community_muted: { type: Boolean, default: false },
+  community_suspended: { type: Boolean, default: false },
+  community_verified: { type: Boolean, default: false },
   
   // -----------------------------------------
   // Security & Settings

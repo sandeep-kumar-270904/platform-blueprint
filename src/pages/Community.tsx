@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Heart, MessageCircle, Send, Loader2, Sparkles, Image as ImageIcon, X, MoreHorizontal, AlertCircle, Edit, Trash2, Share2, ThumbsUp, PartyPopper, Lightbulb, HandHeart, Bookmark, ShieldAlert, Pin, BarChart2, Shield, VolumeX, Ban, CheckCircle2, Globe, Users, Award, Calendar, HelpCircle } from "lucide-react";
-import { useCommunityFeed, createPost, togglePostLike, toggleSavePost, usePostComments, postComment, deletePost, reportPost, editPost, getPostReactions, pinPost, viewPost, type CommunityPost, toggleFollowUser, checkFollowStatus, getUserInterests, updateUserInterests, getSimilarPosts, votePoll, toggleMuteUser, toggleBlockUser, resolveQuestion } from "@/hooks/useCommunity";
+import { Heart, MessageCircle, Send, Loader2, Sparkles, Image as ImageIcon, X, MoreHorizontal, AlertCircle, Edit, Trash2, Share2, ThumbsUp, PartyPopper, Lightbulb, HandHeart, Bookmark, ShieldAlert, Pin, BarChart2, Shield, VolumeX, Ban, CheckCircle2, Globe, Users, Award, Calendar, HelpCircle, BellOff, TrendingUp } from "lucide-react";
+import { useCommunityFeed, createPost, togglePostLike, toggleSavePost, usePostComments, postComment, deletePost, reportPost, editPost, getPostReactions, pinPost, viewPost, type CommunityPost, toggleFollowUser, checkFollowStatus, getUserInterests, updateUserInterests, getSimilarPosts, votePoll, toggleMuteUser, toggleBlockUser, resolveQuestion, toggleMutePost } from "@/hooks/useCommunity";
 import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
 import { useAuth } from "@/hooks/useAuth";
+import axios from "axios";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { RichComposer } from "@/components/community/RichComposer";
@@ -27,40 +29,6 @@ import { useIsOnline } from "@/hooks/useIsOnline";
 
 const PRESET_TAGS = ["General", "Scholarships", "Advice", "Networking", "Events", "Q&A", "Success Story"];
 
-const translations = {
-  en: {
-    community: "Community",
-    feed: "Feed",
-    trending: "Trending",
-    saved: "Saved",
-    communityFeed: "Community Feed",
-    allPosts: "All Posts",
-    savedPosts: "Saved Posts",
-    newest: "Newest",
-    mostLiked: "Most Liked",
-    suggestedTopics: "Suggested topics",
-    editInterests: "Edit Interests",
-    addInterests: "+ Add Interests",
-    noPostsYet: "No posts yet.",
-    reachedEnd: "You've reached the end!"
-  },
-  te: {
-    community: "కమ్యూనిటీ",
-    feed: "ఫీడ్",
-    trending: "ట్రెండింగ్",
-    saved: "సేవ్ చేయబడినవి",
-    communityFeed: "కమ్యూనిటీ ఫీడ్",
-    allPosts: "అన్ని పోస్ట్‌లు",
-    savedPosts: "సేవ్ చేసిన పోస్ట్‌లు",
-    newest: "కొత్తవి",
-    mostLiked: "ఎక్కువ లైక్ చేయబడినవి",
-    suggestedTopics: "మీ కోసం సూచించబడినవి",
-    editInterests: "ఆసక్తులను సవరించండి",
-    addInterests: "+ ఆసక్తులను జోడించండి",
-    noPostsYet: "ఇంకా పోస్ట్‌లు లేవు.",
-    reachedEnd: "మీరు చివరకు చేరుకున్నారు!"
-  }
-};
 
 const Community = () => {
   const isOnline = useIsOnline();
@@ -90,9 +58,33 @@ const Community = () => {
     }
   }, [isOnline]);
 
-  const [lang, setLang] = useState<'en'|'te'>('en');
-  const t = translations[lang];
+  
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  
+  useEffect(() => {
+    if ((user as any)?.locale) {
+      i18n.changeLanguage((user as any).locale);
+    }
+  }, [user, i18n]);
+  const handleLangChange = async (newLang: 'en'|'te') => {
+    i18n.changeLanguage(newLang);
+    if (user) {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        await fetch(`${API_URL}/api/users/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: JSON.stringify({ locale: newLang })
+        });
+      } catch (err) {
+        console.error('Failed to sync locale', err);
+      }
+    }
+  };
   const [sort, setSort] = useState("newest");
   const [showModDashboard, setShowModDashboard] = useState(false);
   const isModerator = user?.role === 'admin' || (user as any)?.adminRole === 'moderator';
@@ -152,7 +144,14 @@ const Community = () => {
     };
   }, [observerTarget, hasMore, loading, loadingMore, loadMore]);
 
-  const handleComposerSubmit = async (content: string, tags: string[], files: File[], poll?: any, options?: { privacy: string, clubId?: string, template: string, templateData?: any }) => {
+  const handleComposerSubmit = async (
+    content: string, 
+    tags: string[], 
+    files: File[], 
+    poll?: any, 
+    options?: { privacy: string, clubId?: string, template: string, templateData?: any },
+    onProgress?: (progress: number) => void
+  ): Promise<boolean> => {
     if (!isOnline) {
       if (files.length > 0) {
         toast.error("Cannot upload images while offline.");
@@ -163,7 +162,7 @@ const Community = () => {
       setOfflinePosts(newQueue);
       localStorage.setItem('community_offline_posts', JSON.stringify(newQueue));
       toast.info("You're offline. Post saved and will be sent when you reconnect.");
-      return;
+      return true;
     }
 
     let uploadedImageUrls: string[] = [];
@@ -171,18 +170,29 @@ const Community = () => {
       const formData = new FormData();
       files.forEach(f => formData.append('files', f));
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('accessToken');
+      const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
+      
       try {
-        const res = await fetch(`${API_URL}/api/uploads/multiple`, { method: 'POST', body: formData });
-        if (res.ok) {
-          const data = await res.json();
-          uploadedImageUrls = data.urls;
-        } else {
-          toast.error("Failed to upload images");
-          return;
-        }
+        const res = await axios.post(`${API_URL}/api/uploads/multiple`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Idempotency-Key': idempotencyKey,
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total && onProgress) {
+              const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              onProgress(percentCompleted);
+            }
+          }
+        });
+        
+        uploadedImageUrls = res.data.urls;
       } catch (e) {
-        toast.error("Image upload error");
-        return;
+        console.error("Upload error", e);
+        toast.error("Image upload error. Please try again.");
+        return false;
       }
     }
 
@@ -198,7 +208,9 @@ const Community = () => {
           });
           toast.success("Post published!");
         }
+        return true;
       }
+      return false;
     };
 
   const handleOptimisticLike = async (postId: string, type: string = 'like') => {
@@ -294,7 +306,7 @@ const Community = () => {
           <div className="sticky top-24 space-y-6">
             <div>
               <h2 className="font-semibold text-lg mb-4 flex items-center justify-between">
-                {t.community}
+                {t("Community")}
                 {isModerator && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => setShowModDashboard(true)} title="Moderation Dashboard">
                     <Shield className="h-4 w-4" />
@@ -302,19 +314,19 @@ const Community = () => {
                 )}
               </h2>
               <div className="space-y-1">
-                <button onClick={() => setTagFilter("")} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${tagFilter === "" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>{t.feed}</button>
+                <button onClick={() => setTagFilter("")} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${tagFilter === "" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>{t("Community Feed")}</button>
                 <button onClick={() => { setSort("trending"); setTagFilter(""); }} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-2 ${sort === "trending" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>
-                  <TrendingUp className="h-4 w-4" /> {t.trending}
+                  <TrendingUp className="h-4 w-4" /> {t("Trending Tags")}
                 </button>
-                <button onClick={() => setTagFilter("saved")} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${tagFilter === "saved" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>{t.saved}</button>
+                <button onClick={() => setTagFilter("saved")} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${tagFilter === "saved" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>{t("Saved")}</button>
               </div>
 
               <div className="pt-4 border-t border-border mt-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Language</span>
                   <div className="flex bg-secondary/50 rounded-lg p-1">
-                    <button onClick={() => setLang('en')} className={`px-2 py-1 text-xs rounded-md ${lang === 'en' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}>EN</button>
-                    <button onClick={() => setLang('te')} className={`px-2 py-1 text-xs rounded-md ${lang === 'te' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}>TE</button>
+                    <button onClick={() => handleLangChange('en')} className={`px-2 py-1 text-xs rounded-md ${i18n.language === 'en' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}>EN</button>
+                    <button onClick={() => handleLangChange('te')} className={`px-2 py-1 text-xs rounded-md ${i18n.language === 'te' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}>TE</button>
                   </div>
                 </div>
               </div>
@@ -331,8 +343,8 @@ const Community = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
           <div className="space-y-4">
             <div>
-              <Badge className="bg-primary/10 text-primary hover:bg-primary/20"><Sparkles className="mr-1 h-3 w-3" />{t.community}</Badge>
-              <h1 className="text-3xl font-bold mt-2">{t.communityFeed}</h1>
+              <Badge className="bg-primary/10 text-primary hover:bg-primary/20"><Sparkles className="mr-1 h-3 w-3" />{t("Community")}</Badge>
+              <h1 className="text-3xl font-bold mt-2">{t("Community Feed")}</h1>
             </div>
             
             <div className="flex gap-4 border-b border-border">
@@ -340,13 +352,13 @@ const Community = () => {
                 onClick={() => setTagFilter("")}
                 className={`pb-2 text-sm font-medium transition-colors border-b-2 ${tagFilter !== "saved" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
               >
-                {t.allPosts}
+                {t("All Posts")}
               </button>
               <button 
                 onClick={() => setTagFilter("saved")}
                 className={`pb-2 text-sm font-medium transition-colors border-b-2 ${tagFilter === "saved" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
               >
-                {t.savedPosts}
+                {t("Saved Posts")}
               </button>
             </div>
           </div>
@@ -374,19 +386,19 @@ const Community = () => {
                   onClick={() => setSort("newest")}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sort === "newest" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  {t.newest}
+                  {t("Recent")}
                 </button>
                 <button
                   onClick={() => setSort("trending")}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sort === "trending" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  {t.trending}
+                  {t("Trending Tags")}
                 </button>
                 <button
                   onClick={() => setSort("most_liked")}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sort === "most_liked" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  {t.mostLiked}
+                  {t("Top")}
                 </button>
               </div>
             </div>
@@ -418,8 +430,8 @@ const Community = () => {
             {myInterests.length > 0 ? (
               <>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> {t.suggestedTopics}</span>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setTempInterests([...myInterests]); setShowInterestsDialog(true); }}>{t.editInterests}</Button>
+                  <span className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> {t("Suggested topics")}</span>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setTempInterests([...myInterests]); setShowInterestsDialog(true); }}>{t("Edit Interests")}</Button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {myInterests.map(tag => (
@@ -431,7 +443,7 @@ const Community = () => {
               </>
             ) : (
               <div className="flex justify-end">
-                <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={() => { setTempInterests([]); setShowInterestsDialog(true); }}>{t.addInterests}</Button>
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={() => { setTempInterests([]); setShowInterestsDialog(true); }}>{t("Add Interests")}</Button>
               </div>
             )}
           </div>
@@ -442,7 +454,7 @@ const Community = () => {
         )}
 
         {queuedPosts.length > 0 && (
-          <div className="sticky top-24 z-50 flex justify-center mb-6 pointer-events-none">
+          <div className="sticky top-24 z-50 flex justify-center mb-6 pointer-events-none" role="status" aria-live="polite">
             <Button 
               variant="default" 
               className="rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all animate-in fade-in slide-in-from-top-4 motion-reduce:animate-none motion-reduce:transition-none pointer-events-auto flex items-center gap-2 h-10 px-6" 
@@ -459,7 +471,7 @@ const Community = () => {
 
         <div className="space-y-4 relative z-0">
           {loading && posts.length === 0 ? <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-          : posts.length === 0 ? <Card><CardContent className="py-12 text-center text-muted-foreground">{t.noPostsYet}</CardContent></Card>
+          : posts.length === 0 ? <Card><CardContent className="py-12 text-center text-muted-foreground">{t("No posts found")}</CardContent></Card>
           : posts.map((p) => (
             <PostCard 
               key={p.id} 
@@ -484,7 +496,7 @@ const Community = () => {
           
           <div ref={observerTarget} className="py-4 text-center">
             {loadingMore && <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />}
-            {!hasMore && posts.length > 0 && <span className="text-xs text-muted-foreground">{t.reachedEnd}</span>}
+            {!hasMore && posts.length > 0 && <span className="text-xs text-muted-foreground">{t("You've reached the end!")}</span>}
           </div>
         </div>
       </section>
@@ -718,6 +730,12 @@ export const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete
             ) : (
               <>
                 <DropdownMenuItem onClick={async () => {
+                  const muted = await toggleMutePost(post.id || post._id!);
+                  if (muted) toast.success(`Post notifications ${muted.action}`);
+                }}>
+                  <BellOff className="mr-2 h-4 w-4" /> Mute Post Notifications
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={async () => {
                   const authorId = post.author?._id || post.author?.id;
                   if (authorId) await toggleMuteUser(authorId);
                 }}>
@@ -798,15 +816,15 @@ export const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete
             )}
             
             {post.template === "question" && (
-              <div className={`my-3 p-3 border rounded-lg flex items-start justify-between gap-2 ${post.template_data?.resolved ? 'bg-green-500/10 border-green-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
+              <div className={`my-3 p-3 border rounded-lg flex items-start justify-between gap-2 ${post.template_data?.is_resolved ? 'bg-green-500/10 border-green-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
                 <div className="flex gap-2">
-                  <HelpCircle className={`h-5 w-5 mt-0.5 ${post.template_data?.resolved ? 'text-green-500' : 'text-orange-500'}`} />
+                  <HelpCircle className={`h-5 w-5 mt-0.5 ${post.template_data?.is_resolved ? 'text-green-500' : 'text-orange-500'}`} />
                   <div>
-                    <p className="text-sm font-medium">{post.template_data?.resolved ? 'Question Resolved' : 'Question'}</p>
-                    <p className="text-xs text-muted-foreground">{post.template_data?.resolved ? 'The author has marked this as resolved.' : 'Looking for answers.'}</p>
+                    <p className="text-sm font-medium">{post.template_data?.is_resolved ? 'Question Resolved' : 'Question'}</p>
+                    <p className="text-xs text-muted-foreground">{post.template_data?.is_resolved ? 'The author has marked this as resolved.' : 'Looking for answers.'}</p>
                   </div>
                 </div>
-                {isAuthor && !post.template_data?.resolved && (
+                {isAuthor && !post.template_data?.is_resolved && (
                   <Button size="sm" variant="outline" className="h-7 text-xs bg-background" onClick={async () => {
                      const updated = await resolveQuestion(post.id!);
                      if (updated) {
@@ -838,13 +856,13 @@ export const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete
           <div className="relative group flex items-center">
             <button 
               aria-label={`React to post. Current reaction: ${post.user_reaction || 'None'}`}
-              className={`flex items-center gap-1.5 transition-colors hover:text-primary ${post.user_reaction === 'celebrate' ? 'text-green-500 font-medium' : post.user_reaction === 'insightful' ? 'text-yellow-500 font-medium' : post.user_reaction === 'support' ? 'text-purple-500 font-medium' : post.user_reaction ? 'text-blue-500 font-medium' : ''}`} 
+              className={`flex items-center gap-1.5 transition-colors hover:text-primary ${post.user_reaction === 'celebrate' ? 'text-green-500 font-medium' : post.user_reaction === 'insightful' ? 'text-yellow-500 font-medium' : post.user_reaction === 'support' ? 'text-purple-500 font-medium' : post.user_reaction ? 'text-red-500 font-medium' : ''}`} 
               onClick={() => onLike('like')}
             >
               {post.user_reaction === 'celebrate' ? <PartyPopper className="h-4 w-4 fill-current" /> :
                post.user_reaction === 'insightful' ? <Lightbulb className="h-4 w-4 fill-current" /> :
                post.user_reaction === 'support' ? <HandHeart className="h-4 w-4 fill-current" /> :
-               <ThumbsUp className={`h-4 w-4 ${post.user_reaction ? 'fill-current' : ''}`} />
+               <Heart className={`h-4 w-4 ${post.user_reaction ? 'fill-current' : ''}`} />
               }
               <ReactionListPopover postId={post.id!}>
                 <span className="group-hover:hidden cursor-pointer">{post.like_count}</span>
@@ -855,7 +873,7 @@ export const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete
             </button>
             
             <div className="absolute bottom-full left-0 mb-2 hidden group-hover:flex bg-background border shadow-lg rounded-full px-2 py-1 gap-2 z-10 animate-in fade-in slide-in-from-bottom-2 motion-reduce:animate-none" role="menu" aria-label="Reaction options">
-              <button role="menuitem" aria-label="Like" onClick={(e) => { e.stopPropagation(); onLike('like'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 motion-reduce:transition-none motion-reduce:transform-none text-blue-500" title="Like"><ThumbsUp className="h-5 w-5 fill-current" /></button>
+              <button role="menuitem" aria-label="Like" onClick={(e) => { e.stopPropagation(); onLike('like'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 motion-reduce:transition-none motion-reduce:transform-none text-red-500" title="Like"><Heart className="h-5 w-5 fill-current" /></button>
               <button role="menuitem" aria-label="Celebrate" onClick={(e) => { e.stopPropagation(); onLike('celebrate'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 motion-reduce:transition-none motion-reduce:transform-none text-green-500" title="Celebrate"><PartyPopper className="h-5 w-5 fill-current" /></button>
               <button role="menuitem" aria-label="Insightful" onClick={(e) => { e.stopPropagation(); onLike('insightful'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 motion-reduce:transition-none motion-reduce:transform-none text-yellow-500" title="Insightful"><Lightbulb className="h-5 w-5 fill-current" /></button>
               <button role="menuitem" aria-label="Support" onClick={(e) => { e.stopPropagation(); onLike('support'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 motion-reduce:transition-none motion-reduce:transform-none text-purple-500" title="Support"><HandHeart className="h-5 w-5 fill-current" /></button>
@@ -871,6 +889,35 @@ export const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete
             <MessageCircle className="h-4 w-4" />
             {post.comment_count}
           </button>
+
+          {post.template_data?.type === 'event' && (
+            <button 
+              className="flex items-center gap-1.5 hover:text-primary transition-colors" 
+              onClick={() => {
+                const title = post.template_data?.event_title || "Community Event";
+                const start = post.template_data?.event_date ? new Date(post.template_data.event_date) : new Date();
+                
+                const formatDate = (date: Date) => {
+                  return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+                };
+                
+                const icsContent = `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nDTSTART:${formatDate(start)}\nDTEND:${formatDate(new Date(start.getTime() + 60 * 60 * 1000))}\nSUMMARY:${title}\nDESCRIPTION:${post.text}\nLOCATION:${post.template_data?.event_location || ''}\nEND:VEVENT\nEND:VCALENDAR`;
+              
+                const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'event.ics';
+                a.click();
+                window.URL.revokeObjectURL(url);
+                toast.success("Event downloaded to Calendar!");
+              }}
+              title="Add to Calendar"
+              aria-label="Add to Calendar"
+            >
+              <Calendar className="h-4 w-4" />
+            </button>
+          )}
           
           <div className="ml-auto flex items-center gap-4">
             <button 
@@ -884,7 +931,7 @@ export const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete
             <button 
               className="flex items-center gap-1.5 hover:text-primary transition-colors" 
               onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/community?post=${post.id}`);
+                navigator.clipboard.writeText(`${window.location.origin}/community/post/${post.id}`);
                 toast.success("Link copied to clipboard!");
               }}
               title="Share"
@@ -938,6 +985,7 @@ export const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete
 export const CommentNode = ({ comment, allComments, currentUserId, onReply, level = 0 }: { comment: any, allComments: any[], currentUserId?: string, onReply: (id: string, username: string) => void, level?: number }) => {
   const replies = allComments.filter(c => c.parent_id === comment.id || c.parent_id === comment._id);
   const isReply = level > 0;
+  const [collapsed, setCollapsed] = useState(true);
   
   return (
     <div className={`flex gap-2 ${isReply ? 'mt-3' : ''}`}>
@@ -950,16 +998,24 @@ export const CommentNode = ({ comment, allComments, currentUserId, onReply, leve
           </div>
           <p className="text-xs">{comment.text}</p>
         </div>
-        <div className="flex gap-4 mt-1 ml-1">
+        <div className="flex gap-4 mt-1 ml-1 items-center">
           <button 
             className="text-[10px] font-medium text-muted-foreground hover:text-primary transition-colors"
             onClick={() => onReply(comment.id || comment._id, comment.author?.username || comment.author?.full_name || "Anonymous")}
           >
             Reply
           </button>
+          {replies.length > 0 && (
+            <button 
+              className="text-[10px] font-medium text-primary hover:underline flex items-center gap-1"
+              onClick={() => setCollapsed(!collapsed)}
+            >
+              {collapsed ? `View ${replies.length} repl${replies.length === 1 ? 'y' : 'ies'}` : 'Hide replies'}
+            </button>
+          )}
         </div>
         
-        {replies.length > 0 && (
+        {replies.length > 0 && !collapsed && (
           <div className="ml-2 border-l-2 border-border/50 pl-2 mt-2 space-y-3">
             {replies.map(r => (
               <CommentNode key={r.id || r._id} comment={r} allComments={allComments} currentUserId={currentUserId} onReply={onReply} level={level + 1} />

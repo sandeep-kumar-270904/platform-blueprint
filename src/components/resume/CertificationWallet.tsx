@@ -4,10 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Plus, ShieldCheck, ShieldAlert, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 export const CertificationWallet = () => {
   const [certs, setCerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const fetchCerts = async () => {
     try {
@@ -39,7 +42,16 @@ export const CertificationWallet = () => {
           issueDate: new Date().toISOString().split('T')[0]
         })
       });
-      if (res.ok) fetchCerts();
+      if (res.ok) {
+        fetchCerts();
+        toast("Certification Added", {
+          description: "Share this milestone with the community?",
+          action: {
+            label: "Share",
+            onClick: () => navigate(`/community?template=achievement&prefill=I+just+earned+my+New+Certification+certification!`)
+          }
+        });
+      }
     } catch (e) {
       console.error(e);
     }

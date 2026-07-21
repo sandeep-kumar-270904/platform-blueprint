@@ -42,6 +42,17 @@ export default function NotificationSettings() {
       review_outcomes: true,
       compliance_reminders: true,
       award_updates: true
+    },
+    community: {
+      likes: { inApp: true, email: true, push: false },
+      comments: { inApp: true, email: true, push: false },
+      mentions: { inApp: true, email: true, push: false },
+      follows: { inApp: true, email: true, push: false }
+    },
+    quiet_hours: {
+      enabled: false,
+      start: "22:00",
+      end: "08:00"
     }
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -77,6 +88,18 @@ export default function NotificationSettings() {
             setPreferences(prev => ({
               ...prev,
               scholarships: { ...prev.scholarships, ...data.preferences.scholarships }
+            }));
+          }
+          if (data.preferences?.community) {
+            setPreferences(prev => ({
+              ...prev,
+              community: { ...prev.community, ...data.preferences.community }
+            }));
+          }
+          if (data.preferences?.quiet_hours) {
+            setPreferences(prev => ({
+              ...prev,
+              quiet_hours: { ...prev.quiet_hours, ...data.preferences.quiet_hours }
             }));
           }
         }
@@ -160,6 +183,29 @@ export default function NotificationSettings() {
       scholarships: {
         ...prev.scholarships,
         [field]: !prev.scholarships[field]
+      }
+    }));
+  };
+
+  const handleCommunityToggle = (field: keyof typeof preferences.community, channel: 'inApp' | 'email' | 'push') => {
+    setPreferences(prev => ({
+      ...prev,
+      community: {
+        ...prev.community,
+        [field]: {
+          ...prev.community[field],
+          [channel]: !prev.community[field][channel]
+        }
+      }
+    }));
+  };
+
+  const handleQuietHoursChange = (field: keyof typeof preferences.quiet_hours, value: any) => {
+    setPreferences(prev => ({
+      ...prev,
+      quiet_hours: {
+        ...prev.quiet_hours,
+        [field]: value
       }
     }));
   };

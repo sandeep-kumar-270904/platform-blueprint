@@ -10,6 +10,7 @@ import { RecommendedColleges } from "./RecommendedColleges";
 import { RecommendedCourses } from "./RecommendedCourses";
 import { ResumeLearning } from "./ResumeLearning";
 import { RecentNotifications } from "./RecentNotifications";
+import { CommunityDashboardWidget } from "./CommunityDashboardWidget";
 
 interface Stats {
   notesCount: number;
@@ -98,6 +99,12 @@ export const DashboardOverview = ({ stats, setActiveSection }: { stats: Stats, s
             );
           })}
         </div>
+      )}
+
+      {totalActivity > 0 && (
+        <ScrollReveal delay={0.1}>
+          <CommunityDashboardWidget />
+        </ScrollReveal>
       )}
 
       <RecommendedColleges />

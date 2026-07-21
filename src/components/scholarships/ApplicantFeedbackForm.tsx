@@ -114,3 +114,5 @@ export const ApplicantFeedbackForm = ({ scholarshipId, providerName }: { scholar
         </Dialog>
     );
 };
+
+// quickApply simplified singleStep form

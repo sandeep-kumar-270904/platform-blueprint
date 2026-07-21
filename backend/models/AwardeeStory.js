@@ -8,7 +8,8 @@ const awardeeStorySchema = new mongoose.Schema({
   showRealName: { type: Boolean, default: false },
   status: { type: String, enum: ['draft', 'submitted', 'approved', 'rejected'], default: 'draft' },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  reviewNotes: { type: String }
+  reviewNotes: { type: String },
+  anonymityRequested: { type: Boolean, default: false }
 }, { timestamps: true });
 
 awardeeStorySchema.index({ scholarshipId: 1, status: 1 });

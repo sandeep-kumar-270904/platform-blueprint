@@ -24,6 +24,10 @@ const scholarshipCircleSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  aggregateOnlyVisibility: {
+    type: Boolean,
+    default: true
+  },
   sharedScholarships: [{
     scholarshipId: { type: mongoose.Schema.Types.ObjectId, ref: 'Scholarship' },
     addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

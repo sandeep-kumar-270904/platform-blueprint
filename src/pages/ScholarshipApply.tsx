@@ -17,6 +17,7 @@ import { RecommendationManager } from "@/components/resume/RecommendationManager
 import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogHeader } from "@/components/ui/dialog";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Note: Gemini-assisted adaptation is available via essayController
 
 const ScholarshipApply = () => {
   const { id } = useParams<{ id: string }>();
@@ -444,3 +445,5 @@ const ScholarshipApply = () => {
 };
 
 export default ScholarshipApply;
+
+  // simplified single-step layout
