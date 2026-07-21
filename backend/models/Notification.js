@@ -65,7 +65,13 @@ const notificationSchema = new mongoose.Schema({
       'community_follow',
       'community_post',
       'weekly_digest',
-      'community_warning'
+      'community_warning',
+      'placement_mock_reminder',
+      'placement_streak_alert',
+      'placement_new_content',
+      'placement_booking_status',
+      'placement_feedback_prompt',
+      'placement_milestone'
     ],
     required: true
   },

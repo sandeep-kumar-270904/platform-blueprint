@@ -42,9 +42,23 @@ const sendNotification = async (data) => {
         'weekly_digest': 'weekly_digest'
       };
 
+      const placementTypeMap = {
+        'placement_mock_reminder': 'mock_reminders',
+        'placement_streak_alert': 'streak_alerts',
+        'placement_new_content': 'new_content',
+        'placement_booking_status': 'booking_status',
+        'placement_feedback_prompt': 'feedback_prompts',
+        'placement_milestone': 'milestones'
+      };
+
       const mappedField = typeMap[type];
       if (mappedField && pref.toggles && pref.toggles[mappedField] === false) {
         return null; 
+      }
+      
+      const placementMapped = placementTypeMap[type];
+      if (placementMapped && pref.toggles?.placement && pref.toggles.placement[placementMapped] === false) {
+        return null;
       }
       
       if (pref.quiet_hours && pref.quiet_hours.enabled) {

@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { Header } from '@/components/layout/Header';
+import { PlacementNotificationBell } from '@/components/placement/PlacementNotificationBell';
 import { ScrollReveal } from '@/components/animations/ScrollReveal';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -108,7 +109,13 @@ export default function PlacementDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-8 mt-16">
+      
+      {/* Add the custom bell explicitly near the top since this page has its own context */}
+      <div className="fixed top-4 right-20 z-50 mt-1">
+        <PlacementNotificationBell />
+      </div>
+
+      <main className="container mx-auto px-4 py-8 mt-16 max-w-7xl">
         
         <div className="flex justify-between items-center mb-8">
           <div>
