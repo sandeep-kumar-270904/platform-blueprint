@@ -72,6 +72,7 @@ import MyQuizzes from "./pages/MyQuizzes";
 import SkillZone from "./pages/SkillZone";
 import TechNews from "./pages/TechNews";
 import PlacementCell from "./pages/PlacementCell";
+import DSAPractice from "./pages/DSAPractice";
 import StudyGroups from "./pages/StudyGroups";
 import TeamHunt from "./pages/TeamHunt";
 import RoommateFind from "./pages/RoommateFind";
@@ -237,6 +238,7 @@ const App = () => (
           <Route path="/skills" element={<ProtectedRoute><SkillZone /></ProtectedRoute>} />
           <Route path="/news" element={<ProtectedRoute><TechNews /></ProtectedRoute>} />
           <Route path="/placement" element={<ProtectedRoute><PlacementCell /></ProtectedRoute>} />
+          <Route path="/placement/dsa" element={<ProtectedRoute><DSAPractice /></ProtectedRoute>} />
           <Route path="/study-groups" element={<ProtectedRoute><StudyGroups /></ProtectedRoute>} />
           <Route path="/team-hunt" element={<ProtectedRoute><TeamHunt /></ProtectedRoute>} />
           <Route path="/roommate-finder" element={<ProtectedRoute><RoommateFind /></ProtectedRoute>} />
