@@ -6,8 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Target, Code, FileText, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useDSAProgress } from "@/hooks/useDSA";
 
 const PlacementCell = () => {
+  const { data: progress } = useDSAProgress();
+  const dsaPercent = progress && progress.totalProblems > 0 
+    ? Math.round((progress.solved_problems.length / progress.totalProblems) * 100) 
+    : 0;
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -55,11 +62,13 @@ const PlacementCell = () => {
                 <div>
                   <div className="flex justify-between text-sm mb-2">
                     <span>Progress</span>
-                    <span className="font-medium">45%</span>
+                    <span className="font-medium">{dsaPercent}%</span>
                   </div>
-                  <Progress value={45} />
+                  <Progress value={dsaPercent} />
                 </div>
-                <Button className="w-full">Start Practice</Button>
+                <Button className="w-full" asChild>
+                  <Link to="/placement/dsa">Start Practice</Link>
+                </Button>
               </CardContent>
             </Card>
           </ScrollReveal>
