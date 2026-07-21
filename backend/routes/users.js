@@ -29,7 +29,7 @@ router.get('/search', async (req, res) => {
 // PUT /api/users/me
 router.put('/me', authMiddleware, async (req, res) => {
   try {
-    const { full_name, username, avatar_url, bio, skills } = req.body;
+    const { full_name, username, avatar_url, bio, skills, locale } = req.body;
     
     // Check if username is taken (if it's changing)
     if (username) {
@@ -40,6 +40,7 @@ router.put('/me', authMiddleware, async (req, res) => {
     }
 
     const updateFields = { full_name, username, avatar_url, bio };
+    if (locale) updateFields.locale = locale;
     if (skills) {
       updateFields.skills = skills.map(skill => (typeof skill === 'string' ? { skillName: skill } : skill));
     }
@@ -719,6 +720,50 @@ router.put('/me/application-profile', authMiddleware, async (req, res) => {
 
     await user.save();
     res.json({ message: 'Application profile updated', defaultApplicationProfile: user.defaultApplicationProfile });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/users/:id/mute
+router.post('/:id/mute', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    const targetId = req.params.id;
+    const isMuted = user.muted_users.includes(targetId);
+    
+    if (isMuted) {
+      user.muted_users = user.muted_users.filter(id => id.toString() !== targetId);
+    } else {
+      user.muted_users.push(targetId);
+    }
+    
+    await user.save();
+    res.json({ message: isMuted ? 'User unmuted' : 'User muted', muted_users: user.muted_users });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/users/:id/block
+router.post('/:id/block', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    const targetId = req.params.id;
+    const isBlocked = user.blocked_users.includes(targetId);
+    
+    if (isBlocked) {
+      user.blocked_users = user.blocked_users.filter(id => id.toString() !== targetId);
+    } else {
+      user.blocked_users.push(targetId);
+    }
+    
+    await user.save();
+    res.json({ message: isBlocked ? 'User unblocked' : 'User blocked', blocked_users: user.blocked_users });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

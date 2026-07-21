@@ -33,6 +33,9 @@ connectDB().then(async () => {
     const cronService = require('./services/cronService');
     cronService.init(io);
     
+    const notificationService = require('./services/notificationService');
+    notificationService.init(io);
+    
     const User = require('./models/User');
     const bcrypt = require('bcryptjs');
     
@@ -298,6 +301,7 @@ app.use('/api/admin', require('./routes/admin'));
 app.use('/api/admin', require('./routes/adminJobs'));
 app.use('/api/admin/mentors', require('./routes/adminMentorsOverview'));
 app.use('/api/admin/moderation', require('./routes/adminModeration'));
+app.use('/api/admin/community', require('./routes/adminCommunity'));
 app.use('/api/admin/financials', require('./routes/adminFinancials'));
 app.use('/api/admin/quiz-review', require('./routes/adminQuizReview'));
 app.use('/api/recruiter', require('./routes/recruiter'));

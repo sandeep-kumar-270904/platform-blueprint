@@ -60,7 +60,12 @@ const notificationSchema = new mongoose.Schema({
       'communityForums',
       'community_post_liked',
       'community_post_commented',
-      'community_post_reported'
+      'community_post_reported',
+      'community_mention',
+      'community_follow',
+      'community_post',
+      'weekly_digest',
+      'community_warning'
     ],
     required: true
   },

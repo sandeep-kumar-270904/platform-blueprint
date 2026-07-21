@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Heart, MessageCircle, Send, Loader2, Sparkles, Image as ImageIcon, X, MoreHorizontal, AlertCircle, Edit, Trash2, Share2, ThumbsUp, PartyPopper, Lightbulb, HandHeart, Bookmark, ShieldAlert, Pin, BarChart2, Shield } from "lucide-react";
-import { useCommunityFeed, createPost, togglePostLike, toggleSavePost, usePostComments, postComment, deletePost, reportPost, editPost, getPostReactions, pinPost, viewPost, type CommunityPost } from "@/hooks/useCommunity";
+import { Heart, MessageCircle, Send, Loader2, Sparkles, Image as ImageIcon, X, MoreHorizontal, AlertCircle, Edit, Trash2, Share2, ThumbsUp, PartyPopper, Lightbulb, HandHeart, Bookmark, ShieldAlert, Pin, BarChart2, Shield, VolumeX, Ban, CheckCircle2, Globe, Users, Award, Calendar, HelpCircle } from "lucide-react";
+import { useCommunityFeed, createPost, togglePostLike, toggleSavePost, usePostComments, postComment, deletePost, reportPost, editPost, getPostReactions, pinPost, viewPost, type CommunityPost, toggleFollowUser, checkFollowStatus, getUserInterests, updateUserInterests, getSimilarPosts, votePoll, toggleMuteUser, toggleBlockUser, resolveQuestion } from "@/hooks/useCommunity";
 import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
@@ -21,12 +22,76 @@ import { RichText } from "@/components/community/RichText";
 import { LinkPreview } from "@/components/community/LinkPreview";
 import { ImageGallery } from "@/components/community/ImageGallery";
 import { PollRenderer } from "@/components/community/PollRenderer";
-import { votePoll } from "@/hooks/useCommunity";
 import { ModerationDashboard } from "@/components/community/ModerationDashboard";
+import { useIsOnline } from "@/hooks/useIsOnline";
 
 const PRESET_TAGS = ["General", "Scholarships", "Advice", "Networking", "Events", "Q&A", "Success Story"];
 
+const translations = {
+  en: {
+    community: "Community",
+    feed: "Feed",
+    trending: "Trending",
+    saved: "Saved",
+    communityFeed: "Community Feed",
+    allPosts: "All Posts",
+    savedPosts: "Saved Posts",
+    newest: "Newest",
+    mostLiked: "Most Liked",
+    suggestedTopics: "Suggested topics",
+    editInterests: "Edit Interests",
+    addInterests: "+ Add Interests",
+    noPostsYet: "No posts yet.",
+    reachedEnd: "You've reached the end!"
+  },
+  te: {
+    community: "కమ్యూనిటీ",
+    feed: "ఫీడ్",
+    trending: "ట్రెండింగ్",
+    saved: "సేవ్ చేయబడినవి",
+    communityFeed: "కమ్యూనిటీ ఫీడ్",
+    allPosts: "అన్ని పోస్ట్‌లు",
+    savedPosts: "సేవ్ చేసిన పోస్ట్‌లు",
+    newest: "కొత్తవి",
+    mostLiked: "ఎక్కువ లైక్ చేయబడినవి",
+    suggestedTopics: "మీ కోసం సూచించబడినవి",
+    editInterests: "ఆసక్తులను సవరించండి",
+    addInterests: "+ ఆసక్తులను జోడించండి",
+    noPostsYet: "ఇంకా పోస్ట్‌లు లేవు.",
+    reachedEnd: "మీరు చివరకు చేరుకున్నారు!"
+  }
+};
+
 const Community = () => {
+  const isOnline = useIsOnline();
+  const [offlinePosts, setOfflinePosts] = useState<any[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('community_offline_posts') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (isOnline && offlinePosts.length > 0) {
+      const syncPosts = async () => {
+        let successCount = 0;
+        for (const op of offlinePosts) {
+          const r = await createPost(op);
+          if (r) successCount++;
+        }
+        if (successCount > 0) {
+          toast.success(`Successfully synced ${successCount} offline post(s)!`);
+        }
+        setOfflinePosts([]);
+        localStorage.removeItem('community_offline_posts');
+      };
+      syncPosts();
+    }
+  }, [isOnline]);
+
+  const [lang, setLang] = useState<'en'|'te'>('en');
+  const t = translations[lang];
   const { user } = useAuth();
   const [sort, setSort] = useState("newest");
   const [showModDashboard, setShowModDashboard] = useState(false);
@@ -35,6 +100,30 @@ const Community = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   
+  const [myInterests, setMyInterests] = useState<string[]>([]);
+  const [showInterestsDialog, setShowInterestsDialog] = useState(false);
+  const [tempInterests, setTempInterests] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      getUserInterests().then(tags => {
+        setMyInterests(tags);
+        setTempInterests(tags);
+      });
+    }
+  }, [user]);
+
+  const handleSaveInterests = async () => {
+    const res = await updateUserInterests(tempInterests);
+    if (res) {
+      setMyInterests(res.tags);
+      setShowInterestsDialog(false);
+      toast.success("Interests updated");
+    } else {
+      toast.error("Failed to update interests");
+    }
+  };
+
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchQuery);
@@ -63,7 +152,20 @@ const Community = () => {
     };
   }, [observerTarget, hasMore, loading, loadingMore, loadMore]);
 
-  const handleComposerSubmit = async (content: string, tags: string[], files: File[], poll?: any) => {
+  const handleComposerSubmit = async (content: string, tags: string[], files: File[], poll?: any, options?: { privacy: string, clubId?: string, template: string, templateData?: any }) => {
+    if (!isOnline) {
+      if (files.length > 0) {
+        toast.error("Cannot upload images while offline.");
+        return;
+      }
+      const postPayload = { content, tags, poll, ...options };
+      const newQueue = [...offlinePosts, postPayload];
+      setOfflinePosts(newQueue);
+      localStorage.setItem('community_offline_posts', JSON.stringify(newQueue));
+      toast.info("You're offline. Post saved and will be sent when you reconnect.");
+      return;
+    }
+
     let uploadedImageUrls: string[] = [];
     if (files.length > 0) {
       const formData = new FormData();
@@ -84,11 +186,20 @@ const Community = () => {
       }
     }
 
-    const r = await createPost({ content, tags, image_urls: uploadedImageUrls, poll });
-    if (r) {
-      // The socket event will handle optimistic UI
-    }
-  };
+      const r = await createPost({ content, tags, image_urls: uploadedImageUrls, poll, ...options });
+      if (r) {
+        if (r.status === 'pending_review') {
+          setPosts(prev => [r, ...prev]);
+          toast.info("Your post is under review due to moderation guidelines.");
+        } else {
+          setPosts(prev => {
+            if (prev.find(p => p.id === r.id)) return prev;
+            return [r, ...prev];
+          });
+          toast.success("Post published!");
+        }
+      }
+    };
 
   const handleOptimisticLike = async (postId: string, type: string = 'like') => {
     if (!user) { toast.error("Please sign in"); return; }
@@ -183,7 +294,7 @@ const Community = () => {
           <div className="sticky top-24 space-y-6">
             <div>
               <h2 className="font-semibold text-lg mb-4 flex items-center justify-between">
-                Community
+                {t.community}
                 {isModerator && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => setShowModDashboard(true)} title="Moderation Dashboard">
                     <Shield className="h-4 w-4" />
@@ -191,22 +302,37 @@ const Community = () => {
                 )}
               </h2>
               <div className="space-y-1">
-                <button onClick={() => setTagFilter("")} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${tagFilter === "" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>Feed</button>
+                <button onClick={() => setTagFilter("")} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${tagFilter === "" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>{t.feed}</button>
                 <button onClick={() => { setSort("trending"); setTagFilter(""); }} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors flex items-center gap-2 ${sort === "trending" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>
-                  <TrendingUp className="h-4 w-4" /> Trending
+                  <TrendingUp className="h-4 w-4" /> {t.trending}
                 </button>
-                <button onClick={() => setTagFilter("saved")} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${tagFilter === "saved" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>Saved</button>
+                <button onClick={() => setTagFilter("saved")} className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${tagFilter === "saved" ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-secondary"}`}>{t.saved}</button>
+              </div>
+
+              <div className="pt-4 border-t border-border mt-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Language</span>
+                  <div className="flex bg-secondary/50 rounded-lg p-1">
+                    <button onClick={() => setLang('en')} className={`px-2 py-1 text-xs rounded-md ${lang === 'en' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}>EN</button>
+                    <button onClick={() => setLang('te')} className={`px-2 py-1 text-xs rounded-md ${lang === 'te' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}>TE</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </aside>
 
         <section className="flex-1 min-w-0">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
+          {!isOnline && (
+            <div className="bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-4 py-2 mb-4 rounded-lg text-sm font-medium flex items-center justify-center gap-2">
+              <AlertCircle className="h-4 w-4" /> You're offline — showing cached posts. Any new posts will be sent when you reconnect.
+            </div>
+          )}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
           <div className="space-y-4">
             <div>
-              <Badge className="bg-primary/10 text-primary hover:bg-primary/20"><Sparkles className="mr-1 h-3 w-3" />Community</Badge>
-              <h1 className="text-3xl font-bold mt-2">Community Feed</h1>
+              <Badge className="bg-primary/10 text-primary hover:bg-primary/20"><Sparkles className="mr-1 h-3 w-3" />{t.community}</Badge>
+              <h1 className="text-3xl font-bold mt-2">{t.communityFeed}</h1>
             </div>
             
             <div className="flex gap-4 border-b border-border">
@@ -214,13 +340,13 @@ const Community = () => {
                 onClick={() => setTagFilter("")}
                 className={`pb-2 text-sm font-medium transition-colors border-b-2 ${tagFilter !== "saved" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
               >
-                All Posts
+                {t.allPosts}
               </button>
               <button 
                 onClick={() => setTagFilter("saved")}
                 className={`pb-2 text-sm font-medium transition-colors border-b-2 ${tagFilter === "saved" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
               >
-                Saved Posts
+                {t.savedPosts}
               </button>
             </div>
           </div>
@@ -228,23 +354,39 @@ const Community = () => {
             <div className="flex items-center gap-3 w-full justify-end">
               <SyncStatusIndicator status={status} />
               <div className="flex items-center bg-secondary/30 rounded-lg p-1 border">
+                {user && (
+                  <>
+                    <button
+                      onClick={() => setSort("for_you")}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sort === "for_you" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      For You
+                    </button>
+                    <button
+                      onClick={() => setSort("following")}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sort === "following" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Following
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => setSort("newest")}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sort === "newest" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  Newest
+                  {t.newest}
                 </button>
                 <button
                   onClick={() => setSort("trending")}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sort === "trending" ? "bg-background shadow-sm text-orange-500" : "text-muted-foreground hover:text-foreground"}`}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sort === "trending" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  Trending
+                  {t.trending}
                 </button>
                 <button
                   onClick={() => setSort("most_liked")}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sort === "most_liked" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
-                  Most Liked
+                  {t.mostLiked}
                 </button>
               </div>
             </div>
@@ -271,6 +413,30 @@ const Community = () => {
           </div>
         )}
 
+        {user && !tagFilter && (
+          <div className="mb-6">
+            {myInterests.length > 0 ? (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-muted-foreground flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> {t.suggestedTopics}</span>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setTempInterests([...myInterests]); setShowInterestsDialog(true); }}>{t.editInterests}</Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {myInterests.map(tag => (
+                    <Badge key={tag} variant="secondary" className="cursor-pointer hover:bg-secondary/80" onClick={() => setTagFilter(tag)}>
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-end">
+                <Button variant="ghost" size="sm" className="h-7 text-xs text-muted-foreground" onClick={() => { setTempInterests([]); setShowInterestsDialog(true); }}>{t.addInterests}</Button>
+              </div>
+            )}
+          </div>
+        )}
+
         {user && tagFilter !== 'saved' && (
           <RichComposer onSubmit={handleComposerSubmit} user={user} />
         )}
@@ -279,7 +445,7 @@ const Community = () => {
           <div className="sticky top-24 z-50 flex justify-center mb-6 pointer-events-none">
             <Button 
               variant="default" 
-              className="rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all animate-in fade-in slide-in-from-top-4 pointer-events-auto flex items-center gap-2 h-10 px-6" 
+              className="rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all animate-in fade-in slide-in-from-top-4 motion-reduce:animate-none motion-reduce:transition-none pointer-events-auto flex items-center gap-2 h-10 px-6" 
               onClick={() => {
                 flushQueue();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -293,12 +459,17 @@ const Community = () => {
 
         <div className="space-y-4 relative z-0">
           {loading && posts.length === 0 ? <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-          : posts.length === 0 ? <Card><CardContent className="py-12 text-center text-muted-foreground">No posts yet. {user ? "Share something!" : "Sign in to post."}</CardContent></Card>
+          : posts.length === 0 ? <Card><CardContent className="py-12 text-center text-muted-foreground">{t.noPostsYet}</CardContent></Card>
           : posts.map((p) => (
             <PostCard 
               key={p.id} 
               post={p} 
               currentUserId={user?.id} 
+              isModerator={isModerator}
+              onPin={async () => {
+                await pinPost(p.id!);
+                setPosts(prev => prev.map(x => (x.id === p.id || x._id === p.id) ? { ...x, is_pinned: !x.is_pinned } : x));
+              }}
               onLike={(type) => handleOptimisticLike(p.id!, type)} 
               onSave={() => handleOptimisticSave(p.id!)}
               onVote={(idx) => handleOptimisticVote(p.id!, idx)}
@@ -313,10 +484,38 @@ const Community = () => {
           
           <div ref={observerTarget} className="py-4 text-center">
             {loadingMore && <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />}
-            {!hasMore && posts.length > 0 && <span className="text-xs text-muted-foreground">You've reached the end!</span>}
+            {!hasMore && posts.length > 0 && <span className="text-xs text-muted-foreground">{t.reachedEnd}</span>}
           </div>
         </div>
       </section>
+
+      <Dialog open={showInterestsDialog} onOpenChange={setShowInterestsDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Personalize your Feed</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">Select topics you're interested in to improve your "For You" feed.</p>
+            <div className="flex flex-wrap gap-2">
+              {PRESET_TAGS.map(tag => (
+                <Badge 
+                  key={tag} 
+                  variant={tempInterests.includes(tag) ? "default" : "outline"} 
+                  className="cursor-pointer"
+                  onClick={() => {
+                    setTempInterests(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+                  }}
+                >
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+            <div className="flex justify-end pt-4">
+              <Button onClick={handleSaveInterests}>Save Interests</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showModDashboard} onOpenChange={setShowModDashboard}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -328,13 +527,47 @@ const Community = () => {
           <ModerationDashboard />
         </DialogContent>
       </Dialog>
+      </main>
     </div>
   );
 };
 
-const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete, onCommentOptimistic, onTagClick }: { post: CommunityPost; currentUserId?: string; onLike: (type: string) => void; onSave: () => void; onVote?: (idx: number) => Promise<void>; onDelete: () => void; onCommentOptimistic: () => void; onTagClick?: (tag: string) => void }) => {
+export const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete, onCommentOptimistic, onTagClick, isModerator, onPin }: { post: CommunityPost; currentUserId?: string; onLike: (type: string) => void; onSave: () => void; onVote?: (idx: number) => Promise<void>; onDelete: () => void; onCommentOptimistic: () => void; onTagClick?: (tag: string) => void; isModerator?: boolean; onPin?: () => void }) => {
   const [showComments, setShowComments] = useState(false);
   const isAuthor = currentUserId === post.user_id;
+  const navigate = useNavigate();
+  
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(true);
+
+  useEffect(() => {
+    if (currentUserId && !isAuthor && post.author) {
+      const authorId = post.author._id || post.author.id;
+      if (authorId) {
+        checkFollowStatus(authorId).then(status => {
+          setIsFollowing(status);
+          setIsFollowLoading(false);
+        });
+      } else {
+        setIsFollowLoading(false);
+      }
+    } else {
+      setIsFollowLoading(false);
+    }
+  }, [currentUserId, isAuthor, post.author]);
+
+  const handleFollowClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentUserId || !post.author) return;
+    const authorId = post.author._id || post.author.id;
+    if (!authorId) return;
+    setIsFollowLoading(true);
+    const res = await toggleFollowUser(authorId);
+    if (res) {
+      setIsFollowing(res.following);
+    }
+    setIsFollowLoading(false);
+  };
   
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content || "");
@@ -382,16 +615,60 @@ const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete, onCom
   };
 
   return (
-    <Card className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+    <Card className="animate-in fade-in slide-in-from-bottom-2 duration-300 motion-reduce:animate-none motion-reduce:transition-none relative">
+      {post.status === 'pending_review' && (
+        <div className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-4 py-2 text-xs font-medium flex items-center gap-2 border-b">
+          <AlertCircle className="h-3.5 w-3.5" />
+          This post is pending review by moderators. Only you can see it right now.
+        </div>
+      )}
+      {post.is_pinned && (
+        <div className="bg-primary/5 text-primary px-4 py-1.5 text-xs font-medium flex items-center gap-2 border-b">
+          <Pin className="h-3 w-3" /> Pinned
+        </div>
+      )}
       <CardHeader className="pb-2 pt-4 px-4 flex flex-row justify-between items-start">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10"><AvatarImage src={post.author?.avatar_url || ""} /><AvatarFallback>{(post.author?.full_name || "?")[0]}</AvatarFallback></Avatar>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm leading-none">{post.author?.full_name || post.author?.username || "Anonymous"}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatDistanceToNow(new Date(post.created_at || post.createdAt || Date.now()), { addSuffix: true })}
-              {isEditedLocal && <span className="ml-1 opacity-70">(edited)</span>}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-sm leading-none flex items-center gap-1">
+                {post.author?.full_name || post.author?.username || "Anonymous"}
+                {(post.author?.adminRole === 'moderator' || post.author?.communityTitle || post.author?.institutionVerified) && (
+                  <Shield className="h-3.5 w-3.5 text-primary" title="Verified" />
+                )}
+              </p>
+              {!isAuthor && currentUserId && (
+                <button 
+                  onClick={handleFollowClick}
+                  disabled={isFollowLoading}
+                  className={`text-xs px-2 py-0.5 rounded-full transition-colors ${isFollowing ? "bg-secondary text-secondary-foreground" : "bg-primary/10 text-primary hover:bg-primary/20"}`}
+                >
+                  {isFollowLoading ? "..." : isFollowing ? "Following" : "Follow"}
+                </button>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+              <span className="cursor-pointer hover:underline" onClick={() => navigate(`/community/post/${post.id || post._id}`)}>
+                {formatDistanceToNow(new Date(post.created_at || post.createdAt || Date.now()), { addSuffix: true })}
+              </span>
+              {isEditedLocal && <span className="opacity-70">(edited)</span>}
+              {isAuthor && (
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <BarChart2 className="h-3.5 w-3.5 text-muted-foreground cursor-pointer hover:text-primary transition-colors" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-48 p-3 z-50" align="start">
+                    <div className="space-y-2 text-sm text-foreground">
+                      <p className="font-semibold mb-1">Post Insights</p>
+                      <div className="flex justify-between"><span>Views</span> <span className="font-medium">{post.view_count || 0}</span></div>
+                      <div className="flex justify-between"><span>Reach</span> <span className="font-medium">{post.view_count || 0}</span></div>
+                      <div className="flex justify-between"><span>Engagement</span> <span className="font-medium">{post.view_count ? Math.round(((post.like_count || 0) + (post.comment_count || 0)) / post.view_count * 100) : 0}%</span></div>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              )}
+            </div>
           </div>
         </div>
         <DropdownMenu>
@@ -399,19 +676,63 @@ const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete, onCom
             <Button variant="ghost" size="icon" className="h-8 w-8 -mt-2 -mr-2"><MoreHorizontal className="h-4 w-4" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => navigate(`/community/post/${post.id || post._id}`)}>
+              <CheckCircle2 className="mr-2 h-4 w-4" /> View Full Post
+            </DropdownMenuItem>
+            {isModerator && (
+              <DropdownMenuItem onClick={onPin}>
+                <Pin className="mr-2 h-4 w-4" /> {post.is_pinned ? "Unpin Post" : "Pin Post"}
+              </DropdownMenuItem>
+            )}
+            {post.tags?.includes("Events") && (
+              <DropdownMenuItem onClick={() => {
+                const title = encodeURIComponent(post.content.slice(0, 50) + (post.content.length > 50 ? '...' : ''));
+                const details = encodeURIComponent(post.content + `\n\nLink: ${window.location.origin}/community?post=${post.id}`);
+                const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}`;
+                window.open(url, '_blank');
+              }}>
+                <Pin className="mr-2 h-4 w-4" /> Add to Calendar
+              </DropdownMenuItem>
+            )}
             {isAuthor ? (
               <>
                 <DropdownMenuItem onClick={() => { setIsEditing(true); setEditContent(currentContent); }}>
                   <Edit className="mr-2 h-4 w-4" /> Edit Post
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(post, null, 2));
+                  const downloadAnchorNode = document.createElement('a');
+                  downloadAnchorNode.setAttribute("href", dataStr);
+                  downloadAnchorNode.setAttribute("download", `post_${post.id}.json`);
+                  document.body.appendChild(downloadAnchorNode);
+                  downloadAnchorNode.click();
+                  downloadAnchorNode.remove();
+                  toast.success("Post data exported");
+                }}>
+                  <BarChart2 className="mr-2 h-4 w-4" /> Export Data
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDeleteClick}>
                   <Trash2 className="mr-2 h-4 w-4" /> Delete Post
                 </DropdownMenuItem>
               </>
             ) : (
-              <DropdownMenuItem onClick={() => setShowReportDialog(true)}>
-                <AlertCircle className="mr-2 h-4 w-4" /> Report
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={async () => {
+                  const authorId = post.author?._id || post.author?.id;
+                  if (authorId) await toggleMuteUser(authorId);
+                }}>
+                  <VolumeX className="mr-2 h-4 w-4" /> Mute User
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={async () => {
+                  const authorId = post.author?._id || post.author?.id;
+                  if (authorId) await toggleBlockUser(authorId);
+                }}>
+                  <Ban className="mr-2 h-4 w-4" /> Block User
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowReportDialog(true)}>
+                  <AlertCircle className="mr-2 h-4 w-4" /> Report Post
+                </DropdownMenuItem>
+              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -447,6 +768,55 @@ const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete, onCom
               />
             )}
 
+            {post.template === "achievement" && (
+              <div className="my-3 p-3 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border border-yellow-500/20 rounded-lg flex items-center gap-3">
+                <div className="bg-yellow-500/20 p-2 rounded-full">
+                  <Award className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">Achievement Unlocked</p>
+                  <p className="text-xs text-yellow-700/80 dark:text-yellow-400/80">{post.template_data?.type || "Milestone reached"}</p>
+                </div>
+              </div>
+            )}
+            
+            {post.template === "event" && (
+              <div className="my-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="h-4 w-4 text-blue-500" />
+                  <span className="text-sm font-medium">Upcoming Event</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {post.template_data?.date && (
+                    <div><span className="text-muted-foreground text-xs">Date:</span> <br/>{post.template_data.date}</div>
+                  )}
+                  {post.template_data?.location && (
+                    <div><span className="text-muted-foreground text-xs">Location:</span> <br/>{post.template_data.location}</div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {post.template === "question" && (
+              <div className={`my-3 p-3 border rounded-lg flex items-start justify-between gap-2 ${post.template_data?.resolved ? 'bg-green-500/10 border-green-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>
+                <div className="flex gap-2">
+                  <HelpCircle className={`h-5 w-5 mt-0.5 ${post.template_data?.resolved ? 'text-green-500' : 'text-orange-500'}`} />
+                  <div>
+                    <p className="text-sm font-medium">{post.template_data?.resolved ? 'Question Resolved' : 'Question'}</p>
+                    <p className="text-xs text-muted-foreground">{post.template_data?.resolved ? 'The author has marked this as resolved.' : 'Looking for answers.'}</p>
+                  </div>
+                </div>
+                {isAuthor && !post.template_data?.resolved && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs bg-background" onClick={async () => {
+                     const updated = await resolveQuestion(post.id!);
+                     if (updated) {
+                       window.location.reload(); // simple reload to show resolved state for now
+                     }
+                  }}>Mark Resolved</Button>
+                )}
+              </div>
+            )}
+
             <LinkPreview preview={post.link_preview} />
             
             {post.tags && post.tags.length > 0 && (
@@ -467,6 +837,7 @@ const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete, onCom
         <div className="flex items-center gap-6 text-sm text-muted-foreground border-t pt-3 mt-3">
           <div className="relative group flex items-center">
             <button 
+              aria-label={`React to post. Current reaction: ${post.user_reaction || 'None'}`}
               className={`flex items-center gap-1.5 transition-colors hover:text-primary ${post.user_reaction === 'celebrate' ? 'text-green-500 font-medium' : post.user_reaction === 'insightful' ? 'text-yellow-500 font-medium' : post.user_reaction === 'support' ? 'text-purple-500 font-medium' : post.user_reaction ? 'text-blue-500 font-medium' : ''}`} 
               onClick={() => onLike('like')}
             >
@@ -483,15 +854,17 @@ const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete, onCom
               </ReactionListPopover>
             </button>
             
-            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:flex bg-background border shadow-lg rounded-full px-2 py-1 gap-2 z-10 animate-in fade-in slide-in-from-bottom-2">
-              <button onClick={(e) => { e.stopPropagation(); onLike('like'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 text-blue-500" title="Like"><ThumbsUp className="h-5 w-5 fill-current" /></button>
-              <button onClick={(e) => { e.stopPropagation(); onLike('celebrate'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 text-green-500" title="Celebrate"><PartyPopper className="h-5 w-5 fill-current" /></button>
-              <button onClick={(e) => { e.stopPropagation(); onLike('insightful'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 text-yellow-500" title="Insightful"><Lightbulb className="h-5 w-5 fill-current" /></button>
-              <button onClick={(e) => { e.stopPropagation(); onLike('support'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 text-purple-500" title="Support"><HandHeart className="h-5 w-5 fill-current" /></button>
+            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:flex bg-background border shadow-lg rounded-full px-2 py-1 gap-2 z-10 animate-in fade-in slide-in-from-bottom-2 motion-reduce:animate-none" role="menu" aria-label="Reaction options">
+              <button role="menuitem" aria-label="Like" onClick={(e) => { e.stopPropagation(); onLike('like'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 motion-reduce:transition-none motion-reduce:transform-none text-blue-500" title="Like"><ThumbsUp className="h-5 w-5 fill-current" /></button>
+              <button role="menuitem" aria-label="Celebrate" onClick={(e) => { e.stopPropagation(); onLike('celebrate'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 motion-reduce:transition-none motion-reduce:transform-none text-green-500" title="Celebrate"><PartyPopper className="h-5 w-5 fill-current" /></button>
+              <button role="menuitem" aria-label="Insightful" onClick={(e) => { e.stopPropagation(); onLike('insightful'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 motion-reduce:transition-none motion-reduce:transform-none text-yellow-500" title="Insightful"><Lightbulb className="h-5 w-5 fill-current" /></button>
+              <button role="menuitem" aria-label="Support" onClick={(e) => { e.stopPropagation(); onLike('support'); }} className="p-2 hover:bg-secondary rounded-full transition-transform hover:scale-125 motion-reduce:transition-none motion-reduce:transform-none text-purple-500" title="Support"><HandHeart className="h-5 w-5 fill-current" /></button>
             </div>
           </div>
           
           <button 
+            aria-label={`Toggle comments. ${post.comment_count} comments`}
+            aria-expanded={showComments}
             className={`flex items-center gap-1.5 hover:text-primary transition-colors ${showComments ? 'text-primary' : ''}`} 
             onClick={() => setShowComments(!showComments)}
           >
@@ -504,6 +877,7 @@ const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete, onCom
               className={`flex items-center gap-1.5 hover:text-primary transition-colors ${post.is_saved ? 'text-primary' : ''}`} 
               onClick={onSave}
               title={post.is_saved ? "Unsave" : "Save Post"}
+              aria-label={post.is_saved ? "Unsave Post" : "Save Post"}
             >
               <Bookmark className={`h-4 w-4 ${post.is_saved ? 'fill-current' : ''}`} />
             </button>
@@ -514,6 +888,7 @@ const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete, onCom
                 toast.success("Link copied to clipboard!");
               }}
               title="Share"
+              aria-label="Share Post"
             >
               <Share2 className="h-4 w-4" />
             </button>
@@ -560,61 +935,109 @@ const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete, onCom
   );
 }
 
+export const CommentNode = ({ comment, allComments, currentUserId, onReply, level = 0 }: { comment: any, allComments: any[], currentUserId?: string, onReply: (id: string, username: string) => void, level?: number }) => {
+  const replies = allComments.filter(c => c.parent_id === comment.id || c.parent_id === comment._id);
+  const isReply = level > 0;
+  
+  return (
+    <div className={`flex gap-2 ${isReply ? 'mt-3' : ''}`}>
+      <Avatar className="h-6 w-6 mt-0.5"><AvatarImage src={comment.author?.avatar_url || ""} /><AvatarFallback>{(comment.author?.full_name || "?")[0]}</AvatarFallback></Avatar>
+      <div className="flex-1">
+        <div className={`bg-background border p-2 rounded-lg rounded-tl-none`}>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className="text-[11px] font-semibold">{comment.author?.full_name || "Anonymous"}</span>
+            <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(comment.created_at || comment.createdAt || Date.now()), { addSuffix: true })}</span>
+          </div>
+          <p className="text-xs">{comment.text}</p>
+        </div>
+        <div className="flex gap-4 mt-1 ml-1">
+          <button 
+            className="text-[10px] font-medium text-muted-foreground hover:text-primary transition-colors"
+            onClick={() => onReply(comment.id || comment._id, comment.author?.username || comment.author?.full_name || "Anonymous")}
+          >
+            Reply
+          </button>
+        </div>
+        
+        {replies.length > 0 && (
+          <div className="ml-2 border-l-2 border-border/50 pl-2 mt-2 space-y-3">
+            {replies.map(r => (
+              <CommentNode key={r.id || r._id} comment={r} allComments={allComments} currentUserId={currentUserId} onReply={onReply} level={level + 1} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const InlineComments = ({ postId, currentUserId, onCommentAdded }: { postId: string; currentUserId?: string; onCommentAdded: () => void }) => {
   const { comments, loading, setComments } = usePostComments(postId);
   const [text, setText] = useState("");
   const [posting, setPosting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ id: string, username: string } | null>(null);
 
   const submit = async () => {
     if(!text.trim()) return;
     setPosting(true);
-    const r = await postComment(postId, text);
+    const r = await postComment(postId, text, replyingTo?.id);
     setPosting(false);
     if (r) {
       setComments((prev: any) => [{...r, id: r._id, created_at: r.createdAt}, ...prev]);
       setText("");
+      setReplyingTo(null);
       onCommentAdded();
     }
   };
+
+  const topLevelComments = comments.filter((c: any) => !c.parent_id);
 
   return (
     <div className="mt-4 pt-4 border-t bg-secondary/10 -mx-4 px-4 pb-2 rounded-b-xl">
       <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 mb-4">
         {loading ? <Loader2 className="h-4 w-4 animate-spin mx-auto my-4 text-muted-foreground" /> : comments.length === 0 ? (
           <p className="text-center text-xs text-muted-foreground py-2">No comments yet. Be the first!</p>
-        ) : comments.map((c) => (
-          <div key={c.id} className="flex gap-2">
-            <Avatar className="h-6 w-6 mt-0.5"><AvatarImage src={c.author?.avatar_url || ""} /><AvatarFallback>{(c.author?.full_name || "?")[0]}</AvatarFallback></Avatar>
-            <div className="flex-1 bg-background border p-2 rounded-lg rounded-tl-none">
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[11px] font-semibold">{c.author?.full_name || "Anonymous"}</span>
-                <span className="text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(c.created_at || c.createdAt || Date.now()), { addSuffix: true })}</span>
-              </div>
-              <p className="text-xs">{c.text}</p>
-            </div>
-          </div>
+        ) : topLevelComments.map((c: any) => (
+          <CommentNode 
+            key={c.id || c._id} 
+            comment={c} 
+            allComments={comments} 
+            currentUserId={currentUserId} 
+            onReply={(id, username) => {
+              setReplyingTo({ id, username });
+              setText(`@${username} `);
+            }} 
+          />
         ))}
       </div>
       
       {currentUserId ? (
-        <div className="flex gap-2 items-center">
-          <Avatar className="h-7 w-7"><AvatarFallback>You</AvatarFallback></Avatar>
-          <div className="flex-1 relative">
-            <Input 
-              className="h-8 text-xs pr-8 bg-background" 
-              placeholder="Write a comment..." 
-              value={text} 
-              onChange={(e) => setText(e.target.value)} 
-              onKeyDown={e => e.key === 'Enter' && submit()}
-              maxLength={1000} 
-            />
-            <button 
-              className="absolute right-2 top-1.5 text-primary disabled:text-muted-foreground"
-              disabled={posting || !text.trim()}
-              onClick={submit}
-            >
-              {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </button>
+        <div className="flex flex-col gap-2">
+          {replyingTo && (
+            <div className="flex items-center justify-between bg-primary/10 text-primary text-xs px-2 py-1 rounded-md mb-1 mx-9">
+              <span>Replying to {replyingTo.username}</span>
+              <button onClick={() => { setReplyingTo(null); setText(""); }} className="hover:text-primary-foreground bg-primary/20 rounded-full p-0.5"><X className="h-3 w-3" /></button>
+            </div>
+          )}
+          <div className="flex gap-2 items-center">
+            <Avatar className="h-7 w-7"><AvatarFallback>You</AvatarFallback></Avatar>
+            <div className="flex-1 relative">
+              <Input 
+                className="h-8 text-xs pr-8 bg-background" 
+                placeholder={replyingTo ? "Write a reply..." : "Write a comment..."} 
+                value={text} 
+                onChange={(e) => setText(e.target.value)} 
+                onKeyDown={e => e.key === 'Enter' && submit()}
+                maxLength={1000} 
+              />
+              <button 
+                className="absolute right-2 top-1.5 text-primary disabled:text-muted-foreground"
+                disabled={posting || !text.trim()}
+                onClick={submit}
+              >
+                {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
         </div>
       ) : (

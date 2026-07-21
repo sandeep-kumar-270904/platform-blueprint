@@ -13,6 +13,8 @@ export interface CommunityPost {
   image_url: string | null;
   image_urls?: string[];
   tags: string[];
+  status?: 'active' | 'pending_review' | 'hidden' | 'deleted';
+  auto_flag_reason?: string;
   link_preview?: {
     title: string;
     description: string;
@@ -182,17 +184,19 @@ export async function createPost(input: { content: string; tags?: string[]; imag
   const token = localStorage.getItem("token");
   if (!token) { toast.error("Please sign in"); return null; }
   if (!input.content.trim()) { toast.error("Post cannot be empty"); return null; }
-  
-  try {
-    const res = await fetch(`${API_URL}/api/community/posts`, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(input)
-    });
-    if (!res.ok) throw new Error("Failed to post");
-    toast.success("Posted successfully");
-    return await res.json();
-  } catch (err: any) {
+    try {
+      const res = await fetch(`${API_URL}/api/community/posts`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(input)
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to post");
+      }
+      toast.success("Posted successfully");
+      return await res.json();
+    } catch (err: any) {
     toast.error(err.message);
     return null;
   }
@@ -333,6 +337,77 @@ export async function votePoll(postId: string, option_index: number) {
   }
 }
 
+export async function toggleFollowUser(userId: string) {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  try {
+    const res = await fetch(`${API_URL}/api/community/users/${userId}/follow`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function checkFollowStatus(userId: string) {
+  const token = localStorage.getItem("token");
+  if (!token) return false;
+  try {
+    const res = await fetch(`${API_URL}/api/community/users/${userId}/follow-status`, {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data.following;
+  } catch {
+    return false;
+  }
+}
+
+export async function updateUserInterests(tags: string[]) {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  try {
+    const res = await fetch(`${API_URL}/api/community/users/interests`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ tags })
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function getUserInterests() {
+  const token = localStorage.getItem("token");
+  if (!token) return [];
+  try {
+    const res = await fetch(`${API_URL}/api/community/users/interests`, {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.tags || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getSimilarPosts(postId: string) {
+  try {
+    const res = await fetch(`${API_URL}/api/community/posts/${postId}/similar`);
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
 export async function getPostReactions(postId: string) {
   try {
     const res = await fetch(`${API_URL}/api/community/posts/${postId}/reactions`);
@@ -386,7 +461,7 @@ export function usePostComments(postId: string | null, page = 1) {
     return { comments, loading, setComments, refetch: fetchComments };
 }
 
-export async function postComment(postId: string, text: string) {
+export async function postComment(postId: string, text: string, parentId?: string) {
   const token = localStorage.getItem("token");
   if (!token) { toast.error("Please sign in"); return null; }
   if (!text.trim()) { toast.error("Comment cannot be empty"); return null; }
@@ -395,9 +470,60 @@ export async function postComment(postId: string, text: string) {
     const res = await fetch(`${API_URL}/api/community/posts/${postId}/comments`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ text: text.trim() })
+      body: JSON.stringify({ text: text.trim(), parent_id: parentId })
     });
     if (!res.ok) throw new Error("Failed to post comment");
+    return await res.json();
+  } catch (err: any) {
+    toast.error(err.message);
+    return null;
+  }
+}
+
+export async function toggleMuteUser(userId: string) {
+  const token = localStorage.getItem("token");
+  if (!token) { toast.error("Please sign in"); return null; }
+  
+  try {
+    const res = await fetch(`${API_URL}/api/users/${userId}/mute`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+    });
+    if (!res.ok) throw new Error("Failed to mute user");
+    return await res.json();
+  } catch (err: any) {
+    toast.error(err.message);
+    return null;
+  }
+}
+
+export async function toggleBlockUser(userId: string) {
+  const token = localStorage.getItem("token");
+  if (!token) { toast.error("Please sign in"); return null; }
+  
+  try {
+    const res = await fetch(`${API_URL}/api/users/${userId}/block`, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+    });
+    if (!res.ok) throw new Error("Failed to block user");
+    return await res.json();
+  } catch (err: any) {
+    toast.error(err.message);
+    return null;
+  }
+}
+
+export async function resolveQuestion(postId: string) {
+  const token = localStorage.getItem("token");
+  if (!token) { toast.error("Please sign in"); return null; }
+  
+  try {
+    const res = await fetch(`${API_URL}/api/community/posts/${postId}/resolve`, {
+      method: "PUT",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+    });
+    if (!res.ok) throw new Error("Failed to resolve question");
     return await res.json();
   } catch (err: any) {
     toast.error(err.message);

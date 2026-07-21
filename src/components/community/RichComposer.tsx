@@ -3,12 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Send, Loader2, Image as ImageIcon, X, Bold, Italic, Code, BarChart2, Plus, Trash2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Send, Loader2, Image as ImageIcon, X, Bold, Italic, Code, BarChart2, Plus, Trash2, Globe, Users, Shield, Award, Calendar, HelpCircle, Smile, MapPin, Clock } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
+
+const EMOJI_LIST = ["😀","😂","🤣","😊","😍","🥰","😎","🤩","🤔","🙄","😴","😷","🤯","🥳","❤️","👍","🎉","🔥","✨","💯","🙌","👏","🚀","💡","🎯","🏆","📚","🎓"];
 
 interface SortableImageItemProps {
   id: string;
@@ -42,7 +46,7 @@ const SortableImageItem = ({ id, previewUrl, onRemove }: SortableImageItemProps)
 };
 
 interface RichComposerProps {
-  onSubmit: (content: string, tags: string[], files: File[], poll?: any) => Promise<void>;
+  onSubmit: (content: string, tags: string[], files: File[], poll?: any, options?: { privacy: string, clubId?: string, template: string, templateData?: any }) => Promise<void>;
   user: any;
 }
 
@@ -63,6 +67,15 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
 
   const [showPoll, setShowPoll] = useState(false);
   const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
+
+  const [privacy, setPrivacy] = useState<string>("public");
+  const [clubId, setClubId] = useState<string>("");
+  const [template, setTemplate] = useState<string>("standard");
+  const [templateData, setTemplateData] = useState<any>({});
+  
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [showDraftPrompt, setShowDraftPrompt] = useState(false);
+  const [savedDraft, setSavedDraft] = useState<any>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -152,13 +165,58 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
     const newContent = `${beforeMention}@${username} ${afterMention}`;
     setContent(newContent);
     setMentionSearch({ active: false, query: "", position: 0 });
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        const newCursor = beforeMention.length + username.length + 2;
-        textareaRef.current.setSelectionRange(newCursor, newCursor);
+    setMentionSuggestions([]);
+    textareaRef.current.focus();
+  };
+
+  useEffect(() => {
+    const draftStr = localStorage.getItem('composer_draft');
+    if (draftStr) {
+      try {
+        const draft = JSON.parse(draftStr);
+        if (draft.content || (draft.selectedTags && draft.selectedTags.length > 0)) {
+          setSavedDraft(draft);
+          setShowDraftPrompt(true);
+        }
+      } catch (e) {
+        // ignore
       }
-    }, 0);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!draftRestored && showDraftPrompt) return; // Don't overwrite if prompt is showing
+    const timer = setTimeout(() => {
+      if (content || selectedTags.length > 0) {
+        localStorage.setItem('composer_draft', JSON.stringify({
+          content, selectedTags, showPoll, pollOptions, privacy, clubId, template, templateData
+        }));
+      } else {
+        localStorage.removeItem('composer_draft');
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [content, selectedTags, showPoll, pollOptions, privacy, clubId, template, templateData, draftRestored, showDraftPrompt]);
+
+  const restoreDraft = () => {
+    if (savedDraft) {
+      setContent(savedDraft.content || "");
+      setSelectedTags(savedDraft.selectedTags || []);
+      setShowPoll(savedDraft.showPoll || false);
+      setPollOptions(savedDraft.pollOptions || ["", ""]);
+      setPrivacy(savedDraft.privacy || "public");
+      setClubId(savedDraft.clubId || "");
+      setTemplate(savedDraft.template || "standard");
+      setTemplateData(savedDraft.templateData || {});
+    }
+    setShowDraftPrompt(false);
+    setDraftRestored(true);
+  };
+  
+  const discardDraft = () => {
+    localStorage.removeItem('composer_draft');
+    setShowDraftPrompt(false);
+    setDraftRestored(true);
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -203,18 +261,45 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
     const validPollOptions = pollOptions.map(o => o.trim()).filter(o => o);
     const poll = showPoll && validPollOptions.length >= 2 ? { options: validPollOptions } : undefined;
     
-    await onSubmit(content, selectedTags, images.map(i => i.file), poll);
+    await onSubmit(content, selectedTags, images.map(i => i.file), poll, { privacy, clubId: clubId || undefined, template, templateData });
+    
+    localStorage.removeItem('composer_draft');
+    
     setPosting(false);
     setContent("");
     setImages([]);
     setSelectedTags([]);
     setShowPoll(false);
     setPollOptions(["", ""]);
+    setTemplate("standard");
+    setTemplateData({});
+  };
+
+  const getPrivacyIcon = () => {
+    if (privacy === 'followers') return <Users className="h-4 w-4 mr-1" />;
+    if (privacy === 'club') return <Shield className="h-4 w-4 mr-1" />;
+    return <Globe className="h-4 w-4 mr-1" />;
+  };
+
+  const getTemplateIcon = () => {
+    if (template === 'achievement') return <Award className="h-4 w-4 mr-1" />;
+    if (template === 'event') return <Calendar className="h-4 w-4 mr-1" />;
+    if (template === 'question') return <HelpCircle className="h-4 w-4 mr-1" />;
+    return null;
   };
 
   return (
     <Card className="mb-8 overflow-visible relative z-10 border-primary/20 shadow-sm">
       <CardContent className="p-4 space-y-3 relative">
+        {showDraftPrompt && (
+          <div className="bg-secondary p-3 rounded-md flex justify-between items-center text-sm border shadow-sm">
+            <span>You have an unsaved draft from a previous session.</span>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={discardDraft} className="h-7 text-xs">Discard</Button>
+              <Button type="button" variant="default" size="sm" onClick={restoreDraft} className="h-7 text-xs">Restore Draft</Button>
+            </div>
+          </div>
+        )}
         <div className="relative">
           {selectionRange && (
             <div className="absolute -top-10 left-0 bg-popover border shadow-lg rounded-md flex items-center p-1 gap-1 z-50">
@@ -295,16 +380,78 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
             </div>
           </div>
         )}
-        <div className="flex justify-between items-center pt-2 border-t">
-          <div className="flex items-center gap-4">
-            <span className={`text-xs ${content.length > 1900 ? 'text-red-500' : 'text-muted-foreground'}`}>{content.length}/2000</span>
-            <input type="file" accept="image/*" multiple className="hidden" ref={fileInputRef} onChange={handleImageSelect} />
-            <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-primary" disabled={images.length >= 4} onClick={() => fileInputRef.current?.click()}><ImageIcon className="h-4 w-4 mr-1" /> {images.length}/4 Photos</Button>
-            <Button type="button" variant="ghost" size="sm" className={`h-8 px-2 ${showPoll ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`} onClick={() => setShowPoll(!showPoll)}><BarChart2 className="h-4 w-4 mr-1" /> Poll</Button>
+        
+        {template === 'event' && (
+          <div className="mt-2 p-3 bg-primary/5 rounded-md border border-primary/20 space-y-2">
+            <span className="text-sm font-semibold flex items-center gap-1 text-primary"><Calendar className="h-4 w-4" /> Event Details</span>
+            <div className="flex gap-2">
+              <Input type="date" className="h-8 text-sm" value={templateData.event_date || ''} onChange={e => setTemplateData({...templateData, event_date: e.target.value})} />
+              <Input type="time" className="h-8 text-sm" value={templateData.event_time || ''} onChange={e => setTemplateData({...templateData, event_time: e.target.value})} />
+            </div>
+            <Input className="h-8 text-sm" placeholder="Location (e.g., Auditorium, Zoom Link)" value={templateData.event_location || ''} onChange={e => setTemplateData({...templateData, event_location: e.target.value})} />
           </div>
-          <Button onClick={handleSubmit} disabled={posting || !content.trim()} className="rounded-full px-6 transition-all bg-black text-white hover:bg-black/90 disabled:bg-muted disabled:text-muted-foreground">
-            {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="mr-2 h-4 w-4" />Post</>}
-          </Button>
+        )}
+
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-2 border-t gap-2 sm:gap-0">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+            
+            {/* Formatting / Media */}
+            <input type="file" accept="image/*" multiple className="hidden" ref={fileInputRef} onChange={handleImageSelect} />
+            <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-primary" disabled={images.length >= 4} onClick={() => fileInputRef.current?.click()}><ImageIcon className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">{images.length}/4</span></Button>
+            <Button type="button" variant="ghost" size="sm" className={`h-8 px-2 hidden sm:flex ${showPoll ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`} onClick={() => setShowPoll(!showPoll)}><BarChart2 className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Poll</span></Button>
+            
+            {/* Emoji Picker */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-primary"><Smile className="h-4 w-4" /></Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-2">
+                <div className="grid grid-cols-7 gap-1">
+                  {EMOJI_LIST.map(emoji => (
+                    <button key={emoji} type="button" onClick={() => setContent(prev => prev + emoji)} className="text-xl hover:bg-secondary rounded p-1 transition-colors">{emoji}</button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <div className="h-4 w-px bg-border mx-1 hidden sm:block" />
+            
+            {/* Template Selector */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className={`h-8 px-2 ${template !== 'standard' ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-primary'}`}>
+                  {getTemplateIcon()} <span className="hidden sm:inline capitalize">{template === 'standard' ? 'Type' : template}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => { setTemplate('standard'); setTemplateData({}); }}>Standard Post</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTemplate('achievement')}><Award className="h-4 w-4 mr-2" /> Achievement</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTemplate('event')}><Calendar className="h-4 w-4 mr-2" /> Event</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTemplate('question')}><HelpCircle className="h-4 w-4 mr-2" /> Question</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Privacy Selector */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-primary">
+                  {getPrivacyIcon()} <span className="hidden sm:inline capitalize">{privacy}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => { setPrivacy('public'); setClubId(''); }}><Globe className="h-4 w-4 mr-2" /> Public</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setPrivacy('followers'); setClubId(''); }}><Users className="h-4 w-4 mr-2" /> Followers Only</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setPrivacy('club'); setClubId('default_club'); }}><Shield className="h-4 w-4 mr-2" /> My Club (Mock)</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+            <span className={`text-xs ${content.length > 1900 ? 'text-red-500' : 'text-muted-foreground'}`}>{content.length}/2000</span>
+            <Button onClick={handleSubmit} disabled={posting || !content.trim()} className="rounded-full px-6 transition-all bg-black text-white hover:bg-black/90 disabled:bg-muted disabled:text-muted-foreground">
+              {posting ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Send className="mr-2 h-4 w-4" />Post</>}
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

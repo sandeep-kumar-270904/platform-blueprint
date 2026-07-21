@@ -13,6 +13,25 @@ interface LinkPreviewData {
 export const LinkPreview = ({ preview }: { preview?: LinkPreviewData }) => {
   if (!preview || (!preview.title && !preview.image)) return null;
 
+  // Check for YouTube URL
+  const ytMatch = preview.url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+  if (ytMatch && ytMatch[1]) {
+    const videoId = ytMatch[1];
+    return (
+      <div className="mt-3 overflow-hidden rounded-lg border bg-background">
+        <iframe
+          width="100%"
+          height="315"
+          src={`https://www.youtube.com/embed/${videoId}`}
+          title="YouTube video player"
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        ></iframe>
+      </div>
+    );
+  }
+
   return (
     <a href={preview.url} target="_blank" rel="noopener noreferrer" className="block mt-3 no-underline group">
       <Card className="overflow-hidden hover:border-primary/50 transition-colors bg-secondary/10">
