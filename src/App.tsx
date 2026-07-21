@@ -73,6 +73,8 @@ import SkillZone from "./pages/SkillZone";
 import TechNews from "./pages/TechNews";
 import PlacementCell from "./pages/PlacementCell";
 import DSAPractice from "./pages/DSAPractice";
+import InterviewPrep from "./pages/InterviewPrep";
+import CompanyPrepDetail from "./pages/CompanyPrepDetail";
 import StudyGroups from "./pages/StudyGroups";
 import TeamHunt from "./pages/TeamHunt";
 import RoommateFind from "./pages/RoommateFind";
@@ -239,6 +241,8 @@ const App = () => (
           <Route path="/news" element={<ProtectedRoute><TechNews /></ProtectedRoute>} />
           <Route path="/placement" element={<ProtectedRoute><PlacementCell /></ProtectedRoute>} />
           <Route path="/placement/dsa" element={<ProtectedRoute><DSAPractice /></ProtectedRoute>} />
+          <Route path="/placement/interview-prep" element={<ProtectedRoute><InterviewPrep /></ProtectedRoute>} />
+          <Route path="/placement/interview-prep/:id" element={<ProtectedRoute><CompanyPrepDetail /></ProtectedRoute>} />
           <Route path="/study-groups" element={<ProtectedRoute><StudyGroups /></ProtectedRoute>} />
           <Route path="/team-hunt" element={<ProtectedRoute><TeamHunt /></ProtectedRoute>} />
           <Route path="/roommate-finder" element={<ProtectedRoute><RoommateFind /></ProtectedRoute>} />

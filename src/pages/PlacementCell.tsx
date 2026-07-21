@@ -96,7 +96,9 @@ const PlacementCell = () => {
                     <span>HR Round Tips</span>
                   </div>
                 </div>
-                <Button className="w-full">View Resources</Button>
+                <Button className="w-full" asChild>
+                  <Link to="/placement/interview-prep">View Resources</Link>
+                </Button>
               </CardContent>
             </Card>
           </ScrollReveal>
