@@ -90,12 +90,13 @@ router.post('/problems/:id/solve', auth, async (req, res) => {
           target_id: problemId
         });
         
-        // Milestone trigger
-        if (progress.solved_problems.length === 50) {
+        // Scalable Milestone trigger (every 10 problems)
+        // This inherently prevents flooding on backfills (e.g. going from 0 to 45 would only trigger on 10, 20, 30, 40 at the time they hit exactly that number)
+        if (progress.solved_problems.length > 0 && progress.solved_problems.length % 10 === 0) {
           await notificationService.createNotification({
             userId: req.user.id,
             type: 'placement_milestone',
-            message: 'Incredible! You solved 50 DSA problems!'
+            message: `Incredible! You solved ${progress.solved_problems.length} DSA problems!`
           });
         }
       }
