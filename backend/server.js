@@ -143,6 +143,79 @@ connectDB().then(async () => {
       console.log('Seeded Company Prep data.');
     }
 
+    // Seed Mock Interview Professionals
+    const MentorProfile = require('./models/MentorProfile');
+    const mockInterviewerCount = await MentorProfile.countDocuments({ expertise: 'Technical Interview' });
+    if (mockInterviewerCount === 0) {
+      // 1. Create Users
+      let alice = await User.findOne({ email: 'alice.interviewer@test.com' });
+      if (!alice) {
+        alice = await User.create({
+          email: 'alice.interviewer@test.com',
+          password: await require('bcryptjs').hash('password123', 10),
+          username: 'alice_sde',
+          full_name: 'Alice Smith',
+          avatar_url: 'https://i.pravatar.cc/150?img=1',
+          isEmailVerified: true
+        });
+      }
+      
+      let bob = await User.findOne({ email: 'bob.hr@test.com' });
+      if (!bob) {
+        bob = await User.create({
+          email: 'bob.hr@test.com',
+          password: await require('bcryptjs').hash('password123', 10),
+          username: 'bob_hr',
+          full_name: 'Bob Johnson',
+          avatar_url: 'https://i.pravatar.cc/150?img=11',
+          isEmailVerified: true
+        });
+      }
+
+      // 2. Create Mentor Profiles
+      await MentorProfile.create([
+        {
+          user_id: alice._id,
+          title: 'Senior SDE',
+          company: 'Amazon',
+          bio: 'I conduct 100+ interviews at Amazon. Let\'s practice technical rounds!',
+          expertise: ['Technical Interview', 'System Design'],
+          yearsOfExperience: 5,
+          pricePerHour: 0,
+          verificationStatus: 'approved',
+          rating: 4.8,
+          reviewsCount: 24,
+          totalSessions: 50,
+          availabilityRules: {
+            weekly: [
+              { day: 'Monday', startTime: '18:00', endTime: '22:00' },
+              { day: 'Wednesday', startTime: '18:00', endTime: '22:00' }
+            ]
+          }
+        },
+        {
+          user_id: bob._id,
+          title: 'HR Lead',
+          company: 'Google',
+          bio: 'Behavioral rounds can be tricky. I will help you master the STAR method.',
+          expertise: ['HR Interview', 'Behavioral'],
+          yearsOfExperience: 8,
+          pricePerHour: 0,
+          verificationStatus: 'approved',
+          rating: 4.9,
+          reviewsCount: 40,
+          totalSessions: 110,
+          availabilityRules: {
+            weekly: [
+              { day: 'Tuesday', startTime: '10:00', endTime: '15:00' },
+              { day: 'Thursday', startTime: '10:00', endTime: '15:00' }
+            ]
+          }
+        }
+      ]);
+      console.log('Seeded Mock Interview professionals.');
+    }
+
     const Event = require('./models/Event');
 
     // --- 24-Hour Event Reminder Cron Job ---
