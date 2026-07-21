@@ -8,6 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
@@ -22,6 +23,7 @@ interface Notification {
   is_read: boolean;
   action_url: string | null;
   created_at: string;
+  metadata?: any;
 }
 
 const getNotificationIcon = (type: string) => {
@@ -71,7 +73,16 @@ export const NotificationCenter = () => {
     const socket = io(API_URL);
     socket.emit('join_user_room', user.id);
     socket.on('notification:new', (newNotification: any) => {
-      setNotifications(prev => [newNotification, ...prev]);
+      setNotifications(prev => {
+        const id = newNotification.id || newNotification._id;
+        const existingIdx = prev.findIndex(n => (n.id || (n as any)._id) === id);
+        if (existingIdx !== -1) {
+          const newArr = [...prev];
+          newArr.splice(existingIdx, 1);
+          return [newNotification, ...newArr];
+        }
+        return [newNotification, ...prev];
+      });
     });
 
     return () => {
@@ -110,11 +121,18 @@ export const NotificationCenter = () => {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setNotifications((prev) =>
+      prev.map((n) => ({ ...n, is_read: true, isRead: true }))
+    );
     } catch {}
   };
 
+  const groupedNotifications = notifications;
+
   const unreadCount = notifications.filter((n) => !n.is_read && !(n as any).isRead).length;
+
+  const latestDigest = notifications.find(n => n.type === 'weekly_digest');
+  const digestData = latestDigest?.metadata || { newFollowers: 0, postReactions: 0, topPostText: 'Check back next week for your first digest!' };
 
   if (!user) return null;
 
@@ -145,6 +163,34 @@ export const NotificationCenter = () => {
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
             <h4 className="font-semibold">Notifications</h4>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-primary">Weekly Digest</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Your Week in Review</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-primary/5 p-4 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-primary">{digestData.newFollowers || 0}</p>
+                      <p className="text-xs text-muted-foreground">New Followers</p>
+                    </div>
+                    <div className="bg-primary/5 p-4 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-primary">{digestData.postReactions || 0}</p>
+                      <p className="text-xs text-muted-foreground">Post Reactions</p>
+                    </div>
+                  </div>
+                  <div>
+                    <h5 className="text-sm font-medium mb-2">Most Engaged Post</h5>
+                    <div className="p-3 border rounded-lg bg-muted/20 text-xs text-muted-foreground">
+                      {digestData.topPostText ? `"${digestData.topPostText}"` : "No posts this week."}
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setIsOpen(false); window.location.href = '/settings/notifications'; }}>
               <Bell className="h-3 w-3" />
             </Button>
@@ -168,7 +214,7 @@ export const NotificationCenter = () => {
             </div>
           ) : (
             <div className="divide-y">
-              {notifications.map((notification) => {
+              {groupedNotifications.map((notification) => {
                 const Icon = getNotificationIcon(notification.type);
                 return (
                     <motion.div

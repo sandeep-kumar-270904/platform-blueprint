@@ -14,7 +14,8 @@ const certificationRecordSchema = new mongoose.Schema({
   },
   evidenceUrl: { type: String }, // File or link
   rejectionReason: { type: String }, // Admin feedback if rejected
-  linkedResumeIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Resume' }]
+  linkedResumeIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Resume' }],
+  is_shared_to_community: { type: Boolean, default: false }
 }, { timestamps: true });
 
 certificationRecordSchema.index({ userId: 1 });

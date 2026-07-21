@@ -82,7 +82,13 @@ const notificationSchema = new mongoose.Schema({
   emailSent: { type: Boolean, default: false },
   emailSentAt: { type: Date },
   emailFailureReason: { type: String },
-  isRead: { type: Boolean, default: false }
+  isRead: { type: Boolean, default: false },
+  actors: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    name: { type: String }
+  }],
+  engagementCount: { type: Number, default: 1 },
+  metadata: { type: mongoose.Schema.Types.Mixed }
 }, { timestamps: true });
 
 notificationSchema.index({ userId: 1, isRead: 1 });

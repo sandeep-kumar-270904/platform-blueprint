@@ -98,3 +98,5 @@ const runApiSync = async () => {
 };
 
 module.exports = { runApiSync };
+
+exports.apiSyncJob = () => { /* sync */ };

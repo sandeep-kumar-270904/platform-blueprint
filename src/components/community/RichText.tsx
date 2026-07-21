@@ -19,6 +19,24 @@ export const RichText = ({ content }: { content: string }) => {
             if (props.href?.startsWith('/profile/')) {
               return <Link to={props.href} className="text-primary font-medium hover:underline">{props.children}</Link>;
             }
+            
+            const ytMatch = props.href?.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+            if (ytMatch && ytMatch[1]) {
+              return (
+                <div className="my-3 overflow-hidden rounded-lg border bg-background">
+                  <iframe
+                    width="100%"
+                    height="315"
+                    src={`https://www.youtube.com/embed/${ytMatch[1]}`}
+                    title="YouTube video player"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                </div>
+              );
+            }
+            
             return <a {...props} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">{props.children}</a>;
           }
         }}

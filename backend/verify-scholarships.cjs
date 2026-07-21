@@ -14,8 +14,8 @@ async function runTests() {
 
   try {
     // 1. Setup Test Data
-    const user = await User.findOne({ email: 'test_student@example.com' }) || 
-                 await User.create({ name: 'Test Student', email: 'test_student@example.com', password: 'password', role: 'student' });
+    const user = await User.findOne({ email: 'test_student@example.edu' }) || 
+                 await User.create({ name: 'Test Student', email: 'test_student@example.edu', password: 'password', role: 'student' });
     
     const institution = await Institution.findOne({ domain: 'example.edu' }) || 
                         await Institution.create({ name: 'Test University', domain: 'example.edu', billingContact: 'test@example.edu', seatLimit: 100 });
@@ -27,16 +27,16 @@ async function runTests() {
       title: 'Test Scholarship',
       provider: 'Test Org',
       description: 'A test scholarship',
-      amountType: 'fixed',
-      amount: { min: 1000 },
+      amount: { amountType: 'fixed', fixedValue: 1000 },
       applicationDeadline: new Date(Date.now() + 86400000),
       isRecurring: false,
       status: 'published',
       source: 'admin',
       applicationMode: 'in_app',
+      inAppRequirements: [{ fieldKey: 'essay1', label: 'Essay', fieldType: 'essay', essayPromptText: 'Why?' }],
       institutionId: institution._id,
       institutionExclusivity: 'exclusive',
-      eligibility: { financialNeedRequired: true, diversityTags: ['women-in-stem'] },
+      eligibility: { financialNeedRequired: true, diversityTags: ['women-in-stem'], academicLevel: ['undergraduate'] },
       tags: ['test']
     });
 

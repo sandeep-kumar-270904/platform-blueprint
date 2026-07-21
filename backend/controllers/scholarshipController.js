@@ -340,6 +340,13 @@ exports.getMatchExplanation = async (req, res) => {
     };
 
     const explanation = await geminiService.generateScholarshipExplanation(profile, scholarship.eligibility, req.user.id);
+    res.json({ explanation });
+  } catch (err) {
+    res.status(500).json({ message: 'Error generating explanation', error: err.message });
+  }
+};
+
+exports.trackApplication = async (req, res) => {
   try {
     const { id } = req.params;
     const { responses, essayResponses, attachedResumeId, attachedRecommendationLetterId } = req.body;

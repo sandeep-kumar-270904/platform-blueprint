@@ -113,11 +113,13 @@ import AILearningPaths from "./pages/AILearningPaths";
 import AMASessionsPage from "./pages/AMASessionsPage";
 import AMADetailPage from "./pages/AMADetailPage";
 import NotificationSettings from "./pages/NotificationSettings";
+import AccountSettings from "./pages/AccountSettings";
 import LiveQuizHost from "./pages/LiveQuizHost";
 import LiveQuizJoin from "./pages/LiveQuizJoin";
 import LiveQuizPlay from "./pages/LiveQuizPlay";
 import AdminQuizReports from "./pages/admin/AdminQuizReports";
 import AdminNewsModeration from "./pages/admin/AdminNewsModeration";
+import AdminCommunityPanel from "./pages/admin/AdminCommunityPanel";
 import ScholarshipDetail from "./pages/ScholarshipDetail";
 import ScholarshipApply from "./pages/ScholarshipApply";
 import AdminScholarships from "./pages/admin/AdminScholarships";
@@ -261,6 +263,7 @@ const App = () => (
           <Route path="/admin/colleges" element={<ProtectedRoute><AdminCollegePanel /></ProtectedRoute>} />
           <Route path="/admin/mentors" element={<ProtectedRoute><MentorsAdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/resumes" element={<ProtectedRoute><AdminResumeDashboard /></ProtectedRoute>} />
+          <Route path="/admin/community" element={<ProtectedRoute><AdminCommunityPanel /></ProtectedRoute>} />
           <Route path="/admin/career-opportunities" element={<ProtectedRoute><AdminCareerOpportunities /></ProtectedRoute>} />
           <Route path="/admin/quiz-reports" element={<ProtectedRoute><AdminQuizReports /></ProtectedRoute>} />
           <Route path="/admin/news-moderation" element={<ProtectedRoute><AdminNewsModeration /></ProtectedRoute>} />
@@ -272,6 +275,7 @@ const App = () => (
           <Route path="/shopping" element={<ProtectedRoute><Shopping /></ProtectedRoute>} />
           <Route path="/founders-passport" element={<ProtectedRoute><FoundersPassport /></ProtectedRoute>} />
           <Route path="/settings/notifications" element={<ProtectedRoute><NotificationSettings /></ProtectedRoute>} />
+          <Route path="/settings/account" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
           
           <Route path="*" element={<NotFound />} />
           

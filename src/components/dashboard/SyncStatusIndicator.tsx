@@ -55,6 +55,8 @@ export const SyncStatusIndicator = ({ status, className = "" }: Props) => {
           <div
             data-testid="sync-status"
             data-status={status}
+            role="status"
+            aria-live="polite"
             className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border border-border/60 bg-background/60 text-xs font-medium ${m.color} ${className}`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} />

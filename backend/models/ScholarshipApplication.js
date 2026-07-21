@@ -47,6 +47,7 @@ const scholarshipApplicationSchema = new mongoose.Schema({
     fileSize: { type: Number },
     uploadedAt: { type: Date, default: Date.now }
   }],
+  hiringConsent: { type: Boolean, default: false },
   submittedAt: {
     type: Date,
   },

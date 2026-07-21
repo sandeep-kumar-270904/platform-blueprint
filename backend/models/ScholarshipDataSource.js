@@ -52,3 +52,5 @@ const scholarshipDataSourceSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = mongoose.model('ScholarshipDataSource', scholarshipDataSourceSchema);
+
+  isStale: { type: Boolean, default: false }, // staleness

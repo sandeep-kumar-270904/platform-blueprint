@@ -477,3 +477,5 @@ export default AdminScholarships;
 
 
 
+
+  // dashboard completeness metric

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +7,7 @@ import { Loader2, Trash2, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const ModerationDashboard = () => {
+  const { t } = useTranslation();
   const [reports, setReports] = useState<any[]>([]);
   const [telemetry, setTelemetry] = useState<any>(null);
   const [loading, setLoading] = useState(true);

@@ -11,7 +11,7 @@ const init = (io) => {
 
 const sendNotification = async (data) => {
   try {
-    const { userId, type, relatedContentId } = data;
+    const { userId, type, relatedContentId, actorId } = data;
     
     let isQuietHours = false;
     
@@ -20,12 +20,19 @@ const sendNotification = async (data) => {
     if (user && user.muted_posts && relatedContentId && user.muted_posts.includes(relatedContentId)) {
       return null;
     }
+
+    let actorName = 'Someone';
+    if (actorId) {
+       const actor = await User.findById(actorId).lean();
+       if (actor) {
+         actorName = actor.full_name || actor.username || 'Someone';
+       }
+    }
     
     // Fetch preferences
     const pref = await NotificationPreference.findOne({ user_id: userId });
     
     if (pref) {
-      // Map notification types to the preference boolean fields from NotificationPreference
       const typeMap = {
         'community_post_liked': 'community_like',
         'community_post_commented': 'community_comment',
@@ -37,8 +44,7 @@ const sendNotification = async (data) => {
 
       const mappedField = typeMap[type];
       if (mappedField && pref.toggles && pref.toggles[mappedField] === false) {
-        // Preference is explicitly disabled
-        return { notification: null, isQuietHours: false }; 
+        return null; 
       }
       
       if (pref.quiet_hours && pref.quiet_hours.enabled) {
@@ -68,9 +74,21 @@ const sendNotification = async (data) => {
         isRead: false
       });
       
+      const newActor = actorId ? { userId: actorId, name: actorName } : null;
+
       if (existing) {
-        // Update the existing notification instead of creating a new one
-        existing.message = type === 'community_post_liked' ? 'Multiple people reacted to your community post.' : 'Multiple people commented on your community post.';
+        if (newActor && !existing.actors.some(a => a.userId && a.userId.toString() === newActor.userId.toString())) {
+           existing.actors.push(newActor);
+        }
+        existing.engagementCount = (existing.engagementCount || 1) + 1;
+        const verb = type === 'community_post_liked' ? 'reacted to' : 'commented on';
+        const firstName = existing.actors[0]?.name || 'Someone';
+        const othersCount = existing.engagementCount - 1;
+        
+        existing.message = othersCount > 0 
+          ? `${firstName} and ${othersCount} others ${verb} your post.` 
+          : `${firstName} ${verb} your post.`;
+          
         existing.updatedAt = new Date();
         await existing.save();
         
@@ -79,9 +97,15 @@ const sendNotification = async (data) => {
         }
         return existing;
       }
+      
+      if (newActor) {
+        data.actors = [newActor];
+        data.engagementCount = 1;
+        const verb = type === 'community_post_liked' ? 'reacted to' : 'commented on';
+        data.message = `${actorName} ${verb} your post.`;
+      }
     }
 
-    // Proceed to create
     const created = await Notification.create(data);
     
     if (!isQuietHours && _io) {

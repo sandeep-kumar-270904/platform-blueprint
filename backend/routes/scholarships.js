@@ -75,8 +75,9 @@ router.post('/applications/:appId/upload', protect, (req, res, next) => {
 
 router.post('/:id/save', protect, isNotBanned, scholarshipController.toggleSave);
 router.post('/:id/match-explanation', protect, scholarshipController.getMatchExplanation);
+const scholarshipReviewController = require('../controllers/scholarshipReviewController');
 router.post('/:id/report', protect, scholarshipController.reportScholarship);
-router.post('/:id/reviews', protect, isNotBanned, scholarshipController.addScholarshipReview);
+router.post('/:id/reviews', protect, isNotBanned, scholarshipReviewController.addScholarshipReview);
 
 // Submissions (Verified Orgs / Users)
 router.post('/', protect, isNotBanned, scholarshipController.submitScholarship);

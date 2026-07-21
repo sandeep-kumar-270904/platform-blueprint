@@ -6,11 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Users, AlertTriangle, ShieldAlert, BarChart3, 
-  DollarSign, Briefcase, GraduationCap, FileText
+  DollarSign, Briefcase, GraduationCap, FileText, Activity, MessageSquare
 } from "lucide-react";
 import { AdminModerationQueue } from "@/components/admin/AdminModerationQueue";
 import { AdminFinancials } from "@/components/admin/AdminFinancials";
+import { AdminFeedMetrics } from "@/components/admin/AdminFeedMetrics";
 import { useAdmin } from "@/hooks/useAdmin";
 import { toast } from 'sonner';
 
@@ -89,6 +89,9 @@ const AdminPanel = () => {
               <DollarSign className="mr-2 h-4 w-4" /> Financials & Disputes
               {globalStats?.openDisputes > 0 && <Badge variant="destructive" className="ml-2">{globalStats.openDisputes}</Badge>}
             </TabsTrigger>
+            <TabsTrigger value="feed-metrics">
+              <Activity className="mr-2 h-4 w-4" /> Feed Metrics
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -142,6 +145,9 @@ const AdminPanel = () => {
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
                     <Link to="/admin/resumes"><FileText className="mr-3 h-5 w-5 text-indigo-500" /> Resume Builder & AI</Link>
                   </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/community"><MessageSquare className="mr-3 h-5 w-5 text-teal-500" /> Community Feed</Link>
+                  </Button>
                 </CardContent>
               </Card>
 
@@ -176,6 +182,10 @@ const AdminPanel = () => {
 
           <TabsContent value="financials" className="bg-white p-6 rounded-xl border shadow-sm">
             <AdminFinancials />
+          </TabsContent>
+
+          <TabsContent value="feed-metrics" className="bg-white p-6 rounded-xl border shadow-sm">
+            <AdminFeedMetrics />
           </TabsContent>
 
         </Tabs>

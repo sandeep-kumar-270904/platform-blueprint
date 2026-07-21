@@ -98,6 +98,45 @@ router.get('/stats/global', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/admin/stats/feed
+router.get('/stats/feed', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const CommunityPost = require('../models/CommunityPost');
+    
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const postsPerDay = await CommunityPost.aggregate([
+      { $match: { created_at: { $gte: sevenDaysAgo } } },
+      { $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$created_at" } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+    
+    const topTags = await CommunityPost.aggregate([
+      { $unwind: "$tags" },
+      { $group: { _id: "$tags", count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+    
+    const totalPosts = await CommunityPost.countDocuments();
+    const flaggedPosts = await CommunityPost.countDocuments({ status: 'pending_review' });
+    const flaggedRate = totalPosts > 0 ? (flaggedPosts / totalPosts) * 100 : 0;
+
+    res.json({
+      postsPerDay,
+      topTags,
+      flaggedRate
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get admin dashboard payload
 router.get('/dashboard', authMiddleware, async (req, res) => {
   try {
@@ -688,6 +727,180 @@ router.put('/disputes/:id/resolve', authMiddleware, isAdmin, async (req, res) =>
     res.json({ message: 'Dispute resolved', dispute });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// --- COMMUNITY FEED ADMIN ---
+const CommunityPost = require('../models/CommunityPost');
+const CommunityComment = require('../models/CommunityComment');
+
+// GET /api/admin/community/posts
+router.get('/community/posts', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const posts = await CommunityPost.find()
+      .populate('user_id', 'username full_name avatar_url')
+      .sort({ created_at: -1 });
+    res.json(posts);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// PUT /api/admin/community/posts/:id/action
+router.put('/community/posts/:id/action', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { action } = req.body;
+    const post = await CommunityPost.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+    
+    if (action === 'hide') post.status = 'hidden';
+    else if (action === 'unhide') post.status = 'active';
+    else if (action === 'pin') post.is_pinned = true;
+    else if (action === 'unpin') post.is_pinned = false;
+    else if (action === 'delete') {
+      await CommunityPost.findByIdAndDelete(req.params.id);
+      await AdminActionLog.create({ adminId: req.adminUser._id, actionType: `community_post_delete`, targetId: req.params.id, reason: 'Admin panel action' });
+      return res.json({ message: 'Post deleted' });
+    }
+    await post.save();
+    await AdminActionLog.create({ adminId: req.adminUser._id, actionType: `community_post_${action}`, targetId: post._id, reason: 'Admin panel action' });
+    res.json(post);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET /api/admin/community/comments
+router.get('/community/comments', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const comments = await CommunityComment.find()
+      .populate('user_id', 'username full_name avatar_url')
+      .sort({ createdAt: -1 });
+    res.json(comments);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// DELETE /api/admin/community/comments/:id
+router.delete('/community/comments/:id', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const comment = await CommunityComment.findById(req.params.id);
+    if (!comment) return res.status(404).json({ message: 'Comment not found' });
+    comment.status = 'deleted';
+    await comment.save();
+    await AdminActionLog.create({ adminId: req.adminUser._id, actionType: 'community_comment_delete', targetId: comment._id, reason: 'Admin panel action' });
+    res.json({ message: 'Comment deleted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET /api/admin/community/reports
+router.get('/community/reports', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const posts = await CommunityPost.find({ 
+      $or: [{ report_count: { $gt: 0 } }, { status: 'pending_review' }] 
+    }).populate('user_id', 'username full_name avatar_url');
+    
+    const comments = await CommunityComment.find({ 
+      $or: [{ report_count: { $gt: 0 } }, { status: 'pending_review' }] 
+    }).populate('user_id', 'username full_name avatar_url');
+    
+    res.json({ posts, comments });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// POST /api/admin/community/reports/:type/:id/action
+router.post('/community/reports/:type/:id/action', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { action } = req.body;
+    const { type, id } = req.params;
+    
+    let doc = type === 'post' ? await CommunityPost.findById(id) : await CommunityComment.findById(id);
+    if (!doc) return res.status(404).json({ message: 'Not found' });
+    
+    if (action === 'approve') {
+      doc.report_count = 0;
+      doc.status = 'active';
+      doc.auto_flag_reason = null;
+      await doc.save();
+      res.json({ message: 'Approved' });
+    } else if (action === 'remove') {
+      doc.status = 'hidden';
+      await doc.save();
+      res.json({ message: 'Removed' });
+    } else if (action === 'warn') {
+      await notificationService.createNotification({
+        userId: doc.user_id,
+        type: 'community_warning',
+        relatedContentId: doc._id,
+        message: 'Your recent community content has received multiple reports. Please review our community guidelines.'
+      });
+      await AdminActionLog.create({ adminId: req.adminUser._id, actionType: `community_report_${type}_warn`, targetId: doc._id, reason: 'Admin panel action' });
+      res.json({ message: 'User warned' });
+    } else {
+      res.status(400).json({ message: 'Invalid action' });
+    }
+    
+    if (action === 'approve' || action === 'remove') {
+      await AdminActionLog.create({ adminId: req.adminUser._id, actionType: `community_report_${type}_${action}`, targetId: doc._id, reason: 'Admin panel action' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET /api/admin/community/users
+router.get('/community/users', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const users = await User.find().select('username full_name avatar_url community_muted community_suspended community_verified');
+    
+    const postCounts = await CommunityPost.aggregate([{ $group: { _id: '$user_id', count: { $sum: 1 } } }]);
+    const reportCounts = await CommunityPost.aggregate([{ $group: { _id: '$user_id', count: { $sum: '$report_count' } } }]);
+    
+    const pMap = postCounts.reduce((acc, p) => { acc[p._id.toString()] = p.count; return acc; }, {});
+    const rMap = reportCounts.reduce((acc, p) => { acc[p._id.toString()] = p.count; return acc; }, {});
+    
+    const enriched = users.map(u => ({
+      _id: u._id,
+      username: u.username,
+      full_name: u.full_name,
+      avatar_url: u.avatar_url,
+      community_muted: u.community_muted,
+      community_suspended: u.community_suspended,
+      community_verified: u.community_verified,
+      post_count: pMap[u._id.toString()] || 0,
+      report_count: rMap[u._id.toString()] || 0
+    }));
+    
+    res.json(enriched);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// PUT /api/admin/community/users/:id/action
+router.put('/community/users/:id/action', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { action } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    if (action === 'mute') user.community_muted = true;
+    else if (action === 'unmute') user.community_muted = false;
+    else if (action === 'suspend') user.community_suspended = true;
+    else if (action === 'unsuspend') user.community_suspended = false;
+    else if (action === 'verify') user.community_verified = true;
+    else if (action === 'unverify') user.community_verified = false;
+    
+    await user.save();
+    await AdminActionLog.create({ adminId: req.adminUser._id, actionType: `community_user_${action}`, targetId: user._id, reason: 'Admin panel action' });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
