@@ -59,9 +59,13 @@ const CompanyPrepDetail = () => {
         setIsFormOpen(false);
         setExpTitle("");
         setExpRounds([{ roundName: "", details: "" }]);
-        toast({ title: "Experience submitted successfully!" });
+        toast({ title: "Experience submitted successfully! It is now pending moderation." });
       },
-      onError: () => toast({ variant: "destructive", title: "Failed to submit experience." })
+      onError: (error: any) => toast({ 
+        variant: "destructive", 
+        title: "Failed to submit experience.",
+        description: error?.response?.data?.msg || "Something went wrong."
+      })
     });
   };
 
@@ -71,7 +75,12 @@ const CompanyPrepDetail = () => {
   };
 
   const totalQuestions = (company?.technicalQuestions?.length || 0) + (company?.hrTips?.length || 0);
-  const totalReviewed = (progress?.reviewed_tech?.length || 0) + (progress?.reviewed_hr?.length || 0);
+  
+  // Safe calculation filtering out any invalid/deleted IDs by checking against current company questions
+  const validTechReviewed = company?.technicalQuestions?.filter(q => progress?.reviewed_tech?.includes(q._id)).length || 0;
+  const validHrReviewed = company?.hrTips?.filter(q => progress?.reviewed_hr?.includes(q._id)).length || 0;
+  
+  const totalReviewed = validTechReviewed + validHrReviewed;
   const progressPercent = totalQuestions > 0 ? Math.round((totalReviewed / totalQuestions) * 100) : 0;
 
   if (companyLoading) {
@@ -267,14 +276,18 @@ const CompanyPrepDetail = () => {
             ) : experiences?.length === 0 ? (
               <Card><CardContent className="p-8 text-center text-muted-foreground">No experiences shared yet. Be the first!</CardContent></Card>
             ) : (
-              experiences?.map((exp) => (
+              experiences?.map((exp) => {
+                const authorName = exp.author?.full_name || "Former Student";
+                const avatarFallback = authorName.charAt(0);
+                
+                return (
                 <Card key={exp._id} className="overflow-hidden">
                   <div className="bg-muted/30 px-6 py-4 border-b flex justify-between items-start">
                     <div>
                       <h3 className="font-bold text-lg">{exp.title}</h3>
                       <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                        <Avatar className="h-5 w-5"><AvatarImage src={exp.author?.avatarUrl}/><AvatarFallback>{exp.author?.full_name?.charAt(0)}</AvatarFallback></Avatar>
-                        <span>{exp.author?.full_name}</span>
+                        <Avatar className="h-5 w-5"><AvatarImage src={exp.author?.avatarUrl}/><AvatarFallback>{avatarFallback}</AvatarFallback></Avatar>
+                        <span>{authorName}</span>
                         <span>•</span>
                         <span>{new Date(exp.createdAt).toLocaleDateString()}</span>
                       </div>
@@ -304,7 +317,8 @@ const CompanyPrepDetail = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ))
+                );
+              })
             )}
           </TabsContent>
 
