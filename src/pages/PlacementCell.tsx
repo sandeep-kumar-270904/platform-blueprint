@@ -117,7 +117,9 @@ const PlacementCell = () => {
                   Schedule mock interviews with industry professionals
                 </p>
                 <div className="text-2xl font-bold text-primary">12 Available</div>
-                <Button className="w-full">Book Session</Button>
+                <Button className="w-full" asChild>
+                  <Link to="/placement/mock-interviews">Book Session</Link>
+                </Button>
               </CardContent>
             </Card>
           </ScrollReveal>
