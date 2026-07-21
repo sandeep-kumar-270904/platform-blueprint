@@ -56,14 +56,21 @@ router.put('/:id/read', auth, async (req, res) => {
   }
 });
 
-// PUT /api/notifications/read-all - Mark all as read
+// PUT /api/notifications/read-all - Mark all as read (supports optional ?types= comma separated)
 router.put('/read-all', auth, async (req, res) => {
   try {
+    const query = { userId: req.user.id, isRead: false };
+    
+    if (req.query.types) {
+      const typesArray = req.query.types.split(',').map(t => t.trim());
+      query.type = { $in: typesArray };
+    }
+    
     await Notification.updateMany(
-      { userId: req.user.id, isRead: false },
+      query,
       { isRead: true }
     );
-    res.json({ message: 'All notifications marked as read' });
+    res.json({ message: 'Notifications marked as read' });
   } catch (error) {
     res.status(500).json({ message: 'Error marking all notifications as read', error: error.message });
   }

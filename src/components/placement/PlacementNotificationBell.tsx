@@ -88,9 +88,9 @@ export const PlacementNotificationBell = () => {
 
   const markAllAsRead = async () => {
     try {
-      // Note: this marks ALL global notifications as read in the current backend
-      // In a real app we'd want an endpoint like /api/notifications/read-all?types=placement...
-      const res = await fetch(`${API_URL}/api/notifications/read-all`, {
+      // Mark only placement notifications as read
+      const typesQuery = placementTypes.join(',');
+      const res = await fetch(`${API_URL}/api/notifications/read-all?types=${typesQuery}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,

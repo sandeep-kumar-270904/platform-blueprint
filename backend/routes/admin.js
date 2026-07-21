@@ -904,5 +904,63 @@ router.put('/community/users/:id/action', authMiddleware, isAdmin, async (req, r
   }
 });
 
+// --- INTERVIEW EXPERIENCES ADMIN ---
+const InterviewExperience = require('../models/InterviewExperience');
+
+// GET /api/admin/interview-experiences/pending
+router.get('/interview-experiences/pending', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const pending = await InterviewExperience.find({ status: 'pending' })
+      .populate('author', 'username full_name avatarUrl')
+      .populate('companyId', 'name')
+      .sort({ createdAt: -1 });
+    res.json(pending);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// PUT /api/admin/interview-experiences/:id/moderate
+router.put('/interview-experiences/:id/moderate', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { action } = req.body; // 'approve', 'reject'
+    const experience = await InterviewExperience.findById(req.params.id).populate('companyId');
+    if (!experience) return res.status(404).json({ message: 'Interview Experience not found' });
+
+    if (action === 'approve') {
+      experience.status = 'approved';
+      await experience.save();
+
+      // Hook: Notify users who have starred this target company
+      const TargetCompany = require('../models/TargetCompany');
+      if (TargetCompany) {
+        const targeters = await TargetCompany.find({ company_id: experience.companyId._id }).select('user_id');
+        const companyName = experience.companyId.name;
+        
+        for (const target of targeters) {
+          if (target.user_id.toString() !== experience.author.toString()) {
+            await notificationService.createNotification({
+              userId: target.user_id,
+              type: 'placement_new_content',
+              relatedContentId: experience._id,
+              message: `New interview experience approved for ${companyName}!`
+            });
+          }
+        }
+      }
+
+      res.json({ message: 'Experience approved', experience });
+    } else if (action === 'reject') {
+      experience.status = 'rejected';
+      await experience.save();
+      res.json({ message: 'Experience rejected', experience });
+    } else {
+      res.status(400).json({ message: 'Invalid action' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Error moderating experience', error: error.message });
+  }
+});
+
 module.exports = router;
 

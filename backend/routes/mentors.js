@@ -706,6 +706,16 @@ router.post('/bookings/:id/reschedule', authMiddleware, async (req, res) => {
     });
 
     booking.scheduledAt = slotDate;
+
+    // Notify the other party about the reschedule
+    const targetUserId = isMentee ? booking.mentorId.user_id : booking.menteeId;
+    const actorName = isMentee ? 'Mentee' : 'Mentor';
+    await notificationService.createNotification({
+      userId: targetUserId,
+      type: 'placement_booking_status',
+      relatedContentId: booking._id,
+      message: `Your mock interview was rescheduled by the ${actorName} to ${slotDate.toLocaleString()}. Reason: ${reason || 'None provided'}`
+    });
     await booking.save();
 
     if (req.io) {

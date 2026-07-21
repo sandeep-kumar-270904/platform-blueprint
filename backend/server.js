@@ -432,6 +432,15 @@ connectDB().then(async () => {
       } catch (err) {
         console.error('Error in Quiz Calibration Job:', err);
       }
+
+      // --- 30-Day Notification Cleanup ---
+      try {
+        const Notification = require('./models/Notification');
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        await Notification.deleteMany({ createdAt: { $lt: thirtyDaysAgo } });
+      } catch (err) {
+        console.error('Error in Notification cleanup cron:', err);
+      }
     }, 60 * 60 * 1000); // Check every hour
   } catch (err) {
     console.error('Seed events error:', err);
