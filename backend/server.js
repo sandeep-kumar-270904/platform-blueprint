@@ -287,6 +287,7 @@ connectDB().then(async () => {
       // --- Mentor Booking Auto-Completion Cron Job ---
       try {
         const MentorBooking = require('./models/MentorBooking');
+        const UserActivity = require('./models/UserActivity');
         const notificationService = require('./services/notificationService');
         const now = new Date();
         
@@ -300,6 +301,13 @@ connectDB().then(async () => {
           if (sessionEnd < now) {
             booking.status = 'completed';
             await booking.save();
+            
+            // Log completion for streaks/dashboard
+            await UserActivity.create({
+              user_id: booking.menteeId,
+              action_type: 'mock_interview_complete',
+              target_id: booking._id
+            });
             
             // Notify mentee to leave a review
             await notificationService.createNotification({
@@ -481,6 +489,7 @@ app.use('/api/cover-letters', require('./routes/coverLetters'));
 app.use('/api/study-groups', require('./routes/studyGroups'));
 app.use('/api/quizzes', require('./routes/quizzes'));
 app.use('/api/dsa', require('./routes/dsa'));
+app.use('/api/progress', require('./routes/progress'));
 app.use('/api/interview-prep', require('./routes/interviewPrep'));
 app.use('/api/attempts', require('./routes/attempts'));
 app.use('/api/challenges', require('./routes/challenges'));

@@ -6,6 +6,7 @@ const MentorBooking = require('../models/MentorBooking');
 const MentorReview = require('../models/MentorReview');
 const { AMASession } = require('../models/AMA');
 const User = require('../models/User');
+const UserActivity = require('../models/UserActivity');
 const authMiddleware = require('../middleware/auth');
 const mongoose = require('mongoose');
 const notificationService = require('../services/notificationService');
@@ -478,6 +479,13 @@ router.post('/bookings', authMiddleware, bookingLimiter, async (req, res) => {
     });
 
     await booking.save();
+
+    // Log the booking activity for streaks/dashboard
+    await UserActivity.create({
+      user_id: req.user.id,
+      action_type: 'mock_interview_book',
+      target_id: booking._id
+    });
 
     try {
       // Provision Daily room if confirmed immediately (free session)

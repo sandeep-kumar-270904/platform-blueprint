@@ -76,6 +76,7 @@ import DSAPractice from "./pages/DSAPractice";
 import InterviewPrep from "./pages/InterviewPrep";
 import CompanyPrepDetail from "./pages/CompanyPrepDetail";
 import MockInterviews from "./pages/MockInterviews";
+import PlacementDashboard from "./pages/PlacementDashboard";
 import StudyGroups from "./pages/StudyGroups";
 import TeamHunt from "./pages/TeamHunt";
 import RoommateFind from "./pages/RoommateFind";
@@ -241,6 +242,7 @@ const App = () => (
           <Route path="/skills" element={<ProtectedRoute><SkillZone /></ProtectedRoute>} />
           <Route path="/news" element={<ProtectedRoute><TechNews /></ProtectedRoute>} />
           <Route path="/placement" element={<ProtectedRoute><PlacementCell /></ProtectedRoute>} />
+          <Route path="/placement/dashboard" element={<ProtectedRoute><PlacementDashboard /></ProtectedRoute>} />
           <Route path="/placement/dsa" element={<ProtectedRoute><DSAPractice /></ProtectedRoute>} />
           <Route path="/placement/interview-prep" element={<ProtectedRoute><InterviewPrep /></ProtectedRoute>} />
           <Route path="/placement/interview-prep/:id" element={<ProtectedRoute><CompanyPrepDetail /></ProtectedRoute>} />
