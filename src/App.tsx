@@ -21,6 +21,7 @@ import HostDashboard from "./pages/HostDashboard";
 import ClassroomRecap from "./pages/ClassroomRecap";
 import Events from "./pages/Events";
 import Community from "./pages/Community";
+import PostDetail from "./pages/PostDetail";
 import Mentors from "./pages/Mentors";
 import Dashboard from "./pages/Dashboard";
 import ResumeDashboard from "./pages/ResumeDashboard";
@@ -162,11 +163,12 @@ const App = () => (
           <Route path="/search" element={<Search />} />
           <Route path="/profile/:userId/skills" element={<PublicSkillsProfile />} />
           {/* Protected Routes */}
-          <Route path="/notes" element={<ProtectedRoute><NotesHub /></ProtectedRoute>} />
-          <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-          <Route path="/study-session/:sessionId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
-          <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
-          {/* Public or Auth-free routes could be outside ProtectedRoute if needed, but App.tsx structure has them in a wrapper. SharedResumeView should probably be outside ProtectedRoute so recruiters can view without account. */}
+            <Route path="/notes" element={<ProtectedRoute><NotesHub /></ProtectedRoute>} />
+            <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+            <Route path="/study-session/:sessionId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
+            <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
+            <Route path="/community/post/:id" element={<PostDetail />} />
+            {/* Public or Auth-free routes could be outside ProtectedRoute if needed, but App.tsx structure has them in a wrapper. SharedResumeView should probably be outside ProtectedRoute so recruiters can view without account. */}
           <Route path="/resume/shared/:linkId" element={<SharedResumeView />} />
           <Route path="/mentors" element={<ProtectedRoute><Mentors /></ProtectedRoute>} />
           <Route path="/mentors/amas" element={<ProtectedRoute><AMASessionsPage /></ProtectedRoute>} />

@@ -6,6 +6,8 @@ const CommunityLike = require('../models/CommunityLike');
 const SavedCommunityPost = require('../models/SavedCommunityPost');
 const CommunityPollVote = require('../models/CommunityPollVote');
 const CommunityReport = require('../models/CommunityReport');
+const UserFollow = require('../models/UserFollow');
+const UserInterest = require('../models/UserInterest');
 const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
 const notificationService = require('../services/notificationService');
@@ -42,28 +44,63 @@ const optionalAuth = async (req, res, next) => {
 // GET /api/community/posts
 router.get('/posts', optionalAuth, async (req, res) => {
   try {
+    res.set('Cache-Control', 'public, max-age=0, must-revalidate');
     const { page = 1, limit = 20, sort = 'newest', tag, search } = req.query;
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
 
-    // Filter out hidden/deleted posts
-    let query;
+    let currentUser = null;
+    let followedIds = [];
+    let userInterests = [];
+    let blockedByIds = [];
+    
+    if (req.user) {
+      const [userDoc, follows, interest, blockedByUsers] = await Promise.all([
+        User.findById(req.user.id).lean(),
+        UserFollow.find({ follower_id: req.user.id }).lean(),
+        UserInterest.findOne({ user_id: req.user.id }).lean(),
+        User.find({ blocked_users: req.user.id }, '_id').lean()
+      ]);
+      currentUser = userDoc;
+      followedIds = follows.map(f => f.followed_id);
+      if (interest && interest.tags) userInterests = interest.tags;
+      blockedByIds = blockedByUsers.map(u => u._id.toString());
+    }
+
+    // Filter out hidden/deleted posts and apply privacy/moderation
+    let query = { $and: [] };
+    
     if (req.user && (req.user.role === 'admin' || req.user.role === 'moderator')) {
-      query = { status: { $ne: 'deleted' } };
+      query.$and.push({ status: { $ne: 'deleted' } });
     } else if (req.user) {
-      query = {
-        $and: [
-          { status: { $ne: 'deleted' } },
-          {
-            $or: [
-              { status: { $ne: 'hidden' } },
-              { user_id: req.user.id }
-            ]
-          }
+      query.$and.push({ status: { $ne: 'deleted' } });
+      query.$and.push({
+        $or: [
+          { status: { $nin: ['hidden', 'pending_review'] } },
+          { user_id: req.user.id }
         ]
-      };
+      });
+      
+      // Privacy and Mute/Block (Bidirectional)
+      const excludeUserIds = [
+        ...(currentUser?.muted_users || []),
+        ...(currentUser?.blocked_users || []),
+        ...blockedByIds
+      ];
+      query.$and.push({ user_id: { $nin: excludeUserIds } });
+      
+      query.$and.push({
+        $or: [
+          { privacy: 'public' },
+          { privacy: { $exists: false } },
+          { privacy: 'followers', user_id: { $in: followedIds } },
+          { privacy: 'club', club_id: { $in: currentUser?.clubs || [] } },
+          { user_id: req.user.id }
+        ]
+      });
     } else {
-      query = { status: { $nin: ['hidden', 'deleted'] } };
+      query.$and.push({ status: { $nin: ['hidden', 'deleted', 'pending_review'] } });
+      query.$and.push({ $or: [{ privacy: 'public' }, { privacy: { $exists: false } }] });
     }
     
     if (tag) {
@@ -94,6 +131,10 @@ router.get('/posts', optionalAuth, async (req, res) => {
       }
     }
 
+    if (sort === 'following' && req.user) {
+      query.$and.push({ user_id: { $in: followedIds } });
+    }
+
     let sortObj = { is_pinned: -1, createdAt: -1 };
     if (sort === 'most_liked') {
       sortObj = { is_pinned: -1, like_count: -1, createdAt: -1 };
@@ -117,7 +158,36 @@ router.get('/posts', optionalAuth, async (req, res) => {
         { $skip: (pageNum - 1) * limitNum },
         { $limit: limitNum }
       ]);
-      // Ensure IDs are strings like lean() would output for _id
+      posts = posts.map(p => { p.id = p._id.toString(); return p; });
+    } else if (sort === 'for_you') {
+      posts = await CommunityPost.aggregate([
+        { $match: query },
+        { 
+          $addFields: {
+            trendingScore: {
+              $divide: [
+                { $add: [ "$like_count", { $multiply: [ "$comment_count", 2 ] } ] },
+                { $pow: [ { $add: [ { $divide: [ { $subtract: [ new Date(), "$createdAt" ] }, 3600000 ] }, 2 ] }, 1.5 ] }
+              ]
+            },
+            followBoost: { $cond: [{ $in: ["$user_id", followedIds] }, 5, 0] },
+            interestBoost: { 
+              $multiply: [
+                { $size: { $setIntersection: [{ $ifNull: ["$tags", []] }, userInterests] } }, 
+                2
+              ] 
+            }
+          }
+        },
+        {
+          $addFields: {
+            forYouScore: { $add: ["$trendingScore", "$followBoost", "$interestBoost"] }
+          }
+        },
+        { $sort: { is_pinned: -1, forYouScore: -1, createdAt: -1 } },
+        { $skip: (pageNum - 1) * limitNum },
+        { $limit: limitNum }
+      ]);
       posts = posts.map(p => { p.id = p._id.toString(); return p; });
     } else {
       posts = await CommunityPost.find(query)
@@ -289,13 +359,13 @@ router.post('/posts/:id/report', authMiddleware, async (req, res) => {
 
     // Only notify on first report or let mods handle it. For now, notify author that their post was reported
     if (post.report_count === 1) {
-      await notificationService.createNotification({
-        userId: post.user_id,
-        title: 'Post Reported',
-        body: 'Your post was reported by the community and is under review.',
-        type: 'community_post_reported',
-        link: `/community`
-      });
+        await notificationService.createNotification({
+          userId: post.user_id,
+          message: 'Your post was reported by the community and is under review.',
+          type: 'community_post_reported',
+          relatedContentId: post._id,
+          actionUrl: `/community`
+        });
     }
 
     res.json({ message: 'Post reported successfully', status: post.status });
@@ -308,6 +378,15 @@ router.post('/posts/:id/report', authMiddleware, async (req, res) => {
 // POST /api/community/posts
 router.post('/posts', authMiddleware, async (req, res) => {
   try {
+    if (req.body.requestId) {
+      const existingReq = await CommunityPost.findOne({ user_id: req.user.id, request_id: req.body.requestId }).populate('user_id', 'full_name username avatar_url');
+      if (existingReq) {
+        const postToEmit = { ...existingReq.toObject(), author: existingReq.user_id, liked_by: [] };
+        postToEmit.id = postToEmit._id.toString();
+        return res.status(200).json(postToEmit);
+      }
+    }
+
     // Rate Limiting: Max 3 posts per minute per user
     const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
     const recentPostsCount = await CommunityPost.countDocuments({
@@ -327,6 +406,30 @@ router.post('/posts', authMiddleware, async (req, res) => {
     }
 
     const content = req.body.content;
+
+    // Duplicate check: Same content within 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const duplicate = await CommunityPost.findOne({
+      user_id: req.user.id,
+      content: content,
+      createdAt: { $gte: fiveMinutesAgo }
+    });
+    if (duplicate) {
+      return res.status(429).json({ message: 'You recently posted identical content. Please wait a bit before posting it again.' });
+    }
+
+    // Spam heuristics check
+    let auto_flag_reason = null;
+    let status = 'active';
+
+    const urlMatches = content.match(/https?:\/\/[^\s]+/g);
+    if (urlMatches && urlMatches.length > 3) {
+      auto_flag_reason = 'Excessive URLs detected';
+      status = 'pending_review';
+    } else if (/(.)\1{10,}/.test(content)) {
+      auto_flag_reason = 'Repeating characters detected';
+      status = 'pending_review';
+    }
 
     // Parse @mentions
     const mentionMatches = content.match(/(^|\s)@([a-zA-Z0-9_]+)/g);
@@ -358,13 +461,20 @@ router.post('/posts', authMiddleware, async (req, res) => {
 
     const newPost = new CommunityPost({
       user_id: req.user.id,
+      request_id: req.body.requestId,
       content: content,
       image_url: req.body.image_url,
       image_urls: req.body.image_urls || [],
       tags: req.body.tags || [],
       mentions: mentionedUserIds,
       link_preview: link_preview,
-      poll: req.body.poll
+      poll: req.body.poll,
+      privacy: req.body.privacy || 'public',
+      club_id: req.body.clubId || undefined,
+      template: req.body.template || 'standard',
+      template_data: req.body.templateData || {},
+      status: status,
+      auto_flag_reason: auto_flag_reason
     });
 
     const savedPost = await newPost.save();
@@ -374,19 +484,23 @@ router.post('/posts', authMiddleware, async (req, res) => {
     // Create notifications for mentioned users
     for (const userId of mentionedUserIds) {
       if (userId.toString() !== req.user.id) {
-        await notificationService.createNotification({
-          userId,
-          title: 'You were mentioned',
-          body: `${user.username} mentioned you in a community post.`,
-          type: 'community_mention',
-          link: `/community`
-        });
+          await notificationService.createNotification({
+            userId,
+            message: `${user.username || 'Someone'} mentioned you in a community post.`,
+            type: 'community_mention',
+            relatedContentId: savedPost._id,
+            actionUrl: `/community`
+          });
       }
     }
 
     const postToEmit = { ...savedPost.toObject(), author: user, liked_by: [] };
+    postToEmit.id = postToEmit._id.toString();
     
-    req.io.emit('community_post_created', postToEmit);
+    if (status === 'active') {
+      req.io.emit('community_post_created', postToEmit);
+    }
+    
     res.status(201).json(postToEmit);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -427,13 +541,13 @@ router.post('/posts/:id/like', authMiddleware, async (req, res) => {
       
       // Notify author if they didn't like their own post
       if (post.user_id.toString() !== userId) {
-        await notificationService.createNotification({
-          userId: post.user_id,
-          title: 'New Reaction',
-          body: `Someone reacted to your community post`,
-          type: 'community_post_liked',
-          link: `/community`
-        });
+          await notificationService.createNotification({
+            userId: post.user_id,
+            message: `Someone reacted to your community post.`,
+            type: 'community_post_liked',
+            relatedContentId: post._id,
+            actionUrl: `/community`
+          });
       }
     }
 
@@ -448,6 +562,75 @@ router.post('/posts/:id/like', authMiddleware, async (req, res) => {
 
     req.io.emit('community_post_liked', { postId, like_count: updatedPost.like_count, reactions });
     res.json({ action, like_count: updatedPost.like_count, reactions });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/community/posts/:id
+router.get('/posts/:id', optionalAuth, async (req, res) => {
+  try {
+    const post = await CommunityPost.findById(req.params.id)
+      .populate('user_id', 'username full_name avatar_url role blocked_users')
+      .populate('mentions', 'username full_name')
+      .lean();
+
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    // Check visibility
+    if (post.status === 'hidden' || post.status === 'deleted') {
+      // Allow author or admin to see hidden/deleted posts
+      if (!req.user || (req.user.id !== post.user_id._id.toString() && req.user.role !== 'admin')) {
+        return res.status(403).json({ message: 'Post is no longer available' });
+      }
+    }
+
+    // Bidirectional blocking check
+    if (req.user && post.user_id && req.user.role !== 'admin') {
+      const isBlockedByAuthor = post.user_id.blocked_users && post.user_id.blocked_users.some(id => id.toString() === req.user.id);
+      
+      const currentUser = await User.findById(req.user.id, 'blocked_users').lean();
+      const hasBlockedAuthor = currentUser && currentUser.blocked_users && currentUser.blocked_users.some(id => id.toString() === post.user_id._id.toString());
+      
+      if (isBlockedByAuthor || hasBlockedAuthor) {
+        return res.status(403).json({ message: 'Post is no longer available' });
+      }
+    }
+
+    let hasLiked = false;
+    let saved = false;
+
+    if (req.user) {
+      const like = await CommunityLike.findOne({ post_id: post._id, user_id: req.user.id });
+      hasLiked = !!like;
+      
+      const savedPost = await SavedCommunityPost.findOne({ post_id: post._id, user_id: req.user.id });
+      saved = !!savedPost;
+    }
+
+    const postToReturn = {
+      ...post,
+      author: post.user_id,
+      hasLiked,
+      saved
+    };
+    
+    // Anonymize if author is null (account deleted)
+    if (!postToReturn.author) {
+      postToReturn.author = {
+        _id: 'deleted',
+        username: 'deleted_user',
+        full_name: 'Deleted User',
+        avatar_url: null
+      };
+    }
+    
+    postToReturn.id = postToReturn._id;
+    delete postToReturn.user_id;
+
+    res.json(postToReturn);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -482,7 +665,7 @@ router.get('/posts/:id/comments', async (req, res) => {
 router.post('/posts/:id/comments', authMiddleware, async (req, res) => {
   try {
     const postId = req.params.id;
-    const { text } = req.body;
+    const { text, parent_id } = req.body;
     
     if (!text || text.trim().length === 0) {
       return res.status(400).json({ message: 'Comment text cannot be empty' });
@@ -491,7 +674,8 @@ router.post('/posts/:id/comments', authMiddleware, async (req, res) => {
     const newComment = new CommunityComment({
       post_id: postId,
       user_id: req.user.id,
-      text: text.trim()
+      text: text.trim(),
+      parent_id: parent_id || null
     });
     
     const savedComment = await newComment.save();
@@ -502,13 +686,13 @@ router.post('/posts/:id/comments', authMiddleware, async (req, res) => {
     
     const post = await CommunityPost.findById(postId);
     if (post && post.user_id.toString() !== req.user.id) {
-      await notificationService.createNotification({
-        userId: post.user_id,
-        title: 'New Comment',
-        body: 'Someone commented on your community post',
-        type: 'community_post_commented',
-        link: `/community`
-      });
+        await notificationService.createNotification({
+          userId: post.user_id,
+          message: 'Someone commented on your community post.',
+          type: 'community_post_commented',
+          relatedContentId: post._id,
+          actionUrl: `/community`
+        });
     }
 
     req.io.to(`community_post_${postId}`).emit('community_comment_created', savedComment);
@@ -711,10 +895,10 @@ router.get('/admin/reports', authMiddleware, async (req, res) => {
     ]);
 
     const postIds = reports.map(r => r._id);
-    const posts = await CommunityPost.find({ _id: { $in: postIds } }).populate('user_id', 'username full_name avatar_url').lean();
+    const reportedPosts = await CommunityPost.find({ _id: { $in: postIds } }).populate('user_id', 'username full_name avatar_url').lean();
     
-    const result = reports.map(r => {
-      const post = posts.find(p => p._id.toString() === r._id.toString());
+    let result = reports.map(r => {
+      const post = reportedPosts.find(p => p._id.toString() === r._id.toString());
       return {
         post,
         report_count: r.report_count,
@@ -722,8 +906,24 @@ router.get('/admin/reports', authMiddleware, async (req, res) => {
         reporters: r.reporters,
         last_reported_at: r.last_reported_at
       };
-    }).filter(r => r.post); // Only return if post still exists
+    });
 
+    // Add auto-flagged pending posts
+    const autoFlaggedPosts = await CommunityPost.find({ status: 'pending_review' }).populate('user_id', 'username full_name avatar_url').lean();
+    
+    for (const afp of autoFlaggedPosts) {
+      if (!result.find(r => r.post && r.post._id.toString() === afp._id.toString())) {
+        result.push({
+          post: afp,
+          report_count: 0,
+          reasons: [afp.auto_flag_reason || 'Auto-flagged as spam'],
+          reporters: ['System'],
+          last_reported_at: afp.createdAt
+        });
+      }
+    }
+
+    result = result.filter(r => r.post != null);
     res.json(result);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -740,8 +940,8 @@ router.post('/admin/reports/:postId/approve', authMiddleware, async (req, res) =
     
     // Mark reports as reviewed
     await CommunityReport.updateMany({ post_id: postId }, { status: 'reviewed' });
-    // Reset report count on post
-    await CommunityPost.findByIdAndUpdate(postId, { report_count: 0 });
+    // Reset report count on post and activate it
+    await CommunityPost.findByIdAndUpdate(postId, { report_count: 0, status: 'active', auto_flag_reason: null });
     
     res.json({ message: 'Post approved and reports dismissed' });
   } catch (err) {
@@ -763,6 +963,135 @@ router.post('/admin/reports/:postId/remove', authMiddleware, async (req, res) =>
     await CommunityReport.updateMany({ post_id: postId }, { status: 'reviewed' });
     
     res.json({ message: 'Post removed successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/community/admin/telemetry
+router.get('/admin/telemetry', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && req.user.adminRole !== 'moderator') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    const totalPosts = await CommunityPost.countDocuments({ status: { $ne: 'deleted' } });
+    const autoFlagged = await CommunityPost.countDocuments({ status: 'pending_review' });
+    const userReports = await CommunityReport.countDocuments({ status: 'pending' });
+    
+    res.json({
+      totalActivePosts: totalPosts,
+      pendingAutoFlagged: autoFlagged,
+      pendingUserReports: userReports
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/community/users/:id/follow
+router.post('/users/:id/follow', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.id === req.params.id) {
+      return res.status(400).json({ message: "You cannot follow yourself" });
+    }
+    const existingFollow = await UserFollow.findOne({ follower_id: req.user.id, followed_id: req.params.id });
+    if (existingFollow) {
+      await UserFollow.findByIdAndDelete(existingFollow._id);
+      return res.json({ following: false });
+    } else {
+      await new UserFollow({ follower_id: req.user.id, followed_id: req.params.id }).save();
+      return res.json({ following: true });
+    }
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/community/users/:id/follow-status
+router.get('/users/:id/follow-status', authMiddleware, async (req, res) => {
+  try {
+    const follow = await UserFollow.findOne({ follower_id: req.user.id, followed_id: req.params.id });
+    res.json({ following: !!follow });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/community/users/interests
+router.post('/users/interests', authMiddleware, async (req, res) => {
+  try {
+    const { tags } = req.body;
+    let interest = await UserInterest.findOne({ user_id: req.user.id });
+    if (interest) {
+      interest.tags = tags;
+      await interest.save();
+    } else {
+      interest = await new UserInterest({ user_id: req.user.id, tags }).save();
+    }
+    res.json(interest);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/community/users/interests
+router.get('/users/interests', authMiddleware, async (req, res) => {
+  try {
+    const interest = await UserInterest.findOne({ user_id: req.user.id });
+    res.json(interest || { tags: [] });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/community/posts/:id/similar
+router.get('/posts/:id/similar', optionalAuth, async (req, res) => {
+  try {
+    const post = await CommunityPost.findById(req.params.id);
+    if (!post || !post.tags || post.tags.length === 0) return res.json([]);
+    
+    // Find posts with overlapping tags, newest first
+    const similar = await CommunityPost.find({
+      _id: { $ne: post._id },
+      tags: { $in: post.tags },
+      status: { $nin: ['hidden', 'deleted'] }
+    })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .populate('user_id', 'full_name username avatar_url adminRole communityTitle institutionVerified role')
+    .lean();
+    
+    // Standardize IDs for frontend
+    const result = similar.map(p => {
+      p.id = p._id.toString();
+      if (p.user_id) p.author = p.user_id;
+      return p;
+    });
+    
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PUT /api/community/posts/:id/resolve
+router.put('/posts/:id/resolve', authMiddleware, async (req, res) => {
+  try {
+    const post = await CommunityPost.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (post.user_id.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Only author can resolve this question' });
+    }
+    if (post.template !== 'question') {
+      return res.status(400).json({ message: 'Only question posts can be resolved' });
+    }
+
+    if (!post.template_data) post.template_data = {};
+    post.template_data.is_resolved = !post.template_data.is_resolved;
+    post.markModified('template_data');
+    await post.save();
+
+    res.json(post);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

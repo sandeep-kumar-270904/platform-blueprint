@@ -66,6 +66,11 @@ class CronService {
       this.sendWeeklyScholarshipDigest();
     });
 
+    // Run every Sunday at 10 AM for weekly community digest
+    cron.schedule('0 10 * * 0', async () => {
+      this.sendWeeklyCommunityDigest();
+    });
+
     // Run every hour to check ingestion health
     cron.schedule('0 * * * *', async () => {
       this.checkNewsIngestionHealth();
@@ -955,6 +960,41 @@ class CronService {
       }
     } catch (err) {
       console.error('Error in sendWeeklyScholarshipDigest:', err);
+    }
+  }
+
+  async sendWeeklyCommunityDigest() {
+    console.log('Running sendWeeklyCommunityDigest cron job...');
+    try {
+      const User = require('../models/User');
+      const CommunityPost = require('../models/CommunityPost');
+      const notificationService = require('./notificationService');
+      
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      
+      const activeUsers = await User.find({}).lean();
+      
+      for (const user of activeUsers) {
+        // Count posts and likes in the last 7 days for this user
+        const posts = await CommunityPost.find({ 
+          user_id: user._id, 
+          created_at: { $gte: oneWeekAgo } 
+        });
+        
+        const newPostsCount = posts.length;
+        const newLikesCount = posts.reduce((sum, p) => sum + (p.like_count || 0), 0);
+        
+        if (newPostsCount > 0 || newLikesCount > 0) {
+          await notificationService.createNotification({
+            userId: user._id,
+            type: 'weekly_digest',
+            message: `Your Weekly Community Digest: You made ${newPostsCount} posts and received ${newLikesCount} likes this week!`
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error in sendWeeklyCommunityDigest:', err);
     }
   }
 

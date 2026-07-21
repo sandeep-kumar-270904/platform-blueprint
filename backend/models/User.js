@@ -24,6 +24,20 @@ const UserSchema = new mongoose.Schema({
   authProvider: { type: String, default: 'local' },
   refreshToken: { type: String, default: null },
   
+  // -----------------------------------------
+  // Locale Preferences
+  // -----------------------------------------
+  locale: { type: String, enum: ['en', 'te'], default: 'en' },
+  
+  // -----------------------------------------
+  // Community Moderation & Privacy
+  // -----------------------------------------
+  muted_users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  blocked_users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  muted_posts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CommunityPost' }],
+  clubs: [{ type: String }],
+  
+  // -----------------------------------------
   // Security & Settings
   consent: {
     accepted_at: { type: Date },

@@ -2,16 +2,22 @@ const mongoose = require('mongoose');
 
 const communityPostSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  request_id: { type: String, sparse: true, index: true },
   content: { type: String, required: true },
   image_url: { type: String, default: null }, // Legacy
   image_urls: [{ type: String }],
   tags: [{ type: String }],
+  privacy: { type: String, enum: ['public', 'followers', 'club'], default: 'public' },
+  club_id: { type: String, default: null },
+  template: { type: String, enum: ['standard', 'achievement', 'event', 'question'], default: 'standard' },
+  template_data: { type: mongoose.Schema.Types.Mixed },
   is_pinned: { type: Boolean, default: false },
+  status: { type: String, enum: ['active', 'pending_review', 'hidden', 'deleted'], default: 'active' },
+  auto_flag_reason: { type: String, default: null },
   view_count: { type: Number, default: 0 },
   like_count: { type: Number, default: 0 },
   comment_count: { type: Number, default: 0 },
   edited_at: { type: Date, default: null },
-  status: { type: String, enum: ['active', 'hidden', 'deleted'], default: 'active' },
   report_count: { type: Number, default: 0 },
   mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   link_preview: {
