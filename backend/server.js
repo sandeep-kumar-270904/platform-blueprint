@@ -82,6 +82,67 @@ connectDB().then(async () => {
       console.log('Seeded DSA problems.');
     }
 
+    // Seed Company Prep data if empty
+    const CompanyPrep = require('./models/CompanyPrep');
+    const companyCount = await CompanyPrep.countDocuments();
+    if (companyCount === 0) {
+      const companies = [
+        {
+          name: "Google",
+          logoUrl: "https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg",
+          companyType: "Product-based",
+          overview: {
+            hiringStages: ["Online Assessment", "Phone Screen", "Onsite Interviews (4-5 rounds)"],
+            eligibilityCriteria: "B.Tech/M.Tech with 70%+ aggregate. Strong problem solving skills.",
+            typicalRoles: ["Software Engineer", "Site Reliability Engineer"]
+          },
+          technicalQuestions: [
+            { question: "Design a distributed rate limiter.", approach: "Use Token Bucket algorithm with Redis for state storage. Discuss scalability and latency.", difficulty: "Hard", category: "System Design" },
+            { question: "Find median of two sorted arrays.", approach: "Use binary search on the smaller array to partition them equally.", difficulty: "Hard", category: "Arrays" }
+          ],
+          hrTips: [
+            { question: "Tell me about a time you failed.", guidance: "Focus on what you learned and how you adapted. Be honest and show a growth mindset.", category: "Behavioral" }
+          ]
+        },
+        {
+          name: "Amazon",
+          logoUrl: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
+          companyType: "Product-based",
+          overview: {
+            hiringStages: ["Online Assessment (2 coding questions + LP)", "Phone Interview", "Loop Interviews (3-4 rounds)"],
+            eligibilityCriteria: "B.Tech/M.Tech in CS/IT. No active backlogs.",
+            typicalRoles: ["SDE I", "Cloud Support Associate"]
+          },
+          technicalQuestions: [
+            { question: "Implement an LRU Cache.", approach: "Use a doubly linked list combined with a hash map for O(1) operations.", difficulty: "Medium", category: "Design" },
+            { question: "Number of Islands.", approach: "Use BFS or DFS to traverse the matrix and count connected components of 1s.", difficulty: "Medium", category: "Graphs" }
+          ],
+          hrTips: [
+            { question: "Amazon Leadership Principles", guidance: "Prepare a story for each of the 16 Leadership Principles using the STAR method.", category: "Behavioral" }
+          ]
+        },
+        {
+          name: "TCS",
+          logoUrl: "https://upload.wikimedia.org/wikipedia/commons/b/b1/Tata_Consultancy_Services_Logo.svg",
+          companyType: "Service-based",
+          overview: {
+            hiringStages: ["NQT (Cognitive + Coding)", "Technical Interview", "HR Interview"],
+            eligibilityCriteria: "Minimum 60% throughout academics. Maximum 1 active backlog.",
+            typicalRoles: ["Ninja Developer", "Digital Innovator"]
+          },
+          technicalQuestions: [
+            { question: "Reverse a linked list.", approach: "Use three pointers (prev, curr, next) to reverse links iteratively.", difficulty: "Easy", category: "Linked List" },
+            { question: "Difference between abstract class and interface.", approach: "Explain multiple inheritance, default methods, and constructor presence in abstract classes.", difficulty: "Easy", category: "OOP" }
+          ],
+          hrTips: [
+            { question: "Why TCS?", guidance: "Mention their global presence, learning opportunities, and work culture.", category: "Motivation" }
+          ]
+        }
+      ];
+      await CompanyPrep.insertMany(companies);
+      console.log('Seeded Company Prep data.');
+    }
+
     const Event = require('./models/Event');
 
     // --- 24-Hour Event Reminder Cron Job ---
@@ -317,6 +378,7 @@ app.use('/api/cover-letters', require('./routes/coverLetters'));
 app.use('/api/study-groups', require('./routes/studyGroups'));
 app.use('/api/quizzes', require('./routes/quizzes'));
 app.use('/api/dsa', require('./routes/dsa'));
+app.use('/api/interview-prep', require('./routes/interviewPrep'));
 app.use('/api/attempts', require('./routes/attempts'));
 app.use('/api/challenges', require('./routes/challenges'));
 app.use('/api/tournaments', require('./routes/tournaments'));
