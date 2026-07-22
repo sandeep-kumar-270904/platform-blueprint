@@ -4,6 +4,7 @@ const multer = require('multer');
 const rateLimit = require('express-rate-limit');
 const authMiddleware = require('../middleware/auth');
 const resumeController = require('../controllers/resumeController');
+const ResumeChecklistProgress = require('../models/ResumeChecklistProgress');
 
 // Multer config with limits
 const upload = multer({ 
@@ -35,6 +36,42 @@ router.use(authMiddleware);
 
 router.get('/insights', resumeController.getInsights);
 router.get('/', resumeController.getResumes);
+
+// Resume Checklist Progress
+router.get('/checklist', async (req, res) => {
+  try {
+    let progress = await ResumeChecklistProgress.findOne({ user_id: req.user.id });
+    if (!progress) {
+      progress = new ResumeChecklistProgress({ user_id: req.user.id, checkedItems: [] });
+      await progress.save();
+    }
+    res.json(progress);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/checklist/toggle', async (req, res) => {
+  try {
+    const { itemId } = req.body;
+    let progress = await ResumeChecklistProgress.findOne({ user_id: req.user.id });
+    if (!progress) {
+      progress = new ResumeChecklistProgress({ user_id: req.user.id, checkedItems: [] });
+    }
+
+    const hasItem = progress.checkedItems.includes(itemId);
+    if (hasItem) {
+      progress.checkedItems = progress.checkedItems.filter(i => i !== itemId);
+    } else {
+      progress.checkedItems.push(itemId);
+    }
+
+    await progress.save();
+    res.json(progress);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 // Phase 8 Routes
 router.get('/discovery', resumeController.getDiscoveryFeed);

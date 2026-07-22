@@ -71,9 +71,10 @@ class CronService {
       this.sendWeeklyCommunityDigest();
     });
 
-    // Run every hour to check ingestion health
+    // Run every hour to check ingestion health and compute placement analytics
     cron.schedule('0 * * * *', async () => {
       this.checkNewsIngestionHealth();
+      this.computePlacementAnalytics();
     });
   }
 
@@ -1069,6 +1070,57 @@ class CronService {
       }
     } catch (err) {
       console.error('Error in computeCompetitionSignals:', err);
+    }
+  }
+  async computePlacementAnalytics() {
+    try {
+      const PlacementProfile = require('../models/PlacementProfile');
+      const UserActivity = require('../models/UserActivity');
+      const MentorBooking = require('../models/MentorBooking');
+      const PlacementAnalyticsStat = require('../models/PlacementAnalyticsStat');
+      const Notification = require('../models/Notification');
+      const User = require('../models/User');
+
+      const now = new Date();
+      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+      const activeUsers = await PlacementProfile.countDocuments();
+      const dsaSolved = await UserActivity.countDocuments({ action_type: 'dsa_problem_solved' });
+      const mocksBooked = await MentorBooking.countDocuments();
+      
+      // Anomaly Detection: Check for users who solved an impossible amount of DSA problems in the last hour
+      const recentActivity = await UserActivity.aggregate([
+        { $match: { action_type: 'dsa_problem_solved', date: { $gte: oneHourAgo } } },
+        { $group: { _id: '$user_id', count: { $sum: 1 } } },
+        { $match: { count: { $gt: 50 } } } // >50 in one hour is suspicious
+      ]);
+
+      const anomaliesDetected = recentActivity.map(a => a._id);
+
+      await PlacementAnalyticsStat.create({
+        activeUsers,
+        dsaSolved,
+        mocksBooked,
+        avgReadinessScore: 75, // Placeholder
+        anomaliesDetected
+      });
+
+      // Alert admins if anomalies detected
+      if (anomaliesDetected.length > 0) {
+        const admins = await User.find({ role: 'admin' });
+        const notificationService = require('./notificationService');
+        for (const admin of admins) {
+          await notificationService.createNotification({
+            userId: admin._id,
+            type: 'admin_alert',
+            message: `⚠️ Placement Anomaly: ${anomaliesDetected.length} user(s) flagged for XP farming (suspiciously high activity).`,
+            channel: 'in_app'
+          });
+        }
+      }
+
+    } catch (err) {
+      console.error('Error in computePlacementAnalytics:', err);
     }
   }
 }

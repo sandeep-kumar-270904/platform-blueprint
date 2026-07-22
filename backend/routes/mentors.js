@@ -13,6 +13,7 @@ const notificationService = require('../services/notificationService');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || 'sk_test_mock');
 const moment = require('moment-timezone');
 const rateLimit = require('express-rate-limit');
+const placementGamificationService = require('../services/placementGamificationService');
 
 // Rate Limiters
 // Booking attempts: 10 per hour per user
@@ -841,12 +842,14 @@ router.post('/bookings/:id/review', authMiddleware, reviewLimiter, async (req, r
 
     // Recalculate mentor rating
     const mentor = booking.mentorId;
-    const newCount = mentor.reviewsCount + 1;
-    const newRating = ((mentor.rating * mentor.reviewsCount) + Number(rating)) / newCount;
-    
-    mentor.rating = newRating;
-    mentor.reviewsCount = newCount;
+    mentor.rating = (mentor.rating * mentor.reviewsCount + rating) / (mentor.reviewsCount + 1);
+    mentor.reviewsCount += 1;
     await mentor.save();
+
+    // Gamification Bonus for 5-star review
+    if (rating === 5) {
+      await placementGamificationService.awardXP(req.user.id, 'MOCK_RATING_5');
+    }
 
     await notificationService.createNotification({
       userId: mentor.user_id,
@@ -858,7 +861,7 @@ router.post('/bookings/:id/review', authMiddleware, reviewLimiter, async (req, r
     // Evaluate badges and tiers asynchronously
     require('../services/badgeService').evaluateMentorBadges(mentor._id);
 
-    res.status(201).json(review);
+    res.status(201).json({ message: 'Review submitted successfully', review });
   } catch (err) {
     if (err.code === 11000) return res.status(409).json({ message: 'You already reviewed this session' });
     res.status(500).json({ message: 'Server error', error: err.message });

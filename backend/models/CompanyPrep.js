@@ -19,7 +19,19 @@ const companyPrepSchema = new mongoose.Schema({
     question: { type: String, required: true },
     guidance: { type: String, required: true },
     category: { type: String }
-  }]
+  }],
+  resumeTips: [{
+    tip: { type: String, required: true },
+    category: { type: String }
+  }],
+  aptitudePattern: {
+    hasAptitude: { type: Boolean, default: false },
+    quantQuestions: { type: Number, default: 0 },
+    logicalQuestions: { type: Number, default: 0 },
+    verbalQuestions: { type: Number, default: 0 },
+    durationMinutes: { type: Number, default: 0 },
+    notes: { type: String }
+  }
 }, { timestamps: true });
 
 // Add index for search

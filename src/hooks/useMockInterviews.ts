@@ -1,5 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../services/api';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+  return { Authorization: `Bearer ${token}` };
+};
 
 export interface MentorProfile {
   _id: string;
@@ -18,77 +25,72 @@ export interface MentorProfile {
   rating: number;
   reviewsCount: number;
   totalSessions: number;
-  pricePerHour: number;
+  hourlyRate: number;
+  languages: string[];
+  isActive: boolean;
 }
 
 export interface BookingSlot {
-  id: string;
-  starts_at: string;
-  is_booked: boolean;
+  _id: string;
+  mentorId: string;
+  startTime: Date;
+  endTime: Date;
+  isBooked: boolean;
 }
 
 export interface MockBooking {
   _id: string;
-  mentorId: MentorProfile;
-  mentor?: { title: string; company: string };
-  mentor_profile?: { _id: string; full_name: string; avatar_url: string };
-  scheduledAt: string;
-  durationMinutes: number;
-  status: 'requested' | 'confirmed' | 'completed' | 'cancelled' | 'no-show';
+  mentor: MentorProfile;
+  mentee: any;
+  scheduledAt: Date;
+  status: 'scheduled' | 'completed' | 'cancelled';
   meetingLink?: string;
   menteeNotes?: string;
+  feedback?: {
+    rating: number;
+    comment: string;
+  };
 }
 
-// Hook to fetch mock interview professionals
-export const useMockInterviewers = (expertiseFilter?: string) => {
+export const useMentors = (filters?: any) => {
   return useQuery({
-    queryKey: ['mockInterviewers', expertiseFilter],
+    queryKey: ['mentors', filters],
     queryFn: async () => {
-      // Mock interviews are represented by specific expertise tags
-      const searchTags = expertiseFilter 
-        ? [expertiseFilter] 
-        : ['Technical Interview', 'HR Interview', 'System Design', 'Behavioral'];
-      
-      const { data } = await api.get(`/mentors`, {
-        params: {
-          expertise: searchTags.join(','),
-          isFree: true, // Assuming mock interviews are free for now
-        }
+      const { data } = await axios.get(`${API_URL}/api/interviews/mentors`, { 
+        headers: getAuthHeaders(),
+        params: filters 
       });
-      return data.mentors as MentorProfile[];
+      return data as MentorProfile[];
     }
   });
 };
 
-// Hook to fetch available slots
-export const useMentorAvailability = (mentorId: string) => {
+export const useMentorAvailability = (mentorId?: string) => {
   return useQuery({
     queryKey: ['mentorAvailability', mentorId],
     queryFn: async () => {
-      const { data } = await api.get(`/mentors/${mentorId}/availability`);
+      const { data } = await axios.get(`${API_URL}/api/interviews/mentors/${mentorId}/slots`, { headers: getAuthHeaders() });
       return data as BookingSlot[];
     },
     enabled: !!mentorId
   });
 };
 
-// Hook to fetch "My Bookings"
 export const useMyMockBookings = () => {
   return useQuery({
     queryKey: ['myMockBookings'],
     queryFn: async () => {
-      const { data } = await api.get('/mentors/bookings/me');
+      const { data } = await axios.get(`${API_URL}/api/interviews/sessions/my`, { headers: getAuthHeaders() });
       return data as MockBooking[];
     }
   });
 };
 
-// Booking Mutation
 export const useBookMockInterview = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ mentorId, scheduledAt, menteeNotes }: { mentorId: string, scheduledAt: string, menteeNotes: string }) => {
-      const { data } = await api.post('/mentors/bookings', { mentorId, scheduledAt, menteeNotes });
+      const { data } = await axios.post(`${API_URL}/api/interviews/book`, { mentorId, scheduledAt, menteeNotes }, { headers: getAuthHeaders() });
       return data;
     },
     onSuccess: () => {
@@ -98,26 +100,11 @@ export const useBookMockInterview = () => {
   });
 };
 
-// Cancel Booking
 export const useCancelMockBooking = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ bookingId, reason }: { bookingId: string, reason: string }) => {
-      const { data } = await api.post(`/mentors/bookings/${bookingId}/cancel`, { reason });
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myMockBookings'] });
-    }
-  });
-};
-
-// Reschedule Booking
-export const useRescheduleMockBooking = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ bookingId, newDate, reason }: { bookingId: string, newDate: string, reason: string }) => {
-      const { data } = await api.post(`/mentors/bookings/${bookingId}/reschedule`, { newDate, reason });
+      const { data } = await axios.post(`${API_URL}/api/interviews/sessions/${bookingId}/cancel`, { reason }, { headers: getAuthHeaders() });
       return data;
     },
     onSuccess: () => {

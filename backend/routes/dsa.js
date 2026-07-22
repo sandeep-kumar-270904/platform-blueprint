@@ -4,6 +4,7 @@ const DSAProblem = require('../models/DSAProblem');
 const DSAProgress = require('../models/DSAProgress');
 const UserActivity = require('../models/UserActivity');
 const notificationService = require('../services/notificationService');
+const placementGamificationService = require('../services/placementGamificationService');
 const auth = require('../middleware/auth');
 
 // @route   GET /api/dsa/problems
@@ -98,6 +99,18 @@ router.post('/problems/:id/solve', auth, async (req, res) => {
             type: 'placement_milestone',
             message: `Incredible! You solved ${progress.solved_problems.length} DSA problems!`
           });
+        }
+
+        // Gamification
+        const problem = await DSAProblem.findById(problemId);
+        if (problem) {
+          const xpKey = problem.difficulty === 'Hard' ? 'DSA_HARD' : problem.difficulty === 'Medium' ? 'DSA_MEDIUM' : 'DSA_EASY';
+          await placementGamificationService.awardXP(req.user.id, xpKey);
+          await placementGamificationService.incrementWeeklyChallenge(req.user.id, 'chal_dsa_5', 1);
+
+          if (progress.solved_problems.length >= 50) {
+            await placementGamificationService.awardBadge(req.user.id, 'DSA_50');
+          }
         }
       }
     } else {

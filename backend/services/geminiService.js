@@ -45,7 +45,7 @@ class GeminiService {
     );
   }
 
-  async scoreResume(resumeData, userId) {
+  async scoreResume(resumeData, userId, jobDescription = null) {
     if (this.isMock) {
       logger.info('Mocking Gemini ATS Score...');
       return {
@@ -72,11 +72,12 @@ class GeminiService {
         1. An overall score from 0 to 100.
         2. A breakdown of categories (keyword_relevance, formatting, quantified_impact, completeness, action_verb_strength) with a short string value (e.g. "Excellent", "Good", "Needs Improvement").
         3. A list of specific, actionable tips to improve this resume (each tip having an 'issue', 'severity' (high/medium/low), and 'tip').
+        ${jobDescription ? `4. A jobDescriptionMatch object containing 'percentage' and 'missingKeywords' (array of strings) extracted by comparing the resume to this JD:\n"""${jobDescription}"""\nPlease heavily weight keyword relevance and matching against this job description.` : ''}
         
         Resume Data:
         ${JSON.stringify(resumeData)}
         
-        Respond STRICTLY with a valid JSON object matching this schema, without markdown formatting or code blocks:
+        Return ONLY valid JSON matching this schema, without markdown formatting or code blocks:
         {
           "score": 85,
           "breakdown": {
@@ -84,11 +85,19 @@ class GeminiService {
             "formatting": "Excellent",
             "quantified_impact": "Needs Improvement",
             "completeness": "Good",
-            "action_verb_strength": "Excellent"
+            "action_verb_strength": "Good"
           },
           "tips": [
-            { "issue": "Missing Metrics", "severity": "high", "tip": "..." }
-          ]
+            {
+              "issue": "Missing quantified achievements",
+              "severity": "high",
+              "tip": "Add specific metrics to your experience bullet points (e.g., 'improved by 20%')."
+            }
+          ]${jobDescription ? `,
+          "jobDescriptionMatch": {
+            "percentage": 75,
+            "missingKeywords": ["Docker", "Kubernetes"]
+          }` : ''}
         }
       `;
 

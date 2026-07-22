@@ -3,6 +3,7 @@ const JobApplication = require('../models/JobApplication');
 const InterviewSession = require('../models/InterviewSession');
 const Resume = require('../models/Resume');
 const User = require('../models/User');
+const AtsAnalysisResult = require('../models/AtsAnalysisResult');
 const Notification = require('../models/Notification');
 
 const SkillCluster = require('../models/SkillCluster');
@@ -245,6 +246,7 @@ exports.deleteResume = async (req, res) => {
     if (!resume) return res.status(404).json({ message: 'Resume not found' });
     if (resume.user_id.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
 
+    await AtsAnalysisResult.deleteMany({ resumeId: req.params.id });
     await resume.deleteOne();
     res.json({ message: 'Resume deleted' });
   } catch (error) {
@@ -290,8 +292,18 @@ exports.scoreResume = async (req, res) => {
     if (!resume) return res.status(404).json({ message: 'Resume not found' });
     if (resume.user_id.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
 
-    const atsResult = await geminiService.scoreResume(resume.toObject(), req.user.id);
+    const { jobDescription } = req.body;
+    const atsResult = await geminiService.scoreResume(resume.toObject(), req.user.id, jobDescription);
     
+    const analysis = new AtsAnalysisResult({
+      resumeId: resume._id,
+      score: atsResult.score,
+      breakdown: atsResult.breakdown,
+      tips: atsResult.tips,
+      jobDescriptionMatch: atsResult.jobDescriptionMatch
+    });
+    await analysis.save();
+
     resume.atsScore = {
       score: atsResult.score,
       breakdown: atsResult.breakdown,
@@ -627,15 +639,40 @@ exports.importFromFile = async (req, res) => {
       rawText = fs.readFileSync(req.file.path, 'utf8');
     }
     
+    // Cleanup file
+    fs.unlinkSync(req.file.path);
+
+    if (!rawText || rawText.trim().length === 0) {
+      return res.status(400).json({ message: 'Could not extract text. Please ensure the file is text-based and not a scanned image.' });
+    }
+    
     // Parse with Gemini
     const structuredData = await geminiService.parseResumeData(rawText, req.user.id);
     
-    // Cleanup file
-    fs.unlinkSync(req.file.path);
+    // Save as new Resume
+    const resumeCount = await Resume.countDocuments({ user_id: req.user.id });
+    const isDefault = resumeCount === 0;
+
+    const newResume = new Resume({
+      user_id: req.user.id,
+      title: req.file.originalname || `Imported Resume ${resumeCount + 1}`,
+      template: 'modern',
+      isDefault: isDefault,
+      personalInfo: structuredData.personalInfo,
+      education: structuredData.education,
+      experience: structuredData.experience,
+      projects: structuredData.projects,
+      skills: structuredData.skills
+    });
+
+    const savedResume = await newResume.save();
     
-    res.json({ resumeData: structuredData });
+    res.json({ resumeData: structuredData, resume: savedResume });
   } catch (error) {
     console.error('Import error:', error);
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
     res.status(500).json({ message: 'Error parsing file', error: error.message });
   }
 };

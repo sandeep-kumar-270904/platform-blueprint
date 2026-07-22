@@ -76,7 +76,13 @@ import DSAPractice from "./pages/DSAPractice";
 import InterviewPrep from "./pages/InterviewPrep";
 import CompanyPrepDetail from "./pages/CompanyPrepDetail";
 import MockInterviews from "./pages/MockInterviews";
+import { OASimulator } from "./pages/OASimulator";
+import { OAResults } from "./pages/OAResults";
 import PlacementDashboard from "./pages/PlacementDashboard";
+import GroupDiscussionPrep from "./pages/GroupDiscussionPrep";
+import DoubtSolving from "./pages/DoubtSolving";
+import QuestionDetail from "./pages/QuestionDetail";
+import PlacementSearch from "./pages/PlacementSearch";
 import StudyGroups from "./pages/StudyGroups";
 import TeamHunt from "./pages/TeamHunt";
 import RoommateFind from "./pages/RoommateFind";
@@ -125,6 +131,7 @@ import LiveQuizPlay from "./pages/LiveQuizPlay";
 import AdminQuizReports from "./pages/admin/AdminQuizReports";
 import AdminNewsModeration from "./pages/admin/AdminNewsModeration";
 import AdminCommunityPanel from "./pages/admin/AdminCommunityPanel";
+import AdminPlacementPanel from "./pages/admin/AdminPlacementPanel";
 import ScholarshipDetail from "./pages/ScholarshipDetail";
 import ScholarshipApply from "./pages/ScholarshipApply";
 import AdminScholarships from "./pages/admin/AdminScholarships";
@@ -173,6 +180,8 @@ const App = () => (
             <Route path="/notes" element={<ProtectedRoute><NotesHub /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
             <Route path="/study-session/:sessionId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
+            <Route path="/placement/oa/simulate/:id" element={<ProtectedRoute><OASimulator /></ProtectedRoute>} />
+            <Route path="/placement/oa/results/:id" element={<ProtectedRoute><OAResults /></ProtectedRoute>} />
             <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
             <Route path="/community/post/:id" element={<PostDetail />} />
             {/* Public or Auth-free routes could be outside ProtectedRoute if needed, but App.tsx structure has them in a wrapper. SharedResumeView should probably be outside ProtectedRoute so recruiters can view without account. */}
@@ -243,7 +252,11 @@ const App = () => (
           <Route path="/news" element={<ProtectedRoute><TechNews /></ProtectedRoute>} />
           <Route path="/placement" element={<ProtectedRoute><PlacementCell /></ProtectedRoute>} />
           <Route path="/placement/dashboard" element={<ProtectedRoute><PlacementDashboard /></ProtectedRoute>} />
+          <Route path="/placement/search" element={<ProtectedRoute><PlacementSearch /></ProtectedRoute>} />
           <Route path="/placement/dsa" element={<ProtectedRoute><DSAPractice /></ProtectedRoute>} />
+          <Route path="/placement/group-discussion" element={<ProtectedRoute><GroupDiscussionPrep /></ProtectedRoute>} />
+          <Route path="/placement/doubt-solving" element={<ProtectedRoute><DoubtSolving /></ProtectedRoute>} />
+          <Route path="/placement/doubt-solving/:id" element={<ProtectedRoute><QuestionDetail /></ProtectedRoute>} />
           <Route path="/placement/interview-prep" element={<ProtectedRoute><InterviewPrep /></ProtectedRoute>} />
           <Route path="/placement/interview-prep/:id" element={<ProtectedRoute><CompanyPrepDetail /></ProtectedRoute>} />
           <Route path="/placement/mock-interviews" element={<ProtectedRoute><MockInterviews /></ProtectedRoute>} />
@@ -275,6 +288,7 @@ const App = () => (
           <Route path="/admin/resumes" element={<ProtectedRoute><AdminResumeDashboard /></ProtectedRoute>} />
           <Route path="/admin/community" element={<ProtectedRoute><AdminCommunityPanel /></ProtectedRoute>} />
           <Route path="/admin/career-opportunities" element={<ProtectedRoute><AdminCareerOpportunities /></ProtectedRoute>} />
+          <Route path="/admin/placement" element={<ProtectedRoute><AdminPlacementPanel /></ProtectedRoute>} />
           <Route path="/admin/quiz-reports" element={<ProtectedRoute><AdminQuizReports /></ProtectedRoute>} />
           <Route path="/admin/news-moderation" element={<ProtectedRoute><AdminNewsModeration /></ProtectedRoute>} />
           <Route path="/recruiter/verify" element={<ProtectedRoute><RecruiterVerify /></ProtectedRoute>} />

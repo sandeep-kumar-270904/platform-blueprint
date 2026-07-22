@@ -4,7 +4,7 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Search, Calendar, Star, Clock, Video, User, X } from 'lucide-react';
 import { 
-  useMockInterviewers, 
+  useMentors, 
   useMyMockBookings, 
   useMentorAvailability, 
   useBookMockInterview,
@@ -17,13 +17,13 @@ import { format, parseISO, addHours } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 const MockInterviews = () => {
   const [activeTab, setActiveTab] = useState<'browse' | 'my-bookings'>('browse');
   const [filter, setFilter] = useState('');
   
-  const { data: interviewers, isLoading } = useMockInterviewers(filter);
+  const { data: interviewers, isLoading } = useMentors(filter);
   const { data: myBookings, isLoading: isBookingsLoading } = useMyMockBookings();
   
   const [selectedMentor, setSelectedMentor] = useState<MentorProfile | null>(null);

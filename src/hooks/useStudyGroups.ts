@@ -17,6 +17,10 @@ export interface StudyGroupRow {
   member_count: number;
   active_room_count: number;
   banner_url: string | null;
+  pending_members?: any[];
+  shared_resources?: any[];
+  active_challenge_id?: string | null;
+  members?: any[];
 }
 
 export interface GroupMessage {
@@ -133,7 +137,121 @@ export const useStudyGroups = () => {
     }
   };
 
-  return { groups, myGroupIds, loading, status, join, leave, createGroup, refetch: fetchAll };
+  const fetchGroupDetails = async (gid: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${gid}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch details');
+      return await res.json();
+    } catch (err: any) {
+      toast.error(err.message);
+      return null;
+    }
+  };
+
+  const fetchGroupProgress = async (gid: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return [];
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${gid}/progress`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch progress');
+      return await res.json();
+    } catch (err: any) {
+      toast.error(err.message);
+      return [];
+    }
+  };
+
+  const addResource = async (gid: string, title: string, url: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${gid}/resources`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, url })
+      });
+      if (!res.ok) throw new Error('Failed to add resource');
+      toast.success('Resource added');
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const removeResource = async (gid: string, resId: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${gid}/resources/${resId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to remove resource');
+      toast.success('Resource removed');
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const requestToJoin = async (gid: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${gid}/requests`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to send request');
+      toast.success('Request sent');
+      fetchAll();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const approveRequest = async (gid: string, userId: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${gid}/requests/${userId}/approve`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to approve request');
+      toast.success('Member approved');
+      fetchAll();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  const removeMember = async (gid: string, userId: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/study-groups/${gid}/members/${userId}/remove`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to remove member');
+      toast.success('Member removed');
+      fetchAll();
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
+  return { 
+    groups, myGroupIds, loading, status, 
+    join, leave, createGroup, refetch: fetchAll,
+    fetchGroupDetails, fetchGroupProgress, addResource, removeResource,
+    requestToJoin, approveRequest, removeMember
+  };
 };
 
 export const useGroupMessages = (groupId: string | null) => {

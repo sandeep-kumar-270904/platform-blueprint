@@ -39,6 +39,7 @@ import { MyMentorBookings } from "@/components/dashboard/MyMentorBookings";
 import { MentorSessionManagement } from "@/components/dashboard/MentorSessionManagement";
 import { CareerVisibilityManager } from "@/components/dashboard/CareerVisibilityManager";
 import { MenteeSubscription } from "@/components/dashboard/MenteeSubscription";
+import { PlacementPrepWidget } from "@/components/dashboard/PlacementPrepWidget";
 
 type Section = "overview" | "courses" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "notification-settings" | "live" | "analytics" | "profile" | "referrals" | "subscription" | "career-visibility" | "security" | "links" | "saved-colleges" | "activity" | "mentor-bookings" | "mentor-management";
 
@@ -135,6 +136,13 @@ const Dashboard = () => {
         return (
           <div className="space-y-6">
             <DashboardOverview stats={stats} setActiveSection={setActiveSection} />
+            
+            <ScrollReveal delay={0.05}>
+              <div className="mb-6">
+                <PlacementPrepWidget />
+              </div>
+            </ScrollReveal>
+
             <div className="grid gap-6 lg:grid-cols-3">
               <ScrollReveal delay={0.1}>
                 <MyIdeas userId={user.id} />

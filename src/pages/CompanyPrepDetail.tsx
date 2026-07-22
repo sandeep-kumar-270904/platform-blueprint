@@ -15,8 +15,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCompanyDetail, useCompanyExperiences, useInterviewProgress, useToggleInterviewProgress, useSubmitExperience } from "@/hooks/useInterviewPrep";
-import { Loader2, ArrowLeft, CheckCircle2, MessageSquare, Code, Building, PenTool, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2, MessageSquare, Code, Building, PenTool, CheckCircle, XCircle, Clock, Briefcase, Users as UsersIcon } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { ReferralNetworkTab } from "@/components/placement/ReferralNetworkTab";
+import { OASimulationTab } from "@/components/placement/OASimulationTab";
 
 const CompanyPrepDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -135,6 +137,8 @@ const CompanyPrepDetail = () => {
               <TabsTrigger value="tech" className="py-2.5 px-4"><Code className="w-4 h-4 mr-2"/>Technical</TabsTrigger>
               <TabsTrigger value="hr" className="py-2.5 px-4"><MessageSquare className="w-4 h-4 mr-2"/>HR Tips</TabsTrigger>
               <TabsTrigger value="exp" className="py-2.5 px-4"><UsersIcon className="w-4 h-4 mr-2"/>Experiences</TabsTrigger>
+              <TabsTrigger value="referrals" className="py-2.5 px-4"><Briefcase className="w-4 h-4 mr-2"/>Referral Network</TabsTrigger>
+              <TabsTrigger value="oa" className="py-2.5 px-4"><Clock className="w-4 h-4 mr-2"/>OA Simulation</TabsTrigger>
               <TabsTrigger value="overview" className="py-2.5 px-4"><Building className="w-4 h-4 mr-2"/>Overview</TabsTrigger>
             </TabsList>
             
@@ -322,16 +326,39 @@ const CompanyPrepDetail = () => {
             )}
           </TabsContent>
 
+          <TabsContent value="referrals" className="mt-0">
+            <ReferralNetworkTab companyId={id!} />
+          </TabsContent>
+
+          <TabsContent value="oa" className="mt-0">
+            <OASimulationTab companyId={id!} companyName={company.name} />
+          </TabsContent>
+
           <TabsContent value="overview" className="mt-0">
             <div className="grid md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader><h3 className="font-bold text-lg">Hiring Stages</h3></CardHeader>
                 <CardContent>
-                  <ul className="space-y-4 relative before:absolute before:inset-y-0 before:left-[11px] before:w-0.5 before:bg-border pl-8">
+                  <ul className="space-y-6 relative before:absolute before:inset-y-0 before:left-[11px] before:w-0.5 before:bg-border pl-8">
                     {company.overview?.hiringStages?.map((stage, idx) => (
                       <li key={idx} className="relative">
                         <span className="absolute -left-[37px] top-1 w-4 h-4 rounded-full bg-primary ring-4 ring-background" />
-                        <p className="font-medium">{stage}</p>
+                        <p className="font-medium mb-1">{stage}</p>
+                        
+                        {idx === 0 && company.aptitudePattern?.hasAptitude && (
+                          <div className="bg-primary/5 border border-primary/20 p-4 rounded-md mt-2 text-sm max-w-sm">
+                            <h5 className="font-bold text-primary mb-2">Aptitude Test Pattern</h5>
+                            <ul className="space-y-1 text-muted-foreground">
+                              {company.aptitudePattern.quantQuestions > 0 && <li>Quantitative: {company.aptitudePattern.quantQuestions} Qs</li>}
+                              {company.aptitudePattern.logicalQuestions > 0 && <li>Logical: {company.aptitudePattern.logicalQuestions} Qs</li>}
+                              {company.aptitudePattern.verbalQuestions > 0 && <li>Verbal: {company.aptitudePattern.verbalQuestions} Qs</li>}
+                              <li>Duration: {company.aptitudePattern.durationMinutes} minutes</li>
+                            </ul>
+                            {company.aptitudePattern.notes && (
+                              <p className="mt-2 text-xs italic">{company.aptitudePattern.notes}</p>
+                            )}
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>
