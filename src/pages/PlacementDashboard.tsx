@@ -19,7 +19,7 @@ import { ReferralsDashboardTab } from '@/components/placement/ReferralsDashboard
 import { PlacementOnboardingWizard } from '@/components/placement/PlacementOnboardingWizard';
 import { PlacementPrepPlanWidget } from '@/components/placement/PlacementPrepPlanWidget';
 import { UnifiedSearchBar } from '@/components/placement/UnifiedSearchBar';
-import { PlacementDoubtSolvingTab } from '@/components/placement/PlacementDoubtSolvingTab';
+import { QnAFeed } from '@/components/placement/QnAFeed';
 import { PlacementScheduleTab } from '@/components/placement/PlacementScheduleTab';
 import { usePlacementOnboarding } from '@/hooks/usePlacementOnboarding';
 import { useQueryClient } from '@tanstack/react-query';
@@ -387,7 +387,7 @@ export default function PlacementDashboard() {
     </TabsContent>
 
     <TabsContent value="doubt" className="mt-6">
-      <PlacementDoubtSolvingTab />
+      <QnAFeed />
     </TabsContent>
     
     <TabsContent value="schedule" className="mt-6">

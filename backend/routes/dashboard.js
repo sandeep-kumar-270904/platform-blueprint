@@ -268,8 +268,7 @@ router.get('/placement-summary', authMiddleware, async (req, res) => {
       interviewPrepStats.targetReadiness = totalItems > 0 ? Math.round((totalReviewed / totalItems) * 100) : 0;
     }
 
-    const mocksCompleted = await MentorBooking.countDocuments({ menteeId: userId, status: 'completed' });
-    
+
     const dsaScore = Math.min(dsaSolved / PROGRESS_WEIGHTS.dsaTarget, 1) * (PROGRESS_WEIGHTS.dsaWeight * 100);
     const prepScore = (interviewPrepStats.targetReadiness / PROGRESS_WEIGHTS.prepTargetScore) * (PROGRESS_WEIGHTS.prepWeight * 100);
     const mockScore = Math.min(mocksCompleted / PROGRESS_WEIGHTS.mockTarget, 1) * (PROGRESS_WEIGHTS.mockWeight * 100);

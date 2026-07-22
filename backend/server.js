@@ -703,6 +703,7 @@ app.use('/api/placement-search', placementSearchRoutes);
 app.use('/api/placement-schedule', placementScheduleRoutes);
 app.use('/api/admin/oa', adminOARoutes);
 app.use('/api/admin/placement', adminPlacementRoutes);
+app.use('/api/placement-resources', require('./routes/placementResources'));
 app.use('/api/admin/resumes', require('./routes/adminResumes'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/dashboard', require('./routes/dashboard'));

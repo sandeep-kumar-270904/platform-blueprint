@@ -193,7 +193,7 @@ export function GDSelfPractice({ onPracticeComplete }: { onPracticeComplete: () 
                     <label htmlFor="structure" className="text-sm font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                       Did I structure my points clearly?
                     </label>
-                    <p className="text-sm text-muted-foreground">Opening -> Key Body Points -> Conclusion</p>
+                    <p className="text-sm text-muted-foreground">Opening {'->'} Key Body Points {'->'} Conclusion</p>
                   </div>
                 </div>
                 
