@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Video, Users, Calendar, Clock, Plus, Loader2, ExternalLink, LogOut, CheckCircle2, MessageCircle, AlertTriangle, Trash2, Share2, UserPlus, Send } from "lucide-react";
+import { Video, Users, Calendar, Clock, Plus, Loader2, ExternalLink, LogOut, CheckCircle2, MessageCircle, AlertTriangle, Trash2, Share2, UserPlus, Send, Search, Bell, BellRing, Star, Edit, PlayCircle } from "lucide-react";
 import { useVirtualClassroom } from "@/hooks/useVirtualClassroom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
@@ -21,7 +21,7 @@ import { formatToTimezone, generateICS, downloadICS } from "@/utils/calendarUtil
 const VirtualClassroom = () => {
   const { user, profile } = useAuth();
   const { t } = useTranslation();
-  const { classrooms, joined, loading, status, join, leave, create, remove, loadMore, hasMore } = useVirtualClassroom();
+  const { classrooms, joined, loading, error, status, join, leave, create, remove, loadMore, hasMore, refetch, toggleReminder, submitRating, addRecording, editClassroom, cancelClassroom } = useVirtualClassroom();
   const [open, setOpen] = useState(false);
   const [chatRoom, setChatRoom] = useState<any>(null);
   const [checkoutSession, setCheckoutSession] = useState<any>(null);
@@ -29,6 +29,11 @@ const VirtualClassroom = () => {
   const [subjectFilter, setSubjectFilter] = useState<string>("All");
   const [form, setForm] = useState<any>({ duration_minutes: 60, max_participants: 50, visibility: "public", type: "interactive", is_paid: false, price: 0 });
   const [collections, setCollections] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [ratingDialog, setRatingDialog] = useState<any>(null);
+  const [ratingForm, setRatingForm] = useState({ rating: 5, feedback: "" });
+  const [editDialog, setEditDialog] = useState<any>(null);
+  const [recordingDialog, setRecordingDialog] = useState<any>(null);
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/classrooms/collections`)
@@ -219,32 +224,64 @@ const VirtualClassroom = () => {
           </div>
         )}
 
-        {/* Subject Hubs */}
-        <div className="flex overflow-x-auto pb-4 mb-6 gap-2 hide-scrollbar">
-          {["All", "Technology", "Design", "Business", "Math", "Science"].map(subject => (
-            <Button
-              key={subject}
-              variant={subjectFilter === subject ? "default" : "outline"}
-              className="rounded-full shrink-0"
-              onClick={() => setSubjectFilter(subject)}
-            >
-              {subject}
-            </Button>
-          ))}
+        {/* Subject Hubs and Search */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+          <div className="flex overflow-x-auto pb-2 gap-2 hide-scrollbar flex-1">
+            {["All", "Technology", "Design", "Business", "Math", "Science"].map(subject => (
+              <Button
+                key={subject}
+                variant={subjectFilter === subject ? "default" : "outline"}
+                className="rounded-full shrink-0"
+                onClick={() => setSubjectFilter(subject)}
+              >
+                {subject}
+              </Button>
+            ))}
+          </div>
+          <div className="relative shrink-0 md:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input 
+              type="text" 
+              placeholder="Search classes..." 
+              className="pl-9 rounded-full bg-background" 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && refetch(false, searchQuery)}
+            />
+          </div>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-        ) : classrooms.length === 0 ? (
-          <div className="text-center py-16">
-            <Video className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground">No classrooms scheduled yet.</p>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {classrooms.filter(c => subjectFilter === "All" || c.subject === subjectFilter).map(c => {
-              const live = isLive(c);
-              const participation = joined[c.id];
+        {(() => {
+          const filteredClassrooms = classrooms.filter(c => subjectFilter === "All" || c.subject === subjectFilter);
+
+          if (error) {
+            return (
+              <div className="text-center py-16 border rounded-lg bg-destructive/10 border-destructive/20 text-destructive mb-8">
+                <AlertTriangle className="h-8 w-8 mx-auto mb-3" />
+                <p className="font-medium">{error}</p>
+                <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Retry</Button>
+              </div>
+            );
+          }
+
+          if (loading) {
+            return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+          }
+
+          if (filteredClassrooms.length === 0) {
+            return (
+              <div className="text-center py-16">
+                <Video className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">No classrooms scheduled for {subjectFilter === "All" ? "now" : subjectFilter}.</p>
+              </div>
+            );
+          }
+
+          return (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredClassrooms.map(c => {
+                const live = isLive(c);
+                const participation = joined[c.id];
               const isJoined = !!participation;
               const full = c.participant_count >= c.max_participants;
               
@@ -259,8 +296,8 @@ const VirtualClassroom = () => {
                         {live && <span className="mr-1 inline-block h-2 w-2 rounded-full bg-current animate-pulse" aria-hidden="true" />}
                         {live ? "LIVE" : c.status}
                       </Badge>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground" aria-label={`${c.participant_count} out of ${c.max_participants} participants`} role="status" aria-live="polite">
-                        <Users className="h-4 w-4" aria-hidden="true" />{c.participant_count}/{c.max_participants}
+                      <div className={`flex items-center gap-1 text-sm ${full ? 'text-destructive font-bold' : 'text-muted-foreground'}`} aria-label={`${c.participant_count} out of ${c.max_participants} participants`} role="status" aria-live="polite">
+                        <Users className="h-4 w-4" aria-hidden="true" />{c.participant_count}/{c.max_participants} {full && "(Full)"}
                       </div>
                     </div>
                       <div className="flex justify-between items-start gap-2">
@@ -271,7 +308,15 @@ const VirtualClassroom = () => {
                           {participation?.status === "waitlisted" && <Badge variant="outline" className="text-orange-500 border-orange-500">Waitlisted</Badge>}
                         </div>
                       </div>
-                      {c.subject && <Badge variant="outline" className="mt-1 w-fit">{c.subject}</Badge>}
+                      <div className="flex justify-between items-center mt-1">
+                        {c.subject && <Badge variant="outline" className="w-fit">{c.subject}</Badge>}
+                        {c.rating_count > 0 && (
+                          <div className="flex items-center text-sm font-medium text-amber-500">
+                            <Star className="h-4 w-4 fill-amber-500 mr-1" />
+                            {c.rating_avg?.toFixed(1)} ({c.rating_count})
+                          </div>
+                        )}
+                      </div>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm flex-1">
                     <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-primary" />{formatToTimezone(c.scheduled_at, profile?.timezone, profile?.language || 'en')}</div>
@@ -291,7 +336,28 @@ const VirtualClassroom = () => {
                     </div>
                   </CardContent>
                   <CardFooter className="gap-2 flex-wrap pt-4">
-                    {isJoined || c.host_id === user?.id ? (
+                    {c.host_id === user?.id ? (
+                      // Host tools
+                      <>
+                        <Link to={`/classroom/${c.id}`} className="flex-1">
+                          <Button variant={live ? "destructive" : "default"} size="sm" className="w-full">
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            {live ? "Enter Classroom" : "Enter Room"}
+                          </Button>
+                        </Link>
+                        {c.status === "completed" ? (
+                          <Button variant="outline" size="sm" onClick={() => setRecordingDialog(c)}>
+                            <PlayCircle className="h-4 w-4 mr-1" /> Add Recording
+                          </Button>
+                        ) : (
+                          <Button variant="outline" size="sm" onClick={() => setEditDialog(c)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => cancelClassroom(c.id)} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
+                      </>
+                    ) : isJoined ? (
+                      // Participant tools
                       <>
                         {participation?.status !== "waitlisted" && (
                           <Link to={`/classroom/${c.id}`} className="flex-1">
@@ -306,20 +372,31 @@ const VirtualClassroom = () => {
                             On Waitlist
                           </Button>
                         )}
+                        
+                        {c.status === "completed" && c.recording_url && (
+                          <Button variant="outline" size="sm" onClick={() => window.open(c.recording_url, '_blank')}>
+                            <PlayCircle className="h-4 w-4 mr-1" /> Watch
+                          </Button>
+                        )}
+                        {c.status === "completed" && participation?.status === "attending" && (
+                          <Button variant="outline" size="sm" onClick={() => setRatingDialog(c)}>
+                            <Star className="h-4 w-4 mr-1" /> Rate
+                          </Button>
+                        )}
+
                         <Button variant="outline" size="sm" onClick={() => setChatRoom(c)}>
                           <MessageCircle className="h-4 w-4" />
                         </Button>
-                        {isJoined && (
-                          <Button variant="ghost" size="sm" onClick={() => leave(c.id)}><LogOut className="h-4 w-4" /></Button>
+                        {!live && c.status !== "completed" && (
+                           <Button 
+                             variant={participation?.reminders_opt_in ? "default" : "outline"} 
+                             size="sm" 
+                             onClick={() => toggleReminder(c.id)}
+                           >
+                             {participation?.reminders_opt_in ? <BellRing className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+                           </Button>
                         )}
-                        {isJoined && !live && (
-                          <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => downloadICS(c.title, generateICS(c.title, c.description, c.scheduled_at, c.duration_minutes, `${window.location.origin}/classroom/${c.id}`))}>
-                            <Calendar className="h-4 w-4 mr-1" /> Add to Calendar
-                          </Button>
-                        )}
-                        {c.host_id === user?.id && (
-                          <Button variant="ghost" size="sm" onClick={() => remove(c.id)} className="text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
-                        )}
+                        <Button variant="ghost" size="sm" onClick={() => leave(c.id)}><LogOut className="h-4 w-4" /></Button>
                       </>
                     ) : (
                       <Button 
@@ -336,12 +413,20 @@ const VirtualClassroom = () => {
                         {full ? <><Clock className="h-4 w-4 mr-1" />Join Waitlist (Free)</> : <><CheckCircle2 className="h-4 w-4 mr-1" />RSVP {c.is_paid ? `($${c.price})` : ""}</>}
                       </Button>
                     )}
+                    
+                    {/* Add to Calendar button in a separate row if not live and not completed */}
+                    {isJoined && !live && c.status !== "completed" && c.host_id !== user?.id && (
+                      <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => downloadICS(c.title, generateICS(c.title, c.description, c.scheduled_at, c.duration_minutes, `${window.location.origin}/classroom/${c.id}`))}>
+                        <Calendar className="h-4 w-4 mr-1" /> Add to Calendar
+                      </Button>
+                    )}
                   </CardFooter>
                 </Card>
               );
             })}
           </div>
-        )}
+          );
+        })()}
         
         {!loading && hasMore && classrooms.length > 0 && (
           <div className="mt-8 flex justify-center">
@@ -392,6 +477,87 @@ const VirtualClassroom = () => {
             <Button disabled={isProcessingPayment} onClick={handleCheckout}>
               {isProcessingPayment ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</> : `Pay $${checkoutSession?.price} & RSVP`}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Edit Modal */}
+      <Dialog open={!!editDialog} onOpenChange={(o) => !o && setEditDialog(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Classroom</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div><Label>Title</Label><Input value={editDialog?.title || ""} onChange={e => setEditDialog({ ...editDialog, title: e.target.value })} /></div>
+            <div><Label>Description</Label><Textarea value={editDialog?.description || ""} onChange={e => setEditDialog({ ...editDialog, description: e.target.value })} /></div>
+            <div><Label>Duration (min)</Label><Input type="number" value={editDialog?.duration_minutes || 60} onChange={e => setEditDialog({ ...editDialog, duration_minutes: +e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialog(null)}>Cancel</Button>
+            <Button onClick={() => {
+              editClassroom(editDialog.id, { title: editDialog.title, description: editDialog.description, duration_minutes: editDialog.duration_minutes });
+              setEditDialog(null);
+            }}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recording Modal */}
+      <Dialog open={!!recordingDialog} onOpenChange={(o) => !o && setRecordingDialog(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Session Recording</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Label>Recording URL (YouTube, Vimeo, etc.)</Label>
+            <Input 
+              value={recordingDialog?.recording_url || ""} 
+              onChange={e => setRecordingDialog({ ...recordingDialog, recording_url: e.target.value })} 
+              placeholder="https://..." 
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecordingDialog(null)}>Cancel</Button>
+            <Button onClick={() => {
+              addRecording(recordingDialog.id, recordingDialog.recording_url);
+              setRecordingDialog(null);
+            }}>Save Link</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rating Modal */}
+      <Dialog open={!!ratingDialog} onOpenChange={(o) => !o && setRatingDialog(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Rate this Session</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Rating (1-5)</Label>
+              <div className="flex gap-2 mt-2">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <Button 
+                    key={star} 
+                    variant="ghost" 
+                    size="sm" 
+                    className="p-1 h-auto" 
+                    onClick={() => setRatingForm({ ...ratingForm, rating: star })}
+                  >
+                    <Star className={`h-8 w-8 ${ratingForm.rating >= star ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'}`} />
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label>Feedback (Optional)</Label>
+              <Textarea 
+                placeholder="What did you think of this class?"
+                value={ratingForm.feedback}
+                onChange={(e) => setRatingForm({ ...ratingForm, feedback: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRatingDialog(null)}>Cancel</Button>
+            <Button onClick={() => {
+              submitRating(ratingDialog.id, ratingForm.rating, ratingForm.feedback);
+              setRatingDialog(null);
+              setRatingForm({ rating: 5, feedback: "" });
+            }}>Submit Feedback</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

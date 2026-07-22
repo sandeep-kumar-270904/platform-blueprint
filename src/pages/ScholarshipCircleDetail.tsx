@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { ArrowLeft, Users, Loader2, LogOut, CheckCircle2, Clock, Share2, Target, CalendarDays, BookOpen } from "lucide-react";
+import { SharedCalendar } from "@/components/scholarships/SharedCalendar";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -198,32 +199,23 @@ export default function ScholarshipCircleDetail() {
                         <h2 className="text-xl font-bold flex items-center gap-2">
                             <CalendarDays className="h-5 w-5 text-primary" /> Upcoming Deadlines
                         </h2>
-                        <Card>
-                            <CardContent className="p-4">
-                                {circle.sharedScholarships && circle.sharedScholarships.length > 0 ? (
-                                    <div className="space-y-3">
-                                        {circle.sharedScholarships
-                                            .filter((ss: any) => ss.scholarshipId && ss.scholarshipId.applicationDeadline)
-                                            .sort((a: any, b: any) => new Date(a.scholarshipId.applicationDeadline).getTime() - new Date(b.scholarshipId.applicationDeadline).getTime())
-                                            .slice(0, 5)
-                                            .map((ss: any, idx: number) => {
-                                                const d = new Date(ss.scholarshipId.applicationDeadline);
-                                                const isSoon = (d.getTime() - new Date().getTime()) < (7 * 24 * 60 * 60 * 1000);
-                                                return (
-                                                    <div key={idx} className="flex justify-between items-center text-sm border-b pb-2 last:border-0 last:pb-0">
-                                                        <span className="font-medium line-clamp-1 flex-1 pr-2">{ss.scholarshipId.title}</span>
-                                                        <span className={`whitespace-nowrap ${isSoon ? 'text-red-500 font-bold' : 'text-muted-foreground'}`}>
-                                                            {d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })}
-                                    </div>
-                                ) : (
+                        {circle.sharedScholarships && circle.sharedScholarships.length > 0 ? (
+                            <SharedCalendar 
+                                deadlines={circle.sharedScholarships
+                                    .filter((ss: any) => ss.scholarshipId && ss.scholarshipId.applicationDeadline)
+                                    .map((ss: any) => ({
+                                        title: ss.scholarshipId.title,
+                                        date: new Date(ss.scholarshipId.applicationDeadline),
+                                        type: "Deadline"
+                                    }))}
+                            />
+                        ) : (
+                            <Card>
+                                <CardContent className="p-4">
                                     <p className="text-sm text-muted-foreground text-center py-4">No deadlines to track.</p>
-                                )}
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        )}
                     </section>
                 </div>
             </main>

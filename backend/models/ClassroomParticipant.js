@@ -20,6 +20,20 @@ const participantSchema = new mongoose.Schema({
     type: String,
     enum: ['registered', 'attending', 'waitlisted', 'left'],
     default: 'registered'
+  },
+  reminders_opt_in: {
+    type: Boolean,
+    default: false
+  },
+  rating: {
+    type: Number,
+    min: 1,
+    max: 5,
+    default: null
+  },
+  feedback: {
+    type: String,
+    default: null
   }
 }, { timestamps: true });
 

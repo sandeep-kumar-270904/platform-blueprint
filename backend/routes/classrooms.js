@@ -13,7 +13,13 @@ router.get('/', async (req, res) => {
     const limit = parseInt(req.query.limit) || 12;
     const skip = (page - 1) * limit;
 
-    const classrooms = await VirtualClassroom.find()
+    let query = {};
+    if (req.query.q) {
+      const regex = new RegExp(req.query.q, 'i');
+      query = { $or: [{ title: regex }, { subject: regex }, { description: regex }] };
+    }
+
+    const classrooms = await VirtualClassroom.find(query)
       .sort({ is_featured: -1, scheduled_at: 1 })
       .skip(skip)
       .limit(limit);
@@ -180,14 +186,25 @@ router.post('/:id/leave', authMiddleware, async (req, res) => {
     const participant = await ClassroomParticipant.findOne({ classroom_id: req.params.id, user_id: req.user.id });
     if (!participant) return res.status(400).json({ message: 'Not joined' });
 
+    const wasRegistered = participant.status === 'registered' || participant.status === 'attending';
+
     participant.status = 'left';
     await participant.save();
 
     // Decrement count if they were registered (not waitlisted)
-    if (participant.status !== 'waitlisted') {
+    if (wasRegistered) {
       const classroom = await VirtualClassroom.findById(req.params.id);
       if (classroom && classroom.participant_count > 0) {
         classroom.participant_count -= 1;
+        
+        // Waitlist promotion logic
+        const nextInLine = await ClassroomParticipant.findOne({ classroom_id: classroom._id, status: 'waitlisted' }).sort({ createdAt: 1 });
+        if (nextInLine) {
+          nextInLine.status = 'registered';
+          await nextInLine.save();
+          classroom.participant_count += 1;
+        }
+
         await classroom.save();
       }
     }
@@ -339,6 +356,99 @@ router.post('/:id/transactions', authMiddleware, async (req, res) => {
     
     // In a real app we'd save a transaction record to Stripe and the DB here
     res.json({ message: 'Payment successful', transaction_id: 'tx_mock_' + Date.now() });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PUT /api/classrooms/:id - Edit a classroom (Host only)
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const classroom = await VirtualClassroom.findById(req.params.id);
+    if (!classroom) return res.status(404).json({ message: 'Not found' });
+    if (classroom.host_id.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+
+    Object.assign(classroom, req.body);
+    await classroom.save();
+    res.json(classroom);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PATCH /api/classrooms/:id/cancel - Cancel a classroom (Host only)
+router.patch('/:id/cancel', authMiddleware, async (req, res) => {
+  try {
+    const classroom = await VirtualClassroom.findById(req.params.id);
+    if (!classroom) return res.status(404).json({ message: 'Not found' });
+    if (classroom.host_id.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+
+    classroom.status = 'cancelled';
+    await classroom.save();
+    res.json(classroom);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PATCH /api/classrooms/:id/recording - Add recording URL (Host only)
+router.patch('/:id/recording', authMiddleware, async (req, res) => {
+  try {
+    const classroom = await VirtualClassroom.findById(req.params.id);
+    if (!classroom) return res.status(404).json({ message: 'Not found' });
+    if (classroom.host_id.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+
+    classroom.recording_url = req.body.recording_url;
+    await classroom.save();
+    res.json(classroom);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PATCH /api/classrooms/:id/reminders - Toggle reminders (Participant only)
+router.patch('/:id/reminders', authMiddleware, async (req, res) => {
+  try {
+    const participant = await ClassroomParticipant.findOne({ classroom_id: req.params.id, user_id: req.user.id });
+    if (!participant) return res.status(400).json({ message: 'Not joined' });
+
+    participant.reminders_opt_in = !participant.reminders_opt_in;
+    await participant.save();
+    res.json({ message: 'Reminders updated', reminders_opt_in: participant.reminders_opt_in });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/classrooms/:id/rating - Submit rating (Participant only)
+router.post('/:id/rating', authMiddleware, async (req, res) => {
+  try {
+    const participant = await ClassroomParticipant.findOne({ classroom_id: req.params.id, user_id: req.user.id });
+    if (!participant) return res.status(400).json({ message: 'Not joined' });
+
+    const { rating, feedback } = req.body;
+    
+    const isNewRating = participant.rating == null;
+    participant.rating = rating;
+    participant.feedback = feedback;
+    await participant.save();
+
+    const classroom = await VirtualClassroom.findById(req.params.id);
+    if (classroom) {
+      if (isNewRating) {
+        const total = classroom.rating_avg * classroom.rating_count;
+        classroom.rating_count += 1;
+        classroom.rating_avg = (total + rating) / classroom.rating_count;
+      } else {
+        const allRatings = await ClassroomParticipant.find({ classroom_id: classroom._id, rating: { $ne: null } });
+        const sum = allRatings.reduce((acc, p) => acc + p.rating, 0);
+        classroom.rating_count = allRatings.length;
+        classroom.rating_avg = sum / allRatings.length;
+      }
+      await classroom.save();
+    }
+
+    res.json({ message: 'Rating submitted' });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
