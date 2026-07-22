@@ -5,6 +5,8 @@ const CompanyPrep = require('../models/CompanyPrep');
 const InterviewExperience = require('../models/InterviewExperience');
 const InterviewPrepProgress = require('../models/InterviewPrepProgress');
 const UserActivity = require('../models/UserActivity');
+const placementGamificationService = require('../services/placementGamificationService');
+const geminiService = require('../services/geminiService');
 
 // @route   GET /api/interview-prep/companies
 // @desc    Get all companies with search and filters
@@ -51,6 +53,24 @@ router.get('/companies/:id', auth, async (req, res) => {
       return res.status(404).json({ msg: 'Company not found' });
     }
     res.json(company);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST /api/interview-prep/companies/:id/resume-tips
+// @desc    Get tailored resume tips for a specific company
+// @access  Private
+router.post('/companies/:id/resume-tips', auth, async (req, res) => {
+  try {
+    const company = await CompanyPrep.findById(req.params.id);
+    if (!company) {
+      return res.status(404).json({ msg: 'Company not found' });
+    }
+    
+    // Return static tips from DB
+    res.json({ tips: company.resumeTips.map(t => t.tip) || [] });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -152,6 +172,17 @@ router.post('/progress/:companyId/toggle', auth, async (req, res) => {
           action_type: 'interview_prep_review',
           target_id: questionId
         });
+
+        // Gamification
+        const xpKey = type === 'tech' ? 'INTERVIEW_Q' : 'HR_TIP';
+        await placementGamificationService.awardXP(req.user.id, xpKey);
+        
+        if (type === 'hr') {
+          await placementGamificationService.incrementWeeklyChallenge(req.user.id, 'chal_hr_10', 1);
+          if (progress.reviewed_hr.length >= 100) {
+            await placementGamificationService.awardBadge(req.user.id, 'HR_100');
+          }
+        }
       }
     } else {
       progress[arrName] = progress[arrName].filter(id => id.toString() !== questionId.toString());

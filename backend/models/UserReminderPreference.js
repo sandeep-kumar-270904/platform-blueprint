@@ -33,7 +33,14 @@ const userReminderPreferenceSchema = new mongoose.Schema({
   fundingStackingAlerts: { type: Boolean, default: true },
   portfolioOptimization: { type: Boolean, default: true },
   employerFastTrack: { type: Boolean, default: true },
-  apiSyncAlerts: { type: Boolean, default: true }
+  apiSyncAlerts: { type: Boolean, default: true },
+  
+  // Placement Schedule & Reminders
+  placementDailyDigest: { type: Boolean, default: true },
+  mockInterviewReminderHours: { type: Number, default: 24 },
+  oaSimulationReminderHours: { type: Number, default: 24 },
+  gdSessionReminderHours: { type: Number, default: 2 },
+  weeklyChallengeReminderDays: { type: Number, default: 1 }
 }, { timestamps: true });
 
 module.exports = mongoose.model('UserReminderPreference', userReminderPreferenceSchema);

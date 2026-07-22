@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        maximumFileSizeToCacheInBytes: 5242880 // 5 MB
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024
       },
       manifest: {
         name: 'StudentHub Mentors',

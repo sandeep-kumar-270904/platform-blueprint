@@ -34,24 +34,29 @@ export const ActivityHeatmap: React.FC<ActivityHeatmapProps> = ({ history, curre
       <CardHeader>
         <CardTitle className="flex justify-between items-center text-lg">
           <span>Activity Streaks</span>
-          <div className="flex gap-4 text-sm font-normal text-muted-foreground">
-            <div className="flex items-center gap-1">
+          <div className="flex gap-4 text-sm font-normal text-muted-foreground" aria-live="polite">
+            <div className="flex items-center gap-1" aria-label={`${currentStreak} day current streak`}>
               <span className="font-bold text-primary">{currentStreak}</span> current
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" aria-label={`${longestStreak} day longest streak`}>
               <span className="font-bold text-primary">{longestStreak}</span> longest
             </div>
           </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex overflow-x-auto gap-1 pb-2 scrollbar-thin">
+        <div 
+          className="flex overflow-x-auto gap-1 pb-2 scrollbar-thin"
+          role="img"
+          aria-label={`Activity heatmap showing ${currentStreak} days current streak`}
+        >
           {columns.map((col, colIdx) => (
             <div key={colIdx} className="flex flex-col gap-1">
               {col.map((day, dayIdx) => (
                 <div
                   key={dayIdx}
-                  title={day.date}
+                  title={day.active ? `Active on ${day.date}` : `Inactive on ${day.date}`}
+                  aria-label={day.active ? `Active on ${day.date}` : `Inactive on ${day.date}`}
                   className={`w-4 h-4 rounded-sm ${
                     day.active ? 'bg-primary' : 'bg-muted/30'
                   }`}

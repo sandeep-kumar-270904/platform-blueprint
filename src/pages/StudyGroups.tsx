@@ -8,19 +8,20 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users, Video, MessageSquare, Lock, Globe, Plus, Loader2, Send, LogOut, Link2 } from "lucide-react";
-import { useStudyGroups, useGroupMessages, type StudyGroupRow } from "@/hooks/useStudyGroups";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Users, Lock, Globe, Plus, Loader2 } from "lucide-react";
+import { useStudyGroups } from "@/hooks/useStudyGroups";
 import { useAuth } from "@/hooks/useAuth";
 import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
-import { InviteManager } from "@/components/study-groups/InviteManager";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 const StudyGroups = () => {
   const { user } = useAuth();
-  const { groups, myGroupIds, loading, status, join, leave, createGroup } = useStudyGroups();
+  const { groups, myGroupIds, loading, status, join, createGroup, requestToJoin } = useStudyGroups();
   const [open, setOpen] = useState(false);
-  const [chatGroup, setChatGroup] = useState<StudyGroupRow | null>(null);
   const [form, setForm] = useState<any>({ privacy: "public", member_limit: 50 });
+  const navigate = useNavigate();
 
   const handleCreate = async () => {
     if (!form.name) return toast.error("Study group name is required");
@@ -29,14 +30,61 @@ const StudyGroups = () => {
     setForm({ privacy: "public", member_limit: 50 });
   };
 
+  const myGroups = groups.filter(g => myGroupIds.has(g.id));
+  const discoverGroups = groups.filter(g => !myGroupIds.has(g.id));
+
+  const renderGroupCard = (group: any, isMember: boolean) => (
+    <Card key={group.id} className="hover-scale flex flex-col cursor-pointer" onClick={() => isMember ? navigate(`/placement/study-groups/${group.id}`) : null}>
+      <CardHeader>
+        <div className="flex items-center justify-between mb-2">
+          <Badge variant={group.privacy === "public" ? "secondary" : "outline"}>
+            {group.privacy === "public" ? <Globe className="mr-1 h-3 w-3" /> : <Lock className="mr-1 h-3 w-3" />}
+            {group.privacy}
+          </Badge>
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />{group.member_count}/{group.member_limit}
+          </div>
+        </div>
+        <h3 className="text-xl font-bold">{group.name}</h3>
+        {group.category && <Badge variant="outline" className="mt-1 w-fit">{group.category}</Badge>}
+      </CardHeader>
+      <CardContent className="space-y-2 flex-1">
+        <p className="text-sm text-muted-foreground line-clamp-2">{group.description}</p>
+        <div className="text-xs text-muted-foreground mt-4">Last active: {new Date(group.created_at).toLocaleDateString()}</div>
+      </CardContent>
+      <CardFooter className="gap-2 flex-wrap">
+        {isMember ? (
+          <Button variant="default" className="w-full" onClick={(e) => { e.stopPropagation(); navigate(`/placement/study-groups/${group.id}`); }}>
+            View Group
+          </Button>
+        ) : (
+          <Button 
+            variant="default" 
+            className="w-full" 
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              if (group.privacy === "private") {
+                requestToJoin(group.id);
+              } else {
+                join(group.id); 
+              }
+            }}
+          >
+            {group.privacy === "private" ? "Request to Join" : "Join Group"}
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <div className="container mx-auto px-4 pt-24 pb-12">
         <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Study Groups</h1>
-            <p className="text-muted-foreground">Join peers, chat, and collaborate live.</p>
+            <h1 className="text-3xl font-bold">Peer Study Groups</h1>
+            <p className="text-muted-foreground">Join peers, share resources, and track progress together.</p>
           </div>
           <div className="flex items-center gap-3">
             <SyncStatusIndicator status={status} />
@@ -48,7 +96,7 @@ const StudyGroups = () => {
                   <div className="space-y-3">
                     <div><Label htmlFor="name">Name</Label><Input id="name" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
                     <div><Label htmlFor="description">Description</Label><Textarea id="description" value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
-                    <div><Label htmlFor="category">Category</Label><Input id="category" value={form.category || ""} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="DSA, Web Dev, AI..." /></div>
+                    <div><Label htmlFor="category">Focus Area</Label><Input id="category" value={form.category || ""} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="DSA, Amazon Prep..." /></div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label>Privacy</Label>
@@ -56,7 +104,7 @@ const StudyGroups = () => {
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="public">Public</SelectItem>
-                            <SelectItem value="private">Private</SelectItem>
+                            <SelectItem value="private">Invite-Only</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -70,96 +118,47 @@ const StudyGroups = () => {
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-        ) : groups.length === 0 ? (
-          <div className="text-center py-16">
-            <Users className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground">No groups yet — create the first one!</p>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {groups.map(group => {
-              const isMember = myGroupIds.has(group.id);
-              return (
-                <Card key={group.id} className="hover-scale">
-                  <CardHeader>
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant={group.privacy === "public" ? "secondary" : "outline"}>
-                        {group.privacy === "public" ? <Globe className="mr-1 h-3 w-3" /> : <Lock className="mr-1 h-3 w-3" />}
-                        {group.privacy}
-                      </Badge>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />{group.member_count}/{group.member_limit}
-                      </div>
-                    </div>
-                    <h3 className="text-xl font-bold">{group.name}</h3>
-                    {group.category && <Badge variant="outline" className="mt-1 w-fit">{group.category}</Badge>}
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <p className="text-sm text-muted-foreground line-clamp-2">{group.description}</p>
-                    <div className="flex items-center gap-2 text-sm"><Video className="h-4 w-4 text-primary" />{group.active_room_count} active rooms</div>
-                  </CardContent>
-                  <CardFooter className="gap-2 flex-wrap">
-                    {isMember ? (
-                      <>
-                        <Button variant="outline" size="sm" className="flex-1" onClick={() => setChatGroup(group)}><MessageSquare className="h-4 w-4 mr-1" />Chat</Button>
-                        <InviteManager
-                          groupId={group.id}
-                          groupName={group.name}
-                          trigger={<Button size="sm" variant="outline"><Link2 className="h-4 w-4" /></Button>}
-                        />
-                        <Button variant="ghost" size="sm" onClick={() => leave(group.id)}><LogOut className="h-4 w-4" /></Button>
-                      </>
-                    ) : (
-                      <Button size="sm" className="flex-1" onClick={() => join(group.id)} disabled={group.privacy === "private"}>
-                        {group.privacy === "private" ? "Invite Only" : "Join Group"}
-                      </Button>
-                    )}
-                  </CardFooter>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        <Tabs defaultValue="my-groups" className="w-full">
+          <TabsList className="mb-8">
+            <TabsTrigger value="my-groups">My Groups</TabsTrigger>
+            <TabsTrigger value="discover">Discover Groups</TabsTrigger>
+          </TabsList>
 
-      <Dialog open={!!chatGroup} onOpenChange={o => !o && setChatGroup(null)}>
-        <DialogContent className="max-w-2xl h-[600px] flex flex-col">
-          <DialogHeader><DialogTitle>{chatGroup?.name}</DialogTitle></DialogHeader>
-          {chatGroup && <GroupChat groupId={chatGroup.id} />}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
-
-const GroupChat = ({ groupId }: { groupId: string }) => {
-  const { user } = useAuth();
-  const { messages, send } = useGroupMessages(groupId);
-  const [text, setText] = useState("");
-  const submit = async () => { if (!text.trim()) return; await send(text); setText(""); };
-  return (
-    <>
-      <ScrollArea className="flex-1 -mx-6 px-6">
-        <div className="space-y-3 py-2">
-          {messages.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">No messages yet — say hi!</p>
-          ) : messages.map(m => (
-            <div key={m.id} className={`flex ${m.user_id === user?.id ? "justify-end" : "justify-start"}`}>
-              <div className={`rounded-lg px-3 py-2 max-w-[75%] text-sm ${m.user_id === user?.id ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                {m.content}
-                <div className="text-xs opacity-60 mt-1">{new Date(m.created_at).toLocaleTimeString()}</div>
+          <TabsContent value="my-groups">
+            {loading ? (
+              <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+            ) : myGroups.length === 0 ? (
+              <div className="text-center py-16">
+                <Users className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">You haven't joined any groups yet.</p>
+                <Button variant="link" onClick={() => document.querySelector<HTMLButtonElement>('[value="discover"]')?.click()}>
+                  Discover groups to join
+                </Button>
               </div>
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
-      <div className="flex gap-2 pt-3 border-t">
-        <Input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="Type a message..." />
-        <Button onClick={submit} disabled={!text.trim()}><Send className="h-4 w-4" /></Button>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {myGroups.map(group => renderGroupCard(group, true))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="discover">
+            {loading ? (
+              <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+            ) : discoverGroups.length === 0 ? (
+              <div className="text-center py-16">
+                <Globe className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">No new public groups available to join.</p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {discoverGroups.map(group => renderGroupCard(group, false))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
-    </>
+    </div>
   );
 };
 

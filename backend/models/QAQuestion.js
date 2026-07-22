@@ -6,12 +6,15 @@ const qaQuestionSchema = new mongoose.Schema({
   body: { type: String, required: true },
   category: { type: String, required: true },
   tags: [{ type: String }],
+  company: { type: String },
   upvotes: { type: Number, default: 0 },
-  upvoted_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  downvotes: { type: Number, default: 0 },
   answer_count: { type: Number, default: 0 },
   view_count: { type: Number, default: 0 },
-  status: { type: String, enum: ['open', 'answered', 'closed'], default: 'open' },
-  is_pinned: { type: Boolean, default: false }
+  status: { type: String, enum: ['Open', 'Answered', 'Closed'], default: 'Open' },
+  is_pinned: { type: Boolean, default: false },
+  reportCount: { type: Number, default: 0 },
+  isModeratorReviewed: { type: Boolean, default: false }
 }, { timestamps: true });
 
 qaQuestionSchema.index({ subject: 1 });

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Target, Code, FileText, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Target, Code, FileText, TrendingUp, CheckCircle2, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useDSAProgress } from "@/hooks/useDSA";
 
@@ -119,6 +119,65 @@ const PlacementCell = () => {
                 <div className="text-2xl font-bold text-primary">12 Available</div>
                 <Button className="w-full" asChild>
                   <Link to="/placement/mock-interviews">Book Session</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+
+          <ScrollReveal delay={0.4}>
+            <Card className="hover-scale">
+              <CardHeader>
+                <div className="flex items-center justify-between mb-4">
+                  <FileText className="h-8 w-8 text-primary" />
+                  <Badge variant="secondary">New</Badge>
+                </div>
+                <h3 className="text-xl font-bold">Resume & ATS Tools</h3>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Score your resume against ATS and get company-specific tips
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span>ATS Formatting</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span>Keyword Matching</span>
+                  </div>
+                </div>
+                <Button className="w-full" asChild>
+                  <Link to="/placement/resume-tools">Analyze Resume</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+          <ScrollReveal delay={0.5}>
+            <Card className="hover-scale">
+              <CardHeader>
+                <div className="flex items-center justify-between mb-4">
+                  <Users className="h-8 w-8 text-primary" />
+                  <Badge variant="secondary">Collaborate</Badge>
+                </div>
+                <h3 className="text-xl font-bold">Peer Study Groups</h3>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Join forces with peers to share resources and track progress together.
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span>Shared Progress</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span>Group Discussion</span>
+                  </div>
+                </div>
+                <Button className="w-full" asChild>
+                  <Link to="/placement/study-groups">Join a Group</Link>
                 </Button>
               </CardContent>
             </Card>

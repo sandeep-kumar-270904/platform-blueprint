@@ -6,6 +6,22 @@ const Idea = require('../models/Idea');
 const StudyGroup = require('../models/StudyGroup');
 const Notification = require('../models/Notification');
 const VirtualClassroom = require('../models/VirtualClassroom');
+const PlacementOnboarding = require('../models/PlacementOnboarding');
+const DSAProgress = require('../models/DSAProgress');
+const DSAProblem = require('../models/DSAProblem');
+const InterviewPrepProgress = require('../models/InterviewPrepProgress');
+const TargetCompany = require('../models/TargetCompany');
+const MentorBooking = require('../models/MentorBooking');
+const PlacementProfile = require('../models/PlacementProfile');
+const UserActivity = require('../models/UserActivity');
+const OAAttempt = require('../models/OAAttempt');
+const GDLiveSession = require('../models/GDLiveSession');
+
+const PROGRESS_WEIGHTS = {
+  dsaTarget: 50, dsaWeight: 0.40,
+  prepTargetScore: 100, prepWeight: 0.30,
+  mockTarget: 2, mockWeight: 0.30
+};
 
 // GET /api/dashboard/stats
 router.get('/stats', authMiddleware, async (req, res) => {
@@ -198,6 +214,126 @@ router.get('/profile', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET /api/dashboard/placement-summary
+router.get('/placement-summary', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Check for any sign of activity or onboarding
+    const onboarding = await PlacementOnboarding.findOne({ user: userId });
+    const dsaProgress = await DSAProgress.findOne({ user_id: userId });
+    const mocksCompleted = await MentorBooking.countDocuments({ menteeId: userId, status: 'completed' });
+    const hasAnyActivity = !!dsaProgress || mocksCompleted > 0;
+    
+    const isOnboarded = (onboarding && onboarding.has_completed) || hasAnyActivity;
+
+    if (!isOnboarded) {
+      return res.json({ 
+        version: "1.0", 
+        data: { status: 'not_started' } 
+      });
+    }
+
+    // 2. Readiness & Stats (Simplified logic from progress.js)
+    const dsaSolved = dsaProgress ? dsaProgress.solved_problems.length : 0;
+    
+    let targetCompanyDoc = await TargetCompany.findOne({ user_id: userId }).populate('company_ids');
+    let targetCompanies = targetCompanyDoc ? targetCompanyDoc.company_ids.filter(c => c != null) : [];
+    
+    let interviewPrepStats = { companiesTargeted: targetCompanies.length, targetReadiness: 0, itemsReviewed: 0 };
+    if (targetCompanies.length > 0) {
+      const prepProgress = await InterviewPrepProgress.find({ user_id: userId });
+      const userSolvedIds = new Set(dsaProgress ? dsaProgress.solved_problems.map(p => p._id?.toString() || p.toString()) : []);
+      const targetCompanyNames = targetCompanies.map(c => c.name);
+      const targetDSAProblems = await DSAProblem.find({ companies: { $in: targetCompanyNames } });
+      
+      let totalItems = 0;
+      let totalReviewed = 0;
+      for (const comp of targetCompanies) {
+        let compTotal = (comp.techQuestions?.length || 0) + (comp.hrTips?.length || 0); // Handle tech_questions or techQuestions depending on schema
+        let compReviewed = 0;
+        const p = prepProgress.find(prog => prog.company_id.toString() === comp._id.toString());
+        if (p) compReviewed += (p.reviewed_tech?.length || 0) + (p.reviewed_hr?.length || 0);
+        
+        const compDSA = targetDSAProblems.filter(prob => prob.companies.includes(comp.name));
+        compTotal += compDSA.length;
+        compReviewed += compDSA.filter(prob => userSolvedIds.has(prob._id.toString())).length;
+        
+        totalItems += compTotal;
+        totalReviewed += compReviewed;
+      }
+      interviewPrepStats.targetReadiness = totalItems > 0 ? Math.round((totalReviewed / totalItems) * 100) : 0;
+    }
+
+    const mocksCompleted = await MentorBooking.countDocuments({ menteeId: userId, status: 'completed' });
+    
+    const dsaScore = Math.min(dsaSolved / PROGRESS_WEIGHTS.dsaTarget, 1) * (PROGRESS_WEIGHTS.dsaWeight * 100);
+    const prepScore = (interviewPrepStats.targetReadiness / PROGRESS_WEIGHTS.prepTargetScore) * (PROGRESS_WEIGHTS.prepWeight * 100);
+    const mockScore = Math.min(mocksCompleted / PROGRESS_WEIGHTS.mockTarget, 1) * (PROGRESS_WEIGHTS.mockWeight * 100);
+    const overallReadiness = Math.round(dsaScore + prepScore + mockScore);
+
+    // 3. Streak History
+    const activities = await UserActivity.find({ user_id: userId }).sort({ date: 1 });
+    const history = activities.map(a => a.date);
+
+    // 4. Next Upcoming Event
+    const now = new Date();
+    let nextEvent = null;
+
+    const nextMock = await MentorBooking.findOne({ menteeId: userId, status: 'confirmed', scheduledAt: { $gte: now } }).sort({ scheduledAt: 1 }).populate('mentorId');
+    const nextOA = await OAAttempt.findOne({ user: userId, status: 'Planned', scheduledFor: { $gte: now } }).sort({ scheduledFor: 1 });
+    const nextGD = await GDLiveSession.findOne({ 'rsvps.user': userId, 'rsvps.status': 'Attending', status: 'Scheduled', scheduledTime: { $gte: now } }).sort({ scheduledTime: 1 });
+
+    const candidates = [];
+    if (nextMock) candidates.push({ title: 'Mock Interview', time: nextMock.scheduledAt, type: 'mock' });
+    if (nextOA) candidates.push({ title: 'OA Simulation', time: nextOA.scheduledFor, type: 'oa' });
+    if (nextGD) candidates.push({ title: 'GD Practice Session', time: nextGD.scheduledTime, type: 'gd' });
+
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => a.time - b.time);
+      nextEvent = candidates[0];
+    }
+
+    // 5. Gamification
+    const profile = await PlacementProfile.findOne({ user_id: userId });
+    let gamification = null;
+    if (profile) {
+      const recentBadge = profile.earnedBadges && profile.earnedBadges.length > 0 
+        ? profile.earnedBadges.sort((a, b) => b.earnedAt - a.earnedAt)[0] 
+        : null;
+      gamification = {
+        levelTitle: profile.levelTitle,
+        recentBadge: recentBadge ? recentBadge.badgeId : null
+      };
+    }
+
+    res.json({
+      version: "1.0",
+      data: {
+        status: 'active',
+        onboarded: true,
+        readinessScore: overallReadiness,
+        stats: {
+          dsaSolved,
+          companiesReviewed: targetCompanies.length,
+          mocksCompleted
+        },
+        nextEvent,
+        gamification,
+        history
+      }
+    });
+  } catch (error) {
+    console.error('Placement Summary Error:', error);
+    // Even if it fails, return a structured error so the frontend can degrade gracefully
+    res.status(500).json({ 
+      version: "1.0", 
+      error: 'Temporarily unavailable',
+      message: 'Failed to aggregate placement data'
+    });
   }
 });
 

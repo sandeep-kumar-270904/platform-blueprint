@@ -25,6 +25,17 @@ const dsaProblemSchema = new mongoose.Schema({
   },
   description: {
     type: String,
+  },
+  buggyCodeSnippet: {
+    type: String,
+  },
+  testCases: [{
+    input: String,
+    expectedOutput: String
+  }],
+  isActive: {
+    type: Boolean,
+    default: true
   }
 }, { timestamps: true });
 

@@ -139,8 +139,35 @@ connectDB().then(async () => {
           ]
         }
       ];
-      await CompanyPrep.insertMany(companies);
+      const insertedCompanies = await CompanyPrep.insertMany(companies);
       console.log('Seeded Company Prep data.');
+
+      const amazon = insertedCompanies.find(c => c.name === 'Amazon');
+      if (amazon) {
+        const OADefinition = require('./models/OADefinition');
+        const countOA = await OADefinition.countDocuments();
+        if (countOA === 0) {
+          await OADefinition.create({
+            company: amazon._id,
+            name: 'Amazon SDE-1 Official Assessment',
+            description: 'This simulation matches the exact pattern of the Amazon SDE-1 OA. You will have 90 minutes to complete 2 coding questions and 1 aptitude section.',
+            totalDurationMinutes: 90,
+            sections: [
+              {
+                title: 'Coding Section',
+                type: 'Coding',
+                questions: (await DSAProblem.find().limit(2)).map(p => p._id)
+              },
+              {
+                title: 'Aptitude Section',
+                type: 'Aptitude',
+                aptitudeRules: [{ category: 'Quantitative', count: 1 }]
+              }
+            ]
+          });
+          console.log('OA Definition seeded for Amazon');
+        }
+      }
     }
 
     // Seed Mock Interview Professionals
@@ -335,10 +362,12 @@ connectDB().then(async () => {
 
       // --- Mentor Booking Auto-Completion Cron Job ---
       try {
-        const MentorBooking = require('./models/MentorBooking');
-        const UserActivity = require('./models/UserActivity');
+        const Report = require('./models/Report');
+        const DailyReminder = require('./models/SentReminder');
         const notificationService = require('./services/notificationService');
+        const placementGamificationService = require('./services/placementGamificationService');
         const now = new Date();
+        const MentorBooking = require('./models/MentorBooking');
         
         // Find confirmed bookings that have ended
         const pastBookings = await MentorBooking.find({
@@ -354,16 +383,26 @@ connectDB().then(async () => {
             // Log completion for streaks/dashboard
             await UserActivity.create({
               user_id: booking.menteeId,
-              action_type: 'mock_interview_complete',
+              action_type: 'mock_interview_completed',
               target_id: booking._id
             });
-            
-            // Notify mentee to leave a review
+
+            // Gamification (Mock Interview XP & Challenge)
+            await placementGamificationService.awardXP(booking.menteeId, 'MOCK_INTERVIEW');
+            await placementGamificationService.incrementWeeklyChallenge(booking.menteeId, 'chal_mock_1', 1);
+
+            // Check badge logic
+            const completedCount = await MentorBooking.countDocuments({ menteeId: booking.menteeId, status: 'completed' });
+            if (completedCount >= 5) {
+              await placementGamificationService.awardBadge(booking.menteeId, 'MOCK_5');
+            }
+
+            // Prompt feedback
             await notificationService.createNotification({
               userId: booking.menteeId,
               type: 'placement_feedback_prompt',
-              message: `Your mock session is complete. Please rate your interview with ${booking.mentorId?.name || 'your mentor'}!`,
-              relatedContentId: booking._id
+              relatedContentId: booking._id,
+              message: `Your mock interview with ${booking.mentorId?.title || 'your mentor'} is complete! Please rate your session.`
             });
           }
         }
@@ -524,10 +563,22 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+const gdRoutes = require('./routes/gd');
+const gdLiveRoutes = require('./routes/gdLive');
 const authRoutes = require('./routes/auth');
 const settingsRoutes = require('./routes/settings');
 const disputeRoutes = require('./routes/disputes');
 const platformReferralRoutes = require('./routes/platformReferrals');
+const notifications = require('./routes/notifications');
+const studyGroups = require('./routes/studyGroups');
+const placementGamificationRoutes = require('./routes/placementGamification');
+const placementSearchRoutes = require('./routes/placementSearch');
+const placementScheduleRoutes = require('./routes/placementSchedule');
+const { requireRole } = require('./middleware/roleAuth');
+const placementReferrals = require('./routes/placementReferrals');
+const placementOnboarding = require('./routes/placementOnboarding');
+const aptitudeRoutes = require('./routes/aptitude');
+
 const adminMentorsOverviewRoutes = require('./routes/adminMentorsOverview');
 
 const authLimiter = rateLimit({
@@ -552,6 +603,8 @@ app.use('/api/qa', require('./routes/qa'));
 app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/coach', require('./routes/coach'));
 
+const notificationsRouter = require('./routes/notifications');
+
 const applicationsRoutes = require('./routes/applications');
 const resumesRoutes = require('./routes/resumes');
 const mentorsRoutes = require('./routes/mentors');
@@ -562,6 +615,11 @@ const quizzesRoutes = require('./routes/quizzes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', require('./routes/users'));
+app.use('/api/notifications', notifications);
+app.use('/api/study-groups', studyGroups);
+app.use('/api/placement-referrals', placementReferrals);
+app.use('/api/placement-onboarding', placementOnboarding);
+app.use('/api/aptitude', aptitudeRoutes);
 app.use('/api/applications', applicationsRoutes);
 app.use('/api/resumes', resumesRoutes);
 app.use('/api/mentors', mentorsRoutes);
@@ -569,6 +627,8 @@ app.use('/api/scholarships', scholarshipRoutes);
 app.use('/api/scholarships', scholarshipTrustRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/quizzes', quizzesRoutes);
+app.use('/api/gd', gdRoutes);
+app.use('/api/gd-live', gdLiveRoutes);
 
 // app.use('/api/classes', require('./routes/classes'));
 // app.use('/api/courses', require('./routes/courses'));
@@ -633,7 +693,16 @@ app.use('/api/amas', require('./routes/amas'));
 app.use('/api/video', require('./routes/video'));
 app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/uploads', require('./routes/uploads'));
-app.use('/api/admin/career-opportunities', require('./routes/adminCareerOpportunities'));
+const adminCareerOpportunitiesRoutes = require('./routes/adminCareerOpportunities');
+const adminOARoutes = require('./routes/adminOA');
+const adminPlacementRoutes = require('./routes/adminPlacement');
+
+app.use('/api/admin/career-opportunities', adminCareerOpportunitiesRoutes);
+app.use('/api/placement-gamification', placementGamificationRoutes);
+app.use('/api/placement-search', placementSearchRoutes);
+app.use('/api/placement-schedule', placementScheduleRoutes);
+app.use('/api/admin/oa', adminOARoutes);
+app.use('/api/admin/placement', adminPlacementRoutes);
 app.use('/api/admin/resumes', require('./routes/adminResumes'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/dashboard', require('./routes/dashboard'));
@@ -650,6 +719,7 @@ app.use('/api/assessments', require('./routes/assessments'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/insights', require('./routes/insights'));
 app.use('/api/admin/jobs', require('./routes/adminJobs'));
+app.use('/api/oa', require('./routes/oa'));
 app.use('/api/admin/quiz-reports', require('./routes/adminQuizReports'));
 app.use('/api/admin/resumes', require('./routes/adminResumes'));
 app.use('/api/live-sessions', require('./routes/liveSessions'));
@@ -657,6 +727,7 @@ app.use('/api/news', require('./routes/news'));
 app.use('/api/leaderboards', require('./routes/leaderboards'));
 app.use('/api/creators', require('./routes/creators'));
 app.use('/api/admin/quizzes-overview', require('./routes/adminQuizzesOverview'));
+app.use('/api/admin/aptitude', require('./routes/adminAptitude'));
 app.use('/api/question-bank', require('./routes/questionBank'));
 app.use('/api/me', require('./routes/me'));
 app.use('/api/mentor-community', require('./routes/mentorCommunity'));

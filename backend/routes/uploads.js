@@ -33,7 +33,7 @@ const fileFilter = (req, file, cb) => {
   if (extname && mimetype) {
     return cb(null, true);
   } else {
-    cb(new Error('Error: Images, PDFs, and Videos only!'));
+    cb(new Error('Invalid file type. Images, PDFs, and Videos only!'));
   }
 };
 
@@ -58,9 +58,9 @@ router.post('/multiple', (req, res) => {
 
   upload.array('files', 4)(req, res, async function (err) {
     if (err instanceof multer.MulterError) {
-      return res.status(400).json({ message: 'Multer error', error: err.message });
+      return res.status(400).json({ message: 'Validation Failed', errors: [{ field: 'files', message: err.message }] });
     } else if (err) {
-      return res.status(400).json({ message: 'Upload error', error: err.message });
+      return res.status(400).json({ message: 'Validation Failed', errors: [{ field: 'files', message: err.message }] });
     }
     
     try {
@@ -68,8 +68,9 @@ router.post('/multiple', (req, res) => {
         return res.status(400).json({ message: 'No files uploaded' });
       }
       
-      const publicUrls = [];
+      const uploadedFiles = [];
       for (const file of req.files) {
+        let finalUrl = '';
         if (file.mimetype.startsWith('image/')) {
           const optimizedFilename = 'optimized-' + file.filename + '.jpg';
           const resizedPath = path.join(uploadDir, optimizedFilename);
@@ -79,15 +80,24 @@ router.post('/multiple', (req, res) => {
             .toFile(resizedPath);
           
           fs.unlinkSync(file.path);
-          publicUrls.push(`/uploads/${optimizedFilename}`);
+          finalUrl = `/uploads/${optimizedFilename}`;
         } else {
-          publicUrls.push(`/uploads/${file.filename}`);
+          finalUrl = `/uploads/${file.filename}`;
         }
+        
+        uploadedFiles.push({
+          url: finalUrl,
+          metadata: {
+            filename: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size
+          }
+        });
       }
       
       const responsePayload = { 
         message: 'Files uploaded successfully', 
-        urls: publicUrls 
+        files: uploadedFiles 
       };
 
       if (idempotencyKey) {
@@ -107,13 +117,12 @@ router.post('/multiple', (req, res) => {
   });
 });
 
-// POST /api/uploads - Upload a general file
 router.post('/', (req, res) => {
   upload.single('file')(req, res, function (err) {
     if (err instanceof multer.MulterError) {
-      return res.status(400).json({ message: 'Multer error', error: err.message });
+      return res.status(400).json({ message: 'Validation Failed', errors: [{ field: 'file', message: err.message }] });
     } else if (err) {
-      return res.status(400).json({ message: 'Upload error', error: err.message });
+      return res.status(400).json({ message: 'Validation Failed', errors: [{ field: 'file', message: err.message }] });
     }
     
     try {
@@ -126,7 +135,12 @@ router.post('/', (req, res) => {
       
       res.status(200).json({ 
         message: 'File uploaded successfully', 
-        url: publicUrl 
+        url: publicUrl,
+        metadata: {
+          filename: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        }
       });
     } catch (error) {
       console.error(error);
@@ -135,16 +149,15 @@ router.post('/', (req, res) => {
   });
 });
 
-// POST /api/uploads/evidence - Upload identity/evidence file (stricter limit)
 router.post('/evidence', (req, res) => {
   uploadEvidence.single('file')(req, res, function (err) {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: 'Evidence file cannot exceed 5MB' });
+        return res.status(400).json({ message: 'Validation Failed', errors: [{ field: 'file', message: 'Evidence file cannot exceed 5MB' }] });
       }
-      return res.status(400).json({ message: 'Multer error', error: err.message });
+      return res.status(400).json({ message: 'Validation Failed', errors: [{ field: 'file', message: err.message }] });
     } else if (err) {
-      return res.status(400).json({ message: 'Upload error', error: err.message });
+      return res.status(400).json({ message: 'Validation Failed', errors: [{ field: 'file', message: err.message }] });
     }
     
     try {
@@ -156,7 +169,12 @@ router.post('/evidence', (req, res) => {
       
       res.status(200).json({ 
         message: 'Evidence uploaded successfully', 
-        url: publicUrl 
+        url: publicUrl,
+        metadata: {
+          filename: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        }
       });
     } catch (error) {
       console.error(error);

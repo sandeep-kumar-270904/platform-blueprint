@@ -24,6 +24,18 @@ const NotificationPreferenceSchema = new mongoose.Schema({
       milestones: { type: Boolean, default: true }
     }
   },
+  
+  // Phase 12: Calendar & Reminder Sync
+  daily_digest: {
+    enabled: { type: Boolean, default: true },
+    delivery_time: { type: String, default: '08:00' }
+  },
+  eventReminders: [{
+    eventType: { type: String, enum: ['mock_interview', 'oa_simulation', 'gd_session', 'weekly_challenge', 'prep_milestone', 'referral_followup'] },
+    leadTimeMinutes: { type: Number, default: 1440 }, // Default 24 hours
+    enabled: { type: Boolean, default: true }
+  }],
+
   quiet_hours: {
     enabled: { type: Boolean, default: false },
     start_time: { type: String, default: '22:00' }, // HH:mm format

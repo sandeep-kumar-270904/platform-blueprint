@@ -148,6 +148,9 @@ const AdminPanel = () => {
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
                     <Link to="/admin/community"><MessageSquare className="mr-3 h-5 w-5 text-teal-500" /> Community Feed</Link>
                   </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/placement"><Activity className="mr-3 h-5 w-5 text-green-500" /> Placement Prep</Link>
+                  </Button>
                 </CardContent>
               </Card>
 
