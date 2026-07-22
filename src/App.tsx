@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -80,6 +80,7 @@ import { OASimulator } from "./pages/OASimulator";
 import { OAResults } from "./pages/OAResults";
 import PlacementDashboard from "./pages/PlacementDashboard";
 import GroupDiscussionPrep from "./pages/GroupDiscussionPrep";
+import PlacementResources from "./pages/PlacementResources";
 import DoubtSolving from "./pages/DoubtSolving";
 import QuestionDetail from "./pages/QuestionDetail";
 import PlacementSearch from "./pages/PlacementSearch";
@@ -161,7 +162,7 @@ const App = () => (
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
           {/* Public Routes */}
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
@@ -182,6 +183,7 @@ const App = () => (
             <Route path="/study-session/:sessionId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
             <Route path="/placement/oa/simulate/:id" element={<ProtectedRoute><OASimulator /></ProtectedRoute>} />
             <Route path="/placement/oa/results/:id" element={<ProtectedRoute><OAResults /></ProtectedRoute>} />
+            <Route path="/placement/resources" element={<ProtectedRoute><PlacementResources /></ProtectedRoute>} />
             <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
             <Route path="/community/post/:id" element={<PostDetail />} />
             {/* Public or Auth-free routes could be outside ProtectedRoute if needed, but App.tsx structure has them in a wrapper. SharedResumeView should probably be outside ProtectedRoute so recruiters can view without account. */}

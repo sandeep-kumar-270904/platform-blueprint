@@ -19,23 +19,20 @@ const PlacementCell = () => {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <ParallaxSection speed={0.3}>
-        <section className="relative overflow-hidden py-20 md:py-32">
+      <ParallaxSection speed={0.1}>
+        <section className="relative overflow-hidden py-8 md:py-12">
           
-          <div className="container mx-auto px-4 relative z-8">
+          <div className="container mx-auto px-2 md:px-4 relative z-8">
             <ScrollReveal direction="down">
-              <div className="mx-auto max-w-3xl text-center">
-                <Badge variant="accent" className="mb-6">
+              <div className="mx-auto max-w-5xl text-center flex flex-col items-center">
+                <Badge variant="accent" className="mb-4">
                   <Target className="mr-1 h-3 w-3" />
                   Placement Preparation
                 </Badge>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
-                  Ace Your{" "}
-                  <span className="text-foreground display-font">
-                    Campus Placements
-                  </span>
+                <h1 className="mb-3 text-3xl font-bold tracking-tight md:text-5xl whitespace-nowrap">
+                  Ace Your <span className="text-foreground display-font">Campus Placements</span>
                 </h1>
-                <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
+                <p className="mx-auto mb-4 max-w-2xl text-base md:text-lg text-muted-foreground">
                   Company-wise resources, coding practice, and interview preparation materials.
                 </p>
               </div>
@@ -44,8 +41,8 @@ const PlacementCell = () => {
         </section>
       </ParallaxSection>
 
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="container mx-auto px-2 md:px-4 py-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           <ScrollReveal delay={0.1}>
             <Card className="hover-scale">
               <CardHeader>

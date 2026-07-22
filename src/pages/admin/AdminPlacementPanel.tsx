@@ -4,7 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Database, ShieldAlert, Users, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { BarChart3, Database, ShieldAlert, Users, Trash2, CheckCircle, XCircle, Plus } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { useAdmin } from "@/hooks/useAdmin";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -16,6 +21,12 @@ const AdminPlacementPanel = () => {
   const [dsaProblems, setDsaProblems] = useState<any[]>([]);
   const [moderationQueue, setModerationQueue] = useState<any>({ interviewExperiences: [], reports: [] });
   const [referrers, setReferrers] = useState<any[]>([]);
+  const [resources, setResources] = useState<any[]>([]);
+  const [showDsaForm, setShowDsaForm] = useState(false);
+  const [showResourceForm, setShowResourceForm] = useState(false);
+  const [dsaForm, setDsaForm] = useState({ title: '', difficulty: 'Easy', topic: '', link: '' });
+  const [resourceForm, setResourceForm] = useState({ title: '', description: '', category: 'General', file: null as File | null });
+  const { toast } = useToast();
 
   useEffect(() => {
     if (isAdmin) {
@@ -23,10 +34,18 @@ const AdminPlacementPanel = () => {
       fetchDsa();
       fetchModeration();
       fetchReferrers();
+      fetchResources();
     }
   }, [isAdmin]);
 
   const headers = { 'Authorization': `Bearer ${localStorage.getItem('token')}` };
+
+  const fetchResources = async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/placement-resources`, { headers });
+      if (res.ok) setResources(await res.json());
+    } catch (e) { console.error(e); }
+  };
 
   const fetchStats = async () => {
     try {
@@ -53,6 +72,60 @@ const AdminPlacementPanel = () => {
     try {
       const res = await fetch(`${API_URL}/api/admin/placement/referrers`, { headers });
       if (res.ok) setReferrers(await res.json());
+    } catch (e) { console.error(e); }
+  };
+
+  const handleCreateDsa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_URL}/api/admin/placement/dsa`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(dsaForm)
+      });
+      if (res.ok) {
+        toast({ title: "Success", description: "DSA Problem added" });
+        setShowDsaForm(false);
+        setDsaForm({ title: '', difficulty: 'Easy', topic: '', link: '' });
+        fetchDsa();
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const handleCreateResource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resourceForm.file) return toast({ title: "Error", description: "File required", variant: "destructive" });
+    const data = new FormData();
+    data.append("title", resourceForm.title);
+    data.append("description", resourceForm.description);
+    data.append("category", resourceForm.category);
+    data.append("file", resourceForm.file);
+    try {
+      const res = await fetch(`${API_URL}/api/placement-resources`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: data
+      });
+      if (res.ok) {
+        toast({ title: "Success", description: "Resource uploaded" });
+        setShowResourceForm(false);
+        setResourceForm({ title: '', description: '', category: 'General', file: null });
+        fetchResources();
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const handleDeleteDsa = async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/admin/placement/dsa/${id}`, { method: 'DELETE', headers });
+      if (res.ok) fetchDsa();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleDeleteResource = async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/placement-resources/${id}`, { method: 'DELETE', headers });
+      if (res.ok) fetchResources();
     } catch (e) { console.error(e); }
   };
 
@@ -117,22 +190,87 @@ const AdminPlacementPanel = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="content">
+          <TabsContent value="content" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>DSA Problems</CardTitle>
-                <CardDescription>Manage the Data Structures and Algorithms problem bank.</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>DSA Problems</CardTitle>
+                  <CardDescription>Manage the Data Structures and Algorithms problem bank.</CardDescription>
+                </div>
+                <Button onClick={() => setShowDsaForm(!showDsaForm)}><Plus className="w-4 h-4 mr-2" /> Add Problem</Button>
               </CardHeader>
               <CardContent>
+                {showDsaForm && (
+                  <form onSubmit={handleCreateDsa} className="mb-6 p-4 border rounded-lg bg-muted/20 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2"><Label>Title</Label><Input required value={dsaForm.title} onChange={e => setDsaForm({...dsaForm, title: e.target.value})} /></div>
+                      <div className="space-y-2">
+                        <Label>Difficulty</Label>
+                        <Select value={dsaForm.difficulty} onValueChange={v => setDsaForm({...dsaForm, difficulty: v})}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent><SelectItem value="Easy">Easy</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Hard">Hard</SelectItem></SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2"><Label>Topic</Label><Input required value={dsaForm.topic} onChange={e => setDsaForm({...dsaForm, topic: e.target.value})} /></div>
+                      <div className="space-y-2"><Label>Link</Label><Input required value={dsaForm.link} onChange={e => setDsaForm({...dsaForm, link: e.target.value})} /></div>
+                    </div>
+                    <Button type="submit">Save Problem</Button>
+                  </form>
+                )}
                 {dsaProblems.length === 0 ? <p>No problems found.</p> : (
-                  <div className="space-y-4">
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                     {dsaProblems.map(p => (
                       <div key={p._id} className="flex justify-between items-center border p-4 rounded-lg">
                         <div>
                           <p className="font-medium">{p.title}</p>
                           <p className="text-sm text-muted-foreground">{p.difficulty} • {p.topic}</p>
                         </div>
-                        <Button variant="outline" size="sm"><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                        <Button variant="outline" size="sm" onClick={() => handleDeleteDsa(p._id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Placement Resources</CardTitle>
+                  <CardDescription>Manage official and community study materials.</CardDescription>
+                </div>
+                <Button onClick={() => setShowResourceForm(!showResourceForm)}><Plus className="w-4 h-4 mr-2" /> Upload Resource</Button>
+              </CardHeader>
+              <CardContent>
+                {showResourceForm && (
+                  <form onSubmit={handleCreateResource} className="mb-6 p-4 border rounded-lg bg-muted/20 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2"><Label>Title</Label><Input required value={resourceForm.title} onChange={e => setResourceForm({...resourceForm, title: e.target.value})} /></div>
+                      <div className="space-y-2">
+                        <Label>Category</Label>
+                        <Select value={resourceForm.category} onValueChange={v => setResourceForm({...resourceForm, category: v})}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent><SelectItem value="DSA">DSA</SelectItem><SelectItem value="Aptitude">Aptitude</SelectItem><SelectItem value="HR">HR</SelectItem><SelectItem value="Company Specific">Company Specific</SelectItem><SelectItem value="General">General</SelectItem></SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-2"><Label>Description</Label><Textarea required value={resourceForm.description} onChange={e => setResourceForm({...resourceForm, description: e.target.value})} /></div>
+                    <div className="space-y-2"><Label>File</Label><Input type="file" required onChange={e => setResourceForm({...resourceForm, file: e.target.files?.[0] || null})} /></div>
+                    <Button type="submit">Upload Resource</Button>
+                  </form>
+                )}
+                {resources.length === 0 ? <p>No resources found.</p> : (
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                    {resources.map(r => (
+                      <div key={r._id} className="flex justify-between items-center border p-4 rounded-lg">
+                        <div>
+                          <p className="font-medium flex items-center gap-2">
+                            {r.title}
+                            {r.isAdminUpload && <Badge variant="outline" className="text-xs h-5">Official</Badge>}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{r.category} • By {r.uploadedBy?.full_name}</p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => handleDeleteResource(r._id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
                       </div>
                     ))}
                   </div>
