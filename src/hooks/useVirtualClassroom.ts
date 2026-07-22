@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useAuth } from "./useAuth";
 import { toast } from "@/hooks/use-toast";
 
@@ -35,12 +35,15 @@ export const useVirtualClassroom = () => {
   const [classrooms, setClassrooms] = useState<ClassroomRow[]>([]);
   const [joined, setJoined] = useState<Record<string, ParticipantRow>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const limit = 12;
 
-  const fetchAll = useCallback(async (isLoadMore = false) => {
+  const fetchAll = useCallback(async (isLoadMore = false, query = '') => {
     const currentPage = isLoadMore ? page + 1 : 1;
+    if (!isLoadMore) setLoading(true);
+    setError(null);
     
     // If offline, attempt to load from cache
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -60,7 +63,7 @@ export const useVirtualClassroom = () => {
 
     try {
       // 1. Fetch Classrooms
-      const res = await fetch(`${API_URL}/api/classrooms?page=${currentPage}&limit=${limit}`);
+      const res = await fetch(`${API_URL}/api/classrooms?page=${currentPage}&limit=${limit}${query ? `&q=${encodeURIComponent(query)}` : ''}`);
       if (!res.ok) throw new Error('Failed to fetch classrooms');
       let data = await res.json();
       
@@ -99,6 +102,7 @@ export const useVirtualClassroom = () => {
       }
     } catch (err) {
       console.error("Error fetching classrooms", err);
+      setError("Failed to load classrooms. Please try again later.");
       toast({ title: "Network Error", description: "Could not fetch classrooms. Retrying later.", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -110,6 +114,10 @@ export const useVirtualClassroom = () => {
       fetchAll(true);
     }
   };
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
   const join = async (id: string) => {
     if (!user) return toast({ title: "Sign in required", variant: "destructive" });
@@ -180,5 +188,93 @@ export const useVirtualClassroom = () => {
     }
   };
 
-  return { classrooms, joined, loading, status: 'live', join, leave, create, remove, refetch: fetchAll, loadMore, hasMore };
+  const editClassroom = async (id: string, updates: Partial<ClassroomRow>) => {
+    if (!user) return toast({ title: "Sign in required", variant: "destructive" });
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) throw new Error('Failed to update classroom');
+      toast({ title: "Classroom updated" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const cancelClassroom = async (id: string) => {
+    if (!user) return toast({ title: "Sign in required", variant: "destructive" });
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}/cancel`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to cancel classroom');
+      toast({ title: "Classroom cancelled" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const toggleReminder = async (id: string) => {
+    if (!user) return toast({ title: "Sign in required", variant: "destructive" });
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}/reminders`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to toggle reminders');
+      const data = await res.json();
+      toast({ title: data.reminders_opt_in ? "Reminders enabled" : "Reminders disabled" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const addRecording = async (id: string, url: string) => {
+    if (!user) return toast({ title: "Sign in required", variant: "destructive" });
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}/recording`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recording_url: url })
+      });
+      if (!res.ok) throw new Error('Failed to add recording');
+      toast({ title: "Recording added" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const submitRating = async (id: string, rating: number, feedback: string) => {
+    if (!user) return toast({ title: "Sign in required", variant: "destructive" });
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}/rating`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating, feedback })
+      });
+      if (!res.ok) throw new Error('Failed to submit rating');
+      toast({ title: "Rating submitted" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  return { 
+    classrooms, joined, loading, error, status: 'live', 
+    join, leave, create, remove, refetch: fetchAll, loadMore, hasMore,
+    editClassroom, cancelClassroom, toggleReminder, addRecording, submitRating 
+  };
 };

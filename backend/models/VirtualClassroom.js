@@ -70,6 +70,18 @@ const classroomSchema = new mongoose.Schema({
     mute_all: { type: Boolean, default: false },
     is_locked: { type: Boolean, default: false },
     allow_chat: { type: Boolean, default: true }
+  },
+  recording_url: {
+    type: String,
+    default: null
+  },
+  rating_avg: {
+    type: Number,
+    default: 0
+  },
+  rating_count: {
+    type: Number,
+    default: 0
   }
 }, { timestamps: true });
 
