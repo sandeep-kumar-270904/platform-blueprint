@@ -8,6 +8,9 @@ interface User {
   university?: string;
   degree?: string;
   graduation_year?: string;
+  is_verified_host?: boolean;
+  host_verification_status?: string;
+  gamification_badges?: any[];
 }
 
 interface AuthContextType {
@@ -29,7 +32,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     id: "dummy-user-id", 
     email: "test@example.com", 
     full_name: "Test User", 
-    university: "Test University" 
+    university: "Test University",
+    is_verified_host: false,
+    host_verification_status: "unverified",
+    gamification_badges: []
   });
   const [loading, setLoading] = useState(true);
 

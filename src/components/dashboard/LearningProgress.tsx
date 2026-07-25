@@ -1,3 +1,4 @@
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -6,14 +7,16 @@ import { GraduationCap, Target, Layers, Users, MessageSquare, Video, CalendarChe
 import { formatDistanceToNow } from "date-fns";
 
 export const LearningProgress = () => {
+  
   const { summary, loading } = useLearningProgress();
+  const { user } = useAuth();
+
 
   const tiles = [
     { label: "Quiz Attempts", value: summary.quizAttempts, icon: Target, color: "text-orange-500" },
     { label: "Avg Score", value: `${summary.avgQuizScore}%`, icon: Trophy, color: "text-yellow-500" },
     { label: "Study Minutes", value: summary.totalQuizMinutes, icon: GraduationCap, color: "text-blue-500" },
     { label: "Roadmap Steps", value: summary.roadmapStepsDone, icon: Layers, color: "text-purple-500" },
-    { label: "Decks", value: summary.flashcardDecks, icon: Layers, color: "text-pink-500" },
     { label: "Groups", value: summary.studyGroups, icon: Users, color: "text-green-500" },
     { label: "Messages", value: summary.groupMessagesSent, icon: MessageSquare, color: "text-sky-500" },
     { label: "Classrooms", value: summary.classroomsJoined, icon: Video, color: "text-indigo-500" },
@@ -33,6 +36,7 @@ export const LearningProgress = () => {
           <p className="text-sm text-muted-foreground text-center py-6">Loading your stats...</p>
         ) : (
           <>
+
             <div className="grid grid-cols-3 gap-3 mb-6">
               {tiles.map((t) => (
                 <div key={t.label} className="rounded-lg border bg-muted/30 p-3">
@@ -44,6 +48,22 @@ export const LearningProgress = () => {
                 </div>
               ))}
             </div>
+
+            {/* Gamification Badges */}
+            {user?.gamification_badges && user.gamification_badges.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-3 flex items-center gap-1"><Trophy className="h-3 w-3 text-yellow-500"/> Earned Badges</h4>
+                <div className="flex flex-wrap gap-2">
+                  {user.gamification_badges.map((badge: any, idx: number) => (
+                    <div key={idx} className="flex flex-col items-center bg-muted/20 border rounded-lg p-2 min-w-[80px] text-center" title={badge.description}>
+                      <div className="text-2xl mb-1">{badge.icon}</div>
+                      <span className="text-[10px] font-bold line-clamp-1">{badge.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
 
             <div className="space-y-3 mb-6">
               <div>

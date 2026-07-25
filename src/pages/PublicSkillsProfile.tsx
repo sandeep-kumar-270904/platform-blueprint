@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Award, Lock, Flame, ShieldCheck } from "lucide-react";
+import { Award, Trophy, CheckCircle2, Lock, Flame, ShieldCheck } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Header } from "@/components/layout/Header";
 
@@ -76,7 +76,15 @@ export default function PublicSkillsProfile() {
               </p>
             </div>
             
+            
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+              {data?.is_verified_host && (
+                <Badge variant="secondary" className="px-3 py-1 gap-1.5 bg-indigo-100 text-indigo-700 border-indigo-200">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Verified Host
+                </Badge>
+              )}
+              
               <Badge variant="secondary" className="px-3 py-1 gap-1.5 bg-blue-100 text-blue-700 border-blue-200">
                 <Award className="h-4 w-4" />
                 {totalCertificates} Certificates Earned
@@ -89,6 +97,23 @@ export default function PublicSkillsProfile() {
                 </Badge>
               )}
             </div>
+            
+            {data?.gamification_badges && data.gamification_badges.length > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-xs font-semibold uppercase text-muted-foreground mb-2 flex items-center justify-center md:justify-start gap-1">
+                  <Trophy className="h-3 w-3 text-yellow-500" /> Earned Badges
+                </p>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                  {data.gamification_badges.map((badge: any, idx: number) => (
+                    <div key={idx} className="flex flex-col items-center bg-muted/20 border rounded-lg p-2 min-w-[80px] text-center" title={badge.description}>
+                      <div className="text-2xl mb-1">{badge.icon}</div>
+                      <span className="text-[10px] font-bold line-clamp-1">{badge.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
 

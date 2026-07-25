@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  DollarSign, Briefcase, GraduationCap, FileText, Activity, MessageSquare
+  DollarSign, Briefcase, GraduationCap, FileText, Activity, MessageSquare, ShieldAlert, BarChart3, AlertTriangle, Users, Video
 } from "lucide-react";
 import { AdminModerationQueue } from "@/components/admin/AdminModerationQueue";
 import { AdminFinancials } from "@/components/admin/AdminFinancials";
 import { AdminFeedMetrics } from "@/components/admin/AdminFeedMetrics";
+import { AdminClassrooms } from "@/components/admin/AdminClassrooms";
 import { useAdmin } from "@/hooks/useAdmin";
 import { toast } from 'sonner';
 
@@ -150,6 +151,9 @@ const AdminPanel = () => {
                   </Button>
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
                     <Link to="/admin/placement"><Activity className="mr-3 h-5 w-5 text-green-500" /> Placement Prep</Link>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/classrooms"><Video className="mr-3 h-5 w-5 text-red-500" /> Virtual Classrooms</Link>
                   </Button>
                 </CardContent>
               </Card>

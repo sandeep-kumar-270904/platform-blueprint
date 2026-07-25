@@ -7,6 +7,7 @@ const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const logger = require('./utils/logger');
+const { startCron } = require('./jobs/classroomCron');
 const mongoose = require('mongoose');
 
 // Determine environment
@@ -598,6 +599,7 @@ app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/settings', authLimiter, settingsRoutes);
 app.use('/api/notes', require('./routes/notes'));
 app.use('/api/classrooms', require('./routes/classrooms'));
+app.use('/api/integration', require('./routes/integration'));
 app.use('/api/forum', require('./routes/forum'));
 app.use('/api/qa', require('./routes/qa'));
 app.use('/api/feedback', require('./routes/feedback'));
@@ -758,17 +760,46 @@ app.use('/api/admin/mentors-overview', adminMentorsOverviewRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Socket.io connection handling
+
+// Phase 16 in-memory trackers
+const activeClassroomConnections = new Map(); // roomId -> Set<userId>
+const roomChatHistory = new Map(); // roomId -> Array<Message>
+
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
 
-  socket.on('join_classroom', (classroomId) => {
+    socket.on('join_classroom', ({ classroomId, userId }) => {
+    // 1. Multi-tab prevention
+    if (userId) {
+      const roomUsers = activeClassroomConnections.get(classroomId) || new Set();
+      if (roomUsers.has(userId)) {
+        socket.emit('already_connected');
+        return;
+      }
+      roomUsers.add(userId);
+      activeClassroomConnections.set(classroomId, roomUsers);
+      socket.userId = userId; // store on socket for disconnect cleanup
+    }
+
+    socket.classroomId = classroomId; // store for disconnect cleanup
     socket.join(`classroom_${classroomId}`);
-    console.log(`Socket ${socket.id} joined classroom_${classroomId}`);
+    console.log(`Socket ${socket.id} (User: ${userId}) joined classroom_${classroomId}`);
+
+    // 2. Send chat history
+    const history = roomChatHistory.get(classroomId) || [];
+    socket.emit('chat_history', history);
   });
   
-  socket.on('leave_classroom', (classroomId) => {
+    socket.on('leave_classroom', (classroomId) => {
     socket.leave(`classroom_${classroomId}`);
     console.log(`Socket ${socket.id} left classroom_${classroomId}`);
+    if (socket.userId) {
+      const roomUsers = activeClassroomConnections.get(classroomId);
+      if (roomUsers) {
+        roomUsers.delete(socket.userId);
+        if (roomUsers.size === 0) activeClassroomConnections.delete(classroomId);
+      }
+    }
   });
 
   socket.on('join_forum_thread', (threadId) => {
@@ -834,8 +865,32 @@ io.on('connection', (socket) => {
   // Attach Live Session socket handlers
   require('./sockets/liveSessions')(io, socket);
 
+  socket.on('participant_joined', (data) => {
+    // Add to active connections (can be tracked per room for host logs)
+    io.to(`classroom_${data.classroomId}`).emit('host_activity_log', {
+      action: 'join',
+      participant: data.participant,
+      timestamp: new Date()
+    });
+  });
+
+  socket.on('participant_left', (data) => {
+    io.to(`classroom_${data.classroomId}`).emit('host_activity_log', {
+      action: 'leave',
+      participant: data.participant,
+      timestamp: new Date()
+    });
+  });
+
   socket.on('disconnect', () => {
     console.log('Client disconnected:', socket.id);
+    if (socket.userId && socket.classroomId) {
+      const roomUsers = activeClassroomConnections.get(socket.classroomId);
+      if (roomUsers) {
+        roomUsers.delete(socket.userId);
+        if (roomUsers.size === 0) activeClassroomConnections.delete(socket.classroomId);
+      }
+    }
   });
 });
 
@@ -861,6 +916,7 @@ const PORT = process.env.PORT || 5000;
 
 const serverInstance = server.listen(PORT, () => {
   logger.info(`Server started on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+  startCron();
 });
 
 // Graceful Shutdown Logic

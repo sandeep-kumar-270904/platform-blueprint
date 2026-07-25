@@ -3,9 +3,16 @@ const mongoose = require('mongoose');
 const newsReportSchema = new mongoose.Schema({
   articleId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'NewsArticle',
-    required: true,
-    index: true
+    ref: 'NewsArticle'
+  },
+  commentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'NewsComment'
+  },
+  targetType: {
+    type: String,
+    enum: ['NewsArticle', 'NewsComment'],
+    required: true
   },
   reportedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -14,7 +21,7 @@ const newsReportSchema = new mongoose.Schema({
   },
   reason: {
     type: String,
-    enum: ['spam', 'broken_link', 'misleading', 'other'],
+    enum: ['spam', 'broken_link', 'misleading', 'harassment', 'other'],
     required: true
   },
   status: {

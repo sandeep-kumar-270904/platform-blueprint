@@ -7,7 +7,7 @@ import { Users, Lock, MicOff, MessageSquareOff, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 
-export const SettingsTab = ({ classroomId, jitsiApi }: { classroomId: string, jitsiApi?: any }) => {
+export const SettingsTab = ({ classroomId, jitsiApi, chatMode, handleChatModeChange, handleEndSession }: { classroomId: string, jitsiApi?: any, chatMode?: string, handleChatModeChange?: any, handleEndSession?: any }) => {
   const [settings, setSettings] = useState<any>({
     chat_enabled: true,
     is_locked: false,
@@ -140,6 +140,31 @@ export const SettingsTab = ({ classroomId, jitsiApi }: { classroomId: string, ji
           />
           <Button variant="destructive" size="sm" onClick={handleKick}>Kick</Button>
         </div>
+      </div>
+            <div className="pt-4 border-t">
+        <h4 className="font-semibold mb-3">Chat Permissions</h4>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <input type="radio" id="chat-everyone" name="chatMode" checked={chatMode === 'everyone'} onChange={() => handleChatModeChange('everyone')} />
+            <Label htmlFor="chat-everyone">Everyone can chat</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="radio" id="chat-hosts" name="chatMode" checked={chatMode === 'hosts_only'} onChange={() => handleChatModeChange('hosts_only')} />
+            <Label htmlFor="chat-hosts">Hosts only (Attendees can Direct Message)</Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="radio" id="chat-disabled" name="chatMode" checked={chatMode === 'disabled'} onChange={() => handleChatModeChange('disabled')} />
+            <Label htmlFor="chat-disabled">Disabled for Attendees</Label>
+          </div>
+        </div>
+      </div>
+      
+      <div className="pt-8 mt-4 border-t space-y-4">
+        <h4 className="font-semibold text-destructive flex items-center gap-2">Danger Zone</h4>
+        <p className="text-sm text-muted-foreground">Ending the session will instantly disconnect all participants and finalize analytics.</p>
+        <Button variant="destructive" className="w-full" onClick={handleEndSession}>
+          End Session for Everyone
+        </Button>
       </div>
     </div>
   );

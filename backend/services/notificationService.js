@@ -2,6 +2,15 @@ const Notification = require('../models/Notification');
 const UserReminderPreference = require('../models/UserReminderPreference');
 const NotificationPreference = require('../models/NotificationPreference');
 const User = require('../models/User');
+const webpush = require('web-push');
+
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:support@antigravity.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 let _io = null;
 
@@ -124,6 +133,21 @@ const sendNotification = async (data) => {
     
     if (!isQuietHours && _io) {
       _io.to(`user:${userId}`).emit('notification:new', created);
+    }
+    
+    if (!isQuietHours && user && user.webPushSubscriptions && user.webPushSubscriptions.length > 0) {
+      const payload = JSON.stringify({
+        title: 'Virtual Classroom',
+        body: created.message,
+        url: created.relatedContentId ? `/classrooms/${created.relatedContentId}` : '/'
+      });
+      for (const sub of user.webPushSubscriptions) {
+        try {
+          await webpush.sendNotification(sub, payload);
+        } catch (err) {
+          console.error('Web push error:', err.statusCode);
+        }
+      }
     }
     
     return created;

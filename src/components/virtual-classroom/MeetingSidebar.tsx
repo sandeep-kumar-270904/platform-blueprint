@@ -6,17 +6,62 @@ import { PollsTab } from "./tabs/PollsTab";
 import { QATab } from "./tabs/QATab";
 import { SettingsTab } from "./tabs/SettingsTab";
 import { AITab } from "./tabs/AITab";
+import { ChatTab } from "./tabs/ChatTab";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
-export const MeetingSidebar = ({ classroomId, isHost, isWebinar, jitsiApi }: { classroomId: string, isHost: boolean, isWebinar: boolean, jitsiApi?: any }) => {
+export const MeetingSidebar = ({ classroomId, isHost, isWebinar, jitsiApi }: { classroomId: string, isHost: boolean, isWebinar: boolean, jitsiApi?: any, onDuplicate?: () => void }) => {
   const { user } = useAuth();
+
+  const [elapsed, setElapsed] = useState("");
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      // Just a mock running timer for the current session duration
+      const d = new Date();
+      setElapsed(`${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [isReporting, setIsReporting] = useState(false);
+  const [chatMode, setChatMode] = useState('everyone');
+  const [socket, setSocket] = useState<any>(null);
+
+  
+  React.useEffect(() => {
+    import('socket.io-client').then((module) => {
+      const io = module.io;
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const newSocket = io(API_URL);
+      setSocket(newSocket);
+      newSocket.emit('join_classroom', { classroomId, userId: user?.id });
+
+      newSocket.on('already_connected', () => {
+        if (onDuplicate) onDuplicate();
+      });
+
+      newSocket.on('chat_permissions_changed', (mode: string) => {
+        setChatMode(mode);
+      });
+      
+      newSocket.on('session_ended', () => {
+        // Force redirect to recap if the host ends it
+        if (!isHost) {
+          window.location.href = `/classroom/${classroomId}/recap`;
+        }
+      });
+
+      return () => {
+        newSocket.emit('leave_classroom', classroomId);
+        newSocket.disconnect();
+      };
+    });
+  }, [classroomId, isHost]);
 
   const handleReport = async () => {
     if (!reportReason.trim() || !user) return;
@@ -48,7 +93,7 @@ export const MeetingSidebar = ({ classroomId, isHost, isWebinar, jitsiApi }: { c
   return (
     <div className="w-80 border-l bg-background h-full flex flex-col">
       <div className="p-4 border-b shrink-0 flex items-center justify-between">
-        <h3 className="font-semibold">Session Tools</h3>
+        <h3 className="font-semibold flex items-center gap-2">Session <span className="text-xs bg-muted px-2 py-0.5 rounded border">{elapsed}</span></h3>
         <div className="flex gap-1">
           {isHost && (
             <Button variant="ghost" size="sm" className="h-8 px-2 text-green-500 hover:text-green-600 hover:bg-green-500/10" title="Engagement Level: High (Based on chat velocity)">
@@ -62,8 +107,11 @@ export const MeetingSidebar = ({ classroomId, isHost, isWebinar, jitsiApi }: { c
         </div>
       </div>
       
-      <Tabs defaultValue="ai" className="flex-1 flex flex-col min-h-0">
+      <Tabs defaultValue="chat" className="flex-1 flex flex-col min-h-0">
         <TabsList className="w-full justify-start rounded-none border-b shrink-0 px-2 h-12 bg-transparent overflow-x-auto hide-scrollbar">
+                    <TabsTrigger value="chat" className="flex-1 min-w-fit gap-2 data-[state=active]:shadow-none data-[state=active]:bg-muted">
+            <MessageSquare className="h-4 w-4" /> Chat
+          </TabsTrigger>
           <TabsTrigger value="ai" className="flex-1 min-w-fit gap-2 data-[state=active]:shadow-none data-[state=active]:bg-muted">
             <Bot className="h-4 w-4" /> AI
           </TabsTrigger>
@@ -86,6 +134,9 @@ export const MeetingSidebar = ({ classroomId, isHost, isWebinar, jitsiApi }: { c
         </TabsList>
         
         <div className="flex-1 overflow-y-auto p-4">
+                    <TabsContent value="chat" className="mt-0 h-full">
+            <ChatTab classroomId={classroomId} isHost={isHost} socket={socket} chatMode={chatMode} />
+          </TabsContent>
           <TabsContent value="ai" className="mt-0 h-full">
             <AITab classroomId={classroomId} isHost={isHost} />
           </TabsContent>

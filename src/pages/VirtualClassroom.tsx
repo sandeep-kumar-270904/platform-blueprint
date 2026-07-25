@@ -26,14 +26,23 @@ const VirtualClassroom = () => {
   const [chatRoom, setChatRoom] = useState<any>(null);
   const [checkoutSession, setCheckoutSession] = useState<any>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [discountStatus, setDiscountStatus] = useState<any>(null);
   const [subjectFilter, setSubjectFilter] = useState<string>("All");
-  const [form, setForm] = useState<any>({ duration_minutes: 60, max_participants: 50, visibility: "public", type: "interactive", is_paid: false, price: 0 });
+  const [languageFilter, setLanguageFilter] = useState<string>("All");
+  const [form, setForm] = useState<any>({ duration_minutes: 60, max_participants: 50, visibility: "public", type: "interactive", is_paid: false, price: 0, is_series: false, series_count: 1, series_frequency: 'weekly', co_host_emails: [], tags: [], prerequisite_classes_str: '', discount_codes_str: '', language: 'English', status: 'scheduled' });
+  const [historyDialog, setHistoryDialog] = useState(false);
+  const [historyData, setHistoryData] = useState<any[]>([]);
   const [collections, setCollections] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [ratingDialog, setRatingDialog] = useState<any>(null);
-  const [ratingForm, setRatingForm] = useState({ rating: 5, feedback: "" });
+  const [ratingForm, setRatingForm] = useState({ rating: 5, feedback: "", technical_issue: false, technical_issue_details: "" });
   const [editDialog, setEditDialog] = useState<any>(null);
   const [recordingDialog, setRecordingDialog] = useState<any>(null);
+  const [materialDialog, setMaterialDialog] = useState<any>(null);
+  const [materialForm, setMaterialForm] = useState({ title: '', url: '' });
+  const [announcementDialog, setAnnouncementDialog] = useState<any>(null);
+  const [announcementForm, setAnnouncementForm] = useState({ message: '' });
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/classrooms/collections`)
@@ -45,13 +54,53 @@ const VirtualClassroom = () => {
   }, []);
 
   const handleCreate = async () => {
-    if (!form.title) return toast.error("Class title is required");
-    if (!form.scheduled_at) return toast.error("Schedule time is required");
-    await create(form);
+    if (!form.title) return toast({ title: "Class title is required", variant: "destructive" });
+    if (!form.scheduled_at) return toast({ title: "Schedule time is required", variant: "destructive" });
+    
+    const payload = { ...form };
+    if (typeof payload.co_host_emails === 'string') {
+      payload.co_host_emails = payload.co_host_emails.split(',').map((e: string) => e.trim()).filter(Boolean);
+    }
+    if (typeof payload.tags === 'string') {
+      payload.tags = payload.tags.split(',').map((t: string) => t.trim()).filter(Boolean);
+    }
+    if (payload.discount_codes_str) {
+      payload.discount_codes = payload.discount_codes_str.split(',').map((d: string) => {
+        const [code, percent_off, max_uses] = d.split(':');
+        return { code: code.trim().toUpperCase(), percent_off: parseInt(percent_off) || 10, max_uses: parseInt(max_uses) || 0 };
+      }).filter((d: any) => d.code);
+    }
+
+    if (payload.prerequisite_classes_str) {
+      payload.prerequisite_classes = payload.prerequisite_classes_str.split(',').map((id: string) => id.trim()).filter(Boolean);
+    }
+
+    await create(payload);
     setOpen(false);
-    setForm({ duration_minutes: 60, max_participants: 50, visibility: "public", type: "interactive" });
+    setForm({ duration_minutes: 60, max_participants: 50, visibility: "public", type: "interactive", is_paid: false, price: 0, is_series: false, series_count: 1, series_frequency: 'weekly', co_host_emails: [], tags: [], prerequisite_classes_str: '', language: 'English', status: 'scheduled' });
   };
 
+    const handleJoinAttempt = async (c: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/classrooms/check-conflict`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduled_at: c.scheduled_at, duration_minutes: c.duration_minutes, role: 'participant' })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.conflict) {
+          setConflictWarning(`You are already scheduled for "${data.conflicting_class}" at this time. Are you sure you want to RSVP?`);
+          setPendingJoin(() => () => join(c.id, c.is_paid ? 'mock_token' : undefined));
+          return;
+        }
+      }
+      join(c.id, c.is_paid ? 'mock_token' : undefined);
+    } catch (err) {
+      join(c.id, c.is_paid ? 'mock_token' : undefined);
+    }
+  };
   const isLive = (c: any) => {
     const start = new Date(c.scheduled_at).getTime();
     const end = start + c.duration_minutes * 60000;
@@ -65,16 +114,66 @@ const VirtualClassroom = () => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('token');
+      const amountToCharge = discountStatus?.discounted_price !== undefined ? discountStatus.discounted_price : checkoutSession.price;
+      
       await fetch(`${API_URL}/api/classrooms/${checkoutSession.id}/transactions`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: checkoutSession.price })
+        body: JSON.stringify({ amount: amountToCharge, discount_code: discountStatus?.code })
       });
       
       await join(checkoutSession.id);
-    } catch {} finally {
-      setIsProcessingPayment(false);
       setCheckoutSession(null);
+      setPromoCode("");
+      setDiscountStatus(null);
+      toast({ title: "RSVP Complete", description: "You have joined the class." });
+    } catch {
+      toast({ title: "Checkout failed", variant: "destructive" });
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const handleApplyPromo = async () => {
+    if (!promoCode || !checkoutSession) return;
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/classrooms/${checkoutSession.id}/apply-discount`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promoCode.trim().toUpperCase() })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDiscountStatus(data);
+        toast({ title: "Promo applied!" });
+      } else {
+        toast({ title: data.message || "Invalid promo code", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error applying code", variant: "destructive" });
+    }
+  };
+
+  const handleRefundRequest = async (classroomId: string) => {
+    if (!confirm("Are you sure you want to request a refund and leave this class?")) return;
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/classrooms/${classroomId}/refund`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "Refund Requested", description: data.message });
+        refetch();
+      } else {
+        toast({ title: "Refund failed", description: data.message, variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Error", variant: "destructive" });
     }
   };
 
@@ -89,6 +188,18 @@ const VirtualClassroom = () => {
     } else {
       navigator.clipboard.writeText(url);
       toast({ title: "Link copied to clipboard!" });
+    }
+  };
+
+    const markExternalAttendance = async (classroomId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/classrooms/${classroomId}/join`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -196,8 +307,62 @@ const VirtualClassroom = () => {
                         />
                       </div>
                     </div>
+                    {form.is_paid && (
+                      <div className="pt-2 border-t mt-2">
+                        <Label htmlFor="discount-codes">Discount Codes (Optional)</Label>
+                        <Input id="discount-codes" placeholder="SUMMER:20:100 (Code:Percent:MaxUses), ..." value={form.discount_codes_str || ''} onChange={e => setForm({ ...form, discount_codes_str: e.target.value })} />
+                        <p className="text-[10px] text-muted-foreground mt-1">Format: CODE:PERCENT_OFF:MAX_USES, separated by commas.</p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3 pt-2 border-t mt-2">
+                      <div className="flex items-center gap-2 pt-6">
+                        <input type="checkbox" id="is_series" checked={form.is_series} onChange={(e) => setForm({ ...form, is_series: e.target.checked })} className="h-4 w-4" />
+                        <Label htmlFor="is_series">Recurring Series</Label>
+                      </div>
+                      {form.is_series && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label>Sessions</Label>
+                            <Input type="number" min="2" max="10" value={form.series_count} onChange={e => setForm({ ...form, series_count: +e.target.value })} />
+                          </div>
+                          <div>
+                            <Label>Freq</Label>
+                            <Select value={form.series_frequency} onValueChange={v => setForm({ ...form, series_frequency: v })}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="daily">Daily</SelectItem>
+                                <SelectItem value="weekly">Weekly</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t mt-2 space-y-3">
+                      <div><Label>Co-Hosts (Emails, comma separated)</Label><Input placeholder="host2@example.com, host3@example.com" value={typeof form.co_host_emails === 'string' ? form.co_host_emails : form.co_host_emails.join(', ')} onChange={e => setForm({ ...form, co_host_emails: e.target.value })} /></div>
+                      <div><Label>Tags (comma separated)</Label><Input placeholder="react, typescript, beginners" value={typeof form.tags === 'string' ? form.tags : form.tags.join(', ')} onChange={e => setForm({ ...form, tags: e.target.value })} /></div>
+                      <div><Label>Prerequisite Class IDs (comma separated)</Label><Input placeholder="ObjectId1, ObjectId2" value={form.prerequisite_classes_str || ''} onChange={e => setForm({ ...form, prerequisite_classes_str: e.target.value })} /></div>
+                      <div>
+                        <Label>Language</Label>
+                        <Select value={form.language} onValueChange={v => setForm({ ...form, language: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="English">English</SelectItem>
+                            <SelectItem value="Spanish">Spanish</SelectItem>
+                            <SelectItem value="French">French</SelectItem>
+                            <SelectItem value="Mandarin">Mandarin</SelectItem>
+                            <SelectItem value="Hindi">Hindi</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </div>
-                  <DialogFooter><Button onClick={handleCreate}>Schedule</Button></DialogFooter>
+                  <DialogFooter className="flex gap-2">
+                    <Button variant="outline" onClick={() => { setForm({ ...form, status: 'draft' }); setTimeout(handleCreate, 0); }}>Save as Draft</Button>
+                    <Button onClick={() => { setForm({ ...form, status: 'scheduled' }); setTimeout(handleCreate, 0); }}>Publish</Button>
+                  </DialogFooter>
                 </DialogContent>
               </Dialog>
             )}
@@ -225,7 +390,7 @@ const VirtualClassroom = () => {
         )}
 
         {/* Subject Hubs and Search */}
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-4 mb-6 items-center">
           <div className="flex overflow-x-auto pb-2 gap-2 hide-scrollbar flex-1">
             {["All", "Technology", "Design", "Business", "Math", "Science"].map(subject => (
               <Button
@@ -238,21 +403,39 @@ const VirtualClassroom = () => {
               </Button>
             ))}
           </div>
-          <div className="relative shrink-0 md:w-64">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              type="text" 
-              placeholder="Search classes..." 
-              className="pl-9 rounded-full bg-background" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && refetch(false, searchQuery)}
-            />
+          <div className="flex items-center gap-2 shrink-0 md:w-auto">
+            <Select value={languageFilter} onValueChange={setLanguageFilter}>
+              <SelectTrigger className="w-[120px] rounded-full">
+                <SelectValue placeholder="Language" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Languages</SelectItem>
+                <SelectItem value="English">English</SelectItem>
+                <SelectItem value="Spanish">Spanish</SelectItem>
+                <SelectItem value="French">French</SelectItem>
+                <SelectItem value="Mandarin">Mandarin</SelectItem>
+                <SelectItem value="Hindi">Hindi</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="relative shrink-0 md:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input 
+                type="text" 
+                placeholder="Search classes..." 
+                className="pl-9 rounded-full bg-background" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && refetch(false, searchQuery)}
+              />
+            </div>
           </div>
         </div>
 
         {(() => {
-          const filteredClassrooms = classrooms.filter(c => subjectFilter === "All" || c.subject === subjectFilter);
+          const filteredClassrooms = classrooms.filter(c => 
+            (subjectFilter === "All" || c.subject === subjectFilter) &&
+            (languageFilter === "All" || c.language === languageFilter)
+          );
 
           if (error) {
             return (
@@ -292,16 +475,26 @@ const VirtualClassroom = () => {
                 <Card key={c.id} className="hover-scale flex flex-col">
                   <CardHeader>
                     <div className="flex items-center justify-between mb-2">
-                      <Badge variant={live ? "destructive" : "secondary"} role="status" aria-live="polite">
-                        {live && <span className="mr-1 inline-block h-2 w-2 rounded-full bg-current animate-pulse" aria-hidden="true" />}
-                        {live ? "LIVE" : c.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={c.status === 'draft' ? "outline" : (live ? "destructive" : "secondary")} role="status" aria-live="polite">
+                          {live && <span className="mr-1 inline-block h-2 w-2 rounded-full bg-current animate-pulse" aria-hidden="true" />}
+                          {live ? "LIVE" : c.status.toUpperCase()}
+                        </Badge>
+                        {c.language && <Badge variant="outline" className="text-xs bg-muted/50">{c.language}</Badge>}
+                      </div>
                       <div className={`flex items-center gap-1 text-sm ${full ? 'text-destructive font-bold' : 'text-muted-foreground'}`} aria-label={`${c.participant_count} out of ${c.max_participants} participants`} role="status" aria-live="polite">
                         <Users className="h-4 w-4" aria-hidden="true" />{c.participant_count}/{c.max_participants} {full && "(Full)"}
                       </div>
                     </div>
                       <div className="flex justify-between items-start gap-2">
-                        <h3 className="font-bold line-clamp-2">{c.title}</h3>
+                        <div>
+                          <h3 className="font-bold line-clamp-2">{c.title}</h3>
+                          {c.series_total > 1 && (
+                            <Badge variant="outline" className="mt-1 text-xs text-muted-foreground border-primary/20">
+                              Series ({c.series_index}/{c.series_total})
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex flex-col gap-2 items-end shrink-0">
                           {c.is_featured && <Badge className="bg-yellow-500 text-black border-yellow-500 hover:bg-yellow-400">★ Featured</Badge>}
                           {c.is_paid && <Badge className="bg-green-600 hover:bg-green-700 whitespace-nowrap">${c.price}</Badge>}
@@ -317,11 +510,34 @@ const VirtualClassroom = () => {
                           </div>
                         )}
                       </div>
+                      
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+                        {c.host_id?.avatar ? (
+                          <img src={c.host_id.avatar} alt="host" className="w-5 h-5 rounded-full" />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold">
+                            {(c.host_id?.first_name?.[0] || 'H')}
+                          </div>
+                        )}
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          Hosted by {c.host_id?.first_name} {c.host_id?.last_name}
+                          {c.host_id?.is_verified_host && <CheckCircle2 className="h-3 w-3 text-blue-500" title="Verified Host" />}
+                        </span>
+                      </div>
                   </CardHeader>
                   <CardContent className="space-y-2 text-sm flex-1">
                     <div className="flex items-center gap-2"><Calendar className="h-4 w-4 text-primary" />{formatToTimezone(c.scheduled_at, profile?.timezone, profile?.language || 'en')}</div>
                     <div className="flex items-center gap-2 text-muted-foreground"><Clock className="h-4 w-4" />{c.duration_minutes} min</div>
                     {c.description && <p className="text-muted-foreground line-clamp-2">{c.description}</p>}
+                    
+                    {c.tags && c.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {c.tags.slice(0, 3).map((tag: string) => (
+                          <Badge key={tag} variant="secondary" className="text-[10px] py-0">{tag}</Badge>
+                        ))}
+                        {c.tags.length > 3 && <Badge variant="secondary" className="text-[10px] py-0">+{c.tags.length - 3}</Badge>}
+                      </div>
+                    )}
                     
                     {/* Social Proof & Invites */}
                     <div className="pt-2 flex flex-wrap gap-2">
@@ -346,9 +562,20 @@ const VirtualClassroom = () => {
                           </Button>
                         </Link>
                         {c.status === "completed" ? (
-                          <Button variant="outline" size="sm" onClick={() => setRecordingDialog(c)}>
-                            <PlayCircle className="h-4 w-4 mr-1" /> Add Recording
-                          </Button>
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => setRecordingDialog(c)}>
+                                <PlayCircle className="h-4 w-4 mr-2" /> Add Recording
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setMaterialDialog(c)}>
+                                <ExternalLink className="h-4 w-4 mr-2" /> Add Material
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setAnnouncementDialog(c)}>
+                                <Bell className="h-4 w-4 mr-2" /> Add Announcement
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => cancelClassroom(c.id)}>
+                                <Trash2 className="h-4 w-4 mr-2" /> Cancel Session
+                            </Button>
+                          </>
                         ) : (
                           <Button variant="outline" size="sm" onClick={() => setEditDialog(c)}>
                             <Edit className="h-4 w-4" />
@@ -360,12 +587,21 @@ const VirtualClassroom = () => {
                       // Participant tools
                       <>
                         {participation?.status !== "waitlisted" && (
-                          <Link to={`/classroom/${c.id}`} className="flex-1">
-                            <Button variant={live ? "destructive" : "default"} size="sm" className="w-full">
-                              <ExternalLink className="h-4 w-4 mr-1" />
-                              {live ? "Enter Classroom" : "Enter Room"}
-                            </Button>
-                          </Link>
+                          c.external_video_url ? (
+                            <a href={c.external_video_url} target="_blank" rel="noopener noreferrer" className="flex-1" onClick={() => markExternalAttendance(c.id)}>
+                              <Button variant={live ? "destructive" : "default"} size="sm" className="w-full">
+                                <ExternalLink className="h-4 w-4 mr-1" />
+                                {live ? "Join External Live" : "Open Link"}
+                              </Button>
+                            </a>
+                          ) : (
+                            <Link to={`/classroom/${c.id}`} className="flex-1">
+                              <Button variant={live ? "destructive" : "default"} size="sm" className="w-full">
+                                <ExternalLink className="h-4 w-4 mr-1" />
+                                {live ? "Enter Classroom" : "Enter Room"}
+                              </Button>
+                            </Link>
+                          )
                         )}
                         {participation?.status === "waitlisted" && (
                           <Button variant="secondary" size="sm" className="flex-1" disabled>
@@ -399,19 +635,28 @@ const VirtualClassroom = () => {
                         <Button variant="ghost" size="sm" onClick={() => leave(c.id)}><LogOut className="h-4 w-4" /></Button>
                       </>
                     ) : (
-                      <Button 
-                        size="sm" 
-                        className="w-full" 
-                        onClick={() => {
-                          if (c.is_paid && !full) {
-                            setCheckoutSession(c);
-                          } else {
-                            join(c.id);
-                          }
-                        }}
-                      >
-                        {full ? <><Clock className="h-4 w-4 mr-1" />Join Waitlist (Free)</> : <><CheckCircle2 className="h-4 w-4 mr-1" />RSVP {c.is_paid ? `($${c.price})` : ""}</>}
-                      </Button>
+                      <div className="w-full flex flex-col gap-2">
+                        <Button 
+                          size="sm" 
+                          variant={c.participant_count >= c.max_participants ? "secondary" : "default"}
+                          className="w-full"
+                          disabled={isOffline}
+                          onClick={() => c.is_paid ? setCheckoutSession(c) : join(c.id)}
+                        >
+                          {full ? <><Clock className="h-4 w-4 mr-1" aria-hidden="true" />Join Waitlist (Free)</> : <><CheckCircle2 className="h-4 w-4 mr-1" aria-hidden="true" />RSVP {c.is_paid ? `($${c.price})` : ""}</>}
+                        </Button>
+                        {c.parent_series_id && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="w-full border-primary text-primary hover:bg-primary hover:text-white"
+                            disabled={isOffline || c.is_paid}
+                            onClick={() => join(c.id, true)}
+                          >
+                            <Calendar className="h-4 w-4 mr-1" aria-hidden="true" /> Join Full Series
+                          </Button>
+                        )}
+                      </div>
                     )}
                     
                     {/* Add to Calendar button in a separate row if not live and not completed */}
@@ -468,14 +713,22 @@ const VirtualClassroom = () => {
               </div>
             </div>
             
+            <div className="flex gap-2">
+              <Input placeholder="Promo Code" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} />
+              <Button variant="secondary" onClick={handleApplyPromo}>Apply</Button>
+            </div>
+            {discountStatus && (
+              <p className="text-sm text-green-600 font-medium">Promo applied! New price: ${discountStatus.discounted_price}</p>
+            )}
+            
             <p className="text-xs text-muted-foreground text-center">
-              By confirming, you agree to the host's refund policy: {checkoutSession?.refund_policy || 'No refunds within 24 hours of session start.'}
+              By confirming, you agree to the host's refund policy: {checkoutSession?.refund_policy || 'Refunds up to 24 hours before class.'}
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" disabled={isProcessingPayment} onClick={() => setCheckoutSession(null)}>Cancel</Button>
+            <Button variant="outline" disabled={isProcessingPayment} onClick={() => { setCheckoutSession(null); setPromoCode(""); setDiscountStatus(null); }}>Cancel</Button>
             <Button disabled={isProcessingPayment} onClick={handleCheckout}>
-              {isProcessingPayment ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</> : `Pay $${checkoutSession?.price} & RSVP`}
+              {isProcessingPayment ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</> : `Pay $${discountStatus?.discounted_price !== undefined ? discountStatus.discounted_price : checkoutSession?.price} & RSVP`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -550,17 +803,120 @@ const VirtualClassroom = () => {
                 onChange={(e) => setRatingForm({ ...ratingForm, feedback: e.target.value })}
               />
             </div>
+            <div className="pt-2 border-t mt-2">
+              <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  id="tech_issue" 
+                  checked={ratingForm.technical_issue} 
+                  onChange={(e) => setRatingForm({ ...ratingForm, technical_issue: e.target.checked })}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="tech_issue" className="text-destructive font-semibold">I experienced a technical issue</Label>
+              </div>
+              {ratingForm.technical_issue && (
+                <div className="mt-2">
+                  <Textarea 
+                    placeholder="Please describe the issue (audio, video, disconnects, etc.)"
+                    value={ratingForm.technical_issue_details}
+                    onChange={(e) => setRatingForm({ ...ratingForm, technical_issue_details: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRatingDialog(null)}>Cancel</Button>
             <Button onClick={() => {
-              submitRating(ratingDialog.id, ratingForm.rating, ratingForm.feedback);
+              submitRating(ratingDialog.id, ratingForm.rating, ratingForm.feedback, ratingForm.technical_issue, ratingForm.technical_issue_details);
               setRatingDialog(null);
-              setRatingForm({ rating: 5, feedback: "" });
+              setRatingForm({ rating: 5, feedback: "", technical_issue: false, technical_issue_details: "" });
             }}>Submit Feedback</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Material Modal */}
+      <Dialog open={!!materialDialog} onOpenChange={(o) => !o && setMaterialDialog(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Class Material</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>Material Title</Label>
+              <Input placeholder="e.g. Lecture Slides" value={materialForm.title} onChange={e => setMaterialForm({ ...materialForm, title: e.target.value })} />
+            </div>
+            <div>
+              <Label>URL</Label>
+              <Input placeholder="https://..." value={materialForm.url} onChange={e => setMaterialForm({ ...materialForm, url: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMaterialDialog(null)}>Cancel</Button>
+            <Button onClick={() => {
+              addMaterial(materialDialog.id, materialForm.title, materialForm.url);
+              setMaterialDialog(null);
+              setMaterialForm({ title: '', url: '' });
+            }}>Add Material</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Announcement Modal */}
+      <Dialog open={!!announcementDialog} onOpenChange={(o) => !o && setAnnouncementDialog(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Send Announcement</DialogTitle></DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <Label>Announcement Message</Label>
+              <Textarea 
+                placeholder="Important updates for the class..."
+                value={announcementForm.message} 
+                onChange={e => setAnnouncementForm({ ...announcementForm, message: e.target.value })} 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAnnouncementDialog(null)}>Cancel</Button>
+            <Button onClick={() => {
+              addAnnouncement(announcementDialog.id, announcementForm.message);
+              setAnnouncementDialog(null);
+              setAnnouncementForm({ message: '' });
+            }}>Send</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Modal */}
+      {historyDialog && (
+        <Dialog open={historyDialog} onOpenChange={setHistoryDialog}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>My Class History</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              {historyData.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No past classes found.</p>
+              ) : (
+                historyData.map((c: any) => (
+                  <Card key={c.id} className="p-4 flex flex-col md:flex-row gap-4 justify-between items-center bg-slate-50">
+                    <div>
+                      <h4 className="font-bold">{c.title}</h4>
+                      <div className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                        <Calendar className="h-4 w-4" /> 
+                        {formatToTimezone(c.scheduled_at, profile?.timezone, profile?.language || 'en')}
+                      </div>
+                      {c.host_id?._id === user?.id && <Badge variant="outline" className="mt-2">Hosted by me</Badge>}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => downloadCertificate(c.id)}>
+                        Download Certificate
+                      </Button>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

@@ -303,3 +303,4 @@ exports.sendLiveSessionResultsEmail = async (email, quizTitle, score, actionUrl)
   );
   await sendEmailBase(email, `Results: Live Quiz - ${quizTitle}`, html);
 };
+exports.sendEmail = sendEmailBase;

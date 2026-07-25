@@ -418,6 +418,29 @@ Respond STRICTLY with a valid JSON object matching this schema, without markdown
       throw new Error('Failed to generate match explanation');
     }
   }
+
+  async generateNewsSummary(title, url, description) {
+    if (this.isMock) {
+      return "This is a mock AI-generated summary of the article. It provides a quick two-sentence overview of the key points discussed.";
+    }
+    try {
+      const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const prompt = `
+        You are an expert tech news editor. Provide a concise, engaging 2-3 sentence summary of the following news article.
+        
+        Title: ${title}
+        URL: ${url}
+        Description/Excerpt: ${description || 'N/A'}
+        
+        Focus on the core factual takeaways. Do not include introductory phrases like "This article discusses". Just the summary.
+      `;
+      const result = await withRetry(() => model.generateContent(prompt));
+      return result.response.text().trim();
+    } catch (error) {
+      logger.error('Gemini News Summary Error:', error);
+      throw new Error('Summary temporarily unavailable');
+    }
+  }
 }
 
 module.exports = new GeminiService();

@@ -16,6 +16,17 @@ export const ClassroomChat = ({ classroomId }: { classroomId: string }) => {
   const { messages, reactions, profiles, loading, send, toggleReaction, deleteMessage } = useClassroomChat(classroomId);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    // Record strict live attendance when the user opens the live chat room
+    const token = localStorage.getItem('token');
+    if (token && classroomId) {
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/classrooms/${classroomId}/attend`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).catch(() => {});
+    }
+  }, [classroomId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });

@@ -21,7 +21,16 @@ const reviewLimiter = rateLimit({
   message: { message: 'Too many reviews submitted, please try again after an hour.' }
 });
 
+
+// Rate limiter for general actions (like posting materials, sending invites)
+const actionRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20, // Max 20 actions per minute per IP
+  message: { message: 'Too many actions performed, please try again in a minute.' }
+});
+
 module.exports = {
+  actionRateLimiter,
   qaPostLimiter,
   voteLimiter,
   reviewLimiter

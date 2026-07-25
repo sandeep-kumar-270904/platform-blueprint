@@ -37,10 +37,8 @@ const navigationGroups = [
     title: "Learning & Skills",
     items: [
       { title: "Quiz & Tests", href: "/quizzes", desc: "Mock exams and practice" },
-      { title: "Skill Zone", href: "/skills", desc: "Video courses and certifications" },
       { title: "Tech News", href: "/news", desc: "Latest AI and tech updates" },
       { title: "Virtual Classroom", href: "/virtual-classroom", desc: "Live learning sessions" },
-      { title: "Flashcards", href: "/flashcards", desc: "Spaced repetition study" },
     ],
   },
   {
