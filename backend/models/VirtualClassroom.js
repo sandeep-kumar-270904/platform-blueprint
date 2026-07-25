@@ -6,6 +6,10 @@ const classroomSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  co_hosts: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   title: {
     type: String,
     required: true
@@ -36,7 +40,7 @@ const classroomSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['scheduled', 'live', 'completed', 'cancelled'],
+    enum: ['draft', 'scheduled', 'live', 'completed', 'cancelled'],
     default: 'scheduled'
   },
   join_code: {
@@ -54,6 +58,10 @@ const classroomSchema = new mongoose.Schema({
     enum: ['interactive', 'webinar'],
     default: 'interactive'
   },
+  is_featured: {
+    type: Boolean,
+    default: false
+  },
   is_paid: {
     type: Boolean,
     default: false
@@ -62,6 +70,12 @@ const classroomSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  discount_codes: [{
+    code: { type: String, required: true },
+    percent_off: { type: Number, required: true },
+    max_uses: { type: Number, default: 0 }, // 0 = unlimited
+    uses: { type: Number, default: 0 }
+  }],
   is_featured: {
     type: Boolean,
     default: false
@@ -75,6 +89,26 @@ const classroomSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  external_video_url: {
+    type: String,
+    default: null
+  },
+  transcript_text: {
+    type: String,
+    default: null
+  },
+  translated_transcripts: {
+    type: Map,
+    of: String,
+    default: {}
+  },
+  ai_summary: {
+    type: String,
+    default: null
+  },
+  ai_action_items: [{
+    type: String
+  }],
   rating_avg: {
     type: Number,
     default: 0
@@ -82,7 +116,39 @@ const classroomSchema = new mongoose.Schema({
   rating_count: {
     type: Number,
     default: 0
-  }
+  },
+  parent_series_id: {
+    type: String,
+    default: null
+  },
+  series_index: {
+    type: Number,
+    default: 1
+  },
+  series_total: {
+    type: Number,
+    default: 1
+  },
+  tags: [{
+    type: String
+  }],
+  language: {
+    type: String,
+    default: 'English'
+  },
+  prerequisite_classes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'VirtualClassroom'
+  }],
+  materials: [{
+    title: String,
+    url: String,
+    uploaded_at: { type: Date, default: Date.now }
+  }],
+  announcements: [{
+    message: String,
+    created_at: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('VirtualClassroom', classroomSchema);

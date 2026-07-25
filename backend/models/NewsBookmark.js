@@ -11,6 +11,11 @@ const newsBookmarkSchema = new mongoose.Schema({
     ref: 'NewsArticle',
     required: true
   },
+  collectionId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'NewsCollection',
+    default: null
+  },
   savedAt: {
     type: Date,
     default: Date.now

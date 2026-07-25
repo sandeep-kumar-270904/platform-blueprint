@@ -19,6 +19,12 @@ export interface ClassroomRow {
   type: string;
   is_paid: boolean;
   price: number;
+  parent_series_id?: string;
+  series_index?: number;
+  series_total?: number;
+  tags?: string[];
+  prerequisites?: string;
+  co_hosts?: string[];
 }
 
 export interface ParticipantRow {
@@ -38,9 +44,10 @@ export const useVirtualClassroom = () => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
   const limit = 12;
 
-  const fetchAll = useCallback(async (isLoadMore = false, query = '') => {
+  const fetchAll = useCallback(async (isLoadMore = false, query = '', subject = 'All') => {
     const currentPage = isLoadMore ? page + 1 : 1;
     if (!isLoadMore) setLoading(true);
     setError(null);
@@ -63,7 +70,7 @@ export const useVirtualClassroom = () => {
 
     try {
       // 1. Fetch Classrooms
-      const res = await fetch(`${API_URL}/api/classrooms?page=${currentPage}&limit=${limit}${query ? `&q=${encodeURIComponent(query)}` : ''}`);
+      const res = await fetch(`${API_URL}/api/classrooms?page=${currentPage}&limit=${limit}${query ? `&q=${encodeURIComponent(query)}` : ''}&subject=${encodeURIComponent(subject)}`);
       if (!res.ok) throw new Error('Failed to fetch classrooms');
       let data = await res.json();
       
@@ -109,26 +116,48 @@ export const useVirtualClassroom = () => {
     }
   }, [user, page, joined]);
 
-  const loadMore = () => {
+  const loadMore = (query = '', subject = 'All') => {
     if (!loading && hasMore) {
-      fetchAll(true);
+      fetchAll(true, query, subject);
     }
   };
 
   useEffect(() => {
+    const handleOnline = () => { setIsOffline(false); fetchAll(); };
+    const handleOffline = () => setIsOffline(true);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+    }
     fetchAll();
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      }
+    };
   }, [fetchAll]);
 
-  const join = async (id: string) => {
+  const join = async (id: string, joinSeries = false) => {
     if (!user) return toast({ title: "Sign in required", variant: "destructive" });
     const token = localStorage.getItem('token');
+    
+    setJoined(prev => ({
+      ...prev,
+      [id]: { classroom_id: id, user_id: user.id, role: 'participant', status: 'registered' }
+    }));
+    setClassrooms(prev => prev.map(c => c.id === id ? { ...c, participant_count: c.participant_count + 1 } : c));
+
     try {
-      const res = await fetch(`${API_URL}/api/classrooms/${id}/join`, {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}/join${joinSeries ? '?join_series=true' : ''}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to join');
+      if (!res.ok) {
+        fetchAll();
+        throw new Error(data.message || 'Failed to join');
+      }
       toast({ title: data.message });
       fetchAll();
     } catch (err: any) {
@@ -139,12 +168,23 @@ export const useVirtualClassroom = () => {
   const leave = async (id: string) => {
     if (!user) return;
     const token = localStorage.getItem('token');
+    
+    setJoined(prev => {
+      const copy = { ...prev };
+      delete copy[id];
+      return copy;
+    });
+    setClassrooms(prev => prev.map(c => c.id === id ? { ...c, participant_count: Math.max(0, c.participant_count - 1) } : c));
+
     try {
       const res = await fetch(`${API_URL}/api/classrooms/${id}/leave`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error('Failed to leave');
+      if (!res.ok) {
+        fetchAll();
+        throw new Error('Failed to leave');
+      }
       toast({ title: "Left classroom" });
       fetchAll();
     } catch (err: any) {
@@ -255,14 +295,14 @@ export const useVirtualClassroom = () => {
     }
   };
 
-  const submitRating = async (id: string, rating: number, feedback: string) => {
+  const submitRating = async (id: string, rating: number, feedback: string, technical_issue: boolean = false, technical_issue_details: string = '') => {
     if (!user) return toast({ title: "Sign in required", variant: "destructive" });
     const token = localStorage.getItem('token');
     try {
       const res = await fetch(`${API_URL}/api/classrooms/${id}/rating`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating, feedback })
+        body: JSON.stringify({ rating, feedback, technical_issue, technical_issue_details })
       });
       if (!res.ok) throw new Error('Failed to submit rating');
       toast({ title: "Rating submitted" });
@@ -272,9 +312,103 @@ export const useVirtualClassroom = () => {
     }
   };
 
+  const downloadCertificate = async (id: string) => {
+    if (!user) return toast({ title: "Sign in required", variant: "destructive" });
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}/certificate`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to generate certificate');
+      const data = await res.json();
+      // For MVP, we just show a toast, but in reality we could generate a PDF here
+      toast({ title: "Certificate Ready", description: `Certificate for ${data.course_title} downloaded!` });
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const createPoll = async (id: string, question: string, options: string[]) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}/polls`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, options })
+      });
+      if (!res.ok) throw new Error('Failed to create poll');
+      toast({ title: "Poll created" });
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const votePoll = async (id: string, pollId: string, optionId: string) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}/polls/${pollId}/vote`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ optionId })
+      });
+      if (!res.ok) throw new Error('Failed to vote');
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const fetchHistory = async () => {
+    if (!user) return [];
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/history`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch history');
+      const data = await res.json();
+      return data.map((c: any) => ({ ...c, id: c._id }));
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+      return [];
+    }
+  };
+
+  const addMaterial = async (id: string, title: string, url: string) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}/materials`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, url })
+      });
+      if (!res.ok) throw new Error('Failed to add material');
+      toast({ title: "Material added" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const addAnnouncement = async (id: string, message: string) => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/classrooms/${id}/announcements`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+      if (!res.ok) throw new Error('Failed to add announcement');
+      toast({ title: "Announcement added" });
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
   return { 
-    classrooms, joined, loading, error, status: 'live', 
+    classrooms, joined, loading, error, status: 'live', isOffline,
     join, leave, create, remove, refetch: fetchAll, loadMore, hasMore,
-    editClassroom, cancelClassroom, toggleReminder, addRecording, submitRating 
+    editClassroom, cancelClassroom, toggleReminder, addRecording, submitRating,
+    downloadCertificate, createPoll, votePoll, fetchHistory, addMaterial, addAnnouncement
   };
 };

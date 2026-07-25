@@ -1,8 +1,24 @@
 const Parser = require('rss-parser');
 const stringSimilarity = require('string-similarity');
 const NewsArticle = require('../models/NewsArticle');
+const claudeService = require('./claudeService');
+
+async function generateAiSummaryForArticle(title, sourceLink, summary) {
+  try {
+    return await claudeService.generateNewsSummary(title, sourceLink, summary);
+  } catch (err) {
+    console.error('AI Summary failed for', title, err.message);
+    return null;
+  }
+}
+
 const NewsIngestionLog = require('../models/NewsIngestionLog');
+const NewsSourceHealth = require('../models/NewsSourceHealth');
 const newsCache = require('../utils/newsCache');
+const notificationService = require('../services/notificationService');
+const User = require('../models/User');
+const NEWS_SOURCES = require('../config/newsSources');
+const axios = require('axios'); // For API calls
 
 const parser = new Parser({
   customFields: {
@@ -12,13 +28,6 @@ const parser = new Parser({
     ]
   }
 });
-
-const RSS_FEEDS = [
-  { url: 'https://techcrunch.com/feed/', sourceName: 'TechCrunch' },
-  { url: 'https://www.wired.com/feed/rss', sourceName: 'Wired' },
-  { url: 'https://venturebeat.com/category/ai/feed/', sourceName: 'VentureBeat' },
-  { url: 'https://www.artificialintelligence-news.com/feed/', sourceName: 'AI News' }
-];
 
 const FALLBACK_IMAGES = [
   'https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?q=80&w=800', // tech code
@@ -32,15 +41,15 @@ const SPAM_KEYWORDS = ['buy now', 'cheap', 'casino', 'discount', 'viagra', 'seo 
 const KEYWORDS_MAP = {
   'AI': ['ai', 'artificial intelligence', 'machine learning', 'openai', 'chatgpt', 'llm', 'deep learning', 'neural network', 'gemini', 'claude'],
   'Startups': ['startup', 'funding', 'venture capital', 'founder', 'seed round', 'series a', 'incubator', 'y combinator'],
-  'Big Tech': ['apple', 'google', 'meta', 'amazon', 'microsoft', 'netflix', 'facebook'],
+  'Big Tech': ['apple', 'google', 'meta', 'amazon', 'microsoft', 'netflix', 'facebook', 'twitter', 'x'],
   'Research': ['research', 'study', 'science', 'scientist', 'university', 'breakthrough', 'paper', 'journal'],
   'Gadgets': ['gadget', 'device', 'hardware', 'phone', 'laptop', 'iphone', 'macbook', 'wearable']
 };
 
-function assignTagsAndCategory(title, summary) {
+function assignTagsAndCategory(title, summary, defaultCategory = 'Big Tech') {
   const text = `${title} ${summary}`.toLowerCase();
   
-  let category = 'Big Tech'; // Default fallback
+  let category = defaultCategory; 
   let tags = new Set();
   
   let highestMatchCount = 0;
@@ -59,20 +68,16 @@ function assignTagsAndCategory(title, summary) {
     }
   }
 
-  // Ensure tags are unique and limit to top 5
   return { category, tags: Array.from(tags).slice(0, 5) };
 }
 
 function extractImage(item) {
-  // Check enclosure
   if (item.enclosure && item.enclosure.url && item.enclosure.type && item.enclosure.type.startsWith('image/')) {
     return item.enclosure.url;
   }
-  // Check media:content
   if (item.mediaContent && item.mediaContent['$'] && item.mediaContent['$'].url) {
     return item.mediaContent['$'].url;
   }
-  // Check inside content:encoded (HTML string)
   if (item.contentEncoded) {
     const match = item.contentEncoded.match(/<img[^>]+src="([^">]+)"/);
     if (match && match[1]) {
@@ -80,7 +85,6 @@ function extractImage(item) {
     }
   }
   
-  // Pick random fallback image based on title length hash
   const hash = item.title ? item.title.length : 0;
   return FALLBACK_IMAGES[hash % FALLBACK_IMAGES.length];
 }
@@ -88,7 +92,7 @@ function extractImage(item) {
 class NewsFetcherService {
   async fetchNews(io) {
     const startTime = Date.now();
-    console.log('📰 Running automated news fetcher...');
+    console.log('dY" Running automated news fetcher...');
     
     let metrics = {
       totalFetched: 0,
@@ -99,50 +103,88 @@ class NewsFetcherService {
     let errorLogs = [];
     let sourcesProcessed = [];
 
-    // Pre-fetch recent articles for deduplication
+    // Pre-fetch recent articles for cross-source deduplication
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
     const recentArticles = await NewsArticle.find({ publishedAt: { $gte: fortyEightHoursAgo } }).select('title sourceLink');
 
-    for (const feed of RSS_FEEDS) {
-      sourcesProcessed.push(feed.sourceName);
+    for (const source of NEWS_SOURCES) {
+      sourcesProcessed.push(source.name);
+      let sourceSuccess = true;
+      let sourceError = null;
+      let articlesAddedForSource = 0;
+
       try {
-        const feedData = await parser.parseURL(feed.url);
-        metrics.totalFetched += feedData.items.length;
+        let items = [];
 
-        for (const item of feedData.items) {
+        if (source.type === 'rss') {
+          const feedData = await parser.parseURL(source.url);
+          items = feedData.items.map(item => ({
+            title: item.title ? item.title.trim() : '',
+            link: item.link ? item.link.trim() : '',
+            summary: item.contentSnippet || item.content || '',
+            pubDate: item.isoDate || item.pubDate || new Date().toISOString(),
+            imageUrl: extractImage(item)
+          }));
+        } else if (source.type === 'api' && source.name === 'NewsAPI') {
+          if (!process.env.NEWS_API_KEY) {
+            console.warn('NEWS_API_KEY is not set. Skipping NewsAPI ingestion.');
+            continue;
+          }
+          const apiUrl = `https://newsapi.org/v2/everything?q=AI OR startup OR technology&language=en&sortBy=publishedAt&pageSize=20&apiKey=${process.env.NEWS_API_KEY}`;
+          const response = await axios.get(apiUrl);
+          
+          if (response.data && response.data.articles) {
+            items = response.data.articles.map(article => ({
+              title: article.title || '',
+              link: article.url || '',
+              summary: article.description || '',
+              pubDate: article.publishedAt || new Date().toISOString(),
+              imageUrl: article.urlToImage || FALLBACK_IMAGES[(article.title ? article.title.length : 0) % FALLBACK_IMAGES.length]
+            }));
+          }
+        }
+
+        metrics.totalFetched += items.length;
+
+        for (const item of items) {
           try {
-            const title = item.title ? item.title.trim() : '';
-            const link = item.link ? item.link.trim() : '';
-            let summary = item.contentSnippet || item.content || '';
-            const pubDate = item.isoDate || item.pubDate || new Date().toISOString();
-
-            if (!title || !link) continue;
+            if (!item.title || !item.link) continue;
+            
+            // Exclude "Removed" or weird API bugs
+            if (item.title === '[Removed]') continue;
 
             // 1. Quality/Spam Check
-            if (title.length < 10 || summary.length < 30) {
+            if (item.title.length < 10 || item.summary.length < 30) {
                metrics.spamRejected++;
                continue;
             }
             
-            const titleLower = title.toLowerCase();
+            const titleLower = item.title.toLowerCase();
             const isSpam = SPAM_KEYWORDS.some(spamWord => titleLower.includes(spamWord));
             if (isSpam) {
               metrics.spamRejected++;
               continue;
             }
 
-            // Clean summary (remove extra spaces/newlines)
-            summary = summary.replace(/\s+/g, ' ').trim();
+            // Clean summary
+            let summary = item.summary.replace(/\\s+/g, ' ').trim();
             let contentSnippet = summary;
             if (summary.length > 250) {
               contentSnippet = summary.substring(0, 247) + '...';
             }
 
-            // 2. Smart Deduplication
+            // 2. Cross-Source Smart Deduplication
             let isDuplicate = false;
+            let needsUpdate = false;
+            let existingDoc = null;
+            
             for (const existing of recentArticles) {
-              if (existing.sourceLink === link) {
+              if (existing.sourceLink === item.link) {
                 isDuplicate = true;
+                if (existing.title !== item.title || existing.summary !== summary) {
+                  needsUpdate = true;
+                  existingDoc = existing;
+                }
                 break;
               }
               const similarity = stringSimilarity.compareTwoStrings(titleLower, existing.title.toLowerCase());
@@ -152,40 +194,51 @@ class NewsFetcherService {
               }
             }
 
-            if (isDuplicate) {
+            if (isDuplicate && !needsUpdate) {
               metrics.duplicatesSkipped++;
               continue;
             }
+            
+            if (needsUpdate && existingDoc) {
+              const versionObj = {
+                updatedAt: new Date(),
+                changes: `Title/Summary updated`
+              };
+              await NewsArticle.findByIdAndUpdate(existingDoc._id, {
+                $set: { title: item.title, summary: summary },
+                $push: { versions: versionObj }
+              });
+              metrics.duplicatesSkipped++; // Technically updated, but skip insert
+              continue;
+            }
 
-            // 3. Auto-tagging & Categorization
-            const { category, tags } = assignTagsAndCategory(title, contentSnippet);
+            // 3. Auto-tagging & Categorization (using default from config)
+            const { category, tags } = assignTagsAndCategory(item.title, contentSnippet, source.defaultCategory);
 
-            // 4. Image Extraction
-            const imageUrl = extractImage(item);
-
-            // 5. Insert Article
+            // 4. Insert Article
             const article = new NewsArticle({
-              title,
-              summary: contentSnippet, // storing cleaned snippet in summary
-              contentSnippet: contentSnippet, // same for now since we don't scrape full page
-              sourceLink: link,
-              sourceName: feed.sourceName,
+              title: item.title,
+              summary: contentSnippet,
+              contentSnippet: contentSnippet,
+              sourceLink: item.link,
+              sourceName: source.name,
               category,
               tags,
-              imageUrl,
-              publishedAt: new Date(pubDate),
+              imageUrl: item.imageUrl,
+              publishedAt: new Date(item.pubDate),
               status: 'live',
               submissionType: 'automatic'
             });
 
             await article.save();
-            recentArticles.push({ title: article.title, sourceLink: article.sourceLink }); // add to local memory cache to prevent dups within same run
+            recentArticles.push({ title: article.title, sourceLink: article.sourceLink }); 
             
             if (io) {
               io.emit('new_article', article);
             }
             
             metrics.totalAdded++;
+            articlesAddedForSource++;
           } catch (err) {
             if (err.code === 11000) {
               metrics.duplicatesSkipped++;
@@ -196,17 +249,55 @@ class NewsFetcherService {
           }
         }
       } catch (err) {
-        console.error(`Error processing feed ${feed.url}:`, err.message);
-        errorLogs.push(`Feed Error [${feed.sourceName}]: ${err.message}`);
+        sourceSuccess = false;
+        sourceError = err.message;
+        console.error(`Error processing source ${source.name}:`, err.message);
+        errorLogs.push(`Source Error [${source.name}]: ${err.message}`);
+      }
+
+      // Update Source Health
+      try {
+        await NewsSourceHealth.findOneAndUpdate(
+          { sourceName: source.name },
+          {
+            $set: {
+              lastFetchTime: new Date(),
+              lastStatus: sourceSuccess ? 'success' : 'error',
+              lastError: sourceError
+            },
+            $inc: {
+              articlesIngestedLast24h: articlesAddedForSource
+            }
+          },
+          { upsert: true }
+        );
+      } catch (healthErr) {
+        console.error(`Failed to update health for ${source.name}:`, healthErr.message);
       }
     }
     
-    const durationMs = Date.now() - startTime;
-    console.log(`📰 Automated news fetcher completed in ${durationMs}ms. Added ${metrics.totalAdded}, Skipped ${metrics.duplicatesSkipped}, Rejected ${metrics.spamRejected}.`);
+    // Reset articlesIngestedLast24h logic: we could do it in a separate daily cron, 
+    // but for now we rely on the counter. Realistically we should clear it once a day.
     
-    if (metrics.totalAdded > 0) {
-      newsCache.del('feed_all_page1');
-      newsCache.del('trending');
+    const durationMs = Date.now() - startTime;
+    console.log(`dY" Automated news fetcher completed in ${durationMs}ms. Added ${metrics.totalAdded}, Skipped ${metrics.duplicatesSkipped}, Rejected ${metrics.spamRejected}.`);
+    
+    if (metrics.totalAdded === 0 && errorLogs.length > 0) {
+      try {
+        const admins = await User.find({ role: 'admin' }).select('_id');
+        for (const admin of admins) {
+          await notificationService.createNotification({
+            userId: admin._id,
+            type: 'system_alert',
+            title: 'News Ingestion Failed',
+            message: 'Automated news ingestion completed with 0 articles added and encountered critical errors.',
+            link: '/admin',
+            isRead: false
+          });
+        }
+      } catch (err) {
+        console.error('Failed to send ingestion failure notification', err);
+      }
     }
 
     // Log the run

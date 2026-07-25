@@ -9,7 +9,6 @@ export interface LearningSummary {
   bestQuizScore: number;
   totalQuizMinutes: number;
   roadmapStepsDone: number;
-  flashcardDecks: number;
   studyGroups: number;
   groupMessagesSent: number;
   classroomsJoined: number;
@@ -20,7 +19,7 @@ export interface LearningSummary {
 
 const empty: LearningSummary = {
   quizAttempts: 0, avgQuizScore: 0, bestQuizScore: 0, totalQuizMinutes: 0,
-  roadmapStepsDone: 0, flashcardDecks: 0, studyGroups: 0, groupMessagesSent: 0,
+  roadmapStepsDone: 0, studyGroups: 0, groupMessagesSent: 0,
   classroomsJoined: 0, eventsAttended: 0, sessionsRsvp: 0, recentQuizzes: [],
 };
 

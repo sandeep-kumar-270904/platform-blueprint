@@ -97,6 +97,15 @@ const UserSchema = new mongoose.Schema({
     longest: { type: Number, default: 0 },
     lastActivityDate: { type: Date, default: null }
   },
+  newsStreak: {
+    current: { type: Number, default: 0 },
+    longest: { type: Number, default: 0 },
+    lastActiveDate: { type: Date, default: null }
+  },
+  hasCompletedNewsOnboarding: {
+    type: Boolean,
+    default: false
+  },
   badges: [{
     badgeId: String,
     earnedAt: { type: Date, default: Date.now }
@@ -128,6 +137,21 @@ const UserSchema = new mongoose.Schema({
     enum: ['user', 'student', 'recruiter', 'admin'],
     default: 'user'
   },
+  can_host_classrooms: {
+    type: Boolean,
+    default: true
+  },
+  is_verified_host: { type: Boolean, default: false },
+  host_verification_status: { 
+    type: String, 
+    enum: ['unverified', 'pending', 'verified'], 
+    default: 'unverified' 
+  },
+  gamification_badges: [{
+    badge_id: String,
+    name: String,
+    earned_at: { type: Date, default: Date.now }
+  }],
   communityTitle: { type: String, default: null }, // e.g. 'NSS President', 'Club Lead'
   adminRole: {
     type: String,
@@ -329,13 +353,26 @@ const UserSchema = new mongoose.Schema({
   },
   newsPreferences: {
     followedCategories: [{ type: String }],
-    followedTags: [{ type: String }]
+    followedTags: [{ type: String }],
+    preferredSources: [{ type: String }],
+    mutedSources: [{ type: String }],
+    mutedTags: [{ type: String }],
+    digestFrequency: { type: String, enum: ['daily', 'weekly', 'off'], default: 'off' },
+    followedAuthors: [{ type: String }]
   },
   
   // Referrals & Wallet
   referralCode: { type: String, unique: true, sparse: true },
   referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   walletCredit: { type: Number, default: 0 },
+  
+  webPushSubscriptions: [{
+    endpoint: String,
+    keys: {
+      p256dh: String,
+      auth: String
+    }
+  }],
 
   // Subscriptions
   subscriptionTier: { type: String, enum: ['free', 'plus', 'pro'], default: 'free' },

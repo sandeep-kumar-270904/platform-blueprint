@@ -38,6 +38,9 @@ const connectDB = async () => {
     
     const conn = await mongoose.connect(mongoUri, { family: 4 });
     console.log(`MongoDB (In-Memory) Connected: ${conn.connection.host}`);
+
+    const seedLocalFallback = require('./scripts/seedLocalFallback');
+    await seedLocalFallback();
   } catch (error) {
     console.error(`Error connecting to MongoDB: ${error.message}`);
     process.exit(1);

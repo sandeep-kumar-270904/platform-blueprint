@@ -16,6 +16,7 @@ import Analytics from "./pages/Analytics";
 import QABoard from "./pages/QABoard";
 import Gamification from "./pages/Gamification";
 import VirtualClassroom from "./pages/VirtualClassroom";
+import { ClassPreview } from "./pages/ClassPreview";
 import MeetingRoom from "./pages/MeetingRoom";
 import HostDashboard from "./pages/HostDashboard";
 import ClassroomRecap from "./pages/ClassroomRecap";
@@ -69,7 +70,6 @@ import QuizDetail from "./pages/QuizDetail";
 import QuizTake from "./pages/QuizTake";
 import QuizResults from "./pages/QuizResults";
 import MyQuizzes from "./pages/MyQuizzes";
-import SkillZone from "./pages/SkillZone";
 import TechNews from "./pages/TechNews";
 import PlacementCell from "./pages/PlacementCell";
 import DSAPractice from "./pages/DSAPractice";
@@ -89,8 +89,6 @@ import TeamHunt from "./pages/TeamHunt";
 import RoommateFind from "./pages/RoommateFind";
 import Wellness from "./pages/Wellness";
 import AdminCareerOpportunities from './pages/admin/AdminCareerOpportunities';
-import FlashcardDeckView from './pages/FlashcardDeckView';
-import Flashcards from "./pages/Flashcards";
 import RoomRentals from "./pages/RoomRentals";
 import FoodServices from "./pages/FoodServices";
 import Transport from "./pages/Transport";
@@ -104,6 +102,7 @@ import AdminPanel from "./pages/AdminPanel";
 import AdminCollegePanel from "./pages/AdminCollegePanel";
 import MentorsAdminDashboard from "./pages/admin/MentorsAdminDashboard";
 import AdminResumeDashboard from "./pages/admin/AdminResumeDashboard";
+import AdminClassroomsPanel from "./pages/admin/AdminClassroomsPanel";
 import DailyHacks from "./pages/DailyHacks";
 import VideoRoomPage from "./pages/VideoRoomPage";
 import AdminJobsPanel from "./pages/admin/AdminJobsPanel";
@@ -250,7 +249,6 @@ const App = () => (
           <Route path="/creator-dashboard" element={<ProtectedRoute><CreatorDashboard /></ProtectedRoute>} />
           <Route path="/analytics/:id" element={<ProtectedRoute><CreatorAnalytics /></ProtectedRoute>} />
           <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
-          <Route path="/skills" element={<ProtectedRoute><SkillZone /></ProtectedRoute>} />
           <Route path="/news" element={<ProtectedRoute><TechNews /></ProtectedRoute>} />
           <Route path="/placement" element={<ProtectedRoute><PlacementCell /></ProtectedRoute>} />
           <Route path="/placement/dashboard" element={<ProtectedRoute><PlacementDashboard /></ProtectedRoute>} />
@@ -266,13 +264,14 @@ const App = () => (
           <Route path="/team-hunt" element={<ProtectedRoute><TeamHunt /></ProtectedRoute>} />
           <Route path="/roommate-finder" element={<ProtectedRoute><RoommateFind /></ProtectedRoute>} />
           <Route path="/wellness" element={<ProtectedRoute><Wellness /></ProtectedRoute>} />
-          <Route path="/flashcards" element={<ProtectedRoute><Flashcards /></ProtectedRoute>} />
           <Route path="/room-rentals" element={<ProtectedRoute><RoomRentals /></ProtectedRoute>} />
           <Route path="/food" element={<ProtectedRoute><FoodServices /></ProtectedRoute>} />
           <Route path="/transport" element={<ProtectedRoute><Transport /></ProtectedRoute>} />
           <Route path="/qa-board" element={<ProtectedRoute><QABoard /></ProtectedRoute>} />
           <Route path="/gamification" element={<ProtectedRoute><Gamification /></ProtectedRoute>} />
-          <Route path="/virtual-classroom" element={<ProtectedRoute><VirtualClassroom /></ProtectedRoute>} />
+          {/* Virtual Classroom */}
+          <Route path="/classrooms" element={<VirtualClassroom />} />
+          <Route path="/class-preview/:id" element={<ClassPreview />} />
           <Route path="/classroom/:id" element={<ProtectedRoute><MeetingRoom /></ProtectedRoute>} />
           <Route path="/host-dashboard" element={<ProtectedRoute><HostDashboard /></ProtectedRoute>} />
           <Route path="/classroom/:id/recap" element={<ProtectedRoute><ClassroomRecap /></ProtectedRoute>} />
@@ -293,6 +292,7 @@ const App = () => (
           <Route path="/admin/placement" element={<ProtectedRoute><AdminPlacementPanel /></ProtectedRoute>} />
           <Route path="/admin/quiz-reports" element={<ProtectedRoute><AdminQuizReports /></ProtectedRoute>} />
           <Route path="/admin/news-moderation" element={<ProtectedRoute><AdminNewsModeration /></ProtectedRoute>} />
+          <Route path="/admin/classrooms" element={<ProtectedRoute><AdminClassroomsPanel /></ProtectedRoute>} />
           <Route path="/recruiter/verify" element={<ProtectedRoute><RecruiterVerify /></ProtectedRoute>} />
           <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
           <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />

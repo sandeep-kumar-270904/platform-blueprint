@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MoreVertical, Edit2, Trash2, ExternalLink, Star, Calendar, MessageCircle, MessageSquare, Ticket } from "lucide-react";
+import { MoreVertical, Edit2, Trash2, ExternalLink, Star, Calendar, MessageCircle, MessageSquare, Ticket, Video, Download } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -33,6 +33,8 @@ export const MyActivity = () => {
   const [hostedEvents, setHostedEvents] = useState<any[]>([]);
   const [registeredUpcoming, setRegisteredUpcoming] = useState<any[]>([]);
   const [registeredPast, setRegisteredPast] = useState<any[]>([]);
+  const [classrooms, setClassrooms] = useState<any[]>([]);
+  const [profileStats, setProfileStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   // QR Ticket States
@@ -59,12 +61,14 @@ export const MyActivity = () => {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [revRes, qRes, aRes, eHostRes, eRegRes] = await Promise.all([
+      const [revRes, qRes, aRes, eHostRes, eRegRes, classRes, profRes] = await Promise.all([
         fetch(`${API_URL}/api/users/me/reviews`, { headers }),
         fetch(`${API_URL}/api/users/me/questions`, { headers }),
         fetch(`${API_URL}/api/users/me/answers`, { headers }),
         fetch(`${API_URL}/api/users/me/events/hosting`, { headers }),
-        fetch(`${API_URL}/api/users/me/events/registered`, { headers })
+        fetch(`${API_URL}/api/users/me/events/registered`, { headers }),
+        fetch(`${API_URL}/api/classrooms/history`, { headers }),
+        fetch(`${API_URL}/api/dashboard/profile`, { headers })
       ]);
 
       if (revRes.ok) {
@@ -87,6 +91,12 @@ export const MyActivity = () => {
         const data = await eRegRes.json();
         setRegisteredUpcoming(data.upcoming);
         setRegisteredPast(data.past);
+      }
+      if (classRes.ok) {
+        setClassrooms(await classRes.json());
+      }
+      if (profRes.ok) {
+        setProfileStats(await profRes.json());
       }
     } catch (err) {
       console.error(err);
@@ -189,11 +199,12 @@ export const MyActivity = () => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="reviews">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="reviews">Reviews ({reviews.length})</TabsTrigger>
             <TabsTrigger value="questions">Questions ({questions.length})</TabsTrigger>
             <TabsTrigger value="answers">Answers ({answers.length})</TabsTrigger>
             <TabsTrigger value="events">Events ({hostedEvents.length + registeredUpcoming.length + registeredPast.length})</TabsTrigger>
+            <TabsTrigger value="classrooms">Classrooms ({classrooms.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="reviews" className="space-y-4">
@@ -569,6 +580,67 @@ export const MyActivity = () => {
                 </div>
               </TabsContent>
             </Tabs>
+          </TabsContent>
+
+          <TabsContent value="classrooms" className="space-y-6">
+            {profileStats && (
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground font-medium">Classes Attended</p>
+                      <p className="text-2xl font-bold">{profileStats.sessions_attended}</p>
+                    </div>
+                    <Star className="h-8 w-8 text-primary opacity-50" />
+                  </CardContent>
+                </Card>
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground font-medium">Classes Hosted</p>
+                      <p className="text-2xl font-bold">{profileStats.sessions_hosted}</p>
+                    </div>
+                    <Video className="h-8 w-8 text-primary opacity-50" />
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+            
+            {classrooms.length === 0 ? (
+              <div className="text-center py-12 border border-dashed bg-muted/10 rounded-xl">
+                <Video className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Classrooms Yet</h3>
+                <p className="text-muted-foreground mb-4">You haven't attended or hosted any classes.</p>
+                <Link to="/virtual-classroom">
+                  <Button variant="outline">Find Classes</Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {classrooms.map((c) => (
+                  <div key={c._id || c.id} className="border rounded-lg p-4 bg-card flex justify-between items-center">
+                    <div>
+                      <h4 className="font-semibold text-lg">{c.title}</h4>
+                      <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+                        <Calendar className="h-3 w-3" /> {new Date(c.scheduled_at).toLocaleDateString()}
+                        {c.host_id?._id === profileStats?.id ? (
+                          <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] uppercase font-bold">Hosted by You</span>
+                        ) : (
+                          <span className="text-xs">Hosted by {c.host_id?.name || c.host_id?.email || 'Unknown'}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={`${API_URL}/api/classrooms/${c._id || c.id}/certificate?token=${localStorage.getItem("token")}`} target="_blank" rel="noopener noreferrer">
+                          <Download className="mr-2 h-4 w-4" /> Certificate
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>

@@ -415,3 +415,125 @@ export function useIngestionLogs() {
   return { logs, loading, refetch: fetchLogs };
 }
 
+
+export function useSourceHealth() {
+  const [health, setHealth] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchHealth = useCallback(async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/news/admin/source-health`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setHealth(await res.json());
+      }
+    } catch (err) {
+      console.error('Error fetching source health:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHealth();
+  }, [fetchHealth]);
+
+  return { health, loading, refetch: fetchHealth };
+}
+
+
+export const useTrendingTags = () => {
+  const [tags, setTags] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        const res = await api.get('/api/news/trending-tags');
+        setTags(res.data);
+      } catch (err) {
+        console.error('Error fetching trending tags', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTags();
+  }, []);
+
+  return { tags, loading };
+};
+
+export const useCollections = () => {
+  const [collections, setCollections] = useState<any[]>([]);
+
+  const fetchCollections = async () => {
+    try {
+      const res = await api.get('/api/news/collections');
+      setCollections(res.data);
+    } catch (err) {
+      console.error('Error fetching collections', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCollections();
+  }, []);
+
+  return { collections, fetchCollections };
+};
+
+export const useComments = (articleId: string) => {
+  const [comments, setComments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchComments = async (sort = 'top') => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/api/news/${articleId}/comments?sort=${sort}`);
+      setComments(res.data);
+    } catch (err) {
+      console.error('Error fetching comments', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (articleId) fetchComments();
+  }, [articleId]);
+
+  return { comments, loading, fetchComments };
+};
+
+export const submitComment = async (articleId: string, text: string, parentCommentId?: string) => {
+  const res = await api.post(`/api/news/${articleId}/comments`, { text, parentCommentId });
+  return res.data;
+};
+
+export const voteComment = async (commentId: string, action: 'upvote' | 'downvote') => {
+  const res = await api.put(`/api/news/comments/${commentId}/vote`, { action });
+  return res.data;
+};
+
+export const reportComment = async (commentId: string, reason: string) => {
+  const res = await api.post(`/api/news/comments/${commentId}/report`, { reason });
+  return res.data;
+};
+
+export const createCollection = async (name: string) => {
+  const res = await api.post('/api/news/collections', { name });
+  return res.data;
+};
+
+export const deleteCollection = async (id: string) => {
+  const res = await api.delete(`/api/news/collections/${id}`);
+  return res.data;
+};
+
+export const saveToCollection = async (articleId: string, collectionId: string) => {
+  const res = await api.post(`/api/news/${articleId}/bookmark`, { collectionId });
+  return res.data;
+};

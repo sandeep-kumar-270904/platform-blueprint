@@ -13,6 +13,7 @@ export default function AdminNewsModeration() {
   const { articles, loading, refetch } = useAdminNews('pending');
   const { reports, loading: loadingReports, refetch: refetchReports } = useNewsReports();
   const { logs, loading: loadingLogs, refetch: refetchLogs } = useIngestionLogs();
+  const { health: sourceHealth, loading: loadingHealth, refetch: refetchHealth } = useSourceHealth();
   
   const [actingOn, setActingOn] = useState<string | null>(null);
 
@@ -158,6 +159,45 @@ export default function AdminNewsModeration() {
           </TabsContent>
 
           <TabsContent value="health">
+            <Card className="mb-6">
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>Source Health Status</CardTitle>
+                    <CardDescription>Real-time status of configured ingestion sources.</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => refetchHealth()}>Refresh Status</Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingHealth ? <p>Loading...</p> : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {sourceHealth?.map((source: any) => (
+                      <div key={source.sourceName} className="border border-black/10 rounded-lg p-4 bg-white shadow-sm flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-base">{source.sourceName}</span>
+                          {source.lastStatus === 'success' ? (
+                            <Badge className="bg-green-500 hover:bg-green-600"><Check className="w-3 h-3 mr-1"/> OK</Badge>
+                          ) : (
+                            <Badge variant="destructive"><AlertTriangle className="w-3 h-3 mr-1"/> Error</Badge>
+                          )}
+                        </div>
+                        <div className="text-sm text-black/60">
+                          <p>Added 24h: <span className="text-black font-medium">{source.articlesIngestedLast24h}</span></p>
+                          <p>Last Sync: <span className="text-black font-medium">{source.lastFetchTime ? new Date(source.lastFetchTime).toLocaleString() : 'Never'}</span></p>
+                        </div>
+                        {source.lastError && (
+                          <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-100 line-clamp-2">
+                            {source.lastError}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">

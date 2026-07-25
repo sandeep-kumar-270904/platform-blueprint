@@ -6,7 +6,9 @@ const Idea = require('../models/Idea');
 const StudyGroup = require('../models/StudyGroup');
 const Notification = require('../models/Notification');
 const VirtualClassroom = require('../models/VirtualClassroom');
+const ClassroomParticipant = require('../models/ClassroomParticipant');
 const PlacementOnboarding = require('../models/PlacementOnboarding');
+const User = require('../models/User');
 const DSAProgress = require('../models/DSAProgress');
 const DSAProblem = require('../models/DSAProblem');
 const InterviewPrepProgress = require('../models/InterviewPrepProgress');
@@ -84,7 +86,6 @@ router.get('/analytics', authMiddleware, async (req, res) => {
 });
 
 const JoinRequest = require('../models/JoinRequest');
-const User = require('../models/User');
 
 // GET /api/dashboard/join-requests
 router.get('/join-requests', authMiddleware, async (req, res) => {
@@ -158,11 +159,20 @@ router.get('/my-ideas', authMiddleware, async (req, res) => {
 // GET /api/dashboard/upcoming-sessions
 router.get('/upcoming-sessions', authMiddleware, async (req, res) => {
   try {
+    const participations = await ClassroomParticipant.find({ user_id: req.user.id, status: { $in: ['registered', 'attending', 'waitlisted'] } }).select('classroom_id');
+    const classIds = participations.map(p => p.classroom_id);
     const sessions = await VirtualClassroom.find({ 
-      $or: [{ host_id: req.user.id }, { participants: req.user.id }],
+      $or: [{ host_id: req.user.id }, { _id: { $in: classIds } }],
       status: 'scheduled'
     }).sort({ scheduled_at: 1 }).limit(5);
-    res.json(sessions);
+    const sessionsFormatted = sessions.map(s => ({
+      id: s._id,
+      title: s.title,
+      scheduled_at: s.scheduled_at,
+      host_id: s.host_id,
+      subject: s.subject
+    }));
+    res.json({ sessions: sessionsFormatted, recommendations: [] });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -197,7 +207,7 @@ router.get('/profile', authMiddleware, async (req, res) => {
     
     // Calculate sessions hosted / attended
     const sessions_hosted = await VirtualClassroom.countDocuments({ host_id: req.user.id });
-    const sessions_attended = await VirtualClassroom.countDocuments({ participants: req.user.id });
+    const sessions_attended = await ClassroomParticipant.countDocuments({ user_id: req.user.id, status: { $in: ['attending', 'registered', 'waitlisted'] } });
 
     res.json({
       username: user.username,

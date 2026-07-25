@@ -21,6 +21,11 @@ const participantSchema = new mongoose.Schema({
     enum: ['registered', 'attending', 'waitlisted', 'left'],
     default: 'registered'
   },
+  refund_status: {
+    type: String,
+    enum: ['none', 'requested', 'processed', 'rejected'],
+    default: 'none'
+  },
   reminders_opt_in: {
     type: Boolean,
     default: false
@@ -32,6 +37,29 @@ const participantSchema = new mongoose.Schema({
     default: null
   },
   feedback: {
+    type: String,
+    default: null
+  },
+  host_response: {
+    type: String,
+    default: null
+  },
+  host_responded_at: {
+    type: Date
+  },
+  joined_live_at: {
+    type: Date,
+    default: null
+  },
+  group_name: {
+    type: String,
+    default: null
+  },
+  technical_issue: {
+    type: Boolean,
+    default: false
+  },
+  technical_issue_details: {
     type: String,
     default: null
   }

@@ -415,7 +415,7 @@ router.get('/:id/skills-profile', async (req, res) => {
         path: 'skills.sourceCourses',
         select: 'title provider thumbnailImage category level'
       })
-      .select('full_name avatar_url learningStreak skillsProfilePublic skills');
+      .select('full_name avatar_url learningStreak skillsProfilePublic skills gamification_badges is_verified_host');
 
     if (!user) return res.status(404).json({ message: 'User not found' });
     if (!user.skillsProfilePublic) return res.status(403).json({ message: 'This profile is private.' });

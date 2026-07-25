@@ -11,6 +11,10 @@ const messageSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  sender_name: {
+    type: String,
+    required: true
+  },
   content: {
     type: String,
     required: true
@@ -21,8 +25,9 @@ const messageSchema = new mongoose.Schema({
     default: null
   },
   reactions: [{
-    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    emoji: { type: String }
+    emoji: { type: String, required: true },
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    created_at: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });
 

@@ -44,6 +44,7 @@ class CronService {
       this.checkScholarshipDeadlines();
       this.computeCompetitionSignals();
       this.expireNonRecurringScholarships();
+      this.purgeClassroomData();
       
       try {
         const { runApiSync, flagStaleDataSources } = require('../services/apiSyncService');
@@ -70,6 +71,16 @@ class CronService {
     cron.schedule('0 10 * * 0', async () => {
       this.sendWeeklyCommunityDigest();
     });
+    // Run every day at 8 AM for daily news digest
+    cron.schedule('0 8 * * *', async () => {
+      this.sendNewsDigest('daily');
+    });
+
+    // Run every Sunday at 8 AM for weekly news digest
+    cron.schedule('0 8 * * 0', async () => {
+      this.sendNewsDigest('weekly');
+    });
+
 
     // Run every hour to check ingestion health and compute placement analytics
     cron.schedule('0 * * * *', async () => {
@@ -207,6 +218,7 @@ class CronService {
     try {
       const LiveSession = require('../models/LiveSession');
       const User = require('../models/User');
+const NewsDigestLog = require('../models/NewsDigestLog');
       const notificationService = require('./notificationService');
 
       const now = new Date();
@@ -354,6 +366,7 @@ class CronService {
             // Flag for review if >= 3
             if (mentor.noShowCount >= 3) {
               const User = require('../models/User');
+const NewsDigestLog = require('../models/NewsDigestLog');
               const adminUsers = await User.find({ role: 'admin' });
               for (const admin of adminUsers) {
                 await notificationService.createNotification({
@@ -446,6 +459,7 @@ class CronService {
       const JobAlert = require('../models/JobAlert');
       const Job = require('../models/Job');
       const User = require('../models/User');
+const NewsDigestLog = require('../models/NewsDigestLog');
       const notificationService = require('./notificationService');
 
       const now = new Date();
@@ -534,6 +548,7 @@ class CronService {
     try {
       const NewsIngestionLog = require('../models/NewsIngestionLog');
       const User = require('../models/User');
+const NewsDigestLog = require('../models/NewsDigestLog');
       const notificationService = require('./notificationService');
       
       const lastLog = await NewsIngestionLog.findOne().sort({ createdAt: -1 });
@@ -697,6 +712,7 @@ class CronService {
              if (!userIdToNotify && scholarship.source === 'admin') {
                 // If it's an admin, we'd ideally get the admin user list, but for now we fallback if there's an author
                 const User = require('../models/User');
+const NewsDigestLog = require('../models/NewsDigestLog');
                 const admin = await User.findOne({ role: 'admin' });
                 if (admin) userIdToNotify = admin._id;
              }
@@ -968,6 +984,7 @@ class CronService {
     console.log('Running sendWeeklyCommunityDigest cron job...');
     try {
       const User = require('../models/User');
+const NewsDigestLog = require('../models/NewsDigestLog');
       const CommunityPost = require('../models/CommunityPost');
       const CommunityLike = require('../models/CommunityLike');
       const CommunityComment = require('../models/CommunityComment');
@@ -1080,6 +1097,7 @@ class CronService {
       const PlacementAnalyticsStat = require('../models/PlacementAnalyticsStat');
       const Notification = require('../models/Notification');
       const User = require('../models/User');
+const NewsDigestLog = require('../models/NewsDigestLog');
 
       const now = new Date();
       const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
@@ -1118,9 +1136,96 @@ class CronService {
           });
         }
       }
-
+      if (anomaliesDetected.length > 0) {
+        console.warn('Suspicious activity detected:', anomaliesDetected);
+      }
     } catch (err) {
       console.error('Error in computePlacementAnalytics:', err);
+    }
+  }
+
+  async purgeClassroomData() {
+    try {
+      console.log('Running daily classroom data purge...');
+      const ClassroomMessage = require('../models/ClassroomMessage');
+      const VirtualClassroom = require('../models/VirtualClassroom');
+      
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      
+      // 1. Purge chat logs older than 30 days
+      const msgResult = await ClassroomMessage.deleteMany({ created_at: { $lt: thirtyDaysAgo } });
+      console.log(`Purged ${msgResult.deletedCount} old classroom messages.`);
+      
+      // 2. Remove recordings from classes completed > 90 days ago
+      const classResult = await VirtualClassroom.updateMany(
+        { 
+          status: 'completed', 
+          scheduled_at: { $lt: ninetyDaysAgo },
+          recording_url: { $ne: null }
+        },
+        { $set: { recording_url: null } }
+      );
+      console.log(`Purged recordings for ${classResult.modifiedCount} old classrooms.`);
+      
+    } catch (err) {
+      console.error('Error in purgeClassroomData:', err);
+    }
+  }
+  async sendNewsDigest(frequency) {
+    try {
+      const User = require('../models/User');
+const NewsDigestLog = require('../models/NewsDigestLog');
+      const NewsArticle = require('../models/NewsArticle');
+      const { sendEmail } = require('./emailService');
+      
+      const users = await User.find({ 'newsPreferences.digestFrequency': frequency });
+      if (!users.length) return;
+      
+      const timeFrame = frequency === 'daily' ? 24 : 7 * 24;
+      const sinceDate = new Date(Date.now() - timeFrame * 60 * 60 * 1000);
+      
+      // Fetch top articles from the timeframe
+      const articles = await NewsArticle.find({ 
+        status: 'live',
+        publishedAt: { $gte: sinceDate }
+      }).sort({ viewCount: -1 }).limit(10).lean();
+      
+      if (!articles.length) return;
+      
+      for (const user of users) {
+        // Basic filtering based on user preferences
+        const prefs = user.newsPreferences || {};
+        let userArticles = articles;
+        
+        if (prefs.mutedSources && prefs.mutedSources.length) {
+          userArticles = userArticles.filter(a => !prefs.mutedSources.includes(a.sourceName));
+        }
+        
+        if (userArticles.length === 0) continue;
+        
+        // Take top 5 for the email
+        const top5 = userArticles.slice(0, 5);
+        
+        const emailHtml = `
+          <h2>Your ${frequency === 'daily' ? 'Daily' : 'Weekly'} Tech News Digest</h2>
+          <ul>
+            ${top5.map(a => `
+              <li>
+                <strong><a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/technews?article=${a._id}">${a.title}</a></strong><br/>
+                <small>${a.sourceName} | ${a.category}</small>
+                ${a.aiSummary ? `<p><em>AI Summary:</em> ${a.aiSummary}</p>` : ''}
+              </li>
+            `).join('')}
+          </ul>
+        `;
+        
+        await sendEmail(user.email, `Your ${frequency === 'daily' ? 'Daily' : 'Weekly'} Tech News Digest`, emailHtml);
+      }
+      console.log(`Successfully sent ${frequency} news digests to ${users.length} users.`);
+    } catch (err) {
+      console.error(`Error sending ${frequency} news digest:`, err);
     }
   }
 }

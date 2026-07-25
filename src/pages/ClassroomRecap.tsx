@@ -17,6 +17,8 @@ const ClassroomRecap = () => {
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
+  const [transcriptLang, setTranscriptLang] = useState('en');
+  const [translating, setTranslating] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [analytics, setAnalytics] = useState<any>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
@@ -128,6 +130,38 @@ const ClassroomRecap = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2 space-y-6">
             
+                        {/* Phase 17: Host Session Summary */}
+            {isHost && analytics && (
+              <Card className="border-primary bg-primary/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart2 className="h-5 w-5 text-primary" /> Host Session Summary
+                  </CardTitle>
+                  <CardDescription>Post-session real-time analytics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-background p-3 rounded shadow-sm border">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Unique Attendees</p>
+                      <p className="text-2xl font-bold">{analytics.uniqueAttendees || 0}</p>
+                    </div>
+                    <div className="bg-background p-3 rounded shadow-sm border">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Peak Concurrent</p>
+                      <p className="text-2xl font-bold">{analytics.peakConcurrent || 0}</p>
+                    </div>
+                    <div className="bg-background p-3 rounded shadow-sm border">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Avg Session Time</p>
+                      <p className="text-2xl font-bold">{analytics.avgSessionTime || 0}m</p>
+                    </div>
+                    <div className="bg-background p-3 rounded shadow-sm border">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider">Chat Messages</p>
+                      <p className="text-2xl font-bold">{analytics.totalChatMessages || 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* AI Summary Section */}
             <Card className="border-primary/20 overflow-hidden relative">
               <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
@@ -166,29 +200,77 @@ const ClassroomRecap = () => {
               </CardContent>
             </Card>
 
-            {/* Flashcards */}
-            {classroom.ai_flashcards && (
+            {/* Auto-Transcript Section */}
+            {classroom.transcript_text && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Brain className="h-5 w-5" /> Smart Study Cards
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FileText className="h-5 w-5" /> Session Transcript
                   </CardTitle>
+                  <select 
+                    value={transcriptLang} 
+                    onChange={e => handleTranslate(e.target.value)}
+                    className="text-sm border rounded p-1"
+                    disabled={translating}
+                  >
+                    <option value="en">English (Original)</option>
+                    <option value="hi">Hindi (हिंदी)</option>
+                    <option value="ta">Tamil (தமிழ்)</option>
+                    <option value="te">Telugu (తెలుగు)</option>
+                  </select>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    {classroom.ai_flashcards.map((card: any, i: number) => (
-                      <div key={i} className="p-4 border rounded-lg bg-card hover:bg-accent/10 transition-colors">
-                        <p className="font-medium text-sm mb-2">Q: {card.q}</p>
-                        <p className="text-xs text-muted-foreground">A: {card.a}</p>
-                      </div>
-                    ))}
-                  </div>
+                  {translating ? (
+                    <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+                  ) : (
+                    <div className="bg-muted/30 p-4 rounded-md text-sm whitespace-pre-wrap max-h-64 overflow-y-auto font-mono">
+                      {transcriptLang === 'en' ? classroom.transcript_text : (classroom.translated_transcripts?.[transcriptLang] || "Translation unavailable")}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
+
           </div>
 
           <div className="space-y-6">
+
+            {/* Recordings and Materials */}
+            {(classroom.recording_url || (classroom.materials && classroom.materials.length > 0)) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Class Resources</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {classroom.recording_url && (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button variant="outline" className="flex-1" onClick={() => window.open(classroom.recording_url, '_blank')}>
+                        <PlayCircle className="h-4 w-4 mr-2" /> Watch High Quality
+                      </Button>
+                      <Button variant="secondary" className="flex-1" onClick={() => window.open(classroom.recording_url + "?audio=true", '_blank')}>
+                        <Headphones className="h-4 w-4 mr-2" /> Audio Only (Low Bandwidth)
+                      </Button>
+                    </div>
+                  )}
+                  {classroom.materials && classroom.materials.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-sm mb-2 mt-4">Materials</h4>
+                      <div className="space-y-2">
+                        {classroom.materials.map((m: any, i: number) => (
+                          <div key={i} className="flex justify-between items-center p-2 bg-muted/50 rounded text-sm">
+                            <span>{m.title}</span>
+                            <div className="space-x-2">
+                              <Button variant="ghost" size="sm" onClick={() => window.open(m.url, '_blank')}>View</Button>
+                              <Button variant="ghost" size="sm" className="text-xs" onClick={() => window.open(m.url + "?compress=true", '_blank')}>Low Res</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
             {/* Host Analytics */}
             {isHost && analytics && (
               <Card className="bg-primary/5 border-primary/20">

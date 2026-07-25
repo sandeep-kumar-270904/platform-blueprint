@@ -11,6 +11,7 @@ import { RecommendedCourses } from "./RecommendedCourses";
 import { ResumeLearning } from "./ResumeLearning";
 import { RecentNotifications } from "./RecentNotifications";
 import { CommunityDashboardWidget } from "./CommunityDashboardWidget";
+import { VirtualClassroomWidget } from "../virtual-classroom/VirtualClassroomWidget";
 
 interface Stats {
   notesCount: number;
@@ -51,6 +52,7 @@ export const DashboardOverview = ({ stats, setActiveSection }: { stats: Stats, s
     <div className="space-y-6">
       <ThisWeekStrip />
       <ResumeLearning />
+      <VirtualClassroomWidget />
       
       {totalActivity === 0 ? (
         <div className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 border rounded-xl p-8 text-center shadow-sm">
