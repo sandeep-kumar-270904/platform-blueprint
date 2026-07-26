@@ -32,10 +32,12 @@ class CronService {
       this.checkAbandonedQuizAttempts();
     });
 
-    // Run every hour to check job application deadlines
+    // Run every hour to check job application deadlines and team deadlines
     cron.schedule('0 * * * *', async () => {
       this.checkJobDeadlines();
       this.checkClassQuizDeadlines();
+      this.checkTeamDeadlines();
+      this.checkPendingApplicantDigests();
     });
 
     // Run every day at midnight for daily job alerts, scholarship deadlines, and API syncs
@@ -1226,6 +1228,91 @@ const NewsDigestLog = require('../models/NewsDigestLog');
       console.log(`Successfully sent ${frequency} news digests to ${users.length} users.`);
     } catch (err) {
       console.error(`Error sending ${frequency} news digest:`, err);
+    }
+  async checkTeamDeadlines() {
+    try {
+      const Team = require('../models/Team');
+      const now = new Date();
+      const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      
+      const teams = await Team.find({
+        status: 'open',
+        deadline: {
+          $gte: now,
+          $lt: in24Hours
+        }
+      });
+      
+      for (const team of teams) {
+        // Simple deduplication check for the cron to avoid spamming every minute
+        // Only notify if within the 23-24 hour window
+        const diff = team.deadline - now;
+        if (diff > 23 * 60 * 60 * 1000) {
+          const Notification = require('../models/Notification');
+          const exists = await Notification.findOne({
+            user: team.creator,
+            type: 'team_deadline_reminder',
+            relatedContent: team._id
+          });
+          
+          if (!exists) {
+            await Notification.create({
+              user: team.creator,
+              actor: null,
+              type: 'team_deadline_reminder',
+              relatedContent: team._id,
+              title: 'Team Deadline Approaching',
+              body: `Your team ${team.title} is closing in 24 hours.`,
+              isRead: false
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error checking team deadlines:', err);
+    }
+  }
+
+  async checkPendingApplicantDigests() {
+    try {
+      const TeamApplication = require('../models/TeamApplication');
+      const Notification = require('../models/Notification');
+      const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+      
+      const pipeline = [
+        { $match: { status: 'pending', createdAt: { $lte: twoDaysAgo } } },
+        { $lookup: { from: 'teams', localField: 'team', foreignField: '_id', as: 'teamDoc' } },
+        { $unwind: '$teamDoc' },
+        { $group: { _id: '$teamDoc.creator', count: { $sum: 1 } } },
+        { $match: { count: { $gte: 3 } } }
+      ];
+      
+      const results = await TeamApplication.aggregate(pipeline);
+      
+      for (const result of results) {
+        const creatorId = result._id;
+        
+        // Prevent duplicate digests (once a week)
+        const recentDigest = await Notification.findOne({
+          user: creatorId,
+          type: 'team_applicant_digest',
+          createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+        });
+        
+        if (!recentDigest) {
+          await Notification.create({
+            user: creatorId,
+            actor: null,
+            type: 'team_applicant_digest',
+            relatedContent: null,
+            title: 'Pending Applications Digest',
+            body: `You have ${result.count} pending applications waiting for your review.`,
+            isRead: false
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error checking applicant digests:', err);
     }
   }
 }

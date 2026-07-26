@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuizzes, type Quiz } from "@/hooks/useQuizHub";
 import { useAuth } from "@/hooks/useAuth";
+import { useSpecificPageContent } from "@/hooks/useSiteContent";
 import { QuizSidebar } from "@/components/quizzes/QuizSidebar";
 import { Brain, Clock, Trophy, Target, Play, Plus, Loader2, Frown } from "lucide-react";
 
@@ -41,6 +42,14 @@ const QuizHub = () => {
     mode: mode !== "All" ? mode : undefined,
   });
 
+  const { data: pageContentData } = useSpecificPageContent("quiz-hub");
+  const heroContent = pageContentData?.find((c: any) => c.section === "hero")?.content || {
+    badge: "Test Your Knowledge",
+    titleStart: "Quiz & ",
+    titleHighlight: "Mock Tests",
+    description: "Practice with timed quizzes built by the community. Real-time, scored, and saved."
+  };
+
   const isTrueEmpty = totalUnfiltered === 0;
 
   return (
@@ -53,13 +62,13 @@ const QuizHub = () => {
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
                 <Badge variant="accent" className="mb-6">
-                  <Brain className="mr-1 h-3 w-3" /> Test Your Knowledge
+                  <Brain className="mr-1 h-3 w-3" /> {heroContent.badge}
                 </Badge>
                 <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
-                  Quiz & <span className="text-foreground display-font">Mock Tests</span>
+                  {heroContent.titleStart} <span className="text-foreground display-font">{heroContent.titleHighlight}</span>
                 </h1>
                 <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
-                  Practice with timed quizzes built by the community. Real-time, scored, and saved.
+                  {heroContent.description}
                 </p>
                 <div className="flex justify-center gap-4">
                   <Button size="lg" className="h-12 px-8 text-lg" onClick={() => navigate('/live/join')}>
