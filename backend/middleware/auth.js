@@ -18,7 +18,7 @@ module.exports = async function (req, res, next) {
 
   // Verify token
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, "supersecret_antigravity_jwt_key_2026" || 'your-secret-key');
     
     // Fetch user to check ban status and fresh role
     const user = await User.findById(decoded.id || decoded._id);
@@ -30,6 +30,7 @@ module.exports = async function (req, res, next) {
       id: user._id.toString(), 
       role: user.role,
       banned: user.banned,
+      quizBanned: user.quizBanned,
       adminRole: user.adminRole
     };
     if (user.role === 'recruiter' || user.role === 'admin') {

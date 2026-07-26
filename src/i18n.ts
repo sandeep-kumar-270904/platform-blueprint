@@ -5,6 +5,15 @@ import { initReactI18next } from 'react-i18next';
 const resources = {
   en: {
     translation: {
+      
+      "Take Quiz": "Take Quiz",
+      "Submit": "Submit",
+      "Time Remaining": "Time Remaining",
+      "Leaderboard": "Leaderboard",
+      "Correct": "Correct",
+      "Incorrect": "Incorrect",
+      "Your Score": "Your Score",
+
       "Virtual Classroom": "Virtual Classroom",
       "Live and scheduled learning sessions.": "Live and scheduled learning sessions.",
       "Schedule Class": "Schedule Class",
@@ -49,6 +58,15 @@ const resources = {
   },
   es: {
     translation: {
+      
+      "Take Quiz": "Tomar Prueba",
+      "Submit": "Enviar",
+      "Time Remaining": "Tiempo Restante",
+      "Leaderboard": "Tabla de Clasificación",
+      "Correct": "Correcto",
+      "Incorrect": "Incorrecto",
+      "Your Score": "Tu Puntuación",
+
       "Virtual Classroom": "Aula Virtual",
       "Live and scheduled learning sessions.": "Sesiones de aprendizaje en vivo y programadas.",
       "Schedule Class": "Programar Clase",
@@ -93,6 +111,15 @@ const resources = {
   },
   ar: {
     translation: {
+      
+      "Take Quiz": "بدء الاختبار",
+      "Submit": "إرسال",
+      "Time Remaining": "الوقت المتبقي",
+      "Leaderboard": "لوحة الصدارة",
+      "Correct": "صحيح",
+      "Incorrect": "غير صحيح",
+      "Your Score": "نتيجتك",
+
       "Virtual Classroom": "الفصل الافتراضي",
       "Live and scheduled learning sessions.": "جلسات التعلم المباشرة والمجدولة.",
       "Schedule Class": "جدولة فصل",

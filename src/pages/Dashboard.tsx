@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useSyncStatusToast } from "@/hooks/useSyncStatusToast";
@@ -69,6 +69,9 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { id: impersonateUserId } = useParams();
+  const targetUserId = impersonateUserId || user?.id;
+
   const [activeSection, setActiveSection] = useState<Section>("overview");
   const [stats, setStats] = useState({
     notesCount: 0, notesViews: 0, notesDownloads: 0,
@@ -77,11 +80,13 @@ const Dashboard = () => {
   const [gamification, setGamification] = useState<any>(null);
 
   const fetchStats = useCallback(async () => {
-    if (!user) return;
+    if (!targetUserId) return;
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/dashboard/stats`, {
+      const url = new URL(`${API_URL}/api/dashboard/stats`);
+      if (impersonateUserId) url.searchParams.append('userId', impersonateUserId);
+      const res = await fetch(url.toString(), {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to fetch stats');
@@ -106,7 +111,7 @@ const Dashboard = () => {
 
   // Realtime subscriptions filtered to current user only — respects RLS scope.
   const syncStatus = useRealtimeSync({
-    channelName: user ? `dashboard-stats-${user.id}` : undefined,
+    channelName: user ? `dashboard-stats-${targetUserId}` : undefined,
     enabled: !!user,
     filters: [],
     onChange: fetchStats,
@@ -127,7 +132,7 @@ const Dashboard = () => {
   ];
 
   const renderSection = () => {
-    if (!user) return null;
+    if (!targetUserId) return null;
 
     switch (activeSection) {
       case "courses":
@@ -145,10 +150,10 @@ const Dashboard = () => {
 
             <div className="grid gap-6 lg:grid-cols-3">
               <ScrollReveal delay={0.1}>
-                <MyIdeas userId={user.id} />
+                <MyIdeas userId={targetUserId} />
               </ScrollReveal>
               <ScrollReveal delay={0.15}>
-                <UpcomingSessions userId={user.id} />
+                <UpcomingSessions userId={targetUserId} />
               </ScrollReveal>
               <ScrollReveal delay={0.15}>
                 <LiveActivity />
@@ -209,7 +214,7 @@ const Dashboard = () => {
                 </Card>
               </ScrollReveal>
               <ScrollReveal delay={0.3}>
-                <NotificationsPanel userId={user.id} />
+                <NotificationsPanel userId={targetUserId} />
               </ScrollReveal>
             </div>
             <ScrollReveal delay={0.35}>
@@ -218,25 +223,25 @@ const Dashboard = () => {
           </div>
         );
       case "ideas":
-        return <MyIdeas userId={user.id} />;
+        return <MyIdeas userId={targetUserId} />;
       case "collaborations":
-        return <MyCollaborations userId={user.id} />;
+        return <MyCollaborations userId={targetUserId} />;
       case "requests":
-        return <JoinRequestsManager userId={user.id} />;
+        return <JoinRequestsManager userId={targetUserId} />;
       case "teams":
-        return <MyTeams userId={user.id} />;
+        return <MyTeams userId={targetUserId} />;
       case "progress":
         return <LearningProgress />;
       case "notifications":
-        return <NotificationsPanel userId={user.id} />;
+        return <NotificationsPanel userId={targetUserId} />;
       case "notification-settings":
         return <NotificationSettings />;
       case "live":
         return <LiveActivity />;
       case "analytics":
-        return <HostAnalytics userId={user.id} />;
+        return <HostAnalytics userId={targetUserId} />;
       case "profile":
-        return <ProfileManager userId={user.id} email={user.email || ""} />;
+        return <ProfileManager userId={targetUserId} email={user?.email || ""} />;
       case "referrals":
         return <ReferralsManager />;
       case "subscription":
@@ -286,7 +291,7 @@ const Dashboard = () => {
           <div className="mb-6 flex items-center justify-end">
             <div className="flex items-center gap-3">
               {user && <SyncStatusIndicator status={syncStatus} />}
-              {!user && (
+              {!user && !impersonateUserId && (
                 <Link to="/auth">
                   <Button className="gap-2"><ArrowRight className="h-4 w-4" /> Sign In</Button>
                 </Link>
@@ -295,7 +300,30 @@ const Dashboard = () => {
           </div>
         </ScrollReveal>
 
-        {user ? (
+        
+        {impersonateUserId && (
+          <div className="bg-red-500 text-white p-4 rounded-lg mb-6 flex justify-between items-center shadow-lg">
+            <div>
+              <h3 className="font-bold">Admin Impersonation Mode</h3>
+              <p className="text-sm opacity-90">Viewing dashboard for user: {impersonateUserId}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" onClick={async () => {
+                const token = localStorage.getItem('token');
+                await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/users/${impersonateUserId}/adjust-points`, {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ points: 500 })
+                });
+                fetchStats();
+              }}>
+                +500 Points
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {user || impersonateUserId ? (
           <div className="flex gap-6">
             {/* Sidebar Navigation */}
             <aside className="hidden md:block w-56 shrink-0">

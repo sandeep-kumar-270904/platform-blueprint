@@ -173,6 +173,7 @@ const UserSchema = new mongoose.Schema({
     rejectionReason: { type: String }
   },
   banned: { type: Boolean, default: false },
+  quizBanned: { type: Boolean, default: false },
   bannedAt: { type: Date },
   banReason: { type: String },
   savedColleges: [{ 

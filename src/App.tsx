@@ -128,6 +128,7 @@ import AccountSettings from "./pages/AccountSettings";
 import LiveQuizHost from "./pages/LiveQuizHost";
 import LiveQuizJoin from "./pages/LiveQuizJoin";
 import LiveQuizPlay from "./pages/LiveQuizPlay";
+import CollaborativeQuizPlay from "./pages/CollaborativeQuizPlay";
 import AdminQuizReports from "./pages/admin/AdminQuizReports";
 import AdminNewsModeration from "./pages/admin/AdminNewsModeration";
 import AdminCommunityPanel from "./pages/admin/AdminCommunityPanel";
@@ -244,6 +245,7 @@ const App = () => (
           <Route path="/quizzes/:id/host" element={<ProtectedRoute><LiveQuizHost /></ProtectedRoute>} />
           <Route path="/live/join" element={<ProtectedRoute><LiveQuizJoin /></ProtectedRoute>} />
           <Route path="/live/:sessionId/play" element={<ProtectedRoute><LiveQuizPlay /></ProtectedRoute>} />
+          <Route path="/gd-live/:sessionId/play" element={<ProtectedRoute><CollaborativeQuizPlay /></ProtectedRoute>} />
           <Route path="/attempts/:attemptId/results" element={<ProtectedRoute><QuizResults /></ProtectedRoute>} />
           <Route path="/my-quizzes" element={<ProtectedRoute><MyQuizzes /></ProtectedRoute>} />
           <Route path="/creator-dashboard" element={<ProtectedRoute><CreatorDashboard /></ProtectedRoute>} />
@@ -283,6 +285,7 @@ const App = () => (
           <Route path="/creators" element={<ProtectedRoute><CreatorsZone /></ProtectedRoute>} />
           <Route path="/admin/scholarships" element={<ProtectedRoute><AdminScholarships /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
+          <Route path="/admin/users/:id/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/admin/jobs" element={<ProtectedRoute><AdminJobsPanel /></ProtectedRoute>} />
           <Route path="/admin/colleges" element={<ProtectedRoute><AdminCollegePanel /></ProtectedRoute>} />
           <Route path="/admin/mentors" element={<ProtectedRoute><MentorsAdminDashboard /></ProtectedRoute>} />

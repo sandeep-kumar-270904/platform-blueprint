@@ -6,6 +6,7 @@ const Quiz = require('../models/Quiz');
 const User = require('../models/User');
 const LiveSession = require('../models/LiveSession');
 const QuestionBankItem = require('../models/QuestionBank');
+const QuizReport = require('../models/QuizReport');
 
 // GET /api/me/quiz-dashboard
 router.get('/quiz-dashboard', authMiddleware, async (req, res) => {
@@ -76,6 +77,8 @@ router.get('/quiz-dashboard', authMiddleware, async (req, res) => {
 
     // Created content summary
     const createdQuizzesCount = createdQuizzes.length;
+    const createdQuizIds = createdQuizzes.map(q => q._id);
+    const pendingReportsCount = await QuizReport.countDocuments({ targetId: { $in: createdQuizIds }, status: 'pending' });
     const totalCreatedAttempts = createdQuizzes.reduce((sum, q) => sum + (q.attemptCount || 0), 0);
     const bestQuiz = createdQuizzes.sort((a, b) => (b.completionRate || 0) - (a.completionRate || 0))[0];
 
@@ -111,7 +114,8 @@ router.get('/quiz-dashboard', authMiddleware, async (req, res) => {
       createdContent: {
         count: createdQuizzesCount,
         totalAttempts: totalCreatedAttempts,
-        bestQuizId: bestQuiz ? bestQuiz._id : null
+        bestQuizId: bestQuiz ? bestQuiz._id : null,
+        pendingReportsCount
       },
       questionBank: {
         count: bankItemsCount,

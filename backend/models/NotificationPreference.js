@@ -15,6 +15,8 @@ const NotificationPreferenceSchema = new mongoose.Schema({
     community_post: { type: Boolean, default: true },
     weekly_digest: { type: Boolean, default: true },
     marketing: { type: Boolean, default: false },
+    quiz_updates: { type: Boolean, default: true },
+    gamification: { type: Boolean, default: true },
     placement: {
       mock_reminders: { type: Boolean, default: true },
       streak_alerts: { type: Boolean, default: true },
