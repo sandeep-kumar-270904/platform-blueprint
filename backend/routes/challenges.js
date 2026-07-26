@@ -146,33 +146,104 @@ router.put('/:id/status', auth, async (req, res) => {
   }
 });
 
+// Submit attempt to challenge
+router.post('/:id/submit-attempt', auth, async (req, res) => {
+  try {
+    const { attemptId } = req.body;
+    const challenge = await QuizChallenge.findById(req.params.id);
+    if (!challenge) return res.status(404).json({ error: 'Challenge not found' });
+    
+    // Assign attempt based on user
+    if (challenge.challengerId.toString() === req.user.id) {
+      challenge.challengerAttemptId = attemptId;
+    } else if (challenge.challengedId.toString() === req.user.id) {
+      challenge.challengedAttemptId = attemptId;
+    } else {
+      return res.status(403).json({ error: 'Not part of this challenge' });
+    }
+    
+    await challenge.save();
+    
+    // Determine winner if both completed
+    const popChallenge = await QuizChallenge.findById(req.params.id)
+      .populate('challengerAttemptId challengedAttemptId');
+      
+    if (popChallenge.challengerAttemptId?.status === 'completed' && popChallenge.challengedAttemptId?.status === 'completed') {
+      const p1Score = popChallenge.challengerAttemptId.score;
+      const p2Score = popChallenge.challengedAttemptId.score;
+      const p1Time = popChallenge.challengerAttemptId.answers.reduce((acc, a) => acc + (a.timeTakenSeconds || 0), 0);
+      const p2Time = popChallenge.challengedAttemptId.answers.reduce((acc, a) => acc + (a.timeTakenSeconds || 0), 0);
+      
+      if (p1Score > p2Score) {
+        popChallenge.winnerId = popChallenge.challengerId;
+      } else if (p2Score > p1Score) {
+        popChallenge.winnerId = popChallenge.challengedId;
+      } else {
+        // Tie breaker by time
+        if (p1Time < p2Time) popChallenge.winnerId = popChallenge.challengerId;
+        else if (p2Time < p1Time) popChallenge.winnerId = popChallenge.challengedId;
+        else popChallenge.isDraw = true;
+      }
+      popChallenge.status = 'completed';
+      await popChallenge.save();
+      
+      // Notify both users
+      await notificationService.createNotification({
+        userId: popChallenge.challengerId,
+        type: 'challenge_completed',
+        title: 'Challenge Completed',
+        message: 'A challenge has finished!',
+        channel: 'in-app'
+      }, req.io);
+      await notificationService.createNotification({
+        userId: popChallenge.challengedId,
+        type: 'challenge_completed',
+        title: 'Challenge Completed',
+        message: 'A challenge has finished!',
+        channel: 'in-app'
+      }, req.io);
+    }
+    
+    res.json(popChallenge);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Compare results (Head to Head)
 router.get('/:id/results', auth, async (req, res) => {
   try {
     const challenge = await QuizChallenge.findById(req.params.id)
+      .populate('challengerId challengedId', 'username full_name avatar_url')
       .populate('challengerAttemptId challengedAttemptId');
       
     if (!challenge) return res.status(404).json({ error: 'Not found' });
+    res.json({ challenge });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get Challenge History between two users
+router.get('/history/:userId', auth, async (req, res) => {
+  try {
+    const targetUserId = req.params.userId;
+    const history = await QuizChallenge.find({
+      status: 'completed',
+      $or: [
+        { challengerId: req.user.id, challengedId: targetUserId },
+        { challengerId: targetUserId, challengedId: req.user.id }
+      ]
+    })
+    .populate('quizId', 'title')
+    .populate('winnerId', 'username')
+    .sort({ updatedAt: -1 });
     
-    // Check if both completed
-    let winner = 'pending';
-    if (challenge.challengerAttemptId?.status === 'completed' && challenge.challengedAttemptId?.status === 'completed') {
-      const p1 = challenge.challengerAttemptId.score;
-      const p2 = challenge.challengedAttemptId.score;
-      if (p1 > p2) winner = 'challenger';
-      else if (p2 > p1) winner = 'challenged';
-      else winner = 'tie';
-      
-      if (challenge.status !== 'completed') {
-        challenge.status = 'completed';
-        await challenge.save();
-      }
-    }
-    
-    res.json({ challenge, winner });
+    res.json(history);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
 module.exports = router;
+

@@ -11,7 +11,7 @@ interface LeaderboardUser {
   _id: string;
   username: string;
   full_name: string;
-  avatar: string;
+  avatar_url: string;
   points: number;
   badges: { badgeId: string; earnedAt: string }[];
 }
@@ -24,12 +24,17 @@ export default function Leaderboard() {
   const [myStats, setMyStats] = useState<{ rank: number; points: number } | null>(null);
   const [category, setCategory] = useState('All');
   const [loading, setLoading] = useState(true);
+  const [scope, setScope] = useState('global');
 
-  useEffect(() => {
+useEffect(() => {
     const fetchLeaderboard = async () => {
       setLoading(true);
       try {
-        const query = category === 'All' ? '' : `?category=${encodeURIComponent(category)}`;
+        let query = category === 'All' ? '' : `?category=${encodeURIComponent(category)}`;
+        if (scope === 'institution' && user?.institutionId) {
+          query += query ? `&institutionId=${user.institutionId}` : `?institutionId=${user.institutionId}`;
+        }
+        
         const res = await api.get(`/leaderboards/global${query}`);
         setLeaders(res.data);
         
@@ -45,7 +50,7 @@ export default function Leaderboard() {
     };
     
     fetchLeaderboard();
-  }, [category, user]);
+  }, [category, user, scope]);
 
   const getRankIcon = (index: number) => {
     if (index === 0) return <Trophy className="w-6 h-6 text-yellow-500" />;
@@ -56,11 +61,36 @@ export default function Leaderboard() {
 
   return (
     <div className="container mx-auto p-4 md:p-8 max-w-4xl space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+<div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
-          <h1 className="text-4xl font-extrabold tracking-tight">Global Leaderboard</h1>
+          <h1 className="text-4xl font-extrabold tracking-tight">Leaderboard</h1>
           <p className="text-muted-foreground mt-2">See how you rank against other learners.</p>
         </div>
+        
+        <div className="w-full md:w-auto flex flex-col sm:flex-row gap-3">
+          {user?.institutionId && (
+            <Select value={scope} onValueChange={setScope}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Scope" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="global">Global</SelectItem>
+                <SelectItem value="institution">My Institution</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by Category" />
+            </SelectTrigger>
+            <SelectContent>
+              {CATEGORIES.map(cat => (
+                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
         
         <div className="w-full md:w-64">
           <Select value={category} onValueChange={setCategory}>
@@ -81,7 +111,7 @@ export default function Leaderboard() {
           <CardContent className="p-6 flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Avatar className="w-16 h-16 border-2 border-primary">
-                <AvatarImage src={user.avatar ? `${import.meta.env.VITE_API_URL}${user.avatar}` : ''} />
+                <AvatarImage src={user.avatar_url ? `${import.meta.env.VITE_API_URL}${user.avatar_url}` : ''} />
                 <AvatarFallback>{user.full_name?.charAt(0) || user.username?.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
@@ -124,7 +154,7 @@ export default function Leaderboard() {
                       {getRankIcon(index)}
                     </div>
                     <Avatar>
-                      <AvatarImage src={leader.avatar ? `${import.meta.env.VITE_API_URL}${leader.avatar}` : ''} />
+                      <AvatarImage src={leader.avatar_url ? `${import.meta.env.VITE_API_URL}${leader.avatar_url}` : ''} />
                       <AvatarFallback>{leader.username.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>

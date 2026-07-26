@@ -6,10 +6,16 @@ const Idea = require('../models/Idea');
 const authMiddleware = require('../middleware/auth');
 const mongoose = require('mongoose');
 
+
 // GET /api/leaderboards/global
 router.get('/global', async (req, res) => {
   try {
-    const { category, limit = 50 } = req.query;
+    const { category, limit = 50, institutionId } = req.query;
+    
+    let userMatch = { banned: { $ne: true } };
+    if (institutionId) {
+      userMatch.institutionId = new mongoose.Types.ObjectId(institutionId);
+    }
 
     if (category) {
       // Aggregation for category specific points
@@ -32,7 +38,6 @@ router.get('/global', async (req, res) => {
           }
         },
         { $sort: { categoryPoints: -1 } },
-        { $limit: parseInt(limit) },
         {
           $lookup: {
             from: 'users',
@@ -42,14 +47,15 @@ router.get('/global', async (req, res) => {
           }
         },
         { $unwind: '$userInfo' },
-        { $match: { 'userInfo.banned': { $ne: true } } },
+        { $match: { 'userInfo.banned': { $ne: true }, ...(institutionId ? { 'userInfo.institutionId': new mongoose.Types.ObjectId(institutionId) } : {}) } },
+        { $limit: parseInt(limit) },
         {
           $project: {
             _id: 1,
             points: '$categoryPoints', // map for consistent UI
             username: '$userInfo.username',
             full_name: '$userInfo.full_name',
-            avatar: '$userInfo.avatar',
+            avatar_url: '$userInfo.avatar_url',
             badges: '$userInfo.badges'
           }
         }
@@ -57,17 +63,17 @@ router.get('/global', async (req, res) => {
       return res.json(leaders);
     } else {
       // Global leaderboards based on totalQuizPoints
-      const leaders = await User.find({ banned: { $ne: true } })
+      const leaders = await User.find(userMatch)
         .sort({ totalQuizPoints: -1 })
         .limit(parseInt(limit))
-        .select('username full_name avatar totalQuizPoints badges');
+        .select('username full_name avatar_url totalQuizPoints badges');
 
       const mapped = leaders.map(l => ({
         _id: l._id,
         points: l.totalQuizPoints,
         username: l.username,
         full_name: l.full_name,
-        avatar: l.avatar,
+        avatar_url: l.avatar_url,
         badges: l.badges
       }));
 
