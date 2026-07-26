@@ -169,3 +169,61 @@ router.post('/:id/sync', adminAuth, async (req, res) => {
 });
 
 module.exports = router;
+
+
+// Register for tournament
+router.post('/:id/register', auth, async (req, res) => {
+  try {
+    const tournament = await QuizTournament.findById(req.params.id);
+    if (!tournament) return res.status(404).json({ error: 'Not found' });
+    if (tournament.status === 'completed') return res.status(400).json({ error: 'Tournament completed' });
+    
+    if (!tournament.participantIds.includes(req.user.id)) {
+      tournament.participantIds.push(req.user.id);
+      await tournament.save();
+    }
+    res.json(tournament);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Get standings
+router.get('/:id/standings', async (req, res) => {
+  try {
+    const tournament = await QuizTournament.findById(req.params.id).populate('participantIds', 'username full_name avatar_url');
+    if (!tournament) return res.status(404).json({ error: 'Not found' });
+
+    // For a points-based leaderboard, aggregate all attempts by participants for the given quizzes
+    const standings = [];
+    for (const participant of tournament.participantIds) {
+      const attempts = await QuizAttempt.find({
+        user: participant._id,
+        quiz: { $in: tournament.quizIds },
+        status: 'completed'
+      });
+      
+      const totalScore = attempts.reduce((acc, att) => acc + att.score, 0);
+      const totalTime = attempts.reduce((acc, att) => acc + att.answers.reduce((t, a) => t + (a.timeTakenSeconds || 0), 0), 0);
+      
+      standings.push({
+        user: participant,
+        score: totalScore,
+        timeTaken: totalTime,
+        quizzesCompleted: attempts.length
+      });
+    }
+    
+    // Sort descending by score, ascending by time
+    standings.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.timeTaken - b.timeTaken;
+    });
+
+    res.json(standings);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+module.exports = router;
