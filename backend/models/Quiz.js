@@ -6,15 +6,27 @@ const quizQuestionSchema = new mongoose.Schema({
   options: [{ type: String, required: true }],
   correctOptionIndex: { type: Number, required: true },
   explanation: { type: String },
+    translations: [{
+      language: String,
+      text: String,
+      options: [String],
+      explanation: String
+    }],
   points: { type: Number, default: 1 },
   authorDifficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'medium' },
   calibratedDifficulty: { type: String, enum: ['easy', 'medium', 'hard'] },
   source: { type: String, enum: ['manual', 'ai_generated'], default: 'manual' },
-  topicName: { type: String } // For syllabus tagging
+  topicName: { type: String }, // For syllabus tagging
+  isAIGenerated: { type: Boolean, default: false }
 });
 
 const quizSchema = new mongoose.Schema({
   title: { type: String, required: true },
+  language: { type: String, default: 'en' },
+  version: { type: Number, default: 1 },
+  parentQuiz: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' },
+  price: { type: Number, default: 0 },
+  isArchived: { type: Boolean, default: false },
   description: { type: String },
   category: { type: String, required: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -33,7 +45,8 @@ const quizSchema = new mongoose.Schema({
   }],
   status: { type: String, enum: ['draft', 'published', 'under_review', 'closed'], default: 'draft' },
   attemptCount: { type: Number, default: 0 },
-  averageScore: { type: Number, default: 0 }
+  averageScore: { type: Number, default: 0 },
+  isAIGenerated: { type: Boolean, default: false }
 }, { timestamps: true });
 
 quizSchema.index({ title: 'text', description: 'text', category: 'text' });
@@ -48,5 +61,7 @@ quizSchema.set('toObject', { virtuals: true });
 
 quizSchema.index({ classId: 1 });
 quizSchema.index({ status: 1 });
+quizSchema.index({ category: 1, difficulty: 1, mode: 1, status: 1, createdAt: -1 });
+
 
 module.exports = mongoose.model('Quiz', quizSchema);

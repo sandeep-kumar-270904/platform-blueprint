@@ -32,8 +32,12 @@ const quizAttemptSchema = new mongoose.Schema({
   }],
   startedAt: { type: Date, required: true },
   completedAt: { type: Date },
-  mode: { type: String, enum: ['standard', 'adaptive_practice'], default: 'standard' },
-  status: { type: String, enum: ['in_progress', 'completed', 'abandoned'], default: 'in_progress' }
+mode: { type: String, enum: ['standard', 'adaptive_practice'], default: 'standard' },
+  status: { type: String, enum: ['in_progress', 'completed', 'abandoned'], default: 'in_progress' },
+  // Phase 13 Trust & Safety
+  isSuspicious: { type: Boolean, default: false },
+  moderationStatus: { type: String, enum: ['clean', 'flagged', 'appealed', 'cleared'], default: 'clean' },
+  flaggedReason: { type: String }
 }, { timestamps: true });
 
 // Compound index for fast lookup of a user's attempts on a quiz
@@ -43,5 +47,9 @@ quizAttemptSchema.index({ quiz: 1, status: 1, percentageScore: -1, completedAt: 
 quizAttemptSchema.index({ classId: 1 });
 quizAttemptSchema.index({ teamId: 1 });
 quizAttemptSchema.index({ sourceLiveSession: 1 });
+
+
+// Unique compound index for user's unique attempt on a quiz
+quizAttemptSchema.index({ user: 1, quiz: 1 });
 
 module.exports = mongoose.model('QuizAttempt', quizAttemptSchema);

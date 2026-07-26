@@ -36,4 +36,8 @@ const quizReportSchema = new mongoose.Schema({
 // Prevent duplicate reporting
 quizReportSchema.index({ targetType: 1, targetId: 1, reportedBy: 1 }, { unique: true });
 
+
+// Index for moderation queue sorting
+quizReportSchema.index({ status: 1, createdAt: 1 });
+
 module.exports = mongoose.model('QuizReport', quizReportSchema);

@@ -4,18 +4,42 @@ import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { getQuiz, getLeaderboard, startAttempt, reportQuiz, subscribeToQuiz, unsubscribeFromQuiz, type Quiz } from "@/hooks/useQuizHub";
 import { useAuth } from "@/hooks/useAuth";
-import { Trophy, Clock, Target, Play, ArrowLeft, Loader2, Info, Flag, Users, Bell, BellRing } from "lucide-react";
+import { Trophy, Clock, Target, Play, ArrowLeft, Loader2, Info, Flag, Users, Bell, BellRing, Swords } from "lucide-react";
+import api from "@/lib/api";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
 const QuizDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+
+  const handleAppeal = async (attemptId: string) => {
+    try {
+      await api.post(`/attempts/${attemptId}/appeal`);
+      toast.success('Appeal submitted successfully.');
+      // Refresh logic would go here
+    } catch (e: any) {
+      toast.error('Failed to submit appeal.');
+    }
+  };
+  
+  const handleReportQuestion = async (questionIndex: number) => {
+    const reason = window.prompt("Why is this question incorrect?");
+    if (!reason) return;
+    try {
+      await api.post(`/quizzes/${id}/dispute`, { questionIndex, reason });
+      toast.success('Question reported for review.');
+    } catch (e) {
+      toast.error('Failed to report question.');
+    }
+  };
+
   const { user } = useAuth();
   
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -32,6 +56,37 @@ const QuizDetail = () => {
   // Subscribing
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
+
+  // Challenge State
+  const [challengeOpen, setChallengeOpen] = useState(false);
+  const [connections, setConnections] = useState<any[]>([]);
+  const [selectedConnection, setSelectedConnection] = useState("");
+  const [challenging, setChallenging] = useState(false);
+
+  const fetchConnections = async () => {
+    try {
+      const res = await api.get('/challenges/connections');
+      // filter only accepted connections
+      setConnections(res.data.filter((c: any) => c.status === 'accepted'));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleIssueChallenge = async () => {
+    if (!selectedConnection) return;
+    setChallenging(true);
+    try {
+      await api.post('/challenges', { challengedId: selectedConnection, quizId: id });
+      toast.success("Challenge sent!");
+      setChallengeOpen(false);
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "Error sending challenge");
+    } finally {
+      setChallenging(false);
+    }
+  };
+
 
   useEffect(() => {
     if (!id) return;
@@ -56,6 +111,11 @@ const QuizDetail = () => {
       setIsSubscribed((user as any).subscribedQuizzes?.includes(quiz._id) || false);
     }
   }, [quiz, user]);
+
+
+  useEffect(() => {
+    if (challengeOpen) fetchConnections();
+  }, [challengeOpen]);
 
   const handleStart = async () => {
     if (!user) {
@@ -196,7 +256,15 @@ const QuizDetail = () => {
                 <div className="space-y-4">
                   <div className="flex justify-between items-start gap-4">
                     <div>
-                      <Badge variant="outline" className="mb-3">{quiz.category}</Badge>
+                      <div className="flex gap-2 mb-3">
+                        <Badge variant="outline">{quiz.category}</Badge>
+                        {quiz.isAIGenerated && (
+                          <Badge variant="secondary" className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">
+                            <Sparkles className="w-3 h-3 mr-1" />
+                            AI-generated
+                          </Badge>
+                        )}
+                      </div>
                       <h1 className="text-3xl font-bold pr-12">{quiz.title}</h1>
                     </div>
                     {user && !isCreator && (

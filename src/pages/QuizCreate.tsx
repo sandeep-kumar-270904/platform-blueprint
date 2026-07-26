@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { createQuiz, importQuestions, draftQuestionsWithAI, checkQuestionWithAI } from "@/hooks/useQuizHub";
 import { Plus, Trash2, ArrowLeft, Loader2, Upload, Download, Library, Sparkles, CheckCircle, XCircle, Bot } from "lucide-react";
 import { toast } from "sonner";
+import { AIGenerationModal } from "@/components/quizzes/AIGenerationModal";
+
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -67,26 +69,6 @@ const QuizCreate = () => {
 
   // ... (AI code left unchanged for now) ...
   const [aiOpen, setAiOpen] = useState(false);
-  const [aiTopic, setAiTopic] = useState("");
-  const [aiCount, setAiCount] = useState(5);
-  const [generating, setGenerating] = useState(false);
-
-  const handleGenerateAI = async () => {
-    if (!aiTopic) return toast.error("Please enter a topic");
-    setGenerating(true);
-    try {
-      const res = await draftQuestionsWithAI(aiTopic, difficulty, aiCount);
-      if (res.questions && res.questions.length > 0) {
-        setAiDrafts(prev => [...prev, ...res.questions]);
-        toast.success(`Generated ${res.questions.length} questions for review`);
-        setAiOpen(false);
-      }
-    } catch (err: any) {
-      toast.error(err.message);
-    } finally {
-      setGenerating(false);
-    }
-  };
 
   const handleApproveDraft = (idx: number) => {
     const q = aiDrafts[idx];
@@ -264,8 +246,12 @@ const QuizCreate = () => {
       });
       toast.success("Quiz created successfully!");
       navigate(`/quizzes/${res._id}`);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (err: any) {
+      if (err.message?.includes('restricted') || err.message?.includes('banned')) {
+        toast.error("You have been restricted from creating quizzes due to policy violations.", { duration: 5000 });
+      } else {
+        toast.error(err.message || "Failed to create quiz");
+      }
     } finally {
       setSaving(false);
     }
@@ -629,48 +615,21 @@ const QuizCreate = () => {
                 </DialogContent>
               </Dialog>
               
-              <Dialog open={aiOpen} onOpenChange={setAiOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" className="flex-1 py-8 border-dashed border-2 bg-gradient-to-br from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 text-purple-700 border-purple-200">
-                    <Sparkles className="h-5 w-5 mr-2" /> Generate with AI
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>AI Question Generator</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Topic</Label>
-                      <Input 
-                        placeholder="e.g. React Hooks, World War 2, Basic Calculus..." 
-                        value={aiTopic}
-                        onChange={e => setAiTopic(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Number of Questions (Max 20)</Label>
-                      <Input 
-                        type="number" 
-                        min={1} 
-                        max={20}
-                        value={aiCount}
-                        onChange={e => setAiCount(parseInt(e.target.value) || 5)}
-                      />
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      The generator will use your currently selected quiz difficulty ({difficulty}).
-                    </p>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setAiOpen(false)}>Cancel</Button>
-                    <Button onClick={handleGenerateAI} disabled={generating || !aiTopic}>
-                      {generating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Generate
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                            <Button 
+                variant="outline" 
+                onClick={() => setAiOpen(true)}
+                className="flex-1 py-8 border-dashed border-2 bg-gradient-to-br from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 text-purple-700 border-purple-200"
+              >
+                <Sparkles className="h-5 w-5 mr-2" /> Generate with AI
+              </Button>
+              <AIGenerationModal 
+                open={aiOpen}
+                onOpenChange={setAiOpen}
+                onGenerate={(questions) => {
+                  setAiDrafts(prev => [...prev, ...questions]);
+                  toast.success(`Generated ${questions.length} questions for review`);
+                }}
+              />
             </div>
           </div>
 

@@ -6,11 +6,33 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getQuizDashboard } from "@/hooks/useQuizHub";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, ArrowRight, Brain, Clock, Trophy, Target, Flame, Calendar, Database, PlayCircle, BarChart3 } from "lucide-react";
+import { Loader2, ArrowRight, Brain, Clock, Trophy, Target, Flame, Calendar, Database, PlayCircle, BarChart3, AlertTriangle } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { io, Socket } from "socket.io-client";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const BADGE_DEFINITIONS = [
+  { id: 'first_steps', name: 'First Steps', description: 'Complete your first quiz attempt.', icon: <Trophy className="h-6 w-6 text-yellow-500" /> },
+  { id: 'on_fire', name: 'On Fire', description: 'Reach a 3-day quiz streak.', icon: <Flame className="h-6 w-6 text-orange-500" /> },
+  { id: 'unstoppable', name: 'Unstoppable', description: 'Reach a 7-day quiz streak.', icon: <Brain className="h-6 w-6 text-purple-500" /> },
+  { id: 'perfectionist', name: 'Perfectionist', description: 'Score 100% on any quiz with 5+ questions.', icon: <Target className="h-6 w-6 text-green-500" /> },
+  { id: 'quiz_master', name: 'Quiz Master', description: 'Create a quiz that reaches 50+ attempts.', icon: <Database className="h-6 w-6 text-blue-500" /> },
+  { id: 'live_wire', name: 'Live Wire', description: 'Participate in 5 live sessions.', icon: <PlayCircle className="h-6 w-6 text-red-500" /> },
+  { id: 'category_master', name: 'Category Master', description: 'Complete 10 quizzes in a single category.', icon: <BarChart3 className="h-6 w-6 text-indigo-500" /> },
+  { id: 'speed_demon', name: 'Speed Demon', description: 'Finish a 10+ question quiz averaging under 10 seconds per question.', icon: <Clock className="h-6 w-6 text-cyan-500" /> },
+  { id: 'comeback_kid', name: 'Comeback Kid', description: 'Take a quiz after a 14+ day gap.', icon: <ArrowRight className="h-6 w-6 text-pink-500" /> }
+];
+
+const isToday = (dateStr: string) => {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  const today = new Date();
+  return d.getDate() === today.getDate() &&
+         d.getMonth() === today.getMonth() &&
+         d.getFullYear() === today.getFullYear();
+};
+
 
 const MyQuizzes = () => {
   const { user } = useAuth();
@@ -120,6 +142,9 @@ const MyQuizzes = () => {
                   <Flame className="h-8 w-8 text-orange-500 mb-2" />
                   <p className="text-3xl font-bold">{data.summary.currentStreak} Days</p>
                   <p className="text-sm text-muted-foreground">Current Streak</p>
+                  {data.summary.currentStreak > 0 && data.recentActivity && data.recentActivity.length > 0 && !isToday(data.recentActivity[0].date) && (
+                    <Badge variant="destructive" className="mt-2 text-[10px] animate-pulse">Streak at Risk!</Badge>
+                  )}
                 </CardContent>
               </Card>
               <Card>
@@ -226,11 +251,17 @@ const MyQuizzes = () => {
                             <span className="text-muted-foreground">Total Attempts</span>
                             <span className="font-bold">{data.createdContent.totalAttempts}</span>
                           </div>
-                          <Link to="/creator-analytics">
-                            <Button variant="outline" className="w-full mt-2">View Analytics</Button>
-                          </Link>
-                        </div>
-                      </CardContent>
+                            <Link to="/creator-analytics">
+                              <Button variant="outline" className="w-full mt-2">View Analytics</Button>
+                            </Link>
+                            {data.createdContent.pendingReportsCount > 0 && (
+                              <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-md flex items-center gap-2 text-red-600 text-sm">
+                                <AlertTriangle className="h-4 w-4" />
+                                <span>You have {data.createdContent.pendingReportsCount} report(s) pending review on your quizzes.</span>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
                     </Card>
                   )}
 

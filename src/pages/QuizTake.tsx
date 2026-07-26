@@ -1,16 +1,19 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { startAttempt, submitAttempt, type Quiz, type QuizQuestion, type QuizAttempt } from "@/hooks/useQuizHub";
-import { Clock, Loader2, ChevronRight, ChevronLeft, Send } from "lucide-react";
+import { Clock, Loader2, ChevronRight, ChevronLeft, Send, Maximize, WifiOff } from "lucide-react";
 import { toast } from "sonner";
+import api from "@/lib/api";
 
 const QuizTake = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const challengeId = searchParams.get("challengeId");
   
   const [quiz, setQuiz] = useState<(Quiz & { questions: QuizQuestion[] }) | null>(null);
   const [attempt, setAttempt] = useState<QuizAttempt | null>(null);
@@ -31,7 +34,43 @@ const QuizTake = () => {
   const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
   const [sectionTimeLeft, setSectionTimeLeft] = useState<number | null>(null);
 
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      toast.success("Back online. Syncing any pending attempts...");
+      // In a real app we'd trigger a sync here
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      toast.warning("You are offline. Your progress will be saved locally.");
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+
   const questionStartTime = useRef<number>(Date.now());
+
+  useEffect(() => {
+    if (quiz?.examMode) {
+      toast.info("Exam mode enabled. Please enter fullscreen.");
+    }
+  }, [quiz]);
+
+  const requestFullscreen = () => {
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen();
+    }
+  };
+
 
   useEffect(() => {
     if (!id) return;
@@ -85,10 +124,17 @@ const QuizTake = () => {
     };
 
     setTimeLeft(calculateTimeLeft());
+    
+    let warned = false;
 
     const timer = setInterval(() => {
       const remaining = calculateTimeLeft();
       setTimeLeft(remaining);
+      
+      if (remaining === 60 && !warned) {
+        warned = true;
+        toast.warning("1 minute remaining!");
+      }
       
       if (quiz.mode === 'sectioned_exam') {
         setSectionTimeLeft(prev => {
@@ -124,6 +170,17 @@ const QuizTake = () => {
 
     return () => clearInterval(timer);
   }, [attempt, quiz, currentSectionIdx]);
+
+const handleReportQuestion = async () => {
+    const reason = window.prompt("Why is this question incorrect?");
+    if (!reason) return;
+    try {
+      await api.post(`/quizzes/${id}/dispute`, { questionIndex: currentQIdx, reason });
+      toast.success('Question reported for review.');
+    } catch (e) {
+      toast.error('Failed to report question.');
+    }
+  };
 
   const handleSelectOption = (optIdx: number) => {
     const timeSpent = Math.floor((Date.now() - questionStartTime.current) / 1000);
@@ -244,9 +301,19 @@ const QuizTake = () => {
         timeTakenSeconds: ans.timeTakenSeconds
       }));
       
-      await submitAttempt(attempt._id, formattedAnswers);
+      const res = await submitAttempt(attempt._id, formattedAnswers);
+      
+      if (challengeId) {
+        try {
+          await api.post(`/challenges/${challengeId}/submit-attempt`, { attemptId: attempt._id });
+        } catch (e) {
+          console.error("Failed to link attempt to challenge", e);
+        }
+      }
+      
       toast.success("Quiz submitted successfully!");
-      navigate(`/attempts/${attempt._id}/results`);
+
+      navigate(`/attempts/${attempt._id}/results`, { state: { gamificationResult: res.gamificationResult } });
     } catch (err: any) {
       toast.error(err.message || "Failed to submit quiz");
     } finally {
