@@ -2,12 +2,16 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const NewsArticle = require('../models/NewsArticle');
 const NewsSourceHealth = require('../models/NewsSourceHealth');
+const seedQuizzes = require('./seedQuizzes');
+const Quiz = require('../models/Quiz');
 
 async function seedLocalFallback() {
   try {
     // Check if already seeded
-    const count = await NewsArticle.countDocuments();
-    if (count > 0) return;
+    const newsCount = await NewsArticle.countDocuments();
+    const quizCount = await Quiz.countDocuments();
+    
+    if (newsCount > 0 && quizCount > 0) return;
 
     console.log('🌱 Seeding local fallback database with test data...');
 
@@ -88,7 +92,13 @@ async function seedLocalFallback() {
       }
     ];
 
-    await NewsArticle.insertMany(articles);
+    if (newsCount === 0) {
+      await NewsArticle.insertMany(articles);
+    }
+
+    if (quizCount === 0) {
+      await seedQuizzes();
+    }
 
     console.log('✅ Seeding complete.');
   } catch (err) {

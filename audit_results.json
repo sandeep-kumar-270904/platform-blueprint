@@ -1,0 +1,46 @@
+{
+  "1_seed_data": {
+    "status": 200,
+    "count": 20,
+    "sample": {
+      "_id": "6a657e10157493667e5eeb58",
+      "title": "[SEED] Advanced Mastery Quiz 1",
+      "language": "en",
+      "version": 1,
+      "price": 0,
+      "isArchived": false,
+      "description": "Test your knowledge in Advanced with this easy difficulty quiz.",
+      "category": "Advanced",
+      "createdBy": "6a657e0f157493667e5eeb52",
+      "mode": "live",
+      "difficulty": "easy",
+      "durationMinutes": 4,
+      "perQuestionTimeLimitSeconds": 20,
+      "status": "published",
+      "attemptCount": 84,
+      "averageScore": 88,
+      "isAIGenerated": false,
+      "createdAt": "2026-07-21T03:25:04.134Z",
+      "sections": [],
+      "__v": 0,
+      "updatedAt": "2026-07-26T03:25:04.184Z",
+      "question_count": 0,
+      "id": "6a657e10157493667e5eeb58"
+    }
+  },
+  "1_sidebar_data": {
+    "message": "Invalid Quiz ID format"
+  },
+  "4_report_flow": {
+    "status": 401,
+    "resp": {
+      "message": "No token, authorization denied"
+    }
+  },
+  "6_ai_gen": {
+    "status": 401,
+    "resp": {
+      "message": "No token, authorization denied"
+    }
+  }
+}
