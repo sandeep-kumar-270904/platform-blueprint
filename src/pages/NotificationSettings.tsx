@@ -30,6 +30,7 @@ export default function NotificationSettings() {
     liveSessionResults: { inApp: true, email: true, push: false },
     quizModeration: { inApp: true, email: true, push: false },
     leaderboardActivity: { inApp: true, email: true, push: false },
+    gamification: { inApp: true, email: true, push: false },
     mentorUpdates: { inApp: true, email: true, push: false },
     subscriptions: { inApp: true, email: true, push: false },
     communityForums: { inApp: true, email: true, push: false },

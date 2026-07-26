@@ -19,6 +19,23 @@ const UserActivity = require('../models/UserActivity');
 const OAAttempt = require('../models/OAAttempt');
 const GDLiveSession = require('../models/GDLiveSession');
 
+
+
+const getTargetUserId = async (req) => {
+  if (req.query.userId) {
+    if (req.user && req.user.role === 'admin') {
+      return req.query.userId;
+    }
+    // Alternatively fallback to db check if req.user.role isn't fresh
+    const User = require('../models/User');
+    const user = await User.findById(req.user.id);
+    if (user && user.role === 'admin') {
+      return req.query.userId;
+    }
+  }
+  return req.user.id;
+};
+
 const PROGRESS_WEIGHTS = {
   dsaTarget: 50, dsaWeight: 0.40,
   prepTargetScore: 100, prepWeight: 0.30,
@@ -26,9 +43,10 @@ const PROGRESS_WEIGHTS = {
 };
 
 // GET /api/dashboard/stats
+
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = await getTargetUserId(req);
     
     // Aggregate notes stats
     const notes = await Note.find({ user_id: userId });
@@ -59,7 +77,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
 // GET /api/dashboard/host
 router.get('/host', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = await getTargetUserId(req);
     
     const sessions = await VirtualClassroom.find({ host_id: userId }).sort({ scheduled_at: 1 });
     // Assume templates are empty for now as it's a mock
@@ -74,7 +92,7 @@ router.get('/host', authMiddleware, async (req, res) => {
 // GET /api/dashboard/analytics
 router.get('/analytics', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = await getTargetUserId(req);
     const notes = await Note.find({ user_id: userId })
       .select('title views downloads rating')
       .sort({ views: -1 });
@@ -90,7 +108,7 @@ const JoinRequest = require('../models/JoinRequest');
 // GET /api/dashboard/join-requests
 router.get('/join-requests', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = await getTargetUserId(req);
     // Get all ideas owned by the user
     const userIdeas = await Idea.find({ user_id: userId });
     const ideaIds = userIdeas.map(i => i._id);
@@ -149,7 +167,8 @@ router.post('/join-requests/:id/reject', authMiddleware, async (req, res) => {
 // GET /api/dashboard/my-ideas
 router.get('/my-ideas', authMiddleware, async (req, res) => {
   try {
-    const ideas = await Idea.find({ user_id: req.user.id }).sort({ created_at: -1 });
+    const userId = await getTargetUserId(req);
+    const ideas = await Idea.find({ user_id: userId }).sort({ created_at: -1 });
     res.json(ideas);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -159,10 +178,10 @@ router.get('/my-ideas', authMiddleware, async (req, res) => {
 // GET /api/dashboard/upcoming-sessions
 router.get('/upcoming-sessions', authMiddleware, async (req, res) => {
   try {
-    const participations = await ClassroomParticipant.find({ user_id: req.user.id, status: { $in: ['registered', 'attending', 'waitlisted'] } }).select('classroom_id');
+    const participations = await ClassroomParticipant.find({ user_id: await getTargetUserId(req), status: { $in: ['registered', 'attending', 'waitlisted'] } }).select('classroom_id');
     const classIds = participations.map(p => p.classroom_id);
     const sessions = await VirtualClassroom.find({ 
-      $or: [{ host_id: req.user.id }, { _id: { $in: classIds } }],
+      $or: [{ host_id: await getTargetUserId(req) }, { _id: { $in: classIds } }],
       status: 'scheduled'
     }).sort({ scheduled_at: 1 }).limit(5);
     const sessionsFormatted = sessions.map(s => ({
@@ -190,7 +209,7 @@ router.get('/live-activity', authMiddleware, async (req, res) => {
 // GET /api/dashboard/notifications
 router.get('/notifications', authMiddleware, async (req, res) => {
   try {
-    const notifications = await Notification.find({ userId: req.user.id }).sort({ createdAt: -1 }).limit(10);
+    const notifications = await Notification.find({ userId: await getTargetUserId(req) }).sort({ createdAt: -1 }).limit(10);
     res.json(notifications);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -200,14 +219,14 @@ router.get('/notifications', authMiddleware, async (req, res) => {
 // GET /api/dashboard/profile
 router.get('/profile', authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select(
+    const user = await User.findById(await getTargetUserId(req)).select(
       'username full_name avatar_url bio videoIntroUrl institutionVerified badges quizStreak totalQuizPoints'
     );
     if (!user) return res.status(404).json({ message: 'User not found' });
     
     // Calculate sessions hosted / attended
-    const sessions_hosted = await VirtualClassroom.countDocuments({ host_id: req.user.id });
-    const sessions_attended = await ClassroomParticipant.countDocuments({ user_id: req.user.id, status: { $in: ['attending', 'registered', 'waitlisted'] } });
+    const sessions_hosted = await VirtualClassroom.countDocuments({ host_id: await getTargetUserId(req) });
+    const sessions_attended = await ClassroomParticipant.countDocuments({ user_id: await getTargetUserId(req), status: { $in: ['attending', 'registered', 'waitlisted'] } });
 
     res.json({
       username: user.username,
@@ -230,7 +249,7 @@ router.get('/profile', authMiddleware, async (req, res) => {
 // GET /api/dashboard/placement-summary
 router.get('/placement-summary', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = await getTargetUserId(req);
     
     // Check for any sign of activity or onboarding
     const onboarding = await PlacementOnboarding.findOne({ user: userId });

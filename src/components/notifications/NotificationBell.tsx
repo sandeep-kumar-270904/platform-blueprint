@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
+import { io } from "socket.io-client";
+import { useAuth } from "@/hooks/useAuth";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -23,6 +25,7 @@ export interface Notification {
 }
 
 export const NotificationBell = () => {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -68,7 +71,20 @@ export const NotificationBell = () => {
     // Initial fetch
     fetchUnreadCount();
 
-    // Poll every 60 seconds
+    let newSocket: any = null;
+    if (user) {
+      newSocket = io(API_URL);
+      newSocket.emit('join_user_room', user.id);
+      
+      newSocket.on('notification:new', (newNotification: Notification) => {
+        setUnreadCount(prev => prev + 1);
+        if (isOpen) {
+          setNotifications(prev => [newNotification, ...prev]);
+        }
+      });
+    }
+
+    // Fallback Poll every 60 seconds
     const interval = setInterval(() => {
       fetchUnreadCount();
       if (isOpen) {
@@ -76,8 +92,11 @@ export const NotificationBell = () => {
       }
     }, 60000);
 
-    return () => clearInterval(interval);
-  }, [isOpen]);
+    return () => {
+      clearInterval(interval);
+      if (newSocket) newSocket.disconnect();
+    };
+  }, [isOpen, user]);
 
   // When popover opens, fetch the actual notifications list
   useEffect(() => {

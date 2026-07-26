@@ -673,6 +673,8 @@ app.use('/api/roadmaps', require('./routes/roadmaps'));
 app.use('/api/learning-sessions', require('./routes/learningSessions'));
 app.use('/api/learning-progress', require('./routes/learningProgress'));
 app.use('/api/note-comments', require('./routes/noteComments'));
+app.use('/api/admin/collections', require('./routes/adminCrud'));
+app.use('/api/admin/analytics', require('./routes/adminAnalytics'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/admin', require('./routes/adminJobs'));
 app.use('/api/admin/mentors', require('./routes/adminMentorsOverview'));
@@ -864,6 +866,7 @@ io.on('connection', (socket) => {
 
   // Attach Live Session socket handlers
   require('./sockets/liveSessions')(io, socket);
+    require('./sockets/gdLiveSessions')(io, socket);
 
   socket.on('participant_joined', (data) => {
     // Add to active connections (can be tracked per room for host logs)
