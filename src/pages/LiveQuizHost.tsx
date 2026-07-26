@@ -109,6 +109,12 @@ const LiveQuizHost = () => {
     socket.emit('advanceQuestion', { sessionId: sessionInfo._id, hostId: user?._id });
   };
   
+  const handleKickParticipant = (targetUserId: string) => {
+    if (!socket || !sessionInfo) return;
+    socket.emit('kickParticipant', { sessionId: sessionInfo._id, hostId: user?._id, targetUserId });
+    toast.success("Participant removed");
+  };
+
   const copyJoinCode = () => {
     if (sessionInfo) {
       navigator.clipboard.writeText(sessionInfo.joinCode);
@@ -210,10 +216,21 @@ const LiveQuizHost = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 mb-8 bg-background px-6 py-3 rounded-full border shadow-sm">
+            <div className="flex items-center gap-2 mb-4 bg-background px-6 py-3 rounded-full border shadow-sm w-fit mx-auto">
               <Users className="h-5 w-5 text-indigo-500" />
-              <span className="font-semibold text-lg">{participants.length} Participants Waiting/Active</span>
+              <span className="font-semibold text-lg">{participants.length} Participants Waiting</span>
             </div>
+            
+            {participants.length > 0 && (
+              <div className="w-full max-w-md mx-auto mb-8 bg-background rounded-xl border shadow-sm divide-y">
+                {participants.map((p, idx) => (
+                  <div key={idx} className="flex justify-between items-center p-3 text-left">
+                    <span className="font-medium">{p.name} {p.status === 'disconnected' ? '(Disconnected)' : ''}</span>
+                    <Button variant="destructive" size="sm" onClick={() => handleKickParticipant(p._id)}>Kick</Button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {sessionInfo.pacingMode === 'host' ? (
               <Button size="lg" className="h-16 px-12 text-xl" onClick={handleStartSession} disabled={participants.length === 0}>
@@ -241,6 +258,38 @@ const LiveQuizHost = () => {
                 <Button size="lg" variant="default" className="h-14 px-8 text-lg w-full max-w-sm" onClick={handleNextQuestion}>
                   Next Question <SkipForward className="ml-2 h-5 w-5" />
                 </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="border-b">
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-indigo-500" /> Participants
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y max-h-64 overflow-y-auto">
+                  {participants.length === 0 ? (
+                    <p className="p-4 text-center text-muted-foreground text-sm">No participants</p>
+                  ) : (
+                    participants.map((p, idx) => {
+                      // Check if they answered this question. We know if their score changed or just by looking at answers, 
+                      // but frontend doesn't have `p.answers`. We can check if they are in the leaderboard for this question?
+                      // Wait, we don't have per-question status explicitly yet unless we track it. Let's just show their status.
+                      return (
+                        <div key={idx} className="flex justify-between items-center p-4">
+                          <div className="flex items-center gap-3">
+                            <span className="font-medium">{p.name}</span>
+                            {p.status === 'disconnected' && <span className="text-xs text-red-500 font-bold">(Disconnected)</span>}
+                          </div>
+                          <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleKickParticipant(p._id)}>
+                            Kick
+                          </Button>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
               </CardContent>
             </Card>
 

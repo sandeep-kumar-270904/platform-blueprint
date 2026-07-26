@@ -22,11 +22,13 @@ router.post('/group/:groupId/session', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Only active members can schedule GD sessions' });
     }
     
-    const { topicTitle, scheduledTime, meetingLink } = req.body;
+    const { topicTitle, scheduledTime, meetingLink, mode, quizId } = req.body;
     
     const session = new GDLiveSession({
       studyGroup: group._id,
       creator: req.user.id,
+      mode: mode || 'discussion',
+      quizId,
       topicTitle,
       scheduledTime,
       meetingLink,
@@ -113,6 +115,16 @@ router.post('/session/:id/rsvp', authMiddleware, async (req, res) => {
     }
     
     await session.save();
+    const notificationService = require('../services/notificationService');
+    // Notify host or others that session is active
+    if (session.host.toString() !== req.user.id) {
+        await notificationService.sendNotification({
+          userId: session.host,
+          type: 'live_session_starting_soon',
+          relatedContentId: session._id,
+          actorId: req.user.id
+        });
+    }
     res.json(session);
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
