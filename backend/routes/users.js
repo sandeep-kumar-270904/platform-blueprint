@@ -187,6 +187,41 @@ router.delete('/me', authMiddleware, async (req, res) => {
     // Anonymize referrals where they were the referrer (keep records for tracking)
     await Referral.updateMany({ referrer: userId }, { $set: { referrer: null } });
 
+    // Cleanup Phase 1-5 Team Hunt module models
+    const Team = require('../models/Team');
+    const TeamApplication = require('../models/TeamApplication');
+    const TeamMessage = require('../models/TeamMessage');
+    const TeamReview = require('../models/TeamReview');
+    const TeamInvite = require('../models/TeamInvite');
+    const TeamCallSession = require('../models/TeamCallSession');
+    const TeamReport = require('../models/TeamReport');
+    
+    // Anonymize chat messages so history isn't broken for teams
+    await TeamMessage.updateMany({ sender: userId }, { $set: { sender: null, content: '[User Deleted]' } });
+    
+    // Anonymize reviews given by this user
+    await TeamReview.updateMany({ reviewer: userId }, { $set: { reviewer: null } });
+    // Keep reviews received by this user for the team's historical rating, just unlinked from user id? 
+    // Wait, if user is deleted, their reviews received can also be anonymized or kept. Let's anonymize reviewee.
+    await TeamReview.updateMany({ reviewee: userId }, { $set: { reviewee: null } });
+    
+    // Hard delete pending invites and applications for this user
+    await TeamInvite.deleteMany({ $or: [{ invitedUser: userId }, { invitedBy: userId }] });
+    await TeamApplication.deleteMany({ applicant: userId });
+    
+    // For teams created by the user, we can set creator to null or a "Deleted User" id, or leave them. 
+    // To not break the app which expects creator.username, we might need a system user, but setting null and handling it in UI is standard.
+    await Team.updateMany({ creator: userId }, { $set: { creator: null } });
+    
+    // Remove user from team members array across all teams
+    await Team.updateMany(
+      { 'members.user': userId }, 
+      { $pull: { members: { user: userId } } }
+    );
+    
+    // Anonymize reports
+    await TeamReport.updateMany({ reportedBy: userId }, { $set: { reportedBy: null } });
+
     // 5. Finally delete the User record
     await User.findByIdAndDelete(userId);
     
@@ -228,6 +263,44 @@ router.get('/me/export', authMiddleware, async (req, res) => {
     res.send(JSON.stringify(exportData, null, 2));
   } catch (err) {
     res.status(500).json({ message: 'Server error exporting data', error: err.message });
+  }
+});
+
+// GET /api/users/me/team-hunt-data-export
+router.get('/me/team-hunt-data-export', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const Team = require('../models/Team');
+    const TeamApplication = require('../models/TeamApplication');
+    const TeamMessage = require('../models/TeamMessage');
+    const TeamReview = require('../models/TeamReview');
+    const TeamInvite = require('../models/TeamInvite');
+    
+    const myTeams = await Team.find({ creator: userId }).lean();
+    const myApplications = await TeamApplication.find({ applicant: userId }).lean();
+    const myReceivedApplications = await TeamApplication.find({ 
+      team: { $in: myTeams.map(t => t._id) } 
+    }).lean();
+    const myMessages = await TeamMessage.find({ sender: userId }).lean();
+    const myReviewsGiven = await TeamReview.find({ reviewer: userId }).lean();
+    const myReviewsReceived = await TeamReview.find({ reviewee: userId }).lean();
+    const myInvites = await TeamInvite.find({ invitedUser: userId }).lean();
+
+    const exportData = {
+      teamsCreated: myTeams,
+      applicationsMade: myApplications,
+      applicationsReceived: myReceivedApplications,
+      messagesSent: myMessages,
+      reviewsGiven: myReviewsGiven,
+      reviewsReceived: myReviewsReceived,
+      invitesReceived: myInvites
+    };
+
+    res.setHeader('Content-disposition', 'attachment; filename=my-team-hunt-data.json');
+    res.setHeader('Content-type', 'application/json');
+    res.send(JSON.stringify(exportData, null, 2));
+  } catch (err) {
+    res.status(500).json({ message: 'Server error exporting team hunt data', error: err.message });
   }
 });
 
@@ -764,6 +837,23 @@ router.post('/:id/block', authMiddleware, async (req, res) => {
     
     await user.save();
     res.json({ message: isBlocked ? 'User unblocked' : 'User blocked', blocked_users: user.blocked_users });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+const { getUserReviews } = require('../controllers/teamReviewController');
+router.get('/:id/reviews', getUserReviews);
+
+const teamBadgeService = require('../services/teamBadgeService');
+router.get('/:id/teamhunt-stats', async (req, res) => {
+  try {
+    const stats = await teamBadgeService.evaluateUserBadges(req.params.id);
+    const user = await User.findById(req.params.id).select('gamification_badges');
+    res.json({
+      stats,
+      badges: user?.gamification_badges?.filter(b => ['RELIABLE_TEAMMATE', 'TEAM_BUILDER'].includes(b.badge_id)) || []
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

@@ -1,14 +1,43 @@
 const mongoose = require('mongoose');
 
-const teamMessageSchema = new mongoose.Schema({
-  team_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Team', required: true },
-  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  content: { type: String, required: true },
-  message_type: { type: String, default: 'text' },
-  file_url: { type: String, default: null },
-  is_read: { type: Boolean, default: false },
-  reply_to: { type: mongoose.Schema.Types.ObjectId, ref: 'TeamMessage', default: null },
-  created_at: { type: Date, default: Date.now }
+const TeamMessageSchema = new mongoose.Schema({
+  team: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team',
+    required: true,
+    index: true
+  },
+  sender: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  content: {
+    type: String,
+    required: function() { return this.type === 'text' || this.type === 'system'; },
+    trim: true
+  },
+  type: {
+    type: String,
+    enum: ['text', 'file', 'system'],
+    default: 'text'
+  },
+  attachments: [{
+    url: String,
+    filename: String,
+    fileType: String,
+    size: Number
+  }],
+  readBy: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    readAt: { type: Date, default: Date.now }
+  }],
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
-module.exports = mongoose.model('TeamMessage', teamMessageSchema);
+TeamMessageSchema.index({ team: 1, _id: -1 });
+
+module.exports = mongoose.model('TeamMessage', TeamMessageSchema);

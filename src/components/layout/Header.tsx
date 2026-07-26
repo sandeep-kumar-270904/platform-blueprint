@@ -14,8 +14,9 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { useSiteContent } from "@/hooks/useSiteContent";
 
-const navigationGroups = [
+const defaultNavigationGroups = [
   {
     title: "Academic & Career",
     items: [
@@ -92,6 +93,8 @@ export const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { data: siteData } = useSiteContent();
+  const navigationGroups = siteData?.navigation?.groups?.length >= 2 ? siteData.navigation.groups : defaultNavigationGroups;
   
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark' || document.documentElement.classList.contains('dark');

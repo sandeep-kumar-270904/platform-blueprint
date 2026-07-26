@@ -51,6 +51,47 @@ registerRoute(
   'DELETE'
 );
 
+// --- Phase 7: Team Hunt Background Sync & Offline Caching ---
+const teamHuntSyncPlugin = new BackgroundSyncPlugin('team-hunt-queue', {
+  maxRetentionTime: 24 * 60 // Retry for up to 24 hours
+});
+
+// Cache team lists, team details, and my teams/applications for offline viewing
+registerRoute(
+  /\/api\/teams(\/.*)?$/,
+  new StaleWhileRevalidate({
+    cacheName: 'team-hunt-cache',
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200]
+      }),
+      new ExpirationPlugin({
+        maxEntries: 50,
+        maxAgeSeconds: 24 * 60 * 60 // 24 hours
+      })
+    ]
+  }),
+  'GET'
+);
+
+// Background sync for applying to teams and sending chat messages offline
+registerRoute(
+  /\/api\/teams\/.*\/(apply|messages|applications\/.*|reviews)/,
+  new NetworkOnly({
+    plugins: [teamHuntSyncPlugin]
+  }),
+  'POST'
+);
+
+registerRoute(
+  /\/api\/teams\/.*\/applications\/.*/,
+  new NetworkOnly({
+    plugins: [teamHuntSyncPlugin]
+  }),
+  'PUT'
+);
+// -----------------------------------------------------------
+
 // Push Notifications
 self.addEventListener('push', (event) => {
   let data = { title: 'New Notification', body: '', url: '/' };

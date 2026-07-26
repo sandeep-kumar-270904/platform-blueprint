@@ -14,6 +14,8 @@ import { AdminFeedMetrics } from "@/components/admin/AdminFeedMetrics";
 import { AdminClassrooms } from "@/components/admin/AdminClassrooms";
 import { AdminDatabaseExplorer } from "@/components/admin/AdminDatabaseExplorer";
 import { AdminAnalyticsHub } from "@/components/admin/AdminAnalyticsHub";
+import { AdminPageManager } from "@/components/admin/AdminPageManager";
+import { AdminTeamModeration } from "@/components/admin/AdminTeamModeration";
 import { useAdmin } from "@/hooks/useAdmin";
 import { toast } from 'sonner';
 
@@ -96,6 +98,12 @@ const AdminPanel = () => {
             </TabsTrigger>
             <TabsTrigger value="feed-metrics">
               <Activity className="mr-2 h-4 w-4" /> Feed Metrics
+            </TabsTrigger>
+            <TabsTrigger value="site-pages">
+              <FileText className="mr-2 h-4 w-4" /> Site Pages
+            </TabsTrigger>
+            <TabsTrigger value="team-moderation">
+              <Users className="mr-2 h-4 w-4" /> Teams
             </TabsTrigger>
           </TabsList>
 
@@ -231,10 +239,17 @@ const AdminPanel = () => {
             <AdminFinancials />
           </TabsContent>
 
-          <TabsContent value="feed-metrics" className="bg-white p-6 rounded-xl border shadow-sm">
+          <TabsContent value="feed-metrics" className="bg-white p-6 rounded-xl">
             <AdminFeedMetrics />
           </TabsContent>
+          
+          <TabsContent value="site-pages" className="bg-white p-6 rounded-xl border shadow-sm">
+            <AdminPageManager />
+          </TabsContent>
 
+          <TabsContent value="team-moderation">
+            <AdminTeamModeration />
+          </TabsContent>
         </Tabs>
       </main>
     </div>

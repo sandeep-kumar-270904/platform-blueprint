@@ -116,6 +116,7 @@ router.get('/reports', async (req, res) => {
     const JobReport = mongoose.models.JobReport;
     const QuizReport = mongoose.models.QuizReport;
     const NewsReport = mongoose.models.NewsReport;
+    const TeamReport = mongoose.models.TeamReport || require('../models/TeamReport');
 
     const counts = await Promise.all([
       Report ? Report.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]) : [],
@@ -123,6 +124,7 @@ router.get('/reports', async (req, res) => {
       JobReport ? JobReport.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]) : [],
       QuizReport ? QuizReport.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]) : [],
       NewsReport ? NewsReport.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]) : [],
+      TeamReport ? TeamReport.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]) : [],
     ]);
 
     // Aggregate into a simple list of { name: 'Module', pending: X, resolved: Y }
@@ -131,7 +133,8 @@ router.get('/reports', async (req, res) => {
       { name: 'Ideas', pending: counts[1].find(c => c._id === 'pending')?.count || 0, resolved: counts[1].find(c => c._id !== 'pending')?.count || 0 },
       { name: 'Jobs', pending: counts[2].find(c => c._id === 'pending')?.count || 0, resolved: counts[2].find(c => c._id !== 'pending')?.count || 0 },
       { name: 'Quizzes', pending: counts[3].find(c => c._id === 'pending')?.count || 0, resolved: counts[3].find(c => c._id !== 'pending')?.count || 0 },
-      { name: 'News', pending: counts[4].find(c => c._id === 'pending')?.count || 0, resolved: counts[4].find(c => c._id !== 'pending')?.count || 0 }
+      { name: 'News', pending: counts[4].find(c => c._id === 'pending')?.count || 0, resolved: counts[4].find(c => c._id !== 'pending')?.count || 0 },
+      { name: 'Team Hunt', pending: counts[5].find(c => c._id === 'pending')?.count || 0, resolved: counts[5].find(c => c._id !== 'pending')?.count || 0 }
     ];
 
     res.json(data);

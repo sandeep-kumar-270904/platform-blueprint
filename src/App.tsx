@@ -86,6 +86,10 @@ import QuestionDetail from "./pages/QuestionDetail";
 import PlacementSearch from "./pages/PlacementSearch";
 import StudyGroups from "./pages/StudyGroups";
 import TeamHunt from "./pages/TeamHunt";
+import TeamHuntManage from "./pages/TeamHuntManage";
+import TeamHuntDashboard from "./pages/TeamHuntDashboard";
+import TeamHuntDetail from "./pages/TeamHuntDetail";
+import TeamHuntLeaderboard from "./pages/TeamHuntLeaderboard";
 import RoommateFind from "./pages/RoommateFind";
 import Wellness from "./pages/Wellness";
 import AdminCareerOpportunities from './pages/admin/AdminCareerOpportunities';
@@ -149,6 +153,9 @@ import { PublicRecommendationForm } from "./pages/PublicRecommendationForm";
 import { ResumeWorkshops } from "./pages/ResumeWorkshops";
 import { WorkshopSession } from "./pages/WorkshopSession";
 import { DeveloperSettings } from "./pages/DeveloperSettings";
+import { StaticPage } from "./pages/StaticPage";
+import { AnnouncementBanner } from "./components/layout/AnnouncementBanner";
+import { MaintenanceModeWrapper } from "./components/layout/MaintenanceMode";
 
 const queryClient = new QueryClient();
 
@@ -160,8 +167,10 @@ const App = () => (
         <Sonner />
         <GlobalSocketListener />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <Routes>
-          {/* Public Routes */}
+          <AnnouncementBanner />
+          <MaintenanceModeWrapper>
+            <Routes>
+            {/* Public Routes */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -176,6 +185,7 @@ const App = () => (
           <Route path="/scholarships/community" element={<ScholarshipCommunity />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
           <Route path="/search" element={<Search />} />
+          <Route path="/p/:slug" element={<StaticPage />} />
           <Route path="/profile/:userId/skills" element={<PublicSkillsProfile />} />
           {/* Protected Routes */}
             <Route path="/notes" element={<ProtectedRoute><NotesHub /></ProtectedRoute>} />
@@ -264,6 +274,10 @@ const App = () => (
           <Route path="/placement/mock-interviews" element={<ProtectedRoute><MockInterviews /></ProtectedRoute>} />
           <Route path="/study-groups" element={<ProtectedRoute><StudyGroups /></ProtectedRoute>} />
           <Route path="/team-hunt" element={<ProtectedRoute><TeamHunt /></ProtectedRoute>} />
+          <Route path="/team-hunt/dashboard" element={<ProtectedRoute><TeamHuntDashboard /></ProtectedRoute>} />
+          <Route path="/team-hunt/leaderboard" element={<ProtectedRoute><TeamHuntLeaderboard /></ProtectedRoute>} />
+          <Route path="/team-hunt/:id" element={<ProtectedRoute><TeamHuntDetail /></ProtectedRoute>} />
+          <Route path="/team-hunt/:id/manage" element={<ProtectedRoute><TeamHuntManage /></ProtectedRoute>} />
           <Route path="/roommate-finder" element={<ProtectedRoute><RoommateFind /></ProtectedRoute>} />
           <Route path="/wellness" element={<ProtectedRoute><Wellness /></ProtectedRoute>} />
           <Route path="/room-rentals" element={<ProtectedRoute><RoomRentals /></ProtectedRoute>} />
@@ -315,6 +329,7 @@ const App = () => (
         <Route path="/resume/workshops/:id" element={<WorkshopSession />} />
         <Route path="/resume/developer" element={<DeveloperSettings />} />
       </Routes>
+      </MaintenanceModeWrapper>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

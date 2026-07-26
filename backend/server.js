@@ -662,6 +662,8 @@ app.use('/api/resume-feedback', require('./routes/feedback'));
 app.use('/api/cover-letters', require('./routes/coverLetters'));
 app.use('/api/study-groups', require('./routes/studyGroups'));
 app.use('/api/quizzes', require('./routes/quizzes'));
+app.use('/api/teams', require('./routes/teams'));
+app.use('/api/invites', require('./routes/invites'));
 app.use('/api/dsa', require('./routes/dsa'));
 app.use('/api/progress', require('./routes/progress'));
 app.use('/api/interview-prep', require('./routes/interviewPrep'));
@@ -731,9 +733,11 @@ app.use('/api/live-sessions', require('./routes/liveSessions'));
 app.use('/api/news', require('./routes/news'));
 app.use('/api/leaderboards', require('./routes/leaderboards'));
 app.use('/api/creators', require('./routes/creators'));
-app.use('/api/admin/quizzes-overview', require('./routes/adminQuizzesOverview'));
-app.use('/api/admin/aptitude', require('./routes/adminAptitude'));
-app.use('/api/question-bank', require('./routes/questionBank'));
+  app.use('/api/admin/quizzes-overview', require('./routes/adminQuizzesOverview'));
+  app.use('/api/admin/aptitude', require('./routes/adminAptitude'));
+  app.use('/api/admin/team-moderation', require('./routes/adminTeamModeration'));
+  app.use('/api/admin/team-hunt', require('./routes/adminTeamModeration'));
+  app.use('/api/question-bank', require('./routes/questionBank'));
 app.use('/api/me', require('./routes/me'));
 app.use('/api/mentor-community', require('./routes/mentorCommunity'));
 app.use('/api/ai-paths', require('./routes/aiPaths'));
@@ -867,6 +871,7 @@ io.on('connection', (socket) => {
   // Attach Live Session socket handlers
   require('./sockets/liveSessions')(io, socket);
     require('./sockets/gdLiveSessions')(io, socket);
+  require('./sockets/teamChat')(io, socket);
 
   socket.on('participant_joined', (data) => {
     // Add to active connections (can be tracked per room for host logs)
@@ -956,3 +961,5 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 
+
+module.exports = app;

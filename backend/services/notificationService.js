@@ -60,6 +60,16 @@ const sendNotification = async (data) => {
         'placement_milestone': 'milestones'
       };
 
+      const teamHuntTypeMap = {
+        'team_application': 'team_applications',
+        'team_application_accepted': 'team_applications',
+        'team_application_rejected': 'team_applications',
+        'team_completed': 'team_reviews',
+        'team_disbanded': 'team_updates',
+        'team_member_removed': 'team_updates',
+        'team_invite': 'team_invites'
+      };
+
       const mappedField = typeMap[type];
       if (mappedField && pref.toggles && pref.toggles[mappedField] === false) {
         return null; 
@@ -67,6 +77,11 @@ const sendNotification = async (data) => {
       
       const placementMapped = placementTypeMap[type];
       if (placementMapped && pref.toggles?.placement && pref.toggles.placement[placementMapped] === false) {
+        return null;
+      }
+
+      const teamHuntMapped = teamHuntTypeMap[type];
+      if (teamHuntMapped && pref.toggles?.teamHunt && pref.toggles.teamHunt[teamHuntMapped] === false) {
         return null;
       }
       
@@ -129,6 +144,35 @@ const sendNotification = async (data) => {
       }
     }
 
+    data.message = data.message || data.body || 'New Notification';
+
+    // --- Phase 7: Locale-Aware Team Hunt Notification Templates ---
+    if (user && user.locale && type && type.startsWith('team_')) {
+      const loc = user.locale;
+      const titles = {
+        'es': {
+          'team_application': 'Nueva Solicitud de Equipo',
+          'team_application_accepted': '¡Solicitud Aceptada!',
+          'team_application_rejected': 'Actualización de Solicitud',
+          'team_completed': '¡Proyecto Completado!',
+          'team_disbanded': 'Equipo Disuelto',
+          'team_member_removed': 'Eliminado del Equipo'
+        },
+        'ar': {
+          'team_application': 'طلب انضمام جديد للفريق',
+          'team_application_accepted': 'تم قبول الطلب!',
+          'team_application_rejected': 'تحديث حالة الطلب',
+          'team_completed': 'اكتمل المشروع!',
+          'team_disbanded': 'تم حل الفريق',
+          'team_member_removed': 'تمت إزالتك من الفريق'
+        }
+      };
+      if (titles[loc] && titles[loc][type]) {
+        data.title = titles[loc][type];
+      }
+    }
+    // --------------------------------------------------------------
+
     const created = await Notification.create(data);
     
     if (!isQuietHours && _io) {
@@ -136,10 +180,22 @@ const sendNotification = async (data) => {
     }
     
     if (!isQuietHours && user && user.webPushSubscriptions && user.webPushSubscriptions.length > 0) {
+      let title = created.title || 'StudentHub Notification';
+      if (type && type.startsWith('team_')) title = created.title || 'Team Hunt';
+      else if (type && type.startsWith('community_')) title = created.title || 'Community Feed';
+      else if (type && type.startsWith('placement_')) title = created.title || 'Placement Prep';
+      
+      let url = '/';
+      if (type && type.startsWith('team_')) {
+        url = created.relatedContentId ? `/team-hunt/${created.relatedContentId}` : '/team-hunt/dashboard';
+      } else if (created.relatedContentId) {
+        url = `/classrooms/${created.relatedContentId}`;
+      }
+
       const payload = JSON.stringify({
-        title: 'Virtual Classroom',
-        body: created.message,
-        url: created.relatedContentId ? `/classrooms/${created.relatedContentId}` : '/'
+        title,
+        body: created.message || created.body || 'New Notification',
+        url
       });
       for (const sub of user.webPushSubscriptions) {
         try {
