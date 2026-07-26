@@ -12,6 +12,10 @@ const newsCollectionSchema = new mongoose.Schema({
     required: true,
     maxlength: 100
   },
+  articles: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'NewsArticle'
+  }],
   collaborators: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
