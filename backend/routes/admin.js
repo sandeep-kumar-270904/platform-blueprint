@@ -5,6 +5,9 @@ const Note = require('../models/Note');
 const { NoteComment } = require('../models/NoteComment');
 const Report = require('../models/Report');
 const User = require('../models/User');
+const Quiz = require('../models/Quiz');
+const AuditLog = require('../models/AuditLog');
+const notificationService = require('../services/notificationService');
 const Review = require('../models/Review');
 const Event = require('../models/Event');
 const MentorProfile = require('../models/MentorProfile');
@@ -13,7 +16,6 @@ const { AMASession } = require('../models/AMA');
 const MentorReview = require('../models/MentorReview');
 const PayoutTracking = require('../models/PayoutTracking');
 const AdminActionLog = require('../models/AdminActionLog');
-const notificationService = require('../services/notificationService');
 const VirtualClassroom = require('../models/VirtualClassroom');
 const ClassroomParticipant = require('../models/ClassroomParticipant');
 const Notification = require('../models/Notification');
@@ -733,7 +735,25 @@ router.put('/disputes/:id/resolve', authMiddleware, isAdmin, async (req, res) =>
   }
 });
 
+
+// POST /api/admin/users/:userId/adjust-points
+router.post('/users/:userId/adjust-points', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { points } = req.body;
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    user.totalQuizPoints = (user.totalQuizPoints || 0) + (points || 0);
+    await user.save();
+    
+    res.json({ message: 'Points adjusted', totalQuizPoints: user.totalQuizPoints });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // --- COMMUNITY FEED ADMIN ---
+
 const CommunityPost = require('../models/CommunityPost');
 const CommunityComment = require('../models/CommunityComment');
 
@@ -1163,6 +1183,152 @@ router.get('/classrooms/reporting', authMiddleware, isAdmin, async (req, res) =>
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+// ==========================================
+// QUIZ MODERATION QUEUE
+// ==========================================
+
+// GET /api/admin/quiz-reports
+router.get('/quiz-reports', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+    const query = {};
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    
+    const reports = await QuizReport.find(query)
+      .populate({ path: 'targetId', select: 'title category mode status creator' })
+      .populate('reportedBy', 'full_name email')
+      .populate('reviewedBy', 'full_name')
+      .sort({ createdAt: -1 })
+      .lean();
+      
+    res.json(reports);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PATCH /api/admin/quiz-reports/:id
+router.patch('/quiz-reports/:id', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { action, adminNote } = req.body;
+    const report = await QuizReport.findById(req.params.id);
+    if (!report) return res.status(404).json({ message: 'Report not found' });
+    
+    const quiz = await Quiz.findById(report.targetId);
+    
+    // Audit log preparation
+    const auditLog = new AuditLog({
+      actor_id: req.user.id,
+      action: `quiz_report_${action}`,
+      entity_type: 'quiz_report',
+      entity_id: report._id,
+      metadata: { reason: adminNote, targetQuizId: report.targetId }
+    });
+
+    if (action === 'dismiss') {
+      report.status = 'reviewed_dismissed';
+      report.reviewedBy = req.user.id;
+      report.reviewedAt = new Date();
+      report.adminNote = adminNote;
+      await report.save();
+      await auditLog.save();
+      return res.json({ message: 'Report dismissed', report });
+    }
+
+    if (action === 'unpublish') {
+      report.status = 'reviewed_actioned';
+      report.reviewedBy = req.user.id;
+      report.reviewedAt = new Date();
+      report.adminNote = adminNote;
+      await report.save();
+      
+      if (quiz) {
+        quiz.status = 'unpublished';
+        await quiz.save();
+        
+        // Notify creator
+        await notificationService.sendNotification({
+          userId: quiz.creator,
+          type: 'alert',
+          title: 'Quiz Unpublished',
+          message: `Your quiz "${quiz.title}" has been unpublished by a moderator. Reason: ${adminNote || 'Policy violation'}`,
+          link: '/my-quizzes'
+        });
+      }
+      await auditLog.save();
+      return res.json({ message: 'Quiz unpublished', report });
+    }
+
+    if (action === 'delete') {
+      report.status = 'reviewed_actioned';
+      report.reviewedBy = req.user.id;
+      report.reviewedAt = new Date();
+      report.adminNote = adminNote;
+      await report.save();
+      
+      if (quiz) {
+        quiz.status = 'deleted'; // soft delete or actual delete
+        await quiz.save();
+        
+        // Notify creator
+        await notificationService.sendNotification({
+          userId: quiz.creator,
+          type: 'alert',
+          title: 'Quiz Deleted',
+          message: `Your quiz "${quiz.title}" has been deleted by a moderator. Reason: ${adminNote || 'Severe policy violation'}`,
+          link: '/my-quizzes'
+        });
+      }
+      await auditLog.save();
+      return res.json({ message: 'Quiz deleted', report });
+    }
+
+    res.status(400).json({ message: 'Invalid action' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/admin/users/:id/quiz-ban
+router.post('/users/:id/quiz-ban', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { reason, ban } = req.body;
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    user.quizBanned = ban;
+    if (ban && reason) {
+      user.banReason = reason;
+    }
+    await user.save();
+    
+    const auditLog = new AuditLog({
+      actor_id: req.user.id,
+      action: ban ? 'quiz_ban_user' : 'quiz_unban_user',
+      entity_type: 'user',
+      entity_id: user._id,
+      metadata: { reason }
+    });
+    await auditLog.save();
+    
+    if (ban) {
+      await notificationService.sendNotification({
+        userId: user._id,
+        type: 'alert',
+        title: 'Quiz Creation Restricted',
+        message: `Your quiz creation privileges have been restricted. Reason: ${reason || 'Policy violation'}`,
+      });
+    }
+
+    res.json({ message: ban ? 'User restricted from creating quizzes' : 'User quiz restriction lifted', user });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 

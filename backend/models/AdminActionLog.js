@@ -7,7 +7,9 @@ const adminActionLogSchema = new mongoose.Schema({
     required: true 
   },
   targetId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  reason: { type: String, required: true }
+  modelName: { type: String }, // Which collection was modified (if applicable)
+  reason: { type: String },
+  changes: { type: mongoose.Schema.Types.Mixed } // Stores { before, after } or specific diffs
 }, { timestamps: true });
 
 adminActionLogSchema.index({ adminId: 1 });

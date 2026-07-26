@@ -12,6 +12,8 @@ import { AdminModerationQueue } from "@/components/admin/AdminModerationQueue";
 import { AdminFinancials } from "@/components/admin/AdminFinancials";
 import { AdminFeedMetrics } from "@/components/admin/AdminFeedMetrics";
 import { AdminClassrooms } from "@/components/admin/AdminClassrooms";
+import { AdminDatabaseExplorer } from "@/components/admin/AdminDatabaseExplorer";
+import { AdminAnalyticsHub } from "@/components/admin/AdminAnalyticsHub";
 import { useAdmin } from "@/hooks/useAdmin";
 import { toast } from 'sonner';
 
@@ -82,12 +84,14 @@ const AdminPanel = () => {
         <Tabs defaultValue="overview" className="space-y-8">
           <TabsList className="bg-white border p-1 rounded-lg">
             <TabsTrigger value="overview"><BarChart3 className="mr-2 h-4 w-4" /> Dashboard</TabsTrigger>
+            <TabsTrigger value="analytics"><Activity className="mr-2 h-4 w-4" /> Analytics Hub</TabsTrigger>
+            <TabsTrigger value="database"><FileText className="mr-2 h-4 w-4" /> DB Explorer</TabsTrigger>
             <TabsTrigger value="moderation">
               <AlertTriangle className="mr-2 h-4 w-4" /> Moderation Queue
               {globalStats?.pendingReports > 0 && <Badge variant="destructive" className="ml-2">{globalStats.pendingReports}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="financials">
-              <DollarSign className="mr-2 h-4 w-4" /> Financials & Disputes
+              <DollarSign className="mr-2 h-4 w-4" /> Financials
               {globalStats?.openDisputes > 0 && <Badge variant="destructive" className="ml-2">{globalStats.openDisputes}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="feed-metrics">
@@ -160,6 +164,29 @@ const AdminPanel = () => {
 
               <Card>
                 <CardHeader>
+                  <CardTitle>User Lookup & Impersonation</CardTitle>
+                  <CardDescription>Enter a User ID to view their dashboard securely.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      id="impersonate-user-id" 
+                      placeholder="Paste User ID here..." 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                    <Button onClick={() => {
+                      const id = (document.getElementById('impersonate-user-id') as HTMLInputElement).value;
+                      if(id) window.location.href = `/admin/users/${id}/dashboard`;
+                    }}>
+                      View Dashboard
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle>Recent Bans & Suspensions</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -173,7 +200,12 @@ const AdminPanel = () => {
                             <p className="font-medium">{user.full_name}</p>
                             <p className="text-xs text-muted-foreground">{user.banReason}</p>
                           </div>
-                          <Badge variant="destructive">Banned</Badge>
+                          <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" asChild>
+                              <Link to={`/admin/users/${user._id}/dashboard`}>View Dash</Link>
+                            </Button>
+                            <Badge variant="destructive">Banned</Badge>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -181,6 +213,14 @@ const AdminPanel = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="analytics" className="bg-white p-6 rounded-xl border shadow-sm">
+            <AdminAnalyticsHub />
+          </TabsContent>
+
+          <TabsContent value="database" className="bg-white p-6 rounded-xl border shadow-sm">
+            <AdminDatabaseExplorer />
           </TabsContent>
 
           <TabsContent value="moderation" className="bg-white p-6 rounded-xl border shadow-sm">
