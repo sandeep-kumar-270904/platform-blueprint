@@ -91,20 +91,6 @@ useEffect(() => {
           </Select>
         </div>
       </div>
-        
-        <div className="w-full md:w-64">
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger>
-              <SelectValue placeholder="Filter by Category" />
-            </SelectTrigger>
-            <SelectContent>
-              {CATEGORIES.map(cat => (
-                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
       {user && myStats && (
         <Card className="bg-primary/5 border-primary/20">

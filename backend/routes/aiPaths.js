@@ -52,7 +52,19 @@ Return ONLY a valid JSON object in this exact format:
 }
     `;
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '');
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      return res.json({
+        id: "mock_path_1",
+        title: `AI Path for ${goal}`,
+        description: `This is a mock learning path because the Gemini API key is missing.`,
+        duration: "4 weeks",
+        modules: [
+          { title: "Module 1", description: "Mock intro", duration: "1 week", type: "course" }
+        ]
+      });
+    }
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const result = await model.generateContent(prompt);
