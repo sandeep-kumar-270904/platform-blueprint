@@ -2,37 +2,46 @@ const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
 const gamificationService = require('./gamificationService');
 
-async function submitQuizAttempt({ attemptId, submittedAnswers, io }) {
-  // 1. Load the QuizAttempt and its parent Quiz (with correctOptionIndex)
+async function submitQuizAttempt({ attemptId, submittedAnswers, io, timezone }) {
+  // 1. Load the QuizAttempt
   const attempt = await QuizAttempt.findById(attemptId);
   if (!attempt) throw new Error('Attempt not found');
-  if (attempt.status === 'completed') throw new Error('Attempt already completed');
+  
+  // Idempotency: if already completed, just return the attempt
+  if (attempt.status === 'completed') return { attempt };
 
+  // We rely on attempt.answers for grading to protect against mid-attempt edits/deletions.
+  // We still try to fetch the quiz to get the duration.
   const quiz = await Quiz.findById(attempt.quiz);
-  if (!quiz) throw new Error('Quiz not found');
+  const durationMinutes = quiz ? quiz.durationMinutes : 60;
 
   // Check if time expired (with 10s grace period)
   const now = new Date();
-  const allowedTimeMs = quiz.durationMinutes * 60 * 1000 + 10000;
+  const allowedTimeMs = durationMinutes * 60 * 1000 + 10000;
   if (now.getTime() - attempt.startedAt.getTime() > allowedTimeMs) {
     attempt.status = 'abandoned';
     attempt.completedAt = now;
     await attempt.save();
-    throw new Error('Time expired. Attempt marked as abandoned.');
+    return attempt; // Return gracefully so frontend can show "Time Expired" state
   }
 
-  // 2. Score the answers
+  // 2. Score the answers based on SNAPSHOT
   let score = 0;
   let totalPossibleScore = 0;
   const processedAnswers = [];
 
-  quiz.questions.forEach((question, index) => {
-    const points = question.points || 1;
+  attempt.answers.forEach((ansSnapshot, index) => {
+    const qSnapshot = ansSnapshot.questionSnapshot;
+    const points = qSnapshot.points || 1;
     totalPossibleScore += points;
 
     const submitted = submittedAnswers.find(a => a.questionIndex === index);
     const selectedOptionIndex = submitted ? submitted.selectedOptionIndex : -1;
-    const isCorrect = selectedOptionIndex === question.correctOptionIndex;
+    
+    // Bounds validation for selectedOptionIndex
+    const isValidOption = selectedOptionIndex >= 0 && selectedOptionIndex < qSnapshot.options.length;
+    const finalSelectedOption = isValidOption ? selectedOptionIndex : -1;
+    const isCorrect = finalSelectedOption === qSnapshot.correctIndex;
 
     if (isCorrect) {
       score += points;
@@ -40,9 +49,10 @@ async function submitQuizAttempt({ attemptId, submittedAnswers, io }) {
 
     processedAnswers.push({
       questionIndex: index,
-      selectedOptionIndex,
+      selectedOptionIndex: finalSelectedOption,
       isCorrect,
-      timeTakenSeconds: submitted ? submitted.timeTakenSeconds : 0
+      timeTakenSeconds: submitted ? submitted.timeTakenSeconds : 0,
+      questionSnapshot: qSnapshot // Keep the snapshot!
     });
   });
 
@@ -55,26 +65,32 @@ async function submitQuizAttempt({ attemptId, submittedAnswers, io }) {
   attempt.completedAt = now;
 
   // 5. Query Top 10 BEFORE saving new attempt to compare later
-  const oldTopAttempts = await QuizAttempt.aggregate([
-    { $match: { quiz: quiz._id, status: 'completed' } },
-    { $sort: { percentageScore: -1, completedAt: 1 } },
-    { $group: { _id: "$user", bestScore: { $first: "$percentageScore" }, attemptId: { $first: "$_id" } } },
-    { $sort: { bestScore: -1 } },
-    { $limit: 10 }
-  ]);
+  let oldTopAttempts = [];
+  if (quiz) {
+    oldTopAttempts = await QuizAttempt.aggregate([
+      { $match: { quiz: quiz._id, status: 'completed' } },
+      { $sort: { percentageScore: -1, completedAt: 1 } },
+      { $group: { _id: "$user", bestScore: { $first: "$percentageScore" }, attemptId: { $first: "$_id" } } },
+      { $sort: { bestScore: -1 } },
+      { $limit: 10 }
+    ]);
+  }
   const oldRanks = oldTopAttempts.map((t, idx) => ({ userId: t._id.toString(), rank: idx + 1, score: t.bestScore }));
 
   // 6. Save attempt
   await attempt.save();
 
   // 7. Query Top 10 AFTER saving
-  const newTopAttempts = await QuizAttempt.aggregate([
-    { $match: { quiz: quiz._id, status: 'completed' } },
-    { $sort: { percentageScore: -1, completedAt: 1 } },
-    { $group: { _id: "$user", bestScore: { $first: "$percentageScore" }, attemptId: { $first: "$_id" } } },
-    { $sort: { bestScore: -1 } },
-    { $limit: 10 }
-  ]);
+  let newTopAttempts = [];
+  if (quiz) {
+    newTopAttempts = await QuizAttempt.aggregate([
+      { $match: { quiz: quiz._id, status: 'completed' } },
+      { $sort: { percentageScore: -1, completedAt: 1 } },
+      { $group: { _id: "$user", bestScore: { $first: "$percentageScore" }, attemptId: { $first: "$_id" } } },
+      { $sort: { bestScore: -1 } },
+      { $limit: 10 }
+    ]);
+  }
   const newRanks = newTopAttempts.map((t, idx) => ({ userId: t._id.toString(), rank: idx + 1, score: t.bestScore }));
 
   // 8. Find overtaken users
@@ -110,7 +126,7 @@ async function submitQuizAttempt({ attemptId, submittedAnswers, io }) {
   // 10. Process Gamification (Streaks, Points, Badges)
   // Note: io is not available here unless passed, but we can rely on standard notification for now, or just let Gamification handle db logic.
   // We don't have direct access to 'req.io' in the service without passing it, but we can pass null for io and badges will still be saved to the DB and emit standard notifications.
-  await gamificationService.processQuizCompletion(attempt.user, attempt._id, io);
+  const gamificationResult = await gamificationService.processQuizCompletion(attempt.user, attempt._id, io, timezone || 'UTC');
 
   if (io) {
     io.to(`user:${attempt.user}`).emit('quiz_dashboard_updated', { reason: 'quiz_completed' });
@@ -163,7 +179,7 @@ async function submitQuizAttempt({ attemptId, submittedAnswers, io }) {
   }
 
   // 12. Return attempt
-  return attempt;
+  return { attempt, gamificationResult };
 }
 
 module.exports = {

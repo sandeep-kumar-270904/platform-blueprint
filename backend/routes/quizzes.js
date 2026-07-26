@@ -1,6 +1,9 @@
+const mongoose = require('mongoose');
+const logger = require('../utils/logger');
 const express = require('express');
 const router = express.Router();
 const Quiz = require('../models/Quiz');
+const AIGenerationLog = require('../models/AIGenerationLog');
 const QuizAttempt = require('../models/QuizAttempt');
 const QuizReport = require('../models/QuizReport');
 const User = require('../models/User');
@@ -11,7 +14,7 @@ const notificationService = require('../services/notificationService');
 const multer = require('multer');
 const { parse } = require('csv-parse/sync');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const rateLimit = require('express-rate-limit');
+
 
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -23,6 +26,28 @@ const upload = multer({
       cb(new Error('Invalid file type. Only CSV allowed.'));
     }
   }
+});
+
+
+const rateLimit = require('express-rate-limit');
+
+// Rate Limiters
+const quizCreationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: { message: 'Too many quizzes created from this IP, please try again after an hour.' }
+});
+
+const attemptSubmissionLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5,
+  message: { message: 'Too many submissions from this IP, please wait a minute.' }
+});
+
+const reportSubmissionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: { message: 'Too many reports submitted from this IP, please try again after an hour.' }
 });
 
 const aiLimiter = rateLimit({
@@ -46,6 +71,22 @@ const serializeQuizForTaking = (quiz) => {
   return qObj;
 };
 
+const serializeAttemptForTaking = (attempt) => {
+  if (!attempt) return attempt;
+  // If attempt is a mongoose document, convert to object
+  const aObj = typeof attempt.toObject === 'function' ? attempt.toObject() : { ...attempt };
+  if (aObj.answers) {
+    aObj.answers = aObj.answers.map(ans => {
+      if (ans.questionSnapshot) {
+        delete ans.questionSnapshot.correctIndex;
+        delete ans.questionSnapshot.explanation;
+      }
+      return ans;
+    });
+  }
+  return aObj;
+};
+
 // GET /api/quizzes
 router.get('/', async (req, res) => {
   try {
@@ -60,9 +101,10 @@ router.get('/', async (req, res) => {
     if (search) {
       query.$text = { $search: search };
     }
-    if (category) query.category = category;
-    if (difficulty) query.difficulty = difficulty;
-    if (mode) query.mode = mode;
+    // Sanitize to prevent NoSQL injection (e.g. {"$ne": null})
+    if (category) query.category = String(category);
+    if (difficulty) query.difficulty = String(difficulty);
+    if (mode) query.mode = String(mode);
 
     let sortObj = { createdAt: -1 };
     if (sort === 'popular') sortObj = { attemptCount: -1 };
@@ -78,13 +120,40 @@ router.get('/', async (req, res) => {
       .select('-questions'); // Do not send questions in list
 
     const total = await Quiz.countDocuments(query);
+    const totalUnfiltered = await Quiz.countDocuments({ status: 'published' });
 
-    res.json({ quizzes, total, page: parseInt(page), pages: Math.ceil(total / limit) });
+    res.json({ quizzes, total, totalUnfiltered, page: parseInt(page), pages: Math.ceil(total / limit) });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 
+// GET /api/quizzes/categories-summary
+router.get('/categories-summary', async (req, res) => {
+  try {
+    const summary = await Quiz.aggregate([
+      { $match: { status: 'published' } },
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    res.json(summary.map(item => ({ category: item._id, count: item.count })));
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET /api/quizzes/trending
+router.get('/trending', async (req, res) => {
+  try {
+    const quizzes = await Quiz.find({ status: 'published' })
+      .sort({ attemptCount: -1 })
+      .limit(5)
+      .select('title category difficulty attemptCount');
+    res.json(quizzes);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
 // GET /api/quizzes/import-template
 router.get('/import-template', (req, res) => {
   const template = 'questionText,option1,option2,option3,option4,option5,option6,correctOptionNumber,explanation,points\n' +
@@ -99,8 +168,24 @@ router.get('/import-template', (req, res) => {
 // GET /api/quizzes/:id
 router.get('/:id', async (req, res) => {
   try {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid Quiz ID format' });
+  }
+
     const quiz = await Quiz.findById(req.params.id).select('-questions.correctOptionIndex -questions.explanation');
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+
+    // Paid quiz protection
+    if (quiz.price > 0) {
+       const QuizPurchase = require('../models/QuizPurchase');
+       const hasPurchased = await QuizPurchase.exists({ user: req.user.id, quiz: quiz._id });
+       if (!hasPurchased && quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+          // Omit questions
+          quiz.questions = [];
+          quiz.isPaidAndLocked = true;
+       }
+    }
+
     
     // For detail page, we usually don't need questions array, but keeping it sanitized just in case
     // Wait, the prompt says: "NOT the actual questions/options yet; those are only fetched when starting an attempt"
@@ -116,8 +201,24 @@ router.get('/:id', async (req, res) => {
 // GET /api/quizzes/:id/analytics
 router.get('/:id/analytics', authMiddleware, async (req, res) => {
   try {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid Quiz ID format' });
+  }
+
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+
+    // Paid quiz protection
+    if (quiz.price > 0) {
+       const QuizPurchase = require('../models/QuizPurchase');
+       const hasPurchased = await QuizPurchase.exists({ user: req.user.id, quiz: quiz._id });
+       if (!hasPurchased && quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+          // Omit questions
+          quiz.questions = [];
+          quiz.isPaidAndLocked = true;
+       }
+    }
+
     
     if (quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized' });
@@ -133,8 +234,12 @@ router.get('/:id/analytics', authMiddleware, async (req, res) => {
     const soloCount = totalAttempts - liveCount;
 
     // Score Distribution (Histogram buckets: 0-20, 21-40, 41-60, 61-80, 81-100)
+    // Limit analytics aggregations to the last 30 days to prevent unbounded scanning
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
     const distribution = await QuizAttempt.aggregate([
-      { $match: { quiz: quiz._id, status: 'completed' } },
+      { $match: { quiz: quiz._id, status: 'completed', completedAt: { $gte: thirtyDaysAgo } } },
       { 
         $bucket: {
           groupBy: "$percentageScore",
@@ -163,7 +268,7 @@ router.get('/:id/analytics', authMiddleware, async (req, res) => {
 
     // Question Difficulty Breakdown
     const correctAnswers = await QuizAttempt.aggregate([
-      { $match: { quiz: quiz._id, status: 'completed' } },
+      { $match: { quiz: quiz._id, status: 'completed', completedAt: { $gte: thirtyDaysAgo } } },
       { $unwind: "$answers" },
       { $group: {
           _id: "$answers.questionIndex",
@@ -201,8 +306,12 @@ router.get('/:id/analytics', authMiddleware, async (req, res) => {
 });
 
 // POST /api/quizzes
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', authMiddleware, quizCreationLimiter, async (req, res) => {
   try {
+    if (req.user.banned || req.user.quizBanned) {
+      return res.status(403).json({ message: 'You have been restricted from creating quizzes' });
+    }
+
     const { title, description, category, mode, difficulty, durationMinutes, questions } = req.body;
     
     if (!questions || questions.length === 0) {
@@ -228,6 +337,7 @@ router.post('/', authMiddleware, async (req, res) => {
       durationMinutes,
       questions,
       syllabusId: req.body.syllabusId,
+        isAIGenerated: req.body.isAIGenerated || questions.some(q => q.isAIGenerated),
       sections: req.body.sections
     });
 
@@ -271,6 +381,18 @@ router.patch('/:id', authMiddleware, async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+
+    // Paid quiz protection
+    if (quiz.price > 0) {
+       const QuizPurchase = require('../models/QuizPurchase');
+       const hasPurchased = await QuizPurchase.exists({ user: req.user.id, quiz: quiz._id });
+       if (!hasPurchased && quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+          // Omit questions
+          quiz.questions = [];
+          quiz.isPaidAndLocked = true;
+       }
+    }
+
     
     if (quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized' });
@@ -370,8 +492,24 @@ router.post('/import-questions', authMiddleware, upload.single('file'), async (r
 // DELETE /api/quizzes/:id
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid Quiz ID format' });
+  }
+
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+
+    // Paid quiz protection
+    if (quiz.price > 0) {
+       const QuizPurchase = require('../models/QuizPurchase');
+       const hasPurchased = await QuizPurchase.exists({ user: req.user.id, quiz: quiz._id });
+       if (!hasPurchased && quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+          // Omit questions
+          quiz.questions = [];
+          quiz.isPaidAndLocked = true;
+       }
+    }
+
     
     if (quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized' });
@@ -390,6 +528,18 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
     const { status } = req.body;
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+
+    // Paid quiz protection
+    if (quiz.price > 0) {
+       const QuizPurchase = require('../models/QuizPurchase');
+       const hasPurchased = await QuizPurchase.exists({ user: req.user.id, quiz: quiz._id });
+       if (!hasPurchased && quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+          // Omit questions
+          quiz.questions = [];
+          quiz.isPaidAndLocked = true;
+       }
+    }
+
     
     if (quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized' });
@@ -406,8 +556,11 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
 // GET /api/quizzes/:id/leaderboard
 router.get('/:id/leaderboard', async (req, res) => {
   try {
-    const mongoose = require('mongoose');
-    // Top scores for this quiz, solo mode best percentageScore per user
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid Quiz ID format' });
+  }
+
+        // Top scores for this quiz, solo mode best percentageScore per user
     const attempts = await QuizAttempt.aggregate([
       { $match: { quiz: new mongoose.Types.ObjectId(req.params.id), status: 'completed' } },
       { $sort: { percentageScore: -1, completedAt: 1 } },
@@ -417,6 +570,8 @@ router.get('/:id/leaderboard', async (req, res) => {
           startedAt: { $first: '$startedAt' },
           completedAt: { $first: '$completedAt' }
       }},
+      { $sort: { bestScore: -1, completedAt: 1 } },
+      { $limit: 100 },
       { $lookup: {
           from: 'users',
           localField: '_id',
@@ -430,7 +585,7 @@ router.get('/:id/leaderboard', async (req, res) => {
           durationMs: { $subtract: ['$completedAt', '$startedAt'] },
           'userInfo.full_name': 1,
           'userInfo.username': 1,
-          'userInfo.avatar': 1
+          'userInfo.avatar_url': 1
       }},
       { $sort: { bestScore: -1, durationMs: 1 } },
       { $limit: 10 }
@@ -445,8 +600,24 @@ router.get('/:id/leaderboard', async (req, res) => {
 // POST /api/quizzes/:id/start
 router.post('/:id/start', authMiddleware, async (req, res) => {
   try {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid Quiz ID format' });
+  }
+
     const quiz = await Quiz.findById(req.params.id);
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+
+    // Paid quiz protection
+    if (quiz.price > 0) {
+       const QuizPurchase = require('../models/QuizPurchase');
+       const hasPurchased = await QuizPurchase.exists({ user: req.user.id, quiz: quiz._id });
+       if (!hasPurchased && quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+          // Omit questions
+          quiz.questions = [];
+          quiz.isPaidAndLocked = true;
+       }
+    }
+
     if (quiz.status === 'under_review') return res.status(403).json({ message: 'Quiz is currently under review and cannot be attempted' });
 
     // Check if user already has an in_progress attempt
@@ -465,7 +636,7 @@ router.post('/:id/start', authMiddleware, async (req, res) => {
         await existingAttempt.save();
         return res.status(403).json({ message: 'Previous attempt expired and was abandoned. Start a new attempt.' });
       }
-      return res.json({ attempt: existingAttempt, quiz: serializeQuizForTaking(quiz) });
+      return res.json({ attempt: serializeAttemptForTaking(existingAttempt), quiz: serializeQuizForTaking(quiz) });
     }
 
     // Versioning snapshot
@@ -487,7 +658,8 @@ router.post('/:id/start', authMiddleware, async (req, res) => {
         explanation: q.explanation,
         authorDifficulty: q.authorDifficulty,
         calibratedDifficulty: q.calibratedDifficulty,
-        bankQuestionId: q.bankQuestionId
+        bankQuestionId: q.bankQuestionId,
+        points: q.points || 1
       },
       selectedOptionIndex: -1,
       isCorrect: false,
@@ -509,7 +681,7 @@ router.post('/:id/start', authMiddleware, async (req, res) => {
 
     await newAttempt.save();
 
-    res.status(201).json({ attempt: newAttempt, quiz: serializeQuizForTaking(quiz) });
+    res.status(201).json({ attempt: serializeAttemptForTaking(newAttempt), quiz: serializeQuizForTaking(quiz) });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -558,7 +730,8 @@ router.post('/adaptive/start', authMiddleware, async (req, res) => {
         explanation: q.explanation,
         authorDifficulty: q.authorDifficulty,
         calibratedDifficulty: q.calibratedDifficulty,
-        bankQuestionId: q.bankQuestionId
+        bankQuestionId: q.bankQuestionId,
+        points: q.points || 1
       },
       selectedOptionIndex: -1,
       isCorrect: false,
@@ -583,7 +756,7 @@ router.post('/adaptive/start', authMiddleware, async (req, res) => {
     // serialize strips correctOptionIndex and explanation, which is correct.
     // It keeps calibratedDifficulty and authorDifficulty.
 
-    res.status(201).json({ attempt: newAttempt, quiz: takingQuiz });
+    res.status(201).json({ attempt: serializeAttemptForTaking(newAttempt), quiz: takingQuiz });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -591,13 +764,29 @@ router.post('/adaptive/start', authMiddleware, async (req, res) => {
 
 
 // POST /api/quizzes/:id/report
-router.post('/:id/report', authMiddleware, async (req, res) => {
+router.post('/:id/report', authMiddleware, reportSubmissionLimiter, async (req, res) => {
   try {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid Quiz ID format' });
+  }
+
     const { reason, details } = req.body;
     const quizId = req.params.id;
 
     const quiz = await Quiz.findById(quizId);
     if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+
+    // Paid quiz protection
+    if (quiz.price > 0) {
+       const QuizPurchase = require('../models/QuizPurchase');
+       const hasPurchased = await QuizPurchase.exists({ user: req.user.id, quiz: quiz._id });
+       if (!hasPurchased && quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+          // Omit questions
+          quiz.questions = [];
+          quiz.isPaidAndLocked = true;
+       }
+    }
+
 
     // Prevent duplicate report
     const existingReport = await QuizReport.findOne({ targetId: quizId, reportedBy: req.user.id });
@@ -641,6 +830,10 @@ router.post('/:id/report', authMiddleware, async (req, res) => {
 // POST /api/quizzes/:id/subscribe
 router.post('/:id/subscribe', authMiddleware, async (req, res) => {
   try {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid Quiz ID format' });
+  }
+
     const quizId = req.params.id;
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -660,6 +853,10 @@ router.post('/:id/subscribe', authMiddleware, async (req, res) => {
 // DELETE /api/quizzes/:id/subscribe
 router.delete('/:id/subscribe', authMiddleware, async (req, res) => {
   try {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ message: 'Invalid Quiz ID format' });
+  }
+
     const quizId = req.params.id;
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -680,7 +877,18 @@ router.post('/ai-draft-questions', authMiddleware, aiLimiter, async (req, res) =
   try {
     const user = await User.findById(req.user.id);
     if (user?.banned) return res.status(403).json({ error: 'Cannot generate AI questions while banned' });
-    const { topic, difficulty, count } = req.body;
+
+    // Phase 17: Premium check
+    if (!user.isPremium) {
+       const today = new Date();
+       today.setHours(0,0,0,0);
+       const genCount = await AIGenerationLog.countDocuments({ user: user._id, createdAt: { $gte: today } });
+       if (genCount >= 5) {
+          return res.status(403).json({ error: 'Free daily limit reached. Upgrade to Premium for unlimited AI generation.' });
+       }
+    }
+
+    const { topic, difficulty, count, language } = req.body;
     
     if (!topic) return res.status(400).json({ message: 'Topic is required' });
     const numQuestions = Math.min(Math.max(parseInt(count) || 5, 1), 20); // 1 to 20
@@ -803,6 +1011,169 @@ router.get('/check-skill', authMiddleware, async (req, res) => {
     res.json({ exists: false });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+
+// Global Leaderboard
+router.get('/leaderboards', async (req, res) => {
+  try {
+    const { scope, institutionId } = req.query; // 'global' or 'institution'
+    
+    let matchStage = { status: 'completed' };
+    
+    // If we want institution scoped, we must join Quiz to check its institutionId
+    // Alternatively, filter by users who belong to the same institution
+    // The requirement says: "Institution-scoped leaderboards: 'top scorers at [Institution]' in addition to global"
+    // So we filter QuizAttempts by users who have the same institutionId.
+    
+    if (scope === 'institution' && institutionId) {
+      // Find all users in this institution
+      const User = require('../models/User');
+      const usersInInst = await User.find({ institutionId }).select('_id');
+      const userIds = usersInInst.map(u => u._id);
+      matchStage.user = { $in: userIds };
+    }
+
+    const leaders = await QuizAttempt.aggregate([
+      { $match: matchStage },
+      { $group: {
+        _id: "$user",
+        totalScore: { $sum: "$score" },
+        quizzesTaken: { $sum: 1 }
+      }},
+      { $sort: { totalScore: -1 } },
+      { $limit: 10 }
+    ]);
+    
+    const User = require('../models/User');
+    const populated = await User.populate(leaders, { path: '_id', select: 'username full_name avatar_url' });
+    
+    res.json(populated.map(p => ({
+      user: p._id,
+      score: p.totalScore,
+      quizzesTaken: p.quizzesTaken
+    })));
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
+router.get('/recommendations', authMiddleware, async (req, res) => {
+  try {
+    const QuizAttempt = require('../models/QuizAttempt');
+    // Simple recommendation: quizzes in categories where user scored < 70% recently
+    const recent = await QuizAttempt.find({ user: req.user.id, status: 'completed' })
+      .sort({ completedAt: -1 })
+      .limit(10)
+      .populate('quiz');
+      
+    const weakCategories = new Set();
+    recent.forEach(att => {
+      if (att.percentageScore < 70 && att.quiz?.category) {
+        weakCategories.add(att.quiz.category);
+      }
+    });
+
+    // Find new quizzes in these categories
+    const recs = await Quiz.find({ 
+      status: 'published',
+      category: { $in: Array.from(weakCategories) }
+    }).limit(5);
+
+    res.json(recs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+router.post('/:id/dispute', authMiddleware, async (req, res) => {
+  try {
+    const QuizDispute = require('../models/QuizDispute');
+    const { questionIndex, reason, proposedCorrectIndex } = req.body;
+    
+    const dispute = new QuizDispute({
+      quiz: req.params.id,
+      questionIndex,
+      reportedBy: req.user.id,
+      reason,
+      proposedCorrectIndex
+    });
+    
+    await dispute.save();
+    res.status(201).json(dispute);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// GET /api/quizzes/:id/export
+router.get('/:id/export', authMiddleware, async (req, res) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
+
+    // Paid quiz protection
+    if (quiz.price > 0) {
+       const QuizPurchase = require('../models/QuizPurchase');
+       const hasPurchased = await QuizPurchase.exists({ user: req.user.id, quiz: quiz._id });
+       if (!hasPurchased && quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+          // Omit questions
+          quiz.questions = [];
+          quiz.isPaidAndLocked = true;
+       }
+    }
+
+    if (quiz.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const attempts = await QuizAttempt.find({ quiz: quiz._id }).populate('user', 'username email');
+    
+    // Generate CSV
+    let csv = 'Attempt ID,User,Email,Status,Score,Completed At\n';
+    attempts.forEach(a => {
+      csv += `${a._id},${a.user?.username || 'Unknown'},${a.user?.email || 'Unknown'},${a.status},${a.percentageScore || 0},${a.completedAt || ''}\n`;
+    });
+
+    res.header('Content-Type', 'text/csv');
+    res.attachment(`${quiz.title.replace(/\s+/g, '_')}_attempts.csv`);
+    return res.send(csv);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// GET /api/quizzes/engine/recommendations
+router.get('/engine/recommendations', authMiddleware, async (req, res) => {
+  try {
+     const recentAttempts = await QuizAttempt.find({ user: req.user.id, status: 'completed' })
+        .sort({ completedAt: -1 }).limit(3).populate('quiz');
+        
+     const categories = new Set();
+     recentAttempts.forEach(a => {
+        if (a.quiz && a.quiz.category) categories.add(a.quiz.category);
+     });
+     
+     if (categories.size === 0) {
+        // Fallback generic
+        const fallback = await Quiz.find({ status: 'published', isArchived: false }).limit(5);
+        return res.json(fallback);
+     }
+     
+     const recs = await Quiz.find({
+        category: { $in: Array.from(categories) },
+        status: 'published',
+        isArchived: false
+     }).limit(5);
+     
+     res.json(recs);
+  } catch (err) {
+     res.status(500).json({ error: err.message });
   }
 });
 

@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuizzes, type Quiz } from "@/hooks/useQuizHub";
 import { useAuth } from "@/hooks/useAuth";
-import { Brain, Clock, Trophy, Target, Play, Plus, Loader2 } from "lucide-react";
+import { QuizSidebar } from "@/components/quizzes/QuizSidebar";
+import { Brain, Clock, Trophy, Target, Play, Plus, Loader2, Frown } from "lucide-react";
 
 const CATS = ["All", "CS Fundamentals", "Aptitude", "Advanced", "Mathematics", "General"];
 const DIFFS = ["All", "easy", "medium", "hard"];
@@ -33,12 +34,14 @@ const QuizHub = () => {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  const { quizzes, loading } = useQuizzes({
+  const { quizzes, loading, totalUnfiltered } = useQuizzes({
     search: debouncedSearch || undefined,
     category: category !== "All" ? category : undefined,
     difficulty: difficulty !== "All" ? difficulty : undefined,
     mode: mode !== "All" ? mode : undefined,
   });
+
+  const isTrueEmpty = totalUnfiltered === 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -70,41 +73,68 @@ const QuizHub = () => {
       </ParallaxSection>
 
       <div className="container mx-auto px-4 py-12">
-        <div className="flex flex-col md:flex-row gap-3 mb-8 max-w-5xl mx-auto">
-          <Input 
-            placeholder="Search quizzes..." 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)} 
-            className="md:w-1/3"
-          />
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="w-full md:w-[150px]"><SelectValue placeholder="Category" /></SelectTrigger>
-            <SelectContent>{CATS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={difficulty} onValueChange={setDifficulty}>
-            <SelectTrigger className="w-full md:w-[150px]"><SelectValue placeholder="Difficulty" /></SelectTrigger>
-            <SelectContent>{DIFFS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={mode} onValueChange={setMode}>
-            <SelectTrigger className="w-full md:w-[150px]"><SelectValue placeholder="Mode" /></SelectTrigger>
-            <SelectContent>{MODES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-          </Select>
-          {user && (
-            <Button className="ml-auto" onClick={() => navigate('/quizzes/new')}>
-              <Plus className="h-4 w-4 mr-2" />Create Quiz
-            </Button>
-          )}
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-        ) : quizzes.length === 0 ? (
-          <div className="text-center py-20 bg-card rounded-lg border border-border/50">
-            <h3 className="text-xl font-medium mb-2">No quizzes found</h3>
-            <p className="text-muted-foreground">Try adjusting your search or filters.</p>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+          {/* Sidebar */}
+          <div className="hidden lg:block lg:col-span-1">
+            <QuizSidebar onSelectCategory={setCategory} currentCategory={category} />
           </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+          {/* Main Content */}
+          <div className="lg:col-span-3">
+            <div className="flex flex-col md:flex-row gap-3 mb-8">
+              <Input 
+                placeholder="Search quizzes..." 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                className="md:w-1/3"
+              />
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="w-full md:w-[150px] lg:hidden"><SelectValue placeholder="Category" /></SelectTrigger>
+                <SelectContent>{CATS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select value={difficulty} onValueChange={setDifficulty}>
+                <SelectTrigger className="w-full md:w-[150px]"><SelectValue placeholder="Difficulty" /></SelectTrigger>
+                <SelectContent>{DIFFS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+              </Select>
+              <Select value={mode} onValueChange={setMode}>
+                <SelectTrigger className="w-full md:w-[150px]"><SelectValue placeholder="Mode" /></SelectTrigger>
+                <SelectContent>{MODES.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+              </Select>
+              {user && (
+                <Button className="ml-auto" onClick={() => navigate('/quizzes/new')}>
+                  <Plus className="h-4 w-4 mr-2" />Create Quiz
+                </Button>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : isTrueEmpty ? (
+              <div className="text-center py-20 bg-card rounded-lg border border-border/50">
+                <Frown className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-medium mb-2">No quizzes available</h3>
+                <p className="text-muted-foreground mb-6">Be the first to create a quiz for the community!</p>
+                {user && (
+                  <Button onClick={() => navigate('/quizzes/new')}>
+                    <Plus className="h-4 w-4 mr-2" />Create First Quiz
+                  </Button>
+                )}
+              </div>
+            ) : quizzes.length === 0 ? (
+              <div className="text-center py-20 bg-card rounded-lg border border-border/50">
+                <h3 className="text-xl font-medium mb-2">No quizzes match your filters</h3>
+                <p className="text-muted-foreground mb-6">Try adjusting your search or clearing some filters.</p>
+                <Button variant="outline" onClick={() => {
+                  setSearchTerm("");
+                  setCategory("All");
+                  setDifficulty("All");
+                  setMode("All");
+                }}>
+                  Clear Filters
+                </Button>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {quizzes.map((quiz, index) => (
               <ScrollReveal key={quiz._id} delay={Math.min(0.05 * index, 0.3)}>
                 <Card className="hover-scale h-full flex flex-col">
@@ -145,6 +175,8 @@ const QuizHub = () => {
             ))}
           </div>
         )}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -53,6 +53,8 @@ const getAuthHeaders = () => {
 
 export const useQuizzes = (params?: { search?: string; category?: string; difficulty?: string; mode?: string }) => {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalUnfiltered, setTotalUnfiltered] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
@@ -67,6 +69,8 @@ export const useQuizzes = (params?: { search?: string; category?: string; diffic
       if (res.ok) {
         const data = await res.json();
         setQuizzes(data.quizzes || []);
+        setTotal(data.total || 0);
+        setTotalUnfiltered(data.totalUnfiltered || 0);
       }
     } catch (err) {
       console.error(err);
@@ -80,7 +84,55 @@ export const useQuizzes = (params?: { search?: string; category?: string; diffic
     fetchAll();
   }, [fetchAll]);
 
-  return { quizzes, loading, refetch: fetchAll };
+  return { quizzes, total, totalUnfiltered, loading, refetch: fetchAll };
+};
+
+export const useQuizCategories = () => {
+  const [categories, setCategories] = useState<{ category: string; count: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/quizzes/categories-summary`);
+        if (res.ok) {
+          const data = await res.json();
+          setCategories(data || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  return { categories, loading };
+};
+
+export const useTrendingQuizzes = () => {
+  const [trending, setTrending] = useState<Quiz[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTrending = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/quizzes/trending`);
+        if (res.ok) {
+          const data = await res.json();
+          setTrending(data || []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTrending();
+  }, []);
+
+  return { trending, loading };
 };
 
 export const getQuiz = async (quizId: string): Promise<Quiz | null> => {
@@ -187,10 +239,13 @@ export const startAdaptivePractice = async (bankId: string): Promise<{ attempt: 
   return await res.json();
 };
 
-export const submitAttempt = async (attemptId: string, answers: { questionIndex: number; selectedOptionIndex: number; timeTakenSeconds?: number }[]): Promise<QuizAttempt> => {
+export const submitAttempt = async (attemptId: string, answers: { questionIndex: number; selectedOptionIndex: number; timeTakenSeconds?: number }[]): Promise<{ attempt: QuizAttempt; gamificationResult?: any }> => {
+  const headers = getAuthHeaders();
+  headers['x-timezone'] = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  
   const res = await fetch(`${API_URL}/api/attempts/${attemptId}/submit`, {
     method: 'POST',
-    headers: getAuthHeaders(),
+    headers,
     body: JSON.stringify({ answers })
   });
   if (!res.ok) {
