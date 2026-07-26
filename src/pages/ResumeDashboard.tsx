@@ -78,7 +78,7 @@ const ResumeDashboard = () => {
     { id: 'portfolios', label: 'Portfolio Editor', icon: LayoutDashboard, route: '/resume-builder/portfolio' },
     { id: 'insights', label: 'Career Insights', icon: LineChart, route: '/resume-builder/insights' },
     { id: 'workshops', label: 'Live Workshops', icon: PlayCircle, route: '/resume/workshops' },
-    { id: 'panic', label: 'Panic Mode Rebuild', icon: ShieldAlert, route: '/resume/panic-mode' },
+    { id: 'panic', label: 'Panic Mode Rebuild', icon: ShieldAlert, route: null },
   ];
 
   const renderContent = () => {

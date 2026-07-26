@@ -893,7 +893,20 @@ router.post('/ai-draft-questions', authMiddleware, aiLimiter, async (req, res) =
     if (!topic) return res.status(400).json({ message: 'Topic is required' });
     const numQuestions = Math.min(Math.max(parseInt(count) || 5, 1), 20); // 1 to 20
     
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '');
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      // Mock fallback if API key is missing
+      return res.json({ 
+        questions: Array.from({ length: numQuestions }).map((_, i) => ({
+          questionText: `Mock ${topic} Question ${i + 1}`,
+          options: ["A", "B", "C", "D"],
+          correctOptionIndex: 0,
+          explanation: "Mock explanation (Missing Gemini API Key)",
+          points: 1
+        }))
+      });
+    }
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `You are a quiz generation assistant. Create a multiple choice quiz about "${topic}" at a "${difficulty || 'medium'}" difficulty level.
@@ -961,7 +974,14 @@ router.post('/ai-check', authMiddleware, aiLimiter, async (req, res) => {
       return res.status(400).json({ message: 'Question details required' });
     }
     
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '');
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      return res.json({
+        issuesFound: false,
+        feedback: "Mock feedback: Looks good! (Note: Gemini API key is missing)"
+      });
+    }
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `You are a quiz quality reviewer. Evaluate the following multiple choice question:
