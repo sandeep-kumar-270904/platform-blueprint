@@ -91,6 +91,30 @@ const AdminQuizReports = () => {
     setActionDialogOpen(true);
   };
 
+  const handleBanCreator = async () => {
+    if (!selectedReport?.targetId?.creator) return toast.error("Creator ID not found");
+    
+    setActioning(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/users/${selectedReport.targetId.creator}/quiz-ban`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ban: true, reason: adminNote || 'Violation of quiz guidelines' })
+      });
+      
+      if (!res.ok) throw new Error("Failed to ban creator");
+      
+      toast.success("Creator banned from making quizzes");
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setActioning(false);
+    }
+  };
+
   const handleAction = async () => {
     if (!actionType) return toast.error("Please select an action");
     
@@ -289,10 +313,10 @@ const AdminQuizReports = () => {
                         <SelectItem value="dismiss">
                           <div className="flex items-center gap-2"><CheckCircle className="h-4 w-4 text-green-500" /> Dismiss (Safe)</div>
                         </SelectItem>
-                        <SelectItem value="warn_creator">
-                          <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Warn Creator</div>
+                        <SelectItem value="unpublish">
+                          <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Unpublish Quiz</div>
                         </SelectItem>
-                        <SelectItem value="delete_quiz">
+                        <SelectItem value="delete">
                           <div className="flex items-center gap-2"><Trash2 className="h-4 w-4 text-destructive" /> Delete Quiz</div>
                         </SelectItem>
                       </SelectContent>
@@ -300,7 +324,20 @@ const AdminQuizReports = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Admin Note (Internal)</label>
+                    <div className="flex justify-between items-center">
+                      <label className="text-sm font-medium">Admin Note (Internal)</label>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={handleBanCreator}
+                        disabled={actioning || !selectedReport?.targetId?.creator}
+                        type="button"
+                      >
+                        <ShieldAlert className="h-3 w-3 mr-1" />
+                        Ban Creator
+                      </Button>
+                    </div>
                     <Textarea 
                       value={adminNote}
                       onChange={(e) => setAdminNote(e.target.value)}
