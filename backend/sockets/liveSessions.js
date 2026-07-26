@@ -1,3 +1,4 @@
+const jwt = require('jsonwebtoken');
 const LiveSession = require('../models/LiveSession');
 const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
@@ -12,10 +13,25 @@ const serializeQuizForTaking = (quiz) => {
   });
   return qObj;
 };
+// Map<sessionId, Map<userId, Set<socketId>>>
+const activeSockets = new Map();
 
 module.exports = (io, socket) => {
-  socket.on('joinSession', async ({ joinCode, userId }) => {
+  socket.on('joinSession', async ({ joinCode, token }) => {
     try {
+      if (!token) {
+        socket.emit('sessionError', { message: 'Authentication required' });
+        return;
+      }
+      let decoded;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+      } catch (e) {
+        socket.emit('sessionError', { message: 'Invalid or expired token' });
+        return;
+      }
+      const userId = decoded.id;
+
       const session = await LiveSession.findOne({ 
         joinCode: joinCode.toUpperCase(),
         status: { $in: ['scheduled', 'waiting_room', 'in_progress'] }
@@ -24,6 +40,11 @@ module.exports = (io, socket) => {
       const user = await require('../models/User').findById(userId);
       if (user && user.banned) {
         socket.emit('sessionError', { message: 'Your account is banned' });
+        return;
+      }
+
+      if (session && session.kickedParticipants?.includes(userId)) {
+        socket.emit('sessionError', { message: 'You have been removed from this session' });
         return;
       }
 
@@ -36,17 +57,29 @@ module.exports = (io, socket) => {
       socket._userId = userId;
       socket._sessionId = session._id.toString();
 
-      // Add user if not present
-      const participantIndex = session.participants.findIndex(p => p.user && (p.user._id || p.user).toString() === userId);
-      if (participantIndex === -1) {
-        session.participants.push({
-          user: userId,
-          status: 'waiting'
-        });
+      // Track socket in memory
+      if (!activeSockets.has(socket._sessionId)) activeSockets.set(socket._sessionId, new Map());
+      const sessionMap = activeSockets.get(socket._sessionId);
+      if (!sessionMap.has(socket._userId)) sessionMap.set(socket._userId, new Set());
+      sessionMap.get(socket._userId).add(socket.id);
+
+      const isHost = session.hostedBy.toString() === userId;
+      if (isHost) {
+        socket._isHost = true;
+        session.hostStatus = 'connected';
         await session.save();
+        io.to(`liveSession:${session._id}`).emit('hostReconnected');
       } else {
-        session.participants[participantIndex].status = 'waiting';
-        await session.save();
+        // Participant join logic
+        const expectedStatus = session.status === 'in_progress' ? 'active' : 'waiting';
+        const participantIndex = session.participants.findIndex(p => p.user && (p.user._id || p.user).toString() === userId);
+        if (participantIndex === -1) {
+          socket.emit('sessionError', { message: 'You must join the session via HTTP first' });
+          return;
+        } else {
+          session.participants[participantIndex].status = expectedStatus;
+          await session.save();
+        }
       }
 
       // Re-fetch fully populated
@@ -105,8 +138,10 @@ module.exports = (io, socket) => {
     }
   });
 
-  socket.on('startSession', async ({ sessionId, hostId }) => {
+  socket.on('startSession', async ({ sessionId }) => {
     try {
+      const hostId = socket._userId;
+
       const session = await LiveSession.findById(sessionId);
       if (!session) return;
       if (session.hostedBy.toString() !== hostId) return; // not host
@@ -139,8 +174,10 @@ module.exports = (io, socket) => {
     }
   });
 
-  socket.on('advanceQuestion', async ({ sessionId, hostId }) => {
+  socket.on('advanceQuestion', async ({ sessionId }) => {
     try {
+      const hostId = socket._userId;
+
       const session = await LiveSession.findById(sessionId).populate('participants.user', 'username full_name');
       if (!session || session.hostedBy.toString() !== hostId) return;
 
@@ -259,8 +296,10 @@ module.exports = (io, socket) => {
     }
   });
 
-  socket.on('advanceSelfPaced', async ({ sessionId, userId }) => {
+  socket.on('advanceSelfPaced', async ({ sessionId }) => {
     try {
+      const userId = socket._userId;
+
       const session = await LiveSession.findById(sessionId).populate('participants.user', 'username full_name avatar');
       if (!session || session.pacingMode !== 'self') return;
       
@@ -341,8 +380,10 @@ module.exports = (io, socket) => {
     }
   });
 
-  socket.on('submitAnswer', async ({ sessionId, userId, questionIndex, selectedOptionIndex }) => {
+  socket.on('submitAnswer', async ({ sessionId, questionIndex, selectedOptionIndex }) => {
     try {
+      const userId = socket._userId;
+
       const session = await LiveSession.findById(sessionId).populate('participants.user', 'username full_name avatar');
       if (!session) return;
       
@@ -423,20 +464,73 @@ module.exports = (io, socket) => {
     }
   });
 
+  socket.on('kickParticipant', async ({ sessionId, targetUserId }) => {
+    try {
+      const hostId = socket._userId;
+
+      if (!socket._isHost) return;
+      const session = await LiveSession.findById(sessionId);
+      if (!session || session.hostedBy.toString() !== hostId) return;
+
+      if (!session.kickedParticipants) session.kickedParticipants = [];
+      if (!session.kickedParticipants.includes(targetUserId)) {
+        session.kickedParticipants.push(targetUserId);
+      }
+      
+      const p = session.participants.find(p => p.user && p.user.toString() === targetUserId);
+      if (p) p.status = 'disconnected'; // or 'kicked' if we had it, but disconnected is fine
+      await session.save();
+
+      io.to(`liveSession:${sessionId}`).emit('participantLeft', { userId: targetUserId });
+      
+      // Notify specifically the kicked user sockets
+      if (activeSockets.has(sessionId)) {
+        const sessionMap = activeSockets.get(sessionId);
+        if (sessionMap.has(targetUserId)) {
+          for (const sId of sessionMap.get(targetUserId)) {
+            io.to(sId).emit('kicked', { sessionId });
+            const s = io.sockets.sockets.get(sId);
+            if (s) s.leave(`liveSession:${sessionId}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('kickParticipant error:', e);
+    }
+  });
+
   socket.on('disconnecting', async () => {
-    // We could mark status as 'disconnected' here if we knew the userId and sessionId for this socket,
-    // but the generic disconnect event doesn't have that context easily without tracking socketId -> userId.
-    // For now we assume they reconnect and state is resumed via standard socket techniques.
-    
     if (socket._userId && socket._sessionId) {
       try {
-        const session = await LiveSession.findById(socket._sessionId);
-        if (session && session.status !== 'completed' && session.status !== 'cancelled') {
-          const p = session.participants.find(p => p.user && p.user.toString() === socket._userId);
-          if (p) {
-            p.status = 'disconnected';
-            await session.save();
-            io.to(`liveSession:${session._id}`).emit('participantLeft', { userId: socket._userId });
+        const sId = socket._sessionId;
+        const uId = socket._userId;
+        
+        if (activeSockets.has(sId)) {
+          const sessionMap = activeSockets.get(sId);
+          if (sessionMap.has(uId)) {
+            sessionMap.get(uId).delete(socket.id);
+            
+            // If no more sockets for this user in this session, they are fully disconnected
+            if (sessionMap.get(uId).size === 0) {
+              sessionMap.delete(uId);
+              if (sessionMap.size === 0) activeSockets.delete(sId);
+              
+              const session = await LiveSession.findById(sId);
+              if (session && session.status !== 'completed' && session.status !== 'cancelled') {
+                if (socket._isHost) {
+                  session.hostStatus = 'disconnected';
+                  await session.save();
+                  io.to(`liveSession:${sId}`).emit('hostDisconnected');
+                } else {
+                  const p = session.participants.find(p => p.user && p.user.toString() === uId);
+                  if (p) {
+                    p.status = 'disconnected';
+                    await session.save();
+                    io.to(`liveSession:${session._id}`).emit('participantLeft', { userId: uId });
+                  }
+                }
+              }
+            }
           }
         }
       } catch (e) {

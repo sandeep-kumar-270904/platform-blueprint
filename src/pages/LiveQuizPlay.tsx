@@ -28,6 +28,7 @@ const LiveQuizPlay = () => {
 
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [participants, setParticipants] = useState<any[]>([]);
+  const [hostDisconnected, setHostDisconnected] = useState(false);
 
   useEffect(() => {
     if (!sessionId || !user) return;
@@ -46,7 +47,7 @@ const LiveQuizPlay = () => {
         const newSocket = io(API_URL);
         
         newSocket.on('connect', () => {
-          newSocket.emit('joinSession', { joinCode: sessionData.joinCode, userId: user._id });
+          newSocket.emit('joinSession', { joinCode: sessionData.joinCode, token: localStorage.getItem('token') });
         });
 
         newSocket.on('sessionState', (data) => {
@@ -98,6 +99,20 @@ const LiveQuizPlay = () => {
           clearInterval((window as any).questionTimerInterval);
         });
 
+        newSocket.on('hostDisconnected', () => {
+          setHostDisconnected(true);
+        });
+
+        newSocket.on('hostReconnected', () => {
+          setHostDisconnected(true); // Should be false! Fixed in next line.
+          setHostDisconnected(false);
+        });
+
+        newSocket.on('kicked', () => {
+          toast.error("You have been removed from this session");
+          navigate('/quizzes');
+        });
+
         setSocket(newSocket);
       } catch (err: any) {
         toast.error(err.message);
@@ -130,7 +145,14 @@ const LiveQuizPlay = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30 flex flex-col">
+    <div className="min-h-screen bg-muted/30 flex flex-col relative">
+      {hostDisconnected && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center text-center p-6">
+          <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+          <h2 className="text-3xl font-bold mb-2 text-foreground">Host Disconnected</h2>
+          <p className="text-lg text-muted-foreground">Please wait... The session is paused until the host returns.</p>
+        </div>
+      )}
       <Header />
       
       <div className="container max-w-5xl mx-auto px-4 py-8 flex-1 flex flex-col">

@@ -4,6 +4,8 @@ const gdLiveSessionSchema = new mongoose.Schema({
   studyGroup: { type: mongoose.Schema.Types.ObjectId, ref: 'StudyGroup', required: true, index: true },
   creator: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   topicTitle: { type: String, required: true }, // Can be custom or reference to a GDTopic title
+  mode: { type: String, enum: ['discussion', 'collaborative_quiz'], default: 'discussion' },
+  quizId: { type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' },
   
   scheduledTime: { type: Date, required: true },
   meetingLink: { type: String },

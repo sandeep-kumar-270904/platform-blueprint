@@ -1,5 +1,14 @@
 const express = require('express');
 const router = express.Router();
+
+const rateLimit = require('express-rate-limit');
+
+const joinSessionLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10,
+  message: { message: 'Too many join attempts from this IP, please try again after a minute.' }
+});
+
 const LiveSession = require('../models/LiveSession');
 const Quiz = require('../models/Quiz');
 const authMiddleware = require('../middleware/auth');
@@ -31,7 +40,7 @@ router.post('/quiz/:quizId', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to host this quiz' });
     }
 
-    const generateJoinCode = () => crypto.randomBytes(3).toString('hex').toUpperCase();
+    const generateJoinCode = () => crypto.randomBytes(4).toString('hex').toUpperCase();
     let joinCode = generateJoinCode();
     
     // Ensure unique join code
@@ -58,7 +67,7 @@ router.post('/quiz/:quizId', authMiddleware, async (req, res) => {
 });
 
 // GET /api/live-sessions/join/:joinCode
-router.get('/join/:joinCode', async (req, res) => {
+router.get('/join/:joinCode', authMiddleware, async (req, res) => {
   try {
     const session = await LiveSession.findOne({ 
       joinCode: req.params.joinCode.toUpperCase(),
@@ -68,6 +77,23 @@ router.get('/join/:joinCode', async (req, res) => {
     if (!session) {
       return res.status(404).json({ message: 'Session not found or no longer active' });
     }
+
+    if (session.kickedParticipants?.includes(req.user.id)) {
+      return res.status(403).json({ message: 'You have been removed from this session' });
+    }
+
+
+    if (session.status === 'in_progress' && session.currentQuestionIndex > 0) {
+      return res.status(403).json({ message: 'Session already in progress (late join disabled)' });
+    }
+
+    // Add user to participants if not already there
+    const pIndex = session.participants.findIndex(p => p.user && p.user.toString() === req.user.id);
+    if (pIndex === -1) {
+      session.participants.push({ user: req.user.id, status: 'waiting', joinedAt: new Date() });
+      await session.save();
+    }
+
 
     res.json({
       _id: session._id,

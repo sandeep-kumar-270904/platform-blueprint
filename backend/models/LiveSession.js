@@ -17,6 +17,15 @@ const liveSessionSchema = new mongoose.Schema({
     enum: ['scheduled', 'waiting_room', 'in_progress', 'completed', 'cancelled'], 
     default: 'scheduled' 
   },
+  hostStatus: {
+    type: String,
+    enum: ['connected', 'disconnected'],
+    default: 'connected'
+  },
+  kickedParticipants: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User' 
+  }],
   scheduledStartAt: { 
     type: Date, 
     required: true 
