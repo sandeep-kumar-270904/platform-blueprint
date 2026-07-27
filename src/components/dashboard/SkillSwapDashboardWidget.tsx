@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, ArrowRight, Clock, Star, Calendar, MessageSquare, ShieldCheck } from "lucide-react";
-import { useMySkillSessions, useSkillRequests, useUserBadges } from "@/hooks/useSkillSwap";
+import { useMySessions, useSkillRequests, useUserBadges } from "@/hooks/useSkillSwap";
 import { useAuth } from "@/hooks/useAuth";
 
 export const SkillSwapDashboardWidget: React.FC = () => {
   const { user } = useAuth();
-  const { data: sessions, isLoading: sessionsLoading } = useMySkillSessions();
+  const { data: sessions, isLoading: sessionsLoading } = useMySessions();
   const { data: requests, isLoading: requestsLoading } = useSkillRequests();
   const { data: badges, isLoading: badgesLoading } = useUserBadges(user?.id || '');
 
