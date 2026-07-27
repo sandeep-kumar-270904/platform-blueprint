@@ -15,6 +15,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { TeamChat } from "@/components/team/TeamChat";
+import { SkillGapAdvisorPanel } from "@/components/team/SkillGapAdvisorPanel";
 
 export default function TeamHuntDetail() {
   const { t, i18n } = useTranslation();
@@ -29,6 +30,7 @@ export default function TeamHuntDetail() {
   const { data: myApps } = useMyApplications();
   
   const isAcceptedMember = myApps?.some((app: any) => app.team === id && app.status === 'accepted');
+  const isRejectedMember = myApps?.some((app: any) => (app.team === id || app.team?._id === id) && app.status === 'rejected');
   
   if (teamLoading) {
     return (
@@ -139,6 +141,14 @@ export default function TeamHuntDetail() {
                   )}
                 </div>
               </div>
+            )}
+
+            {!isCreator && ((matchData && matchData.score < 70) || isRejectedMember) && (
+              <SkillGapAdvisorPanel 
+                teamId={team._id} 
+                matchScore={matchData?.score} 
+                isRejected={isRejectedMember} 
+              />
             )}
 
             <div>
