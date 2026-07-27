@@ -663,6 +663,7 @@ app.use('/api/cover-letters', require('./routes/coverLetters'));
 app.use('/api/study-groups', require('./routes/studyGroups'));
 app.use('/api/quizzes', require('./routes/quizzes'));
 app.use('/api/teams', require('./routes/teams'));
+app.use('/api/skill-swap', require('./routes/skillSwapRoutes'));
 app.use('/api/invites', require('./routes/invites'));
 app.use('/api/dsa', require('./routes/dsa'));
 app.use('/api/progress', require('./routes/progress'));
