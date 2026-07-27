@@ -88,6 +88,7 @@ const CreatorsZone: React.FC = () => {
 
   // Recommendations
   const { data: recommendationsData, isLoading: recommendationsLoading, error: recommendationsError, refetch: refetchRecommendations } = useCreatorRecommendations();
+  const { data: reviewRequests = [] } = useCreatorReviewRequests();
 
   // Deep Link Handling
   const targetContentId = searchParams.get("id");
