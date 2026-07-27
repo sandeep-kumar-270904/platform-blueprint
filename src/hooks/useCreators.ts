@@ -25,25 +25,28 @@ export interface CreatorContentItem {
   createdAt: string;
 }
 
-export const useCreatorFeed = (type?: string, search?: string) => {
+export const useCreatorFeed = (type?: string, search?: string, sort?: string) => {
   return useQuery<CreatorContentItem[]>({
-    queryKey: ['creator-feed', type, search],
+    queryKey: ['creator-feed', type, search, sort],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (type && type !== 'all') params.append('type', type);
       if (search) params.append('search', search);
+      if (sort && sort !== 'recent') params.append('sort', sort);
       const res = await api.get(`/creators/content?${params.toString()}`);
       return res.data;
     }
   });
 };
 
-export const useMyCreatorContent = (type?: string) => {
+export const useMyCreatorContent = (type?: string, search?: string, sort?: string) => {
   return useQuery<CreatorContentItem[]>({
-    queryKey: ['my-creator-content', type],
+    queryKey: ['my-creator-content', type, search, sort],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (type && type !== 'all') params.append('type', type);
+      if (search) params.append('search', search);
+      if (sort && sort !== 'recent') params.append('sort', sort);
       const res = await api.get(`/creators/content/my?${params.toString()}`);
       return res.data;
     }

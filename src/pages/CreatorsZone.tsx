@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { ParallaxSection } from "@/components/animations/ParallaxSection";
@@ -11,10 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import useDebounce from "@/hooks/useDebounce";
 import { 
   Sparkles, Upload, Video, FileText, Image as ImageIcon, TrendingUp, 
   Eye, Heart, MessageSquare, Edit, Trash2, Plus, ExternalLink, 
-  Loader2, AlertCircle, CheckCircle2, Code, BookOpen, Layers, Clock, AlertTriangle 
+  Loader2, AlertCircle, CheckCircle2, Code, BookOpen, Layers, Clock, AlertTriangle, Search, Filter, X 
 } from "lucide-react";
 import { 
   useCreatorFeed, 
@@ -45,9 +47,46 @@ const typeColors: Record<string, string> = {
 const CreatorsZone: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [selectedTab, setSelectedTab] = useState("browse");
-  const [selectedFilter, setSelectedFilter] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // URL state persistence
+  const selectedTab = searchParams.get("tab") || "browse";
+  const selectedFilter = searchParams.get("type") || "all";
+  const sortBy = searchParams.get("sort") || "recent";
+  const searchQuery = searchParams.get("q") || "";
+
+  // Local search input for smooth typing
+  const [searchInput, setSearchInput] = useState(searchQuery);
+  const debouncedSearch = useDebounce(searchInput, 300);
+
+  useEffect(() => {
+    setSearchInput(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (debouncedSearch !== searchQuery) {
+      updateParam("q", debouncedSearch);
+    }
+  }, [debouncedSearch]);
+
+  const updateParam = (key: string, value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (!value || value === "all" || value === "recent" || (key === "tab" && value === "browse")) {
+      next.delete(key);
+    } else {
+      next.set(key, value);
+    }
+    setSearchParams(next, { replace: true });
+  };
+
+  const resetAllFilters = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("type");
+    next.delete("sort");
+    next.delete("q");
+    setSearchInput("");
+    setSearchParams(next, { replace: true });
+  };
 
   // Modal / Form state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -63,9 +102,9 @@ const CreatorsZone: React.FC = () => {
   // Detail view state
   const [viewingItem, setViewingItem] = useState<CreatorContentItem | null>(null);
 
-  // Queries & Mutations
-  const { data: feedItems, isLoading: feedLoading, isError: feedError, refetch: refetchFeed } = useCreatorFeed(selectedFilter, searchQuery);
-  const { data: myItems, isLoading: myLoading, isError: myError, refetch: refetchMy } = useMyCreatorContent(selectedFilter);
+  // Queries & Mutations with search & sort
+  const { data: feedItems, isLoading: feedLoading, isError: feedError, refetch: refetchFeed } = useCreatorFeed(selectedFilter, searchQuery, sortBy);
+  const { data: myItems, isLoading: myLoading, isError: myError, refetch: refetchMy } = useMyCreatorContent(selectedFilter, searchQuery, sortBy);
 
   const createMutation = useCreateCreatorContent();
   const updateMutation = useUpdateCreatorContent();
@@ -100,7 +139,6 @@ const CreatorsZone: React.FC = () => {
   };
 
   const handleSave = async (status: 'draft' | 'published') => {
-    // Inline validation required before allowing save/publish
     const errors: { title?: string; body?: string } = {};
     if (!formTitle.trim()) {
       errors.title = "Title is required to publish or save.";
@@ -194,7 +232,6 @@ const CreatorsZone: React.FC = () => {
     }
   };
 
-  // Helper to format date
   const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -203,8 +240,30 @@ const CreatorsZone: React.FC = () => {
     }
   };
 
+  const activeFilterCount = (selectedFilter !== "all" ? 1 : 0) + (sortBy !== "recent" ? 1 : 0) + (searchQuery ? 1 : 0);
+
   const renderContentCards = (items: CreatorContentItem[] | undefined, isMyContentView: boolean) => {
     if (!items || items.length === 0) {
+      if (activeFilterCount > 0) {
+        return (
+          <Card className="max-w-md mx-auto border-dashed border-2 py-12 px-6 text-center bg-muted/10">
+            <CardContent className="space-y-4 pt-0">
+              <div className="w-14 h-14 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto text-amber-500">
+                <Search className="h-7 w-7" />
+              </div>
+              <h3 className="text-xl font-bold">No matching results</h3>
+              <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+                We couldn't find any creator items matching your active search or filters.
+              </p>
+              <Button onClick={resetAllFilters} variant="outline" className="font-semibold shadow-sm mt-2">
+                <X className="mr-2 h-4 w-4" />
+                Clear All Filters
+              </Button>
+            </CardContent>
+          </Card>
+        );
+      }
+
       return (
         <Card className="max-w-xl mx-auto border-dashed border-2 py-12 px-6 text-center bg-muted/10">
           <CardContent className="space-y-4 pt-0">
@@ -335,6 +394,8 @@ const CreatorsZone: React.FC = () => {
     );
   };
 
+  const currentItems = selectedTab === "mycontent" ? myItems : feedItems;
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -376,7 +437,7 @@ const CreatorsZone: React.FC = () => {
       </ParallaxSection>
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
+        <Tabs value={selectedTab} onValueChange={(val) => updateParam("tab", val)} className="space-y-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-border/40 pb-4">
             <TabsList className="grid w-full md:w-auto grid-cols-3 bg-muted/60 p-1 rounded-full border border-border/40">
               <TabsTrigger value="browse" className="rounded-full px-6 py-1.5 font-medium">Browse Feed</TabsTrigger>
@@ -385,44 +446,109 @@ const CreatorsZone: React.FC = () => {
             </TabsList>
 
             {selectedTab !== "analytics" && (
-              <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-                <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/40 text-xs font-medium">
+              <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto justify-end">
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search titles, descriptions, tags..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    className="pl-9 pr-8 h-9 text-xs rounded-full bg-muted/30 border-border/60 focus:bg-background transition-colors"
+                  />
+                  {searchInput && (
+                    <button 
+                      onClick={() => { setSearchInput(""); updateParam("q", ""); }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/40 text-xs font-medium overflow-x-auto max-w-full">
                   <button 
-                    onClick={() => setSelectedFilter("all")} 
-                    className={`px-3 py-1 rounded-md transition-colors ${selectedFilter === "all" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => updateParam("type", "all")} 
+                    className={`px-3 py-1 rounded-md transition-colors whitespace-nowrap ${selectedFilter === "all" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     All
                   </button>
                   <button 
-                    onClick={() => setSelectedFilter("article")} 
-                    className={`px-3 py-1 rounded-md transition-colors ${selectedFilter === "article" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => updateParam("type", "article")} 
+                    className={`px-3 py-1 rounded-md transition-colors whitespace-nowrap ${selectedFilter === "article" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     Articles
                   </button>
                   <button 
-                    onClick={() => setSelectedFilter("video")} 
-                    className={`px-3 py-1 rounded-md transition-colors ${selectedFilter === "video" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => updateParam("type", "video")} 
+                    className={`px-3 py-1 rounded-md transition-colors whitespace-nowrap ${selectedFilter === "video" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     Videos
                   </button>
                   <button 
-                    onClick={() => setSelectedFilter("project")} 
-                    className={`px-3 py-1 rounded-md transition-colors ${selectedFilter === "project" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => updateParam("type", "project")} 
+                    className={`px-3 py-1 rounded-md transition-colors whitespace-nowrap ${selectedFilter === "project" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     Projects
                   </button>
                   <button 
-                    onClick={() => setSelectedFilter("resource")} 
-                    className={`px-3 py-1 rounded-md transition-colors ${selectedFilter === "resource" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => updateParam("type", "resource")} 
+                    className={`px-3 py-1 rounded-md transition-colors whitespace-nowrap ${selectedFilter === "resource" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     Resources
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/40 text-xs font-medium shrink-0">
+                  <span className="text-muted-foreground px-2 flex items-center gap-1 hidden xl:flex"><Filter className="h-3 w-3" /> Sort:</span>
+                  <button 
+                    onClick={() => updateParam("sort", "recent")} 
+                    className={`px-2.5 py-1 rounded-md transition-colors ${sortBy === "recent" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Recent
+                  </button>
+                  <button 
+                    onClick={() => updateParam("sort", "viewed")} 
+                    className={`px-2.5 py-1 rounded-md transition-colors ${sortBy === "viewed" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Viewed
+                  </button>
+                  <button 
+                    onClick={() => updateParam("sort", "liked")} 
+                    className={`px-2.5 py-1 rounded-md transition-colors ${sortBy === "liked" ? "bg-background shadow-sm text-primary font-bold" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    Liked
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          <TabsContent value="browse" className="space-y-6 pt-2">
+          {selectedTab !== "analytics" && (
+            <div className="flex items-center justify-between bg-muted/20 border border-border/40 rounded-lg px-4 py-2 text-xs font-medium text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <span className="text-foreground font-bold">{currentItems ? currentItems.length : 0} results</span>
+                <span>matching {selectedTab === "mycontent" ? "your uploads" : "creator community content"}</span>
+                {activeFilterCount > 0 && (
+                  <Badge variant="secondary" className="text-[10px] px-2 py-0 h-4 bg-primary/10 text-primary border border-primary/20">
+                    {activeFilterCount} active {activeFilterCount === 1 ? "filter" : "filters"}
+                  </Badge>
+                )}
+              </div>
+              {activeFilterCount > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={resetAllFilters}
+                  className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 font-semibold"
+                >
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  Clear All Filters
+                </Button>
+              )}
+            </div>
+          )}
+
+          <TabsContent value="browse" className="space-y-6 pt-1">
             {feedLoading ? (
               <div className="py-20 text-center flex flex-col items-center justify-center space-y-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -442,7 +568,7 @@ const CreatorsZone: React.FC = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="mycontent" className="space-y-6 pt-2">
+          <TabsContent value="mycontent" className="space-y-6 pt-1">
             {myLoading ? (
               <div className="py-20 text-center flex flex-col items-center justify-center space-y-3">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -7,22 +7,27 @@ const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
 
 // GET /api/creators/content - Public feed of published content
+// GET /api/creators/content - Public feed of published content
 router.get('/content', async (req, res) => {
   try {
-    const { type, search } = req.query;
+    const { type, search, sort } = req.query;
     const query = { status: 'published' };
     if (type && type !== 'all') {
       query.type = type;
     }
-    if (search) {
+    if (search && search.trim()) {
       query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { tags: { $regex: search, $options: 'i' } }
+        { title: { $regex: search.trim(), $options: 'i' } },
+        { description: { $regex: search.trim(), $options: 'i' } },
+        { tags: { $regex: search.trim(), $options: 'i' } }
       ];
     }
+    let sortObj = { createdAt: -1 };
+    if (sort === 'viewed') sortObj = { views: -1, createdAt: -1 };
+    else if (sort === 'liked') sortObj = { likes: -1, createdAt: -1 };
+
     const items = await CreatorContent.find(query)
-      .sort({ createdAt: -1 })
+      .sort(sortObj)
       .populate('userId', 'name email profilePicture');
     res.json(items);
   } catch (err) {
@@ -33,13 +38,24 @@ router.get('/content', async (req, res) => {
 // GET /api/creators/content/my - Logged-in user's content (both draft and published)
 router.get('/content/my', authMiddleware, async (req, res) => {
   try {
-    const { type } = req.query;
+    const { type, search, sort } = req.query;
     const query = { userId: req.user.id };
     if (type && type !== 'all') {
       query.type = type;
     }
+    if (search && search.trim()) {
+      query.$or = [
+        { title: { $regex: search.trim(), $options: 'i' } },
+        { description: { $regex: search.trim(), $options: 'i' } },
+        { tags: { $regex: search.trim(), $options: 'i' } }
+      ];
+    }
+    let sortObj = { createdAt: -1 };
+    if (sort === 'viewed') sortObj = { views: -1, createdAt: -1 };
+    else if (sort === 'liked') sortObj = { likes: -1, createdAt: -1 };
+
     const items = await CreatorContent.find(query)
-      .sort({ createdAt: -1 })
+      .sort(sortObj)
       .populate('userId', 'name email profilePicture');
     res.json(items);
   } catch (err) {
