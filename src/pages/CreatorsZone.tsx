@@ -11,7 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import useDebounce from "@/hooks/useDebounce";
 import { 
   Sparkles, Upload, TrendingUp, Eye, Heart, FileText,
-  Loader2, AlertCircle, Search, X
+  Loader2, AlertCircle, Search, X, PenTool
 } from "lucide-react";
 import { toast } from "sonner";
 import { 
