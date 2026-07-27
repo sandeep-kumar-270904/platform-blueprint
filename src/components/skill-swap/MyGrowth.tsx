@@ -33,7 +33,7 @@ export function MyGrowth() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {/* Streaks Section */}
       <section>
         <h3 className="text-2xl font-bold mb-4 flex items-center gap-2">
