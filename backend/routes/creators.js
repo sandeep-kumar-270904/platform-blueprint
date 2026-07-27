@@ -50,13 +50,27 @@ router.get('/content/my', authMiddleware, async (req, res) => {
 // POST /api/creators/content - Create new content piece
 router.post('/content', authMiddleware, async (req, res) => {
   try {
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).json({ message: 'Invalid upload payload' });
+    }
     const { title, type, description, body, thumbnail, status, tags } = req.body;
     
-    if (!title || !title.trim()) {
-      return res.status(400).json({ message: 'Title is required', field: 'title' });
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({ message: 'Title is required and must be a text string', field: 'title' });
     }
-    if (!body || !body.trim()) {
-      return res.status(400).json({ message: 'Content body/media is required', field: 'body' });
+    if (!body || typeof body !== 'string' || !body.trim()) {
+      return res.status(400).json({ message: 'Content body/media is required and must be a text string', field: 'body' });
+    }
+
+    // Check for rapid duplicate submission (within last 15 seconds)
+    const recentDuplicate = await CreatorContent.findOne({
+      userId: req.user.id,
+      title: title.trim(),
+      body: body.trim(),
+      createdAt: { $gte: new Date(Date.now() - 15 * 1000) }
+    });
+    if (recentDuplicate) {
+      return res.status(409).json({ message: 'Duplicate submission detected. Please wait a moment before submitting identical content.' });
     }
 
     const user = await User.findById(req.user.id);
@@ -64,17 +78,20 @@ router.post('/content', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const validTypes = ['article', 'video', 'project', 'resource'];
+    const validStatuses = ['draft', 'published'];
+
     const newItem = new CreatorContent({
       userId: req.user.id,
       creatorName: user.name || 'Anonymous Creator',
       creatorAvatar: user.profilePicture || '',
       title: title.trim(),
-      type: type || 'article',
-      description: description ? description.trim() : body.trim().substring(0, 150),
+      type: validTypes.includes(type) ? type : 'article',
+      description: (description && typeof description === 'string') ? description.trim() : body.trim().substring(0, 150),
       body: body.trim(),
-      thumbnail: thumbnail || '✨',
-      status: status === 'draft' ? 'draft' : 'published',
-      tags: Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [])
+      thumbnail: (thumbnail && typeof thumbnail === 'string') ? thumbnail : '✨',
+      status: validStatuses.includes(status) ? status : 'published',
+      tags: Array.isArray(tags) ? tags.map(t => String(t).trim()).filter(Boolean) : (typeof tags === 'string' ? tags.split(',').map(t => t.trim()).filter(Boolean) : [])
     });
 
     await newItem.save();
@@ -88,6 +105,9 @@ router.post('/content', authMiddleware, async (req, res) => {
 // PUT /api/creators/content/:id - Update content piece
 router.put('/content/:id', authMiddleware, async (req, res) => {
   try {
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).json({ message: 'Invalid update payload' });
+    }
     const { title, type, description, body, thumbnail, status, tags } = req.body;
     const item = await CreatorContent.findById(req.params.id);
     if (!item) {
@@ -97,19 +117,21 @@ router.put('/content/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to edit this content' });
     }
     if (title !== undefined) {
-      if (!title.trim()) return res.status(400).json({ message: 'Title cannot be empty', field: 'title' });
+      if (typeof title !== 'string' || !title.trim()) return res.status(400).json({ message: 'Title cannot be empty', field: 'title' });
       item.title = title.trim();
     }
     if (body !== undefined) {
-      if (!body.trim()) return res.status(400).json({ message: 'Content body cannot be empty', field: 'body' });
+      if (typeof body !== 'string' || !body.trim()) return res.status(400).json({ message: 'Content body cannot be empty', field: 'body' });
       item.body = body.trim();
     }
-    if (type !== undefined) item.type = type;
-    if (description !== undefined) item.description = description.trim();
-    if (thumbnail !== undefined) item.thumbnail = thumbnail;
-    if (status !== undefined) item.status = status;
+    const validTypes = ['article', 'video', 'project', 'resource'];
+    const validStatuses = ['draft', 'published'];
+    if (type !== undefined && validTypes.includes(type)) item.type = type;
+    if (description !== undefined && typeof description === 'string') item.description = description.trim();
+    if (thumbnail !== undefined && typeof thumbnail === 'string') item.thumbnail = thumbnail;
+    if (status !== undefined && validStatuses.includes(status)) item.status = status;
     if (tags !== undefined) {
-      item.tags = Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []);
+      item.tags = Array.isArray(tags) ? tags.map(t => String(t).trim()).filter(Boolean) : (typeof tags === 'string' ? tags.split(',').map(t => t.trim()).filter(Boolean) : []);
     }
 
     await item.save();
