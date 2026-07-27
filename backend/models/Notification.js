@@ -81,7 +81,14 @@ const notificationSchema = new mongoose.Schema({
       'placement_new_content',
       'placement_booking_status',
       'placement_feedback_prompt',
-      'placement_milestone'
+      'placement_milestone',
+      'skill_swap_request',
+      'skill_swap_accepted',
+      'skill_swap_declined',
+      'skill_swap_scheduled',
+      'skill_swap_completed',
+      'skill_swap_cancelled',
+      'skill_swap_review_received'
     ],
     required: true
   },

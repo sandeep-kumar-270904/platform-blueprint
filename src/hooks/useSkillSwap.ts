@@ -30,7 +30,28 @@ export interface SkillRequest {
   toUser: { _id: string; name: string; avatar: string };
   offer: { _id: string; skillName: string; category: string };
   message: string;
-  status: string;
+  status: 'pending' | 'accepted' | 'declined' | 'cancelled' | 'completed' | 'no-show';
+  createdAt: string;
+  scheduledAt?: string;
+}
+
+export interface SkillSession {
+  _id: string;
+  request: SkillRequest | string;
+  participants: { _id: string; name: string; avatar: string }[];
+  scheduledAt: string;
+  durationMinutes: number;
+  status: 'scheduled' | 'completed' | 'cancelled' | 'no-show';
+  notes?: string;
+}
+
+export interface SkillReview {
+  _id: string;
+  session: string;
+  reviewer: { _id: string; name: string; avatar: string };
+  reviewee: string;
+  rating: number;
+  comment: string;
   createdAt: string;
 }
 
@@ -82,6 +103,29 @@ export const useSkillRequests = () => {
       const { data } = await api.get('/skill-swap/requests');
       return data.data as { incoming: SkillRequest[], outgoing: SkillRequest[] };
     }
+  });
+};
+
+// Fetch my sessions
+export const useMySessions = () => {
+  return useQuery({
+    queryKey: ['skillSessions'],
+    queryFn: async () => {
+      const { data } = await api.get('/skill-swap/sessions/mine');
+      return data.data as SkillSession[];
+    }
+  });
+};
+
+// Fetch user reviews
+export const useUserReviews = (userId: string) => {
+  return useQuery({
+    queryKey: ['skillReviews', userId],
+    queryFn: async () => {
+      const { data } = await api.get(`/skill-swap/users/${userId}/reviews`);
+      return data.data as { reviews: SkillReview[], stats: { averageRating: number, reviewCount: number } };
+    },
+    enabled: !!userId
   });
 };
 
@@ -152,6 +196,63 @@ export const useUpdateSkillRequestStatus = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['skillRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['skillSessions'] });
+    }
+  });
+};
+
+export const useScheduleRequest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, scheduledAt }: { id: string, scheduledAt: string }) => {
+      const { data } = await api.patch(`/skill-swap/requests/${id}/schedule`, { scheduledAt });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skillRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['skillSessions'] });
+    }
+  });
+};
+
+export const useCompleteSession = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.patch(`/skill-swap/requests/${id}/complete`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skillRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['skillSessions'] });
+    }
+  });
+};
+
+export const useCancelRequest = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.patch(`/skill-swap/requests/${id}/cancel`);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skillRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['skillSessions'] });
+    }
+  });
+};
+
+export const useSubmitReview = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ sessionId, rating, comment }: { sessionId: string, rating: number, comment?: string }) => {
+      const { data } = await api.post(`/skill-swap/sessions/${sessionId}/review`, { rating, comment });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['skillReviews'] });
+      queryClient.invalidateQueries({ queryKey: ['skillOffers'] });
     }
   });
 };

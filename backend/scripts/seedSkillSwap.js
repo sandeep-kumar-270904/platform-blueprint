@@ -5,6 +5,8 @@ const User = require('../models/User');
 const SkillOffer = require('../models/SkillOffer');
 const SkillMatch = require('../models/SkillMatch');
 const SkillExchangeRequest = require('../models/SkillExchangeRequest');
+const SkillSession = require('../models/SkillSession');
+const SkillReview = require('../models/SkillReview');
 const { computeMatchesForUser } = require('../services/skillMatchService');
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -19,6 +21,8 @@ const seedSkillSwap = async () => {
     await SkillOffer.deleteMany({});
     await SkillMatch.deleteMany({});
     await SkillExchangeRequest.deleteMany({});
+    await SkillSession.deleteMany({});
+    await SkillReview.deleteMany({});
     console.log('Cleared existing Skill Swap data.');
 
     // Fetch some real users
@@ -86,6 +90,38 @@ const seedSkillSwap = async () => {
     await req1.save();
 
     console.log('Inserted mock Exchange Request.');
+
+    // Create a completed request, session, and review so we have a rating in the UI
+    const offer2 = await SkillOffer.findOne({ user: users[2]._id });
+    const reqCompleted = new SkillExchangeRequest({
+      fromUser: users[1]._id,
+      toUser: users[2]._id,
+      offer: offer2._id,
+      message: 'I want to learn Figma!',
+      status: 'completed',
+      scheduledAt: new Date(Date.now() - 86400000), // yesterday
+      completedAt: new Date()
+    });
+    await reqCompleted.save();
+
+    const mockSession = new SkillSession({
+      request: reqCompleted._id,
+      participants: [users[1]._id, users[2]._id],
+      scheduledAt: reqCompleted.scheduledAt,
+      status: 'completed'
+    });
+    await mockSession.save();
+
+    const mockReview = new SkillReview({
+      session: mockSession._id,
+      reviewer: users[1]._id,
+      reviewee: users[2]._id,
+      rating: 5,
+      comment: 'Amazing Figma session! Learned so much about components.'
+    });
+    await mockReview.save();
+
+    console.log('Inserted mock Session and Review.');
     console.log('Seeding Complete!');
     process.exit(0);
   } catch (error) {

@@ -21,9 +21,15 @@ const skillExchangeRequestSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  scheduledAt: {
+    type: Date
+  },
+  completedAt: {
+    type: Date
+  },
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'declined', 'cancelled'],
+    enum: ['pending', 'accepted', 'declined', 'cancelled', 'completed', 'no-show'],
     default: 'pending'
   }
 }, { timestamps: true });
