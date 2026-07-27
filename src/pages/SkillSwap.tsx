@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { ParallaxSection } from "@/components/animations/ParallaxSection";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, ArrowRight, Clock, Star, Search, Filter } from "lucide-react";
+import { RefreshCw, ArrowRight, Clock, Star, Search, Calendar, CheckCircle, XCircle, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -21,13 +21,34 @@ import {
   useMySkillOffers,
   useSkillMatches,
   useSkillRequests,
+  useMySessions,
+  useUserReviews,
   useCreateSkillOffer,
   useCreateSkillRequest,
   useUpdateSkillRequestStatus,
+  useScheduleRequest,
+  useCompleteSession,
+  useCancelRequest,
+  useSubmitReview,
   useDeleteSkillOffer,
   SkillOffer,
-  SkillMatch
+  SkillMatch,
+  SkillSession
 } from "@/hooks/useSkillSwap";
+
+// Component to fetch and display user ratings
+const UserRating = ({ userId }: { userId: string }) => {
+  const { data, isLoading } = useUserReviews(userId);
+  if (isLoading) return <div className="text-xs text-muted-foreground animate-pulse">Loading rating...</div>;
+  if (!data?.stats?.reviewCount) return <div className="text-xs text-muted-foreground flex items-center gap-1"><Star className="h-3 w-3 text-muted-foreground"/> No reviews yet</div>;
+  
+  return (
+    <div className="flex items-center gap-1 text-xs font-medium text-amber-500">
+      <Star className="h-3 w-3 fill-amber-500" />
+      {data.stats.averageRating} ({data.stats.reviewCount})
+    </div>
+  );
+};
 
 // Sub-components to keep file clean
 const OfferCard = ({ offer, onSchedule }: { offer: SkillOffer, onSchedule: (offerId: string) => void }) => (
@@ -38,6 +59,7 @@ const OfferCard = ({ offer, onSchedule }: { offer: SkillOffer, onSchedule: (offe
           <img src={offer.user?.avatar || 'https://github.com/shadcn.png'} alt="avatar" className="w-10 h-10 rounded-full object-cover" />
           <div>
             <h3 className="text-lg font-bold leading-tight">{offer.user?.name || 'Anonymous User'}</h3>
+            <UserRating userId={offer.user._id} />
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">{offer.proficiencyLevel}</Badge>
               <Badge variant="outline" className="text-xs">{offer.category}</Badge>
@@ -120,12 +142,17 @@ const SkillSwap = () => {
   const { data: matches, isLoading: matchesLoading } = useSkillMatches();
   const { data: myOffers, isLoading: myOffersLoading } = useMySkillOffers();
   const { data: requests, isLoading: requestsLoading } = useSkillRequests();
+  const { data: sessions, isLoading: sessionsLoading } = useMySessions();
 
   // Mutations
   const createRequestMutation = useCreateSkillRequest();
   const createOfferMutation = useCreateSkillOffer();
   const deleteOfferMutation = useDeleteSkillOffer();
   const updateReqStatusMutation = useUpdateSkillRequestStatus();
+  const scheduleReqMutation = useScheduleRequest();
+  const completeSessionMutation = useCompleteSession();
+  const cancelReqMutation = useCancelRequest();
+  const submitReviewMutation = useSubmitReview();
 
   const handleRequestExchange = async (toUserId: string, offerId: string) => {
     try {
@@ -156,6 +183,31 @@ const SkillSwap = () => {
     }
   };
 
+  const handleSchedule = async (e: React.FormEvent<HTMLFormElement>, requestId: string) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const scheduledAt = formData.get('scheduledAt') as string;
+    try {
+      await scheduleReqMutation.mutateAsync({ id: requestId, scheduledAt });
+      toast({ title: "Session Scheduled!" });
+    } catch (error: any) {
+      toast({ title: "Failed", description: error.response?.data?.message, variant: "destructive" });
+    }
+  };
+
+  const handleReview = async (e: React.FormEvent<HTMLFormElement>, sessionId: string) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const rating = parseInt(formData.get('rating') as string);
+    const comment = formData.get('comment') as string;
+    try {
+      await submitReviewMutation.mutateAsync({ sessionId, rating, comment });
+      toast({ title: "Review Submitted!" });
+    } catch (error: any) {
+      toast({ title: "Failed", description: error.response?.data?.message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -167,13 +219,13 @@ const SkillSwap = () => {
               <div className="mx-auto max-w-3xl text-center">
                 <Badge variant="default" className="mb-6">
                   <RefreshCw className="mr-1 h-3 w-3" />
-                  Skill Exchange
+                  Skill Exchange Phase 2
                 </Badge>
                 <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
                   Skill <span className="text-primary display-font">Swap</span>
                 </h1>
                 <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
-                  Exchange skills with peers. Teach what you know, learn what you need. All for free.
+                  Exchange skills with peers. Teach what you know, learn what you need. Schedule sessions and build your reputation.
                 </p>
                 
                 <Dialog>
@@ -229,10 +281,11 @@ const SkillSwap = () => {
 
       <div className="container mx-auto px-4 py-8">
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-8">
-          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4">
+          <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-5 h-auto py-2">
             <TabsTrigger value="browse">Browse</TabsTrigger>
             <TabsTrigger value="matches">My Matches</TabsTrigger>
             <TabsTrigger value="requests">Requests</TabsTrigger>
+            <TabsTrigger value="sessions">My Sessions</TabsTrigger>
             <TabsTrigger value="myoffers">My Offers</TabsTrigger>
           </TabsList>
 
@@ -291,25 +344,45 @@ const SkillSwap = () => {
           </TabsContent>
 
           <TabsContent value="requests">
-            <div className="max-w-3xl mx-auto space-y-8">
+            <div className="max-w-4xl mx-auto space-y-8">
               <div>
                 <h3 className="text-lg font-bold mb-4">Incoming Requests</h3>
                 {requestsLoading ? <p>Loading...</p> : requests?.incoming?.length === 0 ? <p className="text-sm text-muted-foreground">No incoming requests.</p> : (
-                  <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
                     {requests?.incoming?.map((req) => (
                       <Card key={req._id}>
-                        <CardContent className="p-4 flex items-center justify-between">
+                        <CardContent className="p-4 flex flex-col gap-4">
                           <div>
                             <p className="font-semibold">{req.fromUser?.name} requested your {req.offer?.skillName} skill</p>
                             <p className="text-sm text-muted-foreground mt-1">"{req.message}"</p>
-                            <Badge className="mt-2" variant={req.status === 'pending' ? 'secondary' : req.status === 'accepted' ? 'default' : 'destructive'}>{req.status}</Badge>
+                            <Badge className="mt-2" variant="outline">{req.status}</Badge>
                           </div>
-                          {req.status === 'pending' && (
-                            <div className="flex gap-2">
-                              <Button size="sm" onClick={() => updateReqStatusMutation.mutate({ id: req._id, status: 'accepted' })}>Accept</Button>
-                              <Button size="sm" variant="outline" onClick={() => updateReqStatusMutation.mutate({ id: req._id, status: 'declined' })}>Decline</Button>
-                            </div>
-                          )}
+                          
+                          <div className="flex flex-wrap gap-2 mt-auto">
+                            {req.status === 'pending' && (
+                              <>
+                                <Button size="sm" onClick={() => updateReqStatusMutation.mutate({ id: req._id, status: 'accepted' })}>Accept</Button>
+                                <Button size="sm" variant="outline" onClick={() => updateReqStatusMutation.mutate({ id: req._id, status: 'declined' })}>Decline</Button>
+                              </>
+                            )}
+                            {req.status === 'accepted' && (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button size="sm" className="bg-primary/90">Schedule Session</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader><DialogTitle>Schedule Exchange</DialogTitle></DialogHeader>
+                                  <form onSubmit={(e) => handleSchedule(e, req._id)} className="space-y-4">
+                                    <Input type="datetime-local" name="scheduledAt" required />
+                                    <Button type="submit" className="w-full">Confirm Schedule</Button>
+                                  </form>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                            {['accepted', 'scheduled', 'pending'].includes(req.status) && (
+                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => cancelReqMutation.mutate(req._id)}>Cancel</Button>
+                            )}
+                          </div>
                         </CardContent>
                       </Card>
                     ))}
@@ -320,17 +393,118 @@ const SkillSwap = () => {
               <div>
                 <h3 className="text-lg font-bold mb-4">Outgoing Requests</h3>
                 {requestsLoading ? <p>Loading...</p> : requests?.outgoing?.length === 0 ? <p className="text-sm text-muted-foreground">No outgoing requests.</p> : (
-                  <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
                     {requests?.outgoing?.map((req) => (
                       <Card key={req._id}>
-                        <CardContent className="p-4 flex items-center justify-between">
+                        <CardContent className="p-4 flex flex-col gap-4">
                           <div>
                             <p className="font-semibold">You requested {req.offer?.skillName} from {req.toUser?.name}</p>
-                            <Badge className="mt-2" variant={req.status === 'pending' ? 'secondary' : req.status === 'accepted' ? 'default' : 'destructive'}>{req.status}</Badge>
+                            <Badge className="mt-2" variant="outline">{req.status}</Badge>
+                          </div>
+                          <div className="flex flex-wrap gap-2 mt-auto">
+                            {req.status === 'accepted' && (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button size="sm" className="bg-primary/90">Schedule Session</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader><DialogTitle>Schedule Exchange</DialogTitle></DialogHeader>
+                                  <form onSubmit={(e) => handleSchedule(e, req._id)} className="space-y-4">
+                                    <Input type="datetime-local" name="scheduledAt" required />
+                                    <Button type="submit" className="w-full">Confirm Schedule</Button>
+                                  </form>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                            {['accepted', 'scheduled', 'pending'].includes(req.status) && (
+                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => cancelReqMutation.mutate(req._id)}>Cancel</Button>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
                     ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="sessions">
+            <div className="max-w-4xl mx-auto space-y-8">
+              <div>
+                <h3 className="text-lg font-bold mb-4">My Skill Sessions</h3>
+                {sessionsLoading ? <p>Loading...</p> : sessions?.length === 0 ? <p className="text-sm text-muted-foreground">No sessions scheduled.</p> : (
+                  <div className="space-y-4">
+                    {sessions?.map((session) => {
+                      const otherParticipant = session.participants.find(p => typeof p !== 'string'); // Note: naive way to get the other person since current user isn't readily available without auth context, but they're populated so they have names.
+                      // Usually we check p._id !== currentUser._id. For UI demo we just show participants.
+                      return (
+                        <Card key={session._id}>
+                          <CardContent className="p-5 flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Calendar className="h-4 w-4 text-primary" />
+                                <span className="font-bold">{new Date(session.scheduledAt).toLocaleString()}</span>
+                                <Badge variant={session.status === 'completed' ? 'default' : session.status === 'scheduled' ? 'secondary' : 'outline'}>{session.status}</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Participants: {session.participants.map(p => p.name).join(' & ')}
+                              </p>
+                              {session.status === 'scheduled' && (
+                                <p className="text-xs text-muted-foreground mt-2">Duration: {session.durationMinutes} mins</p>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              {session.status === 'scheduled' && (
+                                <>
+                                  <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => {
+                                    // Usually would extract request _id, but since session maps 1-1, we can call completeSession using request ID.
+                                    const reqId = typeof session.request === 'string' ? session.request : session.request._id;
+                                    completeSessionMutation.mutate(reqId);
+                                  }}>
+                                    <CheckCircle className="mr-2 h-4 w-4" /> Complete
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="text-destructive" onClick={() => {
+                                    const reqId = typeof session.request === 'string' ? session.request : session.request._id;
+                                    cancelReqMutation.mutate(reqId);
+                                  }}>
+                                    <XCircle className="mr-2 h-4 w-4" /> Cancel
+                                  </Button>
+                                </>
+                              )}
+                              {session.status === 'completed' && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button size="sm" variant="outline"><MessageSquare className="mr-2 h-4 w-4" /> Leave Review</Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader><DialogTitle>Rate your Session</DialogTitle></DialogHeader>
+                                    <form onSubmit={(e) => handleReview(e, session._id)} className="space-y-4">
+                                      <div>
+                                        <label className="text-sm font-medium">Rating (1-5)</label>
+                                        <select name="rating" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required>
+                                          <option value="5">5 - Excellent</option>
+                                          <option value="4">4 - Good</option>
+                                          <option value="3">3 - Average</option>
+                                          <option value="2">2 - Poor</option>
+                                          <option value="1">1 - Terrible</option>
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Comments (optional)</label>
+                                        <Input name="comment" placeholder="How was the exchange?" />
+                                      </div>
+                                      <Button type="submit" className="w-full">Submit Review</Button>
+                                    </form>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
                   </div>
                 )}
               </div>

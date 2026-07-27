@@ -27,5 +27,13 @@ router.route('/requests')
   .get(skillSwapController.getRequests);
 
 router.patch('/requests/:id', skillSwapController.updateRequestStatus);
+router.patch('/requests/:id/schedule', skillSwapController.scheduleRequest);
+router.patch('/requests/:id/complete', skillSwapController.completeSession);
+router.patch('/requests/:id/cancel', skillSwapController.cancelRequest);
+
+// Session & Review Routes
+router.get('/sessions/mine', skillSwapController.getMySessions);
+router.post('/sessions/:id/review', skillSwapController.leaveReview);
+router.get('/users/:id/reviews', skillSwapController.getUserReviews);
 
 module.exports = router;
