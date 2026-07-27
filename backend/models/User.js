@@ -384,7 +384,11 @@ const UserSchema = new mongoose.Schema({
     approvedCount: { type: Number, default: 0 },
     rejectedCount: { type: Number, default: 0 },
     spotCheckEligible: { type: Boolean, default: false }
-  }
+  },
+  
+  // Phase 14: Skill Swap Trust
+  skillSwapNoShowCount: { type: Number, default: 0 },
+  skillSwapTrustFlag: { type: String, enum: ['none', 'warned', 'restricted'], default: 'none' }
 });
 
 // Query helper for privacy

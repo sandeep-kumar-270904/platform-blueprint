@@ -7,6 +7,7 @@ const SkillMatch = require('../models/SkillMatch');
 const SkillExchangeRequest = require('../models/SkillExchangeRequest');
 const SkillSession = require('../models/SkillSession');
 const SkillReview = require('../models/SkillReview');
+const SkillSwapReport = require('../models/SkillSwapReport');
 const { computeMatchesForUser } = require('../services/skillMatchService');
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
@@ -23,6 +24,7 @@ const seedSkillSwap = async () => {
     await SkillExchangeRequest.deleteMany({});
     await SkillSession.deleteMany({});
     await SkillReview.deleteMany({});
+    await SkillSwapReport.deleteMany({});
     console.log('Cleared existing Skill Swap data.');
 
     // Fetch some real users
@@ -104,24 +106,59 @@ const seedSkillSwap = async () => {
     });
     await reqCompleted.save();
 
-    const mockSession = new SkillSession({
-      request: reqCompleted._id,
-      participants: [users[1]._id, users[2]._id],
-      scheduledAt: reqCompleted.scheduledAt,
-      status: 'completed'
-    });
-    await mockSession.save();
+    // Create 5 completed sessions to trigger 'five-swaps' badge
+    for(let i=0; i<5; i++) {
+      const mockSession = new SkillSession({
+        request: reqCompleted._id,
+        participants: [users[1]._id, users[2]._id],
+        scheduledAt: new Date(Date.now() - (86400000 * (i+1))),
+        status: 'completed'
+      });
+      await mockSession.save();
 
-    const mockReview = new SkillReview({
-      session: mockSession._id,
-      reviewer: users[1]._id,
-      reviewee: users[2]._id,
-      rating: 5,
-      comment: 'Amazing Figma session! Learned so much about components.'
-    });
-    await mockReview.save();
+      const mockReview = new SkillReview({
+        session: mockSession._id,
+        reviewer: users[1]._id,
+        reviewee: users[2]._id,
+        rating: 5,
+        comment: `Amazing Figma session part ${i+1}!`
+      });
+      await mockReview.save();
+    }
+    
+    const SkillSwapBadge = require('../models/SkillSwapBadge');
+    await SkillSwapBadge.create([
+      { user: users[2]._id, badgeType: 'first-swap' },
+      { user: users[2]._id, badgeType: 'five-swaps' },
+      { user: users[2]._id, badgeType: 'top-rated' }
+    ]);
 
-    console.log('Inserted mock Session and Review.');
+    console.log('Inserted mock Sessions, Reviews, and Badges.');
+
+    // Seed mock reports
+    const mockReport1 = new SkillSwapReport({
+      reportedBy: users[0]._id,
+      targetType: 'offer',
+      targetId: offer2._id,
+      onModel: 'SkillOffer',
+      reason: 'spam',
+      description: 'This offer seems like a scam, asking for payment off-platform.',
+      status: 'open'
+    });
+    await mockReport1.save();
+
+    const mockReport2 = new SkillSwapReport({
+      reportedBy: users[1]._id,
+      targetType: 'user',
+      targetId: users[3]._id,
+      onModel: 'User',
+      reason: 'harassment',
+      description: 'User sent inappropriate messages after our session.',
+      status: 'reviewing'
+    });
+    await mockReport2.save();
+
+    console.log('Inserted mock Reports.');
     console.log('Seeding Complete!');
     process.exit(0);
   } catch (error) {

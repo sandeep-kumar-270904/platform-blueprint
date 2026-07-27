@@ -29,4 +29,6 @@ const skillSessionSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+skillSessionSchema.index({ participants: 1, scheduledAt: 1 });
+
 module.exports = mongoose.model('SkillSession', skillSessionSchema);

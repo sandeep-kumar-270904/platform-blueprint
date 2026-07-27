@@ -140,6 +140,7 @@ import AdminPlacementPanel from "./pages/admin/AdminPlacementPanel";
 import ScholarshipDetail from "./pages/ScholarshipDetail";
 import ScholarshipApply from "./pages/ScholarshipApply";
 import AdminScholarships from "./pages/admin/AdminScholarships";
+import AdminSkillSwapPanel from "./pages/admin/AdminSkillSwapPanel";
 import MyScholarships from "./pages/MyScholarships";
 import ScholarshipCalculator from "./pages/ScholarshipCalculator";
 import { AuthProvider } from "./hooks/useAuth";
@@ -310,6 +311,7 @@ const App = () => (
           <Route path="/admin/quiz-reports" element={<ProtectedRoute><AdminQuizReports /></ProtectedRoute>} />
           <Route path="/admin/news-moderation" element={<ProtectedRoute><AdminNewsModeration /></ProtectedRoute>} />
           <Route path="/admin/classrooms" element={<ProtectedRoute><AdminClassroomsPanel /></ProtectedRoute>} />
+          <Route path="/admin/skill-swap" element={<ProtectedRoute><AdminSkillSwapPanel /></ProtectedRoute>} />
           <Route path="/recruiter/verify" element={<ProtectedRoute><RecruiterVerify /></ProtectedRoute>} />
           <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
           <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />

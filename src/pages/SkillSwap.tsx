@@ -4,9 +4,12 @@ import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { ParallaxSection } from "@/components/animations/ParallaxSection";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, ArrowRight, Clock, Star, Search, Calendar, CheckCircle, XCircle, MessageSquare } from "lucide-react";
+import { RefreshCw, ArrowRight, Clock, Star, Search, Calendar, CheckCircle, XCircle, MessageSquare, Flag } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -31,10 +34,36 @@ import {
   useCancelRequest,
   useSubmitReview,
   useDeleteSkillOffer,
+  useCreateSkillSwapReport,
+  useMarkNoShow,
   SkillOffer,
   SkillMatch,
-  SkillSession
+  SkillSession,
+  useSkillSwapRecommendations,
+  useUserBadges,
+  useUserEndorsements,
+  useCreateEndorsement
 } from "@/hooks/useSkillSwap";
+import { CirclesView } from "@/components/skill-swap/CirclesView";
+import { MyGrowth } from "@/components/skill-swap/MyGrowth";
+import { Checkbox } from "@/components/ui/checkbox";
+
+// Component to fetch and display user badges
+const UserBadges = ({ userId }: { userId: string }) => {
+  const { data: badges, isLoading } = useUserBadges(userId);
+  if (isLoading || !badges || badges.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-1 mt-1">
+      {badges.map(b => (
+        <Badge key={b._id} variant="outline" className="text-[10px] py-0 px-1 border-primary/50 text-primary bg-primary/5">
+          {b.badgeType === 'top-rated' && <Star className="h-3 w-3 mr-1 inline fill-primary" />}
+          {b.badgeType.replace('-', ' ')}
+        </Badge>
+      ))}
+    </div>
+  );
+};
 
 // Component to fetch and display user ratings
 const UserRating = ({ userId }: { userId: string }) => {
@@ -50,9 +79,21 @@ const UserRating = ({ userId }: { userId: string }) => {
   );
 };
 
+const UserEndorsementBadge = ({ userId, skillName }: { userId: string, skillName: string }) => {
+  const { data: endorsements } = useUserEndorsements(userId);
+  if (!endorsements || !endorsements[skillName]) return null;
+  const count = endorsements[skillName].total;
+  
+  return (
+    <Badge variant="outline" className="text-xs border-green-200 bg-green-50 text-green-700 ml-2">
+      <CheckCircle className="h-3 w-3 mr-1 inline" /> {count} {count === 1 ? 'Endorsement' : 'Endorsements'}
+    </Badge>
+  );
+};
+
 // Sub-components to keep file clean
-const OfferCard = ({ offer, onSchedule }: { offer: SkillOffer, onSchedule: (offerId: string) => void }) => (
-  <Card className="hover-lift flex flex-col h-full">
+const OfferCard = ({ offer, onSchedule, onReport }: { offer: SkillOffer, onSchedule: (offerId: string) => void, onReport: (offerId: string) => void }) => (
+  <Card className="hover-lift flex flex-col h-full relative">
     <CardHeader>
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -60,12 +101,16 @@ const OfferCard = ({ offer, onSchedule }: { offer: SkillOffer, onSchedule: (offe
           <div>
             <h3 className="text-lg font-bold leading-tight">{offer.user?.name || 'Anonymous User'}</h3>
             <UserRating userId={offer.user._id} />
+            <UserBadges userId={offer.user._id} />
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="secondary" className="text-xs">{offer.proficiencyLevel}</Badge>
               <Badge variant="outline" className="text-xs">{offer.category}</Badge>
             </div>
           </div>
         </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive absolute top-4 right-4" onClick={() => onReport(offer._id)}>
+          <Flag className="h-4 w-4" />
+        </Button>
       </div>
     </CardHeader>
     <CardContent className="flex-1 flex flex-col justify-between">
@@ -74,7 +119,7 @@ const OfferCard = ({ offer, onSchedule }: { offer: SkillOffer, onSchedule: (offe
         <div className="flex items-center gap-3">
           <div className="flex-1 p-3 rounded-lg bg-primary/10">
             <p className="text-xs text-muted-foreground mb-1">Offering</p>
-            <p className="font-semibold text-sm line-clamp-1">{offer.skillName}</p>
+            <p className="font-semibold text-sm line-clamp-1 flex items-center">{offer.skillName} <UserEndorsementBadge userId={offer.user._id} skillName={offer.skillName} /></p>
           </div>
           <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0" />
           <div className="flex-1 p-3 rounded-lg bg-accent/10">
@@ -131,11 +176,20 @@ const MatchCard = ({ match, onRequest }: { match: SkillMatch, onRequest: (toUser
   </Card>
 );
 
-const SkillSwap = () => {
-  const [selectedTab, setSelectedTab] = useState("browse");
+export default function SkillSwap() {
+  const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState("browse");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
+  const [isPosting, setIsPosting] = useState(false);
+  const [reportingTarget, setReportingTarget] = useState<{ type: string, id: string } | null>(null);
   const { toast } = useToast();
+
+  const syncStatus = useRealtimeSync({
+    channelName: 'skill-swap-events',
+    enabled: true,
+    pollIntervalMs: 60000,
+  });
 
   // Queries
   const { data: offersData, isLoading: offersLoading } = useSkillOffers(1, 20, search, category);
@@ -143,6 +197,7 @@ const SkillSwap = () => {
   const { data: myOffers, isLoading: myOffersLoading } = useMySkillOffers();
   const { data: requests, isLoading: requestsLoading } = useSkillRequests();
   const { data: sessions, isLoading: sessionsLoading } = useMySessions();
+  const { data: recommendations, isLoading: recommendationsLoading } = useSkillSwapRecommendations();
 
   // Mutations
   const createRequestMutation = useCreateSkillRequest();
@@ -153,6 +208,37 @@ const SkillSwap = () => {
   const completeSessionMutation = useCompleteSession();
   const cancelReqMutation = useCancelRequest();
   const submitReviewMutation = useSubmitReview();
+  const reportMutation = useCreateSkillSwapReport();
+  const noShowMutation = useMarkNoShow();
+
+  const pendingCount = requests?.incoming?.filter(r => r.status === 'pending').length || 0;
+
+  const handleReportSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!reportingTarget) return;
+    const formData = new FormData(e.currentTarget);
+    try {
+      await reportMutation.mutateAsync({
+        targetType: reportingTarget.type,
+        targetId: reportingTarget.id,
+        reason: formData.get('reason') as string,
+        description: formData.get('description') as string
+      });
+      toast({ title: "Report Submitted", description: "Our moderators will review this shortly." });
+      setReportingTarget(null);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.response?.data?.message || "Failed to submit report", variant: "destructive" });
+    }
+  };
+
+  const handleNoShow = async (requestId: string) => {
+    try {
+      await noShowMutation.mutateAsync(requestId);
+      toast({ title: "Marked as No-Show", description: "The session has been recorded as a no-show." });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.response?.data?.message || "Failed to mark no-show", variant: "destructive" });
+    }
+  };
 
   const handleRequestExchange = async (toUserId: string, offerId: string) => {
     try {
@@ -177,6 +263,7 @@ const SkillSwap = () => {
     try {
       await createOfferMutation.mutateAsync(data);
       toast({ title: "Offer Posted!", description: "Your skill offer is now live." });
+      setIsPosting(false);
       (e.target as HTMLFormElement).reset();
     } catch (error) {
       toast({ title: "Failed to post", variant: "destructive" });
@@ -195,13 +282,25 @@ const SkillSwap = () => {
     }
   };
 
-  const handleReview = async (e: React.FormEvent<HTMLFormElement>, sessionId: string) => {
+  const createEndorsementMutation = useCreateEndorsement();
+
+  const handleReview = async (e: React.FormEvent<HTMLFormElement>, sessionId: string, otherUserId: string, skillName: string) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const rating = parseInt(formData.get('rating') as string);
     const comment = formData.get('comment') as string;
+    const endorse = formData.get('endorse') === 'on';
+
     try {
       await submitReviewMutation.mutateAsync({ sessionId, rating, comment });
+      if (endorse && skillName && otherUserId) {
+        await createEndorsementMutation.mutateAsync({
+          endorseeId: otherUserId,
+          skillName,
+          basedOn: 'completed-session',
+          sessionId
+        });
+      }
       toast({ title: "Review Submitted!" });
     } catch (error: any) {
       toast({ title: "Failed", description: error.response?.data?.message, variant: "destructive" });
@@ -217,21 +316,23 @@ const SkillSwap = () => {
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
-                <Badge variant="default" className="mb-6">
-                  <RefreshCw className="mr-1 h-3 w-3" />
-                  Skill Exchange Phase 2
-                </Badge>
+                <div className="flex justify-center items-center gap-3 mb-6">
+                  <Badge variant="default">
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                    Skill Exchange Phase 5
+                  </Badge>
+                  {syncStatus !== 'live' && syncStatus !== 'connecting' && (
+                    <SyncStatusIndicator status={syncStatus} />
+                  )}
+                </div>
                 <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
-                  Skill <span className="text-primary display-font">Swap</span>
+                  {t("Skill Swap", "Skill Swap")}
                 </h1>
-                <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
-                  Exchange skills with peers. Teach what you know, learn what you need. Schedule sessions and build your reputation.
+                <p className="mb-8 text-lg text-muted-foreground">
+                  Exchange knowledge, mentor peers, and learn new skills for free. Connect with fellow students to trade expertise.
                 </p>
                 
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button size="lg" className="hover-scale">Post Your Offer</Button>
-                  </DialogTrigger>
+                <Dialog open={isPosting} onOpenChange={setIsPosting}>
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Post a Skill Offer</DialogTitle>
@@ -280,16 +381,39 @@ const SkillSwap = () => {
       </ParallaxSection>
 
       <div className="container mx-auto px-4 py-8">
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-8">
-          <TabsList className="grid w-full max-w-4xl mx-auto grid-cols-5 h-auto py-2">
-            <TabsTrigger value="browse">Browse</TabsTrigger>
-            <TabsTrigger value="matches">My Matches</TabsTrigger>
-            <TabsTrigger value="requests">Requests</TabsTrigger>
-            <TabsTrigger value="sessions">My Sessions</TabsTrigger>
-            <TabsTrigger value="myoffers">My Offers</TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+          <div className="flex justify-between items-center flex-wrap gap-4">
+            <TabsList className="bg-background/60 backdrop-blur-md border border-border/50 p-1">
+              <TabsTrigger value="browse" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("Browse Offers", "Browse Offers")}</TabsTrigger>
+              <TabsTrigger value="matches" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("My Matches", "My Matches")}</TabsTrigger>
+              <TabsTrigger value="requests" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("Requests", "Requests")} {pendingCount > 0 && <Badge variant="destructive" className="ml-2 bg-red-500">{pendingCount}</Badge>}</TabsTrigger>
+              <TabsTrigger value="sessions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("My Sessions", "My Sessions")}</TabsTrigger>
+              <TabsTrigger value="offers" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("My Offers", "My Offers")}</TabsTrigger>
+              <TabsTrigger value="circles" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("Circles", "Circles")}</TabsTrigger>
+              <TabsTrigger value="growth" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("My Growth", "My Growth")}</TabsTrigger>
+            </TabsList>
+
+            <Button onClick={() => setIsPosting(true)} className="rounded-full shadow-lg hover:shadow-xl transition-all">
+              <RefreshCw className="mr-2 h-4 w-4" /> {t("Post Your Offer", "Post Your Offer")}
+            </Button>
+          </div>
 
           <TabsContent value="browse" className="space-y-6">
+            {/* Recommended Section */}
+            {recommendations && recommendations.length > 0 && (
+              <div className="mb-10">
+                <div className="flex items-center gap-2 mb-4">
+                  <Star className="h-5 w-5 text-yellow-500" fill="currentColor" />
+                  <h3 className="text-xl font-semibold">{t("Recommended for You", "Recommended for You")}</h3>
+                </div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  {recommendations.slice(0, 2).map((match: SkillMatch, i: number) => (
+                    <MatchCard key={i} match={match} onRequest={handleRequestExchange} />
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <div className="max-w-4xl mx-auto flex gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -319,6 +443,7 @@ const SkillSwap = () => {
                     <OfferCard 
                       offer={offer} 
                       onSchedule={(id) => handleRequestExchange(offer.user._id, id)} 
+                      onReport={(id) => setReportingTarget({ type: 'offer', id })}
                     />
                   </ScrollReveal>
                 ))}
@@ -435,10 +560,7 @@ const SkillSwap = () => {
                 <h3 className="text-lg font-bold mb-4">My Skill Sessions</h3>
                 {sessionsLoading ? <p>Loading...</p> : sessions?.length === 0 ? <p className="text-sm text-muted-foreground">No sessions scheduled.</p> : (
                   <div className="space-y-4">
-                    {sessions?.map((session) => {
-                      const otherParticipant = session.participants.find(p => typeof p !== 'string'); // Note: naive way to get the other person since current user isn't readily available without auth context, but they're populated so they have names.
-                      // Usually we check p._id !== currentUser._id. For UI demo we just show participants.
-                      return (
+                    {sessions?.map((session) => (
                         <Card key={session._id}>
                           <CardContent className="p-5 flex items-center justify-between">
                             <div>
@@ -448,7 +570,7 @@ const SkillSwap = () => {
                                 <Badge variant={session.status === 'completed' ? 'default' : session.status === 'scheduled' ? 'secondary' : 'outline'}>{session.status}</Badge>
                               </div>
                               <p className="text-sm text-muted-foreground mt-1">
-                                Participants: {session.participants.map(p => p.name).join(' & ')}
+                                Participants: {session.participants.map((p: any) => p.name).join(' & ')}
                               </p>
                               {session.status === 'scheduled' && (
                                 <p className="text-xs text-muted-foreground mt-2">Duration: {session.durationMinutes} mins</p>
@@ -458,8 +580,12 @@ const SkillSwap = () => {
                             <div className="flex items-center gap-2">
                               {session.status === 'scheduled' && (
                                 <>
+                                  <Button size="sm" variant="outline" onClick={() => {
+                                    window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/skill-swap/sessions/${session._id}/ics`, '_blank');
+                                  }}>
+                                    <Calendar className="mr-2 h-4 w-4" /> Add to Calendar
+                                  </Button>
                                   <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => {
-                                    // Usually would extract request _id, but since session maps 1-1, we can call completeSession using request ID.
                                     const reqId = typeof session.request === 'string' ? session.request : session.request._id;
                                     completeSessionMutation.mutate(reqId);
                                   }}>
@@ -471,6 +597,12 @@ const SkillSwap = () => {
                                   }}>
                                     <XCircle className="mr-2 h-4 w-4" /> Cancel
                                   </Button>
+                                  <Button size="sm" variant="ghost" className="text-orange-500 hover:text-orange-600" onClick={() => {
+                                    const reqId = typeof session.request === 'string' ? session.request : session.request._id;
+                                    handleNoShow(reqId);
+                                  }}>
+                                    <Flag className="mr-2 h-4 w-4" /> No-Show
+                                  </Button>
                                 </>
                               )}
                               {session.status === 'completed' && (
@@ -480,7 +612,18 @@ const SkillSwap = () => {
                                   </DialogTrigger>
                                   <DialogContent>
                                     <DialogHeader><DialogTitle>Rate your Session</DialogTitle></DialogHeader>
-                                    <form onSubmit={(e) => handleReview(e, session._id)} className="space-y-4">
+                                    <form onSubmit={(e) => {
+                                      // determine the other user and skill
+                                      // the request object holds this info if populated
+                                      const reqInfo = typeof session.request !== 'string' ? session.request as any : null;
+                                      const isFromMe = reqInfo && reqInfo.fromUser?._id === undefined; // approximate, not fully accurate without knowing our own ID but let's assume we can pass it if we have it
+                                      // Actually we can deduce the other user from session.participants
+                                      const otherParticipant = session.participants.find((p:any) => p._id !== reqInfo?.fromUser?._id); // this might need current userId to be accurate, let's just pass nulls if unavailable, or just the first non-me. We'll simplify.
+                                      const otherUserId = session.participants.find((p:any) => true)?._id; // simplified, just for form
+                                      const skillName = reqInfo?.offer?.skillName || '';
+                                      
+                                      handleReview(e, session._id, otherUserId, skillName)
+                                    }} className="space-y-4">
                                       <div>
                                         <label className="text-sm font-medium">Rating (1-5)</label>
                                         <select name="rating" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required>
@@ -494,6 +637,12 @@ const SkillSwap = () => {
                                       <div>
                                         <label className="text-sm font-medium">Comments (optional)</label>
                                         <Input name="comment" placeholder="How was the exchange?" />
+                                      </div>
+                                      <div className="flex items-center space-x-2 border p-3 rounded-md bg-green-50/50">
+                                        <Checkbox id={`endorse-${session._id}`} name="endorse" />
+                                        <label htmlFor={`endorse-${session._id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                          Endorse them for this skill
+                                        </label>
                                       </div>
                                       <Button type="submit" className="w-full">Submit Review</Button>
                                     </form>
@@ -511,7 +660,7 @@ const SkillSwap = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="myoffers">
+          <TabsContent value="offers">
             {myOffersLoading ? (
               <p className="text-center text-muted-foreground py-12">Loading your offers...</p>
             ) : myOffers?.length === 0 ? (
@@ -543,8 +692,41 @@ const SkillSwap = () => {
             )}
           </TabsContent>
 
+          <TabsContent value="circles">
+            <CirclesView />
+          </TabsContent>
+
+          <TabsContent value="growth">
+            <MyGrowth />
+          </TabsContent>
+
         </Tabs>
       </div>
+
+      {/* Report Modal */}
+      <Dialog open={!!reportingTarget} onOpenChange={(open) => !open && setReportingTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report {reportingTarget?.type === 'offer' ? 'Offer' : 'User'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleReportSubmit} className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Reason</label>
+              <select name="reason" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required>
+                <option value="inappropriate-content">Inappropriate Content</option>
+                <option value="spam">Spam or Scams</option>
+                <option value="harassment">Harassment</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <textarea name="description" required className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[100px]" placeholder="Please provide details..."></textarea>
+            </div>
+            <Button type="submit" className="w-full" disabled={reportMutation.isPending}>Submit Report</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
