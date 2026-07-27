@@ -13,6 +13,7 @@ import { RecentNotifications } from "./RecentNotifications";
 import { CommunityDashboardWidget } from "./CommunityDashboardWidget";
 import { VirtualClassroomWidget } from "../virtual-classroom/VirtualClassroomWidget";
 import { TeamHuntDashboardWidget } from "./TeamHuntDashboardWidget";
+import { CreatorDashboardWidget } from "./CreatorDashboardWidget";
 
 interface Stats {
   notesCount: number;
@@ -112,6 +113,10 @@ export const DashboardOverview = ({ stats, setActiveSection }: { stats: Stats, s
 
       <ScrollReveal delay={0.12}>
         <TeamHuntDashboardWidget />
+      </ScrollReveal>
+
+      <ScrollReveal delay={0.14}>
+        <CreatorDashboardWidget />
       </ScrollReveal>
 
       <RecommendedColleges />

@@ -165,6 +165,10 @@ export const NotificationBell = () => {
       return '/community';
     }
     
+    if (n.type.startsWith('creator_')) {
+      return n.relatedContentId ? `/creators?contentId=${n.relatedContentId}` : '/creators';
+    }
+    
     if (n.relatedCollegeId) {
       return `/colleges/${n.relatedCollegeId}`;
     }
