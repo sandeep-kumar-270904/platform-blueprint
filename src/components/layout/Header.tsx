@@ -47,7 +47,7 @@ const defaultNavigationGroups = [
     items: [
       { title: "Study Groups", href: "/study-groups", desc: "Virtual study rooms" },
       { title: "Team Hunt", href: "/team-hunt", desc: "Find collaborators" },
-      { title: "Tech Vault", href: "/tech-vault", desc: "Code snippets and docs" },
+
       { title: "Skill Swap", href: "/skill-swap", desc: "Exchange knowledge" },
       { title: "Scholarship Community", href: "/scholarships/community", desc: "Coach, Buddies & Circles" },
       { title: "Creators Zone", href: "/creators", desc: "Content platform" },

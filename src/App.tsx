@@ -99,7 +99,7 @@ import Transport from "./pages/Transport";
 import Roadmaps from "./pages/Roadmaps";
 import Forum from "./pages/Forum";
 import Sessions from "./pages/Sessions";
-import TechVault from "./pages/TechVault";
+
 import SkillSwap from "./pages/SkillSwap";
 import CreatorsZone from "./pages/CreatorsZone";
 import CreatorProfilePage from "./pages/CreatorProfilePage";
@@ -297,7 +297,7 @@ const App = () => (
           <Route path="/roadmaps" element={<ProtectedRoute><Roadmaps /></ProtectedRoute>} />
           <Route path="/forum" element={<ProtectedRoute><Forum /></ProtectedRoute>} />
           <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
-          <Route path="/tech-vault" element={<ProtectedRoute><TechVault /></ProtectedRoute>} />
+
           <Route path="/skill-swap" element={<ProtectedRoute><SkillSwap /></ProtectedRoute>} />
           <Route path="/creators" element={<CreatorsZone />} />
           <Route path="/creators/profile/:id" element={<CreatorProfilePage />} />
