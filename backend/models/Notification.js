@@ -88,7 +88,8 @@ const notificationSchema = new mongoose.Schema({
       'skill_swap_scheduled',
       'skill_swap_completed',
       'skill_swap_cancelled',
-      'skill_swap_review_received'
+      'skill_swap_review_received',
+      'system_alert'
     ],
     required: true
   },

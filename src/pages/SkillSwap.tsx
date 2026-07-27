@@ -653,7 +653,7 @@ export default function SkillSwap() {
                           </CardContent>
                         </Card>
                       )
-                    })}
+                    )}
                   </div>
                 )}
               </div>
@@ -730,5 +730,3 @@ export default function SkillSwap() {
     </div>
   );
 };
-
-export default SkillSwap;
