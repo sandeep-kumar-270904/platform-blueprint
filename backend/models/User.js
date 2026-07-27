@@ -388,7 +388,12 @@ const UserSchema = new mongoose.Schema({
   
   // Phase 14: Skill Swap Trust
   skillSwapNoShowCount: { type: Number, default: 0 },
-  skillSwapTrustFlag: { type: String, enum: ['none', 'warned', 'restricted'], default: 'none' }
+  skillSwapTrustFlag: { type: String, enum: ['none', 'warned', 'restricted'], default: 'none' },
+
+  // Creators Zone Phase 4: Follow/Unfollow
+  creatorFollowers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  creatorFollowing: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  mutedCreators: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 });
 
 // Query helper for privacy

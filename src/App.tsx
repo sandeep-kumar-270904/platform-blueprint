@@ -102,10 +102,12 @@ import Sessions from "./pages/Sessions";
 import TechVault from "./pages/TechVault";
 import SkillSwap from "./pages/SkillSwap";
 import CreatorsZone from "./pages/CreatorsZone";
+import CreatorProfilePage from "./pages/CreatorProfilePage";
 import AdminPanel from "./pages/AdminPanel";
 import AdminCollegePanel from "./pages/AdminCollegePanel";
 import MentorsAdminDashboard from "./pages/admin/MentorsAdminDashboard";
 import AdminResumeDashboard from "./pages/admin/AdminResumeDashboard";
+import AdminCreatorsPanel from "./pages/admin/AdminCreatorsPanel";
 import AdminClassroomsPanel from "./pages/admin/AdminClassroomsPanel";
 import DailyHacks from "./pages/DailyHacks";
 import VideoRoomPage from "./pages/VideoRoomPage";
@@ -141,6 +143,7 @@ import ScholarshipDetail from "./pages/ScholarshipDetail";
 import ScholarshipApply from "./pages/ScholarshipApply";
 import AdminScholarships from "./pages/admin/AdminScholarships";
 import AdminSkillSwapPanel from "./pages/admin/AdminSkillSwapPanel";
+import AdminCreatorsPanel from "./pages/admin/AdminCreatorsPanel";
 import MyScholarships from "./pages/MyScholarships";
 import ScholarshipCalculator from "./pages/ScholarshipCalculator";
 import { AuthProvider } from "./hooks/useAuth";
@@ -297,9 +300,11 @@ const App = () => (
           <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
           <Route path="/tech-vault" element={<ProtectedRoute><TechVault /></ProtectedRoute>} />
           <Route path="/skill-swap" element={<ProtectedRoute><SkillSwap /></ProtectedRoute>} />
-          <Route path="/creators" element={<ProtectedRoute><CreatorsZone /></ProtectedRoute>} />
+          <Route path="/creators" element={<CreatorsZone />} />
+          <Route path="/creators/profile/:id" element={<CreatorProfilePage />} />
           <Route path="/admin/scholarships" element={<ProtectedRoute><AdminScholarships /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
+          <Route path="/admin/creators" element={<ProtectedRoute><AdminCreatorsPanel /></ProtectedRoute>} />
           <Route path="/admin/users/:id/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/admin/jobs" element={<ProtectedRoute><AdminJobsPanel /></ProtectedRoute>} />
           <Route path="/admin/colleges" element={<ProtectedRoute><AdminCollegePanel /></ProtectedRoute>} />
@@ -312,6 +317,7 @@ const App = () => (
           <Route path="/admin/news-moderation" element={<ProtectedRoute><AdminNewsModeration /></ProtectedRoute>} />
           <Route path="/admin/classrooms" element={<ProtectedRoute><AdminClassroomsPanel /></ProtectedRoute>} />
           <Route path="/admin/skill-swap" element={<ProtectedRoute><AdminSkillSwapPanel /></ProtectedRoute>} />
+          <Route path="/admin/creators" element={<ProtectedRoute><AdminCreatorsPanel /></ProtectedRoute>} />
           <Route path="/recruiter/verify" element={<ProtectedRoute><RecruiterVerify /></ProtectedRoute>} />
           <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
           <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />

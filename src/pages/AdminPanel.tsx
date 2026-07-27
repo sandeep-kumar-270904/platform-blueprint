@@ -17,6 +17,7 @@ import { AdminAnalyticsHub } from "@/components/admin/AdminAnalyticsHub";
 import { AdminPageManager } from "@/components/admin/AdminPageManager";
 import { AdminTeamModeration } from "@/components/admin/AdminTeamModeration";
 import { AdminSkillSwap } from "@/components/admin/AdminSkillSwap";
+import { AdminCreatorsModeration } from "@/components/admin/AdminCreatorsModeration";
 import { useAdmin } from "@/hooks/useAdmin";
 import { toast } from 'sonner';
 
@@ -109,6 +110,9 @@ const AdminPanel = () => {
             <TabsTrigger value="skill-swap">
               <Activity className="mr-2 h-4 w-4" /> Skill Swap
             </TabsTrigger>
+            <TabsTrigger value="creators">
+              <Video className="mr-2 h-4 w-4" /> Creators Zone
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -173,6 +177,9 @@ const AdminPanel = () => {
                   </Button>
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
                     <Link to="/admin/skill-swap"><Activity className="mr-3 h-5 w-5 text-pink-500" /> Skill Swap Moderation</Link>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/creators"><Video className="mr-3 h-5 w-5 text-indigo-500" /> Creators Zone Moderation</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -260,6 +267,10 @@ const AdminPanel = () => {
 
           <TabsContent value="skill-swap" className="bg-white p-6 rounded-xl border shadow-sm">
             <AdminSkillSwap />
+          </TabsContent>
+
+          <TabsContent value="creators" className="bg-white p-6 rounded-xl border shadow-sm">
+            <AdminCreatorsModeration />
           </TabsContent>
         </Tabs>
       </main>

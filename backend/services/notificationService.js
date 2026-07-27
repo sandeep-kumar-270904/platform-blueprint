@@ -243,6 +243,9 @@ const sendNotification = async (data) => {
   }
 };
 
+const getIo = () => _io;
+
 exports.init = init;
+exports.getIo = getIo;
 exports.sendNotification = sendNotification;
 exports.createNotification = sendNotification;

@@ -18,6 +18,7 @@ const PlacementProfile = require('../models/PlacementProfile');
 const UserActivity = require('../models/UserActivity');
 const OAAttempt = require('../models/OAAttempt');
 const GDLiveSession = require('../models/GDLiveSession');
+const CreatorContent = require('../models/CreatorContent');
 
 
 
@@ -71,6 +72,35 @@ router.get('/stats', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/dashboard/creators-summary
+router.get('/creators-summary', authMiddleware, async (req, res) => {
+  try {
+    const userId = await getTargetUserId(req);
+    const user = await User.findById(userId).select('creatorFollowers');
+    const allWork = await CreatorContent.find({ userId, status: { $ne: 'removed' } }).select('status views likes');
+    
+    const totalPiecesPublished = allWork.filter(c => c.status === 'published').length;
+    const totalViews = allWork.reduce((sum, c) => sum + (c.views || 0), 0);
+    const totalLikes = allWork.reduce((sum, c) => sum + (c.likes || 0), 0);
+    const followerCount = user?.creatorFollowers?.length || 0;
+
+    const recentActivity = await Notification.find({
+      userId,
+      type: { $in: ['creator_publish', 'creator_comment', 'creator_like', 'creator_reply'] }
+    }).sort({ createdAt: -1 }).limit(5);
+
+    res.json({
+      totalPiecesPublished,
+      totalViews,
+      totalLikes,
+      followerCount,
+      recentActivity
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching creators summary', error: err.message });
   }
 });
 

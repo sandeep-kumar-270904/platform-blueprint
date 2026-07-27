@@ -735,6 +735,7 @@ app.use('/api/live-sessions', require('./routes/liveSessions'));
 app.use('/api/news', require('./routes/news'));
 app.use('/api/leaderboards', require('./routes/leaderboards'));
 app.use('/api/creators', require('./routes/creators'));
+app.use('/api/admin/creators', require('./routes/adminCreators'));
   app.use('/api/admin/quizzes-overview', require('./routes/adminQuizzesOverview'));
   app.use('/api/admin/aptitude', require('./routes/adminAptitude'));
   app.use('/api/admin/team-moderation', require('./routes/adminTeamModeration'));
