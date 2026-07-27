@@ -7,10 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useMyTeams, useMyApplications, useMyInvites, useRespondToInvite } from "@/hooks/useTeams";
+import { SecondChanceBanner } from "@/components/team/SecondChanceBanner";
 import { Loader2, ArrowLeft, Users, Mail, Check, X, ClipboardList, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { FounderTrustSignal } from "@/components/team/FounderTrustSignal";
 
 export default function TeamHuntDashboard() {
   const { t, i18n } = useTranslation();
@@ -108,7 +110,12 @@ export default function TeamHuntDashboard() {
                             <span className="text-xs text-muted-foreground">{team.teamSize.current}/{team.teamSize.max} members</span>
                           </div>
                           <CardTitle className="text-lg">{team.title}</CardTitle>
-                          <CardDescription>Creator: {team.creator.username || 'Unknown'}</CardDescription>
+                          <FounderTrustSignal
+                            creatorId={team.creator?._id}
+                            creatorName={team.creator?.username || team.creator?.full_name || 'Unknown'}
+                            trust={team.creator?.creatorTrust || team.creatorTrust}
+                            variant="card"
+                          />
                         </CardHeader>
                         <CardContent>
                           {team.status === 'completed' && (
@@ -170,6 +177,9 @@ export default function TeamHuntDashboard() {
                               </Button>
                             </div>
                           </div>
+                        )}
+                        {app.status === 'rejected' && (
+                          <SecondChanceBanner teamId={app.team?._id || app.team} />
                         )}
                       </CardContent>
                     </Card>

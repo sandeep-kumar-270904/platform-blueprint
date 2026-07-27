@@ -7,6 +7,50 @@ const { sendNotification } = require('../services/notificationService');
 const { assessModeration } = require('../utils/moderation');
 const teamCache = require('../utils/teamCache');
 const skillGapAdvisor = require('../services/skillGapAdvisor');
+const secondChanceService = require('../services/secondChanceService');
+const teamBadgeService = require('../services/teamBadgeService');
+
+const attachCreatorTrustList = async (teamsList) => {
+  if (!teamsList || !Array.isArray(teamsList)) return;
+  const trustCache = {};
+  await Promise.all(teamsList.map(async (t) => {
+    if (t && t.creator && (t.creator._id || t.creator.id || typeof t.creator === 'string')) {
+      const creatorId = (t.creator._id || t.creator.id || t.creator).toString();
+      if (!trustCache[creatorId]) {
+        trustCache[creatorId] = teamBadgeService.getCreatorTrust(creatorId);
+      }
+      const trust = await trustCache[creatorId];
+      if (trust && typeof t.creator === 'object') {
+        t.creator.creatorTrust = {
+          teamsCreated: trust.teamsCreated,
+          teamsCompleted: trust.teamsCompleted,
+          averageRatingReceived: trust.averageRatingReceived,
+          totalReviews: trust.totalReviews,
+          isFirstTimeCreator: trust.isFirstTimeCreator
+        };
+      } else if (trust && typeof t.creator === 'string') {
+        t.creatorTrust = {
+          teamsCreated: trust.teamsCreated,
+          teamsCompleted: trust.teamsCompleted,
+          averageRatingReceived: trust.averageRatingReceived,
+          totalReviews: trust.totalReviews,
+          isFirstTimeCreator: trust.isFirstTimeCreator
+        };
+      }
+    }
+  }));
+};
+
+const attachCreatorTrustSingle = async (teamObj) => {
+  if (!teamObj || !teamObj.creator) return;
+  const creatorId = (teamObj.creator._id || teamObj.creator.id || teamObj.creator).toString();
+  const trust = await teamBadgeService.getCreatorTrust(creatorId);
+  if (trust && typeof teamObj.creator === 'object') {
+    teamObj.creator.creatorTrust = trust;
+  } else if (trust && typeof teamObj.creator === 'string') {
+    teamObj.creatorTrust = trust;
+  }
+};
 
 // @desc    Get all teams (with pagination, search, filters)
 // @route   GET /api/teams
@@ -78,6 +122,8 @@ exports.getTeams = async (req, res) => {
         .lean();
     }
 
+    await attachCreatorTrustList(teams);
+
     res.status(200).json({
       success: true,
       count: teams.length,
@@ -110,6 +156,8 @@ exports.getTeamById = async (req, res) => {
 
     // Count pending applications
     const pendingCount = await TeamApplication.countDocuments({ team: team._id, status: 'pending' });
+
+    await attachCreatorTrustSingle(team);
 
     res.status(200).json({
       success: true,
@@ -426,14 +474,30 @@ exports.updateApplicationStatus = async (req, res) => {
       application.status = 'rejected';
       await application.save();
 
-      // Notify applicant with actionable skill gap advisor link
+      // Find second chance alternative teams
+      let secondChanceMatches = [];
+      try {
+        secondChanceMatches = await secondChanceService.findAlternativeTeams(application.applicant.toString(), team._id.toString());
+      } catch (scErr) {
+        console.error('[SecondChanceService] Error finding alternative teams:', scErr.message || scErr);
+      }
+
+      let notifBody = `Your application to join ${team.title} was declined. See how to build the skills for this team →`;
+      if (secondChanceMatches && secondChanceMatches.length > 0) {
+        notifBody = `Your application to join ${team.title} was declined. ${secondChanceMatches.length} other ${secondChanceMatches.length === 1 ? 'team is' : 'teams are'} looking for someone like you!`;
+      }
+
+      // Notify applicant with actionable skill gap advisor link and second chance matches
       await sendNotification({
         userId: application.applicant.toString(),
         type: 'team_application_rejected',
         actorId: req.user.id,
         relatedContentId: team._id.toString(),
         title: 'Application Status Update',
-        body: `Your application to join ${team.title} was declined. See how to build the skills for this team →`
+        body: notifBody,
+        metadata: {
+          secondChanceMatches: secondChanceMatches || []
+        }
       });
     }
 
@@ -850,6 +914,8 @@ exports.getRecommendedTeams = async (req, res) => {
 
     // Sort by score descending
     scoredTeams.sort((a, b) => b.matchScore - a.matchScore);
+
+    await attachCreatorTrustList(scoredTeams);
 
     res.status(200).json({
       success: true,
@@ -1300,6 +1366,40 @@ exports.getTrendingSkillGaps = async (req, res) => {
     res.status(200).json({ success: true, data: trending });
   } catch (err) {
     console.error('Error in getTrendingSkillGaps:', err.message || err);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+// @desc    Get second chance match alternatives for a rejected applicant
+// @route   GET /api/teams/:id/second-chance
+// @access  Private
+exports.getSecondChanceMatches = async (req, res) => {
+  try {
+    const teamId = req.params.id;
+    const userId = req.user.id;
+
+    // Check if user has a rejected application for this team
+    const rejectedApp = await TeamApplication.findOne({
+      team: teamId,
+      applicant: userId,
+      status: 'rejected'
+    });
+
+    if (!rejectedApp) {
+      return res.status(403).json({
+        success: false,
+        message: 'You must have a rejected application for this team to view second chance alternatives.'
+      });
+    }
+
+    const matches = await secondChanceService.findAlternativeTeams(userId, teamId, 'on_demand_view');
+
+    res.status(200).json({
+      success: true,
+      data: matches
+    });
+  } catch (err) {
+    console.error('[getSecondChanceMatches]', err);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };

@@ -8,7 +8,7 @@ const teamAuditLogSchema = new mongoose.Schema({
   },
   action: {
     type: String,
-    enum: ['resolve_report', 'force_close_team', 'verify_institution', 'shadow_ban_review'],
+    enum: ['resolve_report', 'force_close_team', 'verify_institution', 'shadow_ban_review', 'soft_delete_team', 'flag_team', 'unflag_team', 'team_hunt_ban', 'dismiss_report', 'warn_team'],
     required: true
   },
   targetTeamId: {

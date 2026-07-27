@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Bell, Check, X, MessageSquare, Users, Calendar, Lightbulb, Trophy } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Bell, Check, X, MessageSquare, Users, Calendar, Lightbulb, Trophy, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -252,6 +253,32 @@ export const NotificationCenter = () => {
                             addSuffix: true,
                           })}
                         </p>
+                        {notification.metadata?.secondChanceMatches?.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-purple-500/20 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400">
+                              <Sparkles className="h-3.5 w-3.5" />
+                              <span>{notification.metadata.secondChanceMatches.length} other {notification.metadata.secondChanceMatches.length === 1 ? 'team is' : 'teams are'} looking for someone like you:</span>
+                            </div>
+                            <div className="grid gap-1.5 mt-1">
+                              {notification.metadata.secondChanceMatches.map((match: any) => (
+                                <Link
+                                  key={match.teamId}
+                                  to={`/team-hunt/${match.teamId}`}
+                                  className="flex items-center justify-between p-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 transition-colors text-xs"
+                                  onClick={() => setIsOpen(false)}
+                                >
+                                  <div className="flex flex-col min-w-0 pr-2">
+                                    <span className="font-semibold text-foreground truncate">{match.title}</span>
+                                    {match.description && <span className="text-[10px] text-muted-foreground truncate">{match.description}</span>}
+                                  </div>
+                                  <Badge variant="outline" className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] shrink-0 font-bold">
+                                    {match.matchScore}% Match
+                                  </Badge>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       {(!notification.is_read && !(notification as any).isRead) && (
                         <div className="w-2 h-2 rounded-full bg-primary" />

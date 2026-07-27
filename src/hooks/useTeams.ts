@@ -10,6 +10,22 @@ export interface Team {
     username?: string;
     full_name?: string;
     avatar?: string;
+    creatorTrust?: {
+      teamsCreated?: number;
+      teamsCompleted?: number;
+      completionRate?: number | null;
+      averageRatingReceived?: number;
+      totalReviews?: number;
+      isFirstTimeCreator?: boolean;
+    };
+  };
+  creatorTrust?: {
+    teamsCreated?: number;
+    teamsCompleted?: number;
+    completionRate?: number | null;
+    averageRatingReceived?: number;
+    totalReviews?: number;
+    isFirstTimeCreator?: boolean;
   };
   teamSize: {
     current: number;
@@ -371,3 +387,16 @@ export const useTrendingSkillGaps = () => {
     retry: false,
   });
 };
+
+export const useSecondChanceMatches = (teamId: string, enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['second-chance-matches', teamId],
+    queryFn: async () => {
+      const { data } = await api.get(`/teams/${teamId}/second-chance`);
+      return data.data;
+    },
+    enabled: !!teamId && enabled,
+    retry: false,
+  });
+};
+

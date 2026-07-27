@@ -23,8 +23,14 @@ class TeamBadgeService {
       ]
     });
 
+    const mongoose = require('mongoose');
+    let targetId = userId;
+    if (typeof userId === 'string' && mongoose.Types.ObjectId.isValid(userId)) {
+      targetId = new mongoose.Types.ObjectId(userId);
+    }
+
     const reviews = await TeamReview.aggregate([
-      { $match: { reviewee: userId } },
+      { $match: { reviewee: targetId } },
       { $group: { _id: null, avgRating: { $avg: '$rating' }, count: { $sum: 1 } } }
     ]);
     
@@ -38,6 +44,22 @@ class TeamBadgeService {
       averageRatingReceived,
       totalReviews,
       joinedTeamIds
+    };
+  }
+
+  async getCreatorTrust(userId) {
+    if (!userId) return null;
+    const stats = await this.getUserStats(userId);
+    const completionRate = stats.teamsCreated > 0 ? Math.round((stats.teamsCompleted / stats.teamsCreated) * 100) / 100 : null;
+    // When viewing any team post created by this user, if teamsCreated <= 1, this team is their first team hunt
+    const isFirstTimeCreator = stats.teamsCreated <= 1;
+    return {
+      teamsCreated: stats.teamsCreated,
+      teamsCompleted: stats.teamsCompleted,
+      completionRate,
+      averageRatingReceived: Math.round(stats.averageRatingReceived * 10) / 10,
+      totalReviews: stats.totalReviews,
+      isFirstTimeCreator
     };
   }
 
