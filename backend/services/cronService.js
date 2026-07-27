@@ -1229,6 +1229,8 @@ const NewsDigestLog = require('../models/NewsDigestLog');
     } catch (err) {
       console.error(`Error sending ${frequency} news digest:`, err);
     }
+  }
+
   async checkTeamDeadlines() {
     try {
       const Team = require('../models/Team');
