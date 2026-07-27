@@ -348,3 +348,26 @@ export const useTeamAnalytics = (teamId: string) => {
     enabled: !!teamId,
   });
 };
+
+export const useTeamSkillGap = (teamId: string, trigger?: string) => {
+  return useQuery({
+    queryKey: ['team-skill-gap', teamId, trigger],
+    queryFn: async () => {
+      const { data } = await api.get(`/teams/${teamId}/skill-gap`, { params: { trigger } });
+      return data.data;
+    },
+    enabled: !!teamId,
+    retry: false,
+  });
+};
+
+export const useTrendingSkillGaps = () => {
+  return useQuery({
+    queryKey: ['trending-skill-gaps'],
+    queryFn: async () => {
+      const { data } = await api.get('/teams/me/skill-gaps/trending');
+      return data.data;
+    },
+    retry: false,
+  });
+};

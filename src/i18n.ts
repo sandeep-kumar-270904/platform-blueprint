@@ -85,6 +85,15 @@ const resources = {
       "Type a message...": "Type a message...",
       "Manage Applications": "Manage Applications",
       "Application Date": "Application Date",
+      "Close the gap": "Close the gap",
+      "Personalized AI learning roadmap to qualify for this team": "Personalized AI learning roadmap to qualify for this team",
+      "Why focus on these skills?": "Why focus on these skills?",
+      "Recommended Learning Resources": "Recommended Learning Resources",
+      "Save Link": "Save Link",
+      "Copy Link": "Copy Link",
+      "See how to build the skills for this team": "See how to build the skills for this team",
+      "Bookmark saved!": "Bookmark saved!",
+      "Mastering these skills builds real-world competency and strengthens your portfolio for future applications!": "Mastering these skills builds real-world competency and strengthens your portfolio for future applications!"
     }
   },
   es: {
@@ -169,6 +178,15 @@ const resources = {
       "Type a message...": "Escribe un mensaje...",
       "Manage Applications": "Administrar Aplicaciones",
       "Application Date": "Fecha de Aplicación",
+      "Close the gap": "Cerrar la brecha",
+      "Personalized AI learning roadmap to qualify for this team": "Hoja de ruta de aprendizaje de IA personalizada para calificar en este equipo",
+      "Why focus on these skills?": "¿Por qué enfocarse en estas habilidades?",
+      "Recommended Learning Resources": "Recursos de aprendizaje recomendados",
+      "Save Link": "Guardar enlace",
+      "Copy Link": "Copiar enlace",
+      "See how to build the skills for this team": "Mira cómo desarrollar las habilidades para este equipo",
+      "Bookmark saved!": "¡Marcador guardado!",
+      "Mastering these skills builds real-world competency and strengthens your portfolio for future applications!": "¡Dominar estas habilidades desarrolla competencias del mundo real y fortalece tu portafolio para futuras aplicaciones!"
     }
   },
   ar: {
@@ -253,6 +271,15 @@ const resources = {
       "Type a message...": "اكتب رسالة...",
       "Manage Applications": "إدارة الطلبات",
       "Application Date": "تاريخ الطلب",
+      "Close the gap": "سد الفجوة",
+      "Personalized AI learning roadmap to qualify for this team": "خارطة طريق تعلم مخصصة بالذكاء الاصطناعي للتأهل لهذا الفريق",
+      "Why focus on these skills?": "لماذا التركيز على هذه المهارات؟",
+      "Recommended Learning Resources": "موارد التعلم الموصى بها",
+      "Save Link": "حفظ الرابط",
+      "Copy Link": "نسخ الرابط",
+      "See how to build the skills for this team": "انظر كيفية بناء المهارات لهذا الفريق",
+      "Bookmark saved!": "تم حفظ الإشارة المرجعية!",
+      "Mastering these skills builds real-world competency and strengthens your portfolio for future applications!": "إتقان هذه المهارات يبني كفاءة حقيقية ويعزز ملفك الشخصي للطلبات المستقبلية!"
     }
   }
 };

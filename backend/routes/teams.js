@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const protect = require('../middleware/auth').protect || require('../middleware/auth');
 const { actionRateLimiter, reviewLimiter } = require('../middleware/rateLimiter');
 
 const {
@@ -28,7 +28,7 @@ const {
   getTeamAnalytics
 } = require('../controllers/teamController');
 
-const { getUserLeaderboard } = require('../controllers/teamController'); // exported from same file
+const { getUserLeaderboard, getTeamSkillGap, getTrendingSkillGaps } = require('../controllers/teamController'); // exported from same file
 
 const { createReview } = require('../controllers/teamReviewController');
 const { createInvite } = require('../controllers/teamInviteController');
@@ -37,6 +37,7 @@ const { createInvite } = require('../controllers/teamInviteController');
 router.get('/me', protect, getMyTeams);
 router.get('/applications/me', protect, getMyApplications);
 router.get('/recommended', protect, getRecommendedTeams);
+router.get('/me/skill-gaps/trending', protect, getTrendingSkillGaps);
 
 // Phase 5: Leaderboards
 router.get('/leaderboard', protect, getTeamLeaderboard);
@@ -77,6 +78,7 @@ router.post('/:id/invites', protect, actionRateLimiter, createInvite);
 
 // Phase 3: Match & Moderation
 router.get('/:id/match-score', protect, getMatchScore);
+router.get('/:id/skill-gap', protect, getTeamSkillGap);
 router.post('/:id/report', protect, actionRateLimiter, reportTeam);
 
 // Phase 4: Chat & Match Explanation

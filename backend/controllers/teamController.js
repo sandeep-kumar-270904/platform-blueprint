@@ -6,6 +6,7 @@ const { calculateMatchScore } = require('../services/teamMatchService');
 const { sendNotification } = require('../services/notificationService');
 const { assessModeration } = require('../utils/moderation');
 const teamCache = require('../utils/teamCache');
+const skillGapAdvisor = require('../services/skillGapAdvisor');
 
 // @desc    Get all teams (with pagination, search, filters)
 // @route   GET /api/teams
@@ -425,14 +426,14 @@ exports.updateApplicationStatus = async (req, res) => {
       application.status = 'rejected';
       await application.save();
 
-      // Notify applicant
+      // Notify applicant with actionable skill gap advisor link
       await sendNotification({
         userId: application.applicant.toString(),
         type: 'team_application_rejected',
         actorId: req.user.id,
         relatedContentId: team._id.toString(),
         title: 'Application Status Update',
-        body: `Your application to join ${team.title} was declined.`
+        body: `Your application to join ${team.title} was declined. See how to build the skills for this team →`
       });
     }
 
@@ -1273,6 +1274,32 @@ exports.getTeamAnalytics = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+// @desc    Get skill gap advice and curated course recommendations for a user against a team
+// @route   GET /api/teams/:id/skill-gap
+// @access  Private
+exports.getTeamSkillGap = async (req, res) => {
+  try {
+    const advice = await skillGapAdvisor.getAdviceForUserTeam(req.user.id, req.params.id, req.query.trigger || 'low_match_view');
+    res.status(200).json({ success: true, data: advice });
+  } catch (err) {
+    console.error('Error in getTeamSkillGap:', err.message || err);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+// @desc    Get trending/recurring skill gaps for current user across all teams
+// @route   GET /api/users/me/skill-gaps/trending OR /api/teams/users/me/skill-gaps/trending
+// @access  Private
+exports.getTrendingSkillGaps = async (req, res) => {
+  try {
+    const trending = await skillGapAdvisor.getTrendingGaps(req.user.id);
+    res.status(200).json({ success: true, data: trending });
+  } catch (err) {
+    console.error('Error in getTrendingSkillGaps:', err.message || err);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };

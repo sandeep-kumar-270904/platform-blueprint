@@ -5,6 +5,7 @@ const User = require('../models/User');
 const Review = require('../models/Review');
 const CollegeQuestion = require('../models/CollegeQuestion');
 const CollegeAnswer = require('../models/CollegeAnswer');
+const { getTrendingSkillGaps } = require('../controllers/teamController');
 
 // GET /api/users/search
 router.get('/search', async (req, res) => {
@@ -25,6 +26,9 @@ router.get('/search', async (req, res) => {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+
+// GET /api/users/me/skill-gaps/trending
+router.get('/me/skill-gaps/trending', authMiddleware, getTrendingSkillGaps);
 
 // PUT /api/users/me
 router.put('/me', authMiddleware, async (req, res) => {

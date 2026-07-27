@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useMyTeams, useMyApplications, useMyInvites, useRespondToInvite } from "@/hooks/useTeams";
-import { Loader2, ArrowLeft, Users, Mail, Check, X, ClipboardList } from "lucide-react";
+import { Loader2, ArrowLeft, Users, Mail, Check, X, ClipboardList, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -20,6 +20,7 @@ export default function TeamHuntDashboard() {
   const { data: invitesData, isLoading: invitesLoading } = useMyInvites();
   const { mutate: respondInvite, isPending: respondingInvite } = useRespondToInvite();
   const [actingOn, setActingOn] = useState<string | null>(null);
+  const [dismissedAdvisorApps, setDismissedAdvisorApps] = useState<string[]>([]);
 
   const handleInviteResponse = (inviteId: string, status: 'accepted' | 'declined') => {
     setActingOn(inviteId);
@@ -144,6 +145,32 @@ export default function TeamHuntDashboard() {
                       </CardHeader>
                       <CardContent>
                         <p className="text-sm text-muted-foreground line-clamp-2">{app.message}</p>
+                        {app.status === 'rejected' && !dismissedAdvisorApps.includes(app._id) && (
+                          <div className="mt-4 pt-3 border-t border-purple-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-purple-500/10 via-background to-blue-500/10 p-3 rounded-xl transition-all duration-200">
+                            <div className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-300 font-medium">
+                              <Sparkles className="h-4 w-4 text-purple-500 shrink-0 animate-pulse" />
+                              <span>{t("See how to build the skills for this team")}</span>
+                            </div>
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-xs text-muted-foreground hover:text-foreground h-8 px-2"
+                                onClick={() => setDismissedAdvisorApps([...dismissedAdvisorApps, app._id])}
+                              >
+                                Dismiss
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-xs border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 font-semibold h-8 px-3 shadow-sm"
+                                onClick={() => navigate(`/team-hunt/${app.team?._id || app.team}`)}
+                              >
+                                {t("Close the gap")} →
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
