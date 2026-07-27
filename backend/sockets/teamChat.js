@@ -1,5 +1,5 @@
 const Team = require('../models/Team');
-const TeamApplicant = require('../models/TeamApplicant');
+const TeamApplication = require('../models/TeamApplication');
 const TeamMessage = require('../models/TeamMessage');
 
 module.exports = function(io, socket) {
@@ -18,7 +18,7 @@ module.exports = function(io, socket) {
       if (team.creator.toString() === userId) {
         hasAccess = true;
       } else {
-        const applicant = await TeamApplicant.findOne({ team: teamId, applicant: userId, status: 'accepted' });
+        const applicant = await TeamApplication.findOne({ team: teamId, applicant: userId, status: 'accepted' });
         if (applicant) hasAccess = true;
       }
 
@@ -54,7 +54,7 @@ module.exports = function(io, socket) {
       if (team.creator.toString() === userId) {
         hasAccess = true;
       } else {
-        const applicant = await TeamApplicant.findOne({ team: teamId, applicant: userId, status: 'accepted' });
+        const applicant = await TeamApplication.findOne({ team: teamId, applicant: userId, status: 'accepted' });
         if (applicant) hasAccess = true;
       }
 
