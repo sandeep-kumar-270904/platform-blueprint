@@ -13,6 +13,7 @@ const creatorContentSchema = new mongoose.Schema({
   description: { type: String, default: '' },
   body: { type: String, required: true },
   thumbnail: { type: String, default: '✨' },
+  mediaUrl: { type: String, default: '' },
   status: { 
     type: String, 
     enum: ['draft', 'published'], 
@@ -22,6 +23,13 @@ const creatorContentSchema = new mongoose.Schema({
   likes: { type: Number, default: 0 },
   commentsCount: { type: Number, default: 0 },
   likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  comments: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    authorName: { type: String, required: true },
+    authorAvatar: { type: String },
+    text: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+  }],
   tags: [{ type: String }]
 }, { timestamps: true });
 

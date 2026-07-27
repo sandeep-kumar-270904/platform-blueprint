@@ -9,11 +9,14 @@ const authMiddleware = require('../middleware/auth');
 // GET /api/creators/content - Public feed of published content
 router.get('/content', async (req, res) => {
   try {
-    const { type, search, sort } = req.query;
+    const { type, search, sort, tag } = req.query;
     const query = { status: 'published' };
     const validTypes = ['article', 'video', 'project', 'resource'];
     if (type && type !== 'all' && validTypes.includes(type)) {
       query.type = type;
+    }
+    if (tag && tag !== 'all' && typeof tag === 'string' && tag.trim()) {
+      query.tags = { $regex: new RegExp(`^${tag.trim()}$`, 'i') };
     }
     if (search && typeof search === 'string' && search.trim()) {
       const searchTerm = search.trim();
@@ -29,7 +32,8 @@ router.get('/content', async (req, res) => {
 
     const items = await CreatorContent.find(query)
       .sort(sortObj)
-      .populate('userId', 'name email profilePicture');
+      .populate('userId', 'name email profilePicture')
+      .populate('comments.userId', 'name profilePicture');
     res.json(items);
   } catch (err) {
     res.status(500).json({ message: 'Server error fetching feed', error: err.message });
@@ -39,11 +43,14 @@ router.get('/content', async (req, res) => {
 // GET /api/creators/content/my - Logged-in user's content (both draft and published)
 router.get('/content/my', authMiddleware, async (req, res) => {
   try {
-    const { type, search, sort } = req.query;
+    const { type, search, sort, tag } = req.query;
     const query = { userId: req.user.id };
     const validTypes = ['article', 'video', 'project', 'resource'];
     if (type && type !== 'all' && validTypes.includes(type)) {
       query.type = type;
+    }
+    if (tag && tag !== 'all' && typeof tag === 'string' && tag.trim()) {
+      query.tags = { $regex: new RegExp(`^${tag.trim()}$`, 'i') };
     }
     if (search && typeof search === 'string' && search.trim()) {
       const searchTerm = search.trim();
@@ -59,7 +66,8 @@ router.get('/content/my', authMiddleware, async (req, res) => {
 
     const items = await CreatorContent.find(query)
       .sort(sortObj)
-      .populate('userId', 'name email profilePicture');
+      .populate('userId', 'name email profilePicture')
+      .populate('comments.userId', 'name profilePicture');
     res.json(items);
   } catch (err) {
     res.status(500).json({ message: 'Server error fetching my content', error: err.message });
@@ -72,7 +80,7 @@ router.post('/content', authMiddleware, async (req, res) => {
     if (!req.body || typeof req.body !== 'object') {
       return res.status(400).json({ message: 'Invalid upload payload' });
     }
-    const { title, type, description, body, thumbnail, status, tags } = req.body;
+    const { title, type, description, body, thumbnail, mediaUrl, status, tags } = req.body;
     
     if (!title || typeof title !== 'string' || !title.trim()) {
       return res.status(400).json({ message: 'Title is required and must be a text string', field: 'title' });
@@ -109,6 +117,7 @@ router.post('/content', authMiddleware, async (req, res) => {
       description: (description && typeof description === 'string') ? description.trim() : body.trim().substring(0, 150),
       body: body.trim(),
       thumbnail: (thumbnail && typeof thumbnail === 'string') ? thumbnail : '✨',
+      mediaUrl: (mediaUrl && typeof mediaUrl === 'string') ? mediaUrl.trim() : '',
       status: validStatuses.includes(status) ? status : 'published',
       tags: Array.isArray(tags) ? tags.map(t => String(t).trim()).filter(Boolean) : (typeof tags === 'string' ? tags.split(',').map(t => t.trim()).filter(Boolean) : [])
     });
@@ -127,7 +136,7 @@ router.put('/content/:id', authMiddleware, async (req, res) => {
     if (!req.body || typeof req.body !== 'object') {
       return res.status(400).json({ message: 'Invalid update payload' });
     }
-    const { title, type, description, body, thumbnail, status, tags } = req.body;
+    const { title, type, description, body, thumbnail, mediaUrl, status, tags } = req.body;
     const item = await CreatorContent.findById(req.params.id);
     if (!item) {
       return res.status(404).json({ message: 'Content not found' });
@@ -148,6 +157,7 @@ router.put('/content/:id', authMiddleware, async (req, res) => {
     if (type !== undefined && validTypes.includes(type)) item.type = type;
     if (description !== undefined && typeof description === 'string') item.description = description.trim();
     if (thumbnail !== undefined && typeof thumbnail === 'string') item.thumbnail = thumbnail;
+    if (mediaUrl !== undefined && typeof mediaUrl === 'string') item.mediaUrl = mediaUrl.trim();
     if (status !== undefined && validStatuses.includes(status)) item.status = status;
     if (tags !== undefined) {
       item.tags = Array.isArray(tags) ? tags.map(t => String(t).trim()).filter(Boolean) : (typeof tags === 'string' ? tags.split(',').map(t => t.trim()).filter(Boolean) : []);
@@ -212,6 +222,37 @@ router.post('/content/:id/view', async (req, res) => {
     res.json({ views: item.views });
   } catch (err) {
     res.status(500).json({ message: 'Error incrementing views', error: err.message });
+  }
+});
+
+// POST /api/creators/content/:id/comment - Add a comment
+router.post('/content/:id/comment', authMiddleware, async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ message: 'Comment text is required' });
+    }
+    const item = await CreatorContent.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ message: 'Content piece not found' });
+    }
+    const user = await User.findById(req.user.id);
+    const newComment = {
+      userId: req.user.id,
+      authorName: user ? (user.name || 'Anonymous Creator') : 'Anonymous Creator',
+      authorAvatar: user ? (user.profilePicture || '') : '',
+      text: text.trim(),
+      createdAt: new Date()
+    };
+    item.comments.push(newComment);
+    item.commentsCount = item.comments.length;
+    await item.save();
+    const populated = await CreatorContent.findById(item._id)
+      .populate('userId', 'name email profilePicture')
+      .populate('comments.userId', 'name profilePicture');
+    res.json(populated);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error adding comment', error: err.message });
   }
 });
 

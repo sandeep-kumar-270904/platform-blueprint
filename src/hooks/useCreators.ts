@@ -1,6 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 
+export interface CommentItem {
+  _id?: string;
+  userId?: any;
+  authorName: string;
+  authorAvatar?: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface CreatorContentItem {
   _id: string;
   userId: {
@@ -16,21 +25,24 @@ export interface CreatorContentItem {
   description: string;
   body: string;
   thumbnail: string;
+  mediaUrl?: string;
   status: 'draft' | 'published';
   views: number;
   likes: number;
   commentsCount: number;
   likedBy: string[];
+  comments?: CommentItem[];
   tags: string[];
   createdAt: string;
 }
 
-export const useCreatorFeed = (type?: string, search?: string, sort?: string) => {
+export const useCreatorFeed = (type?: string, search?: string, sort?: string, tag?: string) => {
   return useQuery<CreatorContentItem[]>({
-    queryKey: ['creator-feed', type, search, sort],
+    queryKey: ['creator-feed', type, search, sort, tag],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (type && type !== 'all') params.append('type', type);
+      if (tag && tag !== 'all') params.append('tag', tag);
       if (search) params.append('search', search);
       if (sort && sort !== 'recent') params.append('sort', sort);
       const res = await api.get(`/creators/content?${params.toString()}`);
@@ -39,12 +51,13 @@ export const useCreatorFeed = (type?: string, search?: string, sort?: string) =>
   });
 };
 
-export const useMyCreatorContent = (type?: string, search?: string, sort?: string) => {
+export const useMyCreatorContent = (type?: string, search?: string, sort?: string, tag?: string) => {
   return useQuery<CreatorContentItem[]>({
-    queryKey: ['my-creator-content', type, search, sort],
+    queryKey: ['my-creator-content', type, search, sort, tag],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (type && type !== 'all') params.append('type', type);
+      if (tag && tag !== 'all') params.append('tag', tag);
       if (search) params.append('search', search);
       if (sort && sort !== 'recent') params.append('sort', sort);
       const res = await api.get(`/creators/content/my?${params.toString()}`);
@@ -103,6 +116,20 @@ export const useLikeCreatorContent = () => {
       return res.data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['creator-feed'] });
+      queryClient.invalidateQueries({ queryKey: ['my-creator-content'] });
+    }
+  });
+};
+
+export const useCommentCreatorContent = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, text }: { id: string; text: string }) => {
+      const res = await api.post(`/creators/content/${id}/comment`, { text });
+      return res.data;
+    },
+    onSuccess: (updatedItem, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['creator-feed'] });
       queryClient.invalidateQueries({ queryKey: ['my-creator-content'] });
     }
