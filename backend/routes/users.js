@@ -235,6 +235,28 @@ router.delete('/me', authMiddleware, async (req, res) => {
     // Anonymize reports
     await TeamReport.updateMany({ reportedBy: userId }, { $set: { reportedBy: null } });
 
+    // Cleanup Phase 1-6 Skill Swap models
+    const SkillOffer = require('../models/SkillOffer');
+    const SkillReview = require('../models/SkillReview');
+    const SkillExchangeRequest = require('../models/SkillExchangeRequest');
+    const SkillSwapReport = require('../models/SkillSwapReport');
+
+    // Deactivate offers and anonymize user ref
+    await SkillOffer.updateMany({ user: userId }, { $set: { status: 'paused', user: null } });
+    
+    // Anonymize reviews
+    await SkillReview.updateMany({ reviewer: userId }, { $set: { reviewer: null } });
+    await SkillReview.updateMany({ reviewee: userId }, { $set: { reviewee: null } });
+
+    // Remove pending or accepted (but unscheduled) requests
+    await SkillExchangeRequest.deleteMany({ 
+      $or: [{ fromUser: userId }, { toUser: userId }], 
+      status: { $in: ['pending', 'accepted'] } 
+    });
+
+    // Anonymize reports
+    await SkillSwapReport.updateMany({ reportedBy: userId }, { $set: { reportedBy: null } });
+
     // 5. Finally delete the User record
     await User.findByIdAndDelete(userId);
     
