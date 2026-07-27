@@ -7,19 +7,20 @@ const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
 
 // GET /api/creators/content - Public feed of published content
-// GET /api/creators/content - Public feed of published content
 router.get('/content', async (req, res) => {
   try {
     const { type, search, sort } = req.query;
     const query = { status: 'published' };
-    if (type && type !== 'all') {
+    const validTypes = ['article', 'video', 'project', 'resource'];
+    if (type && type !== 'all' && validTypes.includes(type)) {
       query.type = type;
     }
-    if (search && search.trim()) {
+    if (search && typeof search === 'string' && search.trim()) {
+      const searchTerm = search.trim();
       query.$or = [
-        { title: { $regex: search.trim(), $options: 'i' } },
-        { description: { $regex: search.trim(), $options: 'i' } },
-        { tags: { $regex: search.trim(), $options: 'i' } }
+        { title: { $regex: searchTerm, $options: 'i' } },
+        { description: { $regex: searchTerm, $options: 'i' } },
+        { tags: { $regex: searchTerm, $options: 'i' } }
       ];
     }
     let sortObj = { createdAt: -1 };
@@ -40,14 +41,16 @@ router.get('/content/my', authMiddleware, async (req, res) => {
   try {
     const { type, search, sort } = req.query;
     const query = { userId: req.user.id };
-    if (type && type !== 'all') {
+    const validTypes = ['article', 'video', 'project', 'resource'];
+    if (type && type !== 'all' && validTypes.includes(type)) {
       query.type = type;
     }
-    if (search && search.trim()) {
+    if (search && typeof search === 'string' && search.trim()) {
+      const searchTerm = search.trim();
       query.$or = [
-        { title: { $regex: search.trim(), $options: 'i' } },
-        { description: { $regex: search.trim(), $options: 'i' } },
-        { tags: { $regex: search.trim(), $options: 'i' } }
+        { title: { $regex: searchTerm, $options: 'i' } },
+        { description: { $regex: searchTerm, $options: 'i' } },
+        { tags: { $regex: searchTerm, $options: 'i' } }
       ];
     }
     let sortObj = { createdAt: -1 };

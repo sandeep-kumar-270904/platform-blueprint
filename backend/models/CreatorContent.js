@@ -26,6 +26,13 @@ const creatorContentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 creatorContentSchema.index({ status: 1, createdAt: -1 });
-creatorContentSchema.index({ userId: 1 });
+creatorContentSchema.index({ status: 1, type: 1, createdAt: -1 });
+creatorContentSchema.index({ status: 1, views: -1, createdAt: -1 });
+creatorContentSchema.index({ status: 1, likes: -1, createdAt: -1 });
+creatorContentSchema.index({ userId: 1, createdAt: -1 });
+creatorContentSchema.index({ userId: 1, type: 1, createdAt: -1 });
+creatorContentSchema.index({ userId: 1, views: -1, createdAt: -1 });
+creatorContentSchema.index({ userId: 1, likes: -1, createdAt: -1 });
+creatorContentSchema.index({ title: 'text', description: 'text', tags: 'text' });
 
 module.exports = mongoose.model('CreatorContent', creatorContentSchema);
