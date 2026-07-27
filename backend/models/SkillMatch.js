@@ -36,4 +36,6 @@ const skillMatchSchema = new mongoose.Schema({
 // Ensure we don't have duplicate matches for the same two offers
 skillMatchSchema.index({ offerA: 1, offerB: 1 }, { unique: true });
 
+skillMatchSchema.index({ userA: 1, userB: 1 });
+
 module.exports = mongoose.model('SkillMatch', skillMatchSchema);

@@ -45,4 +45,6 @@ const skillOfferSchema = new mongoose.Schema({
 skillOfferSchema.index({ category: 1, status: 1 });
 skillOfferSchema.index({ skillName: 'text' });
 
+skillOfferSchema.index({ category: 1, status: 1, createdAt: -1 });
+
 module.exports = mongoose.model('SkillOffer', skillOfferSchema);

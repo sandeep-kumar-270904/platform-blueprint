@@ -31,4 +31,6 @@ const skillReviewSchema = new mongoose.Schema({
 // Ensure a user can only review a session once
 skillReviewSchema.index({ session: 1, reviewer: 1 }, { unique: true });
 
+skillReviewSchema.index({ reviewee: 1 });
+
 module.exports = mongoose.model('SkillReview', skillReviewSchema);

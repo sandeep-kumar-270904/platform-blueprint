@@ -34,4 +34,7 @@ const skillExchangeRequestSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+skillExchangeRequestSchema.index({ fromUser: 1, status: 1 });
+skillExchangeRequestSchema.index({ toUser: 1, status: 1 });
+
 module.exports = mongoose.model('SkillExchangeRequest', skillExchangeRequestSchema);
