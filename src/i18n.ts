@@ -93,7 +93,16 @@ const resources = {
       "Copy Link": "Copy Link",
       "See how to build the skills for this team": "See how to build the skills for this team",
       "Bookmark saved!": "Bookmark saved!",
-      "Mastering these skills builds real-world competency and strengthens your portfolio for future applications!": "Mastering these skills builds real-world competency and strengthens your portfolio for future applications!"
+      "Mastering these skills builds real-world competency and strengthens your portfolio for future applications!": "Mastering these skills builds real-world competency and strengthens your portfolio for future applications!",
+
+      "Skill Swap": "Skill Swap",
+      "Browse Offers": "Browse Offers",
+      "My Matches": "My Matches",
+      "Requests": "Requests",
+      "My Sessions": "My Sessions",
+      "My Offers": "My Offers",
+      "Post Your Offer": "Post Your Offer",
+      "Recommended for You": "Recommended for You"
     }
   },
   es: {
@@ -186,7 +195,16 @@ const resources = {
       "Copy Link": "Copiar enlace",
       "See how to build the skills for this team": "Mira cómo desarrollar las habilidades para este equipo",
       "Bookmark saved!": "¡Marcador guardado!",
-      "Mastering these skills builds real-world competency and strengthens your portfolio for future applications!": "¡Dominar estas habilidades desarrolla competencias del mundo real y fortalece tu portafolio para futuras aplicaciones!"
+      "Mastering these skills builds real-world competency and strengthens your portfolio for future applications!": "¡Dominar estas habilidades desarrolla competencias del mundo real y fortalece tu portafolio para futuras aplicaciones!",
+
+      "Skill Swap": "Intercambio de Habilidades",
+      "Browse Offers": "Explorar Ofertas",
+      "My Matches": "Mis Coincidencias",
+      "Requests": "Solicitudes",
+      "My Sessions": "Mis Sesiones",
+      "My Offers": "Mis Ofertas",
+      "Post Your Offer": "Publicar Oferta",
+      "Recommended for You": "Recomendado para Ti"
     }
   },
   ar: {
@@ -279,7 +297,16 @@ const resources = {
       "Copy Link": "نسخ الرابط",
       "See how to build the skills for this team": "انظر كيفية بناء المهارات لهذا الفريق",
       "Bookmark saved!": "تم حفظ الإشارة المرجعية!",
-      "Mastering these skills builds real-world competency and strengthens your portfolio for future applications!": "إتقان هذه المهارات يبني كفاءة حقيقية ويعزز ملفك الشخصي للطلبات المستقبلية!"
+      "Mastering these skills builds real-world competency and strengthens your portfolio for future applications!": "إتقان هذه المهارات يبني كفاءة حقيقية ويعزز ملفك الشخصي للطلبات المستقبلية!",
+
+      "Skill Swap": "تبادل المهارات",
+      "Browse Offers": "تصفح العروض",
+      "My Matches": "تطابقاتي",
+      "Requests": "الطلبات",
+      "My Sessions": "جلساتي",
+      "My Offers": "عروضي",
+      "Post Your Offer": "انشر عرضك",
+      "Recommended for You": "موصى به لك"
     }
   }
 };
