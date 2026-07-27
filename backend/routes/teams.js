@@ -28,7 +28,7 @@ const {
   getTeamAnalytics
 } = require('../controllers/teamController');
 
-const { getUserLeaderboard, getTeamSkillGap, getTrendingSkillGaps } = require('../controllers/teamController'); // exported from same file
+const { getUserLeaderboard, getTeamSkillGap, getTrendingSkillGaps, getSecondChanceMatches } = require('../controllers/teamController'); // exported from same file
 
 const { createReview } = require('../controllers/teamReviewController');
 const { createInvite } = require('../controllers/teamInviteController');
@@ -79,6 +79,7 @@ router.post('/:id/invites', protect, actionRateLimiter, createInvite);
 // Phase 3: Match & Moderation
 router.get('/:id/match-score', protect, getMatchScore);
 router.get('/:id/skill-gap', protect, getTeamSkillGap);
+router.get('/:id/second-chance', protect, getSecondChanceMatches);
 router.post('/:id/report', protect, actionRateLimiter, reportTeam);
 
 // Phase 4: Chat & Match Explanation

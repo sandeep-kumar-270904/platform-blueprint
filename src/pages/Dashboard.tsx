@@ -23,6 +23,7 @@ import { MyCourses } from "@/components/dashboard/MyCourses";
 import { MyIdeas } from "@/components/dashboard/MyIdeas";
 import { MyCollaborations } from "@/components/dashboard/MyCollaborations";
 import { MyTeams } from "@/components/dashboard/MyTeams";
+import { TeamHuntDashboardWidget } from "@/components/dashboard/TeamHuntDashboardWidget";
 import { HostAnalytics } from "@/components/dashboard/HostAnalytics";
 import { NotificationsPanel } from "@/components/dashboard/NotificationsPanel";
 import { LiveActivity } from "@/components/dashboard/LiveActivity";
@@ -229,7 +230,7 @@ const Dashboard = () => {
       case "requests":
         return <JoinRequestsManager userId={targetUserId} />;
       case "teams":
-        return <MyTeams userId={targetUserId} />;
+        return <TeamHuntDashboardWidget />;
       case "progress":
         return <LearningProgress />;
       case "notifications":

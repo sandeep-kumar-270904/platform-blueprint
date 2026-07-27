@@ -19,6 +19,7 @@ import { useTeams, useCreateTeam, useApplyToTeam, useRecommendedTeams, type Team
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { FounderTrustSignal } from "@/components/team/FounderTrustSignal";
 
 const CATEGORIES = ['Hackathon', 'Research', 'Startup', 'Course Project', 'Other'];
 
@@ -248,6 +249,12 @@ function TeamCard({ team, index, currentUserId }: { team: Team, index: number, c
               </>
             )}
           </div>
+          <FounderTrustSignal
+            creatorId={team.creator?._id}
+            creatorName={team.creator?.username || team.creator?.full_name}
+            trust={team.creator?.creatorTrust || team.creatorTrust}
+            variant="card"
+          />
         </CardHeader>
         <CardContent className="flex-1 space-y-4">
           <p className="text-sm text-muted-foreground line-clamp-3">{team.description}</p>

@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { TeamChat } from "@/components/team/TeamChat";
 import { SkillGapAdvisorPanel } from "@/components/team/SkillGapAdvisorPanel";
+import { FounderTrustSignal } from "@/components/team/FounderTrustSignal";
 
 export default function TeamHuntDetail() {
   const { t, i18n } = useTranslation();
@@ -82,6 +83,12 @@ export default function TeamHuntDetail() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            <FounderTrustSignal
+              creatorId={team.creator?._id}
+              creatorName={team.creator?.username || team.creator?.full_name}
+              trust={team.creator?.creatorTrust || team.creatorTrust}
+              variant="detail"
+            />
             {!isCreator && matchData && (
               <div className="bg-muted/30 border rounded-xl p-6">
                 <div className="flex items-center gap-3 mb-4">
