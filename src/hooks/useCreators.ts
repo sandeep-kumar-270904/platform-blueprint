@@ -97,7 +97,8 @@ export const useCreatorFeed = (type?: string, search?: string, sort?: string, ta
       params.append('page', String(pageParam));
       params.append('limit', '20');
       const res = await api.get(`/creators/content?${params.toString()}`);
-      return res.data;
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      return { data, hasMore: false, page: pageParam } as PaginatedResponse<CreatorContentItem>;
     },
     initialPageParam: 1,
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
@@ -116,7 +117,8 @@ export const useMyCreatorContent = (type?: string, search?: string, sort?: strin
       params.append('page', String(pageParam));
       params.append('limit', '20');
       const res = await api.get(`/creators/content/my?${params.toString()}`);
-      return res.data;
+      const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      return { data, hasMore: false, page: pageParam } as PaginatedResponse<CreatorContentItem>;
     },
     initialPageParam: 1,
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.page + 1 : undefined,
