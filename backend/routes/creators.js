@@ -2,7 +2,255 @@ const express = require('express');
 const router = express.Router();
 const Quiz = require('../models/Quiz');
 const QuizAttempt = require('../models/QuizAttempt');
+const CreatorContent = require('../models/CreatorContent');
+const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
+
+// GET /api/creators/content - Public feed of published content
+router.get('/content', async (req, res) => {
+  try {
+    const { type, search } = req.query;
+    const query = { status: 'published' };
+    if (type && type !== 'all') {
+      query.type = type;
+    }
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { tags: { $regex: search, $options: 'i' } }
+      ];
+    }
+    const items = await CreatorContent.find(query)
+      .sort({ createdAt: -1 })
+      .populate('userId', 'name email profilePicture');
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error fetching feed', error: err.message });
+  }
+});
+
+// GET /api/creators/content/my - Logged-in user's content (both draft and published)
+router.get('/content/my', authMiddleware, async (req, res) => {
+  try {
+    const { type } = req.query;
+    const query = { userId: req.user.id };
+    if (type && type !== 'all') {
+      query.type = type;
+    }
+    const items = await CreatorContent.find(query)
+      .sort({ createdAt: -1 })
+      .populate('userId', 'name email profilePicture');
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error fetching my content', error: err.message });
+  }
+});
+
+// POST /api/creators/content - Create new content piece
+router.post('/content', authMiddleware, async (req, res) => {
+  try {
+    const { title, type, description, body, thumbnail, status, tags } = req.body;
+    
+    if (!title || !title.trim()) {
+      return res.status(400).json({ message: 'Title is required', field: 'title' });
+    }
+    if (!body || !body.trim()) {
+      return res.status(400).json({ message: 'Content body/media is required', field: 'body' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const newItem = new CreatorContent({
+      userId: req.user.id,
+      creatorName: user.name || 'Anonymous Creator',
+      creatorAvatar: user.profilePicture || '',
+      title: title.trim(),
+      type: type || 'article',
+      description: description ? description.trim() : body.trim().substring(0, 150),
+      body: body.trim(),
+      thumbnail: thumbnail || '✨',
+      status: status === 'draft' ? 'draft' : 'published',
+      tags: Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [])
+    });
+
+    await newItem.save();
+    const populated = await CreatorContent.findById(newItem._id).populate('userId', 'name email profilePicture');
+    res.status(201).json(populated);
+  } catch (err) {
+    res.status(500).json({ message: 'Error creating content', error: err.message });
+  }
+});
+
+// PUT /api/creators/content/:id - Update content piece
+router.put('/content/:id', authMiddleware, async (req, res) => {
+  try {
+    const { title, type, description, body, thumbnail, status, tags } = req.body;
+    const item = await CreatorContent.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+    if (item.userId.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized to edit this content' });
+    }
+    if (title !== undefined) {
+      if (!title.trim()) return res.status(400).json({ message: 'Title cannot be empty', field: 'title' });
+      item.title = title.trim();
+    }
+    if (body !== undefined) {
+      if (!body.trim()) return res.status(400).json({ message: 'Content body cannot be empty', field: 'body' });
+      item.body = body.trim();
+    }
+    if (type !== undefined) item.type = type;
+    if (description !== undefined) item.description = description.trim();
+    if (thumbnail !== undefined) item.thumbnail = thumbnail;
+    if (status !== undefined) item.status = status;
+    if (tags !== undefined) {
+      item.tags = Array.isArray(tags) ? tags : (tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []);
+    }
+
+    await item.save();
+    const populated = await CreatorContent.findById(item._id).populate('userId', 'name email profilePicture');
+    res.json(populated);
+  } catch (err) {
+    res.status(500).json({ message: 'Error updating content', error: err.message });
+  }
+});
+
+// DELETE /api/creators/content/:id - Delete content piece
+router.delete('/content/:id', authMiddleware, async (req, res) => {
+  try {
+    const item = await CreatorContent.findById(req.params.id);
+    if (!item) {
+      return res.status(404).json({ message: 'Content not found' });
+    }
+    if (item.userId.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized to delete this content' });
+    }
+    await CreatorContent.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Content deleted successfully', id: req.params.id });
+  } catch (err) {
+    res.status(500).json({ message: 'Error deleting content', error: err.message });
+  }
+});
+
+// POST /api/creators/content/:id/like - Toggle like
+router.post('/content/:id/like', authMiddleware, async (req, res) => {
+  try {
+    const item = await CreatorContent.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Content not found' });
+
+    const userId = req.user.id;
+    const index = item.likedBy.indexOf(userId);
+    if (index === -1) {
+      item.likedBy.push(userId);
+      item.likes += 1;
+    } else {
+      item.likedBy.splice(index, 1);
+      item.likes = Math.max(0, item.likes - 1);
+    }
+    await item.save();
+    res.json({ likes: item.likes, isLiked: index === -1 });
+  } catch (err) {
+    res.status(500).json({ message: 'Error toggling like', error: err.message });
+  }
+});
+
+// POST /api/creators/content/:id/view - Increment view count
+router.post('/content/:id/view', async (req, res) => {
+  try {
+    const item = await CreatorContent.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { views: 1 } },
+      { new: true }
+    );
+    if (!item) return res.status(404).json({ message: 'Content not found' });
+    res.json({ views: item.views });
+  } catch (err) {
+    res.status(500).json({ message: 'Error incrementing views', error: err.message });
+  }
+});
+
+// POST /api/creators/content/seed - Generate realistic demo feed if empty
+router.post('/content/seed', authMiddleware, async (req, res) => {
+  try {
+    const count = await CreatorContent.countDocuments();
+    if (count > 0) {
+      return res.json({ message: 'Feed already has content', count });
+    }
+    const user = await User.findById(req.user.id);
+    const demoItems = [
+      {
+        userId: req.user.id,
+        creatorName: user?.name || 'Alex Chen',
+        creatorAvatar: user?.profilePicture || '',
+        title: 'Complete Guide to Mastering System Design Interviews in 2026',
+        type: 'article',
+        description: 'A comprehensive roadmap covering load balancing, distributed caching, database sharding, and real-time streaming architectures.',
+        body: 'System design interviews require a deep understanding of scalability, availability, and consistency. In this guide, we break down how to design scalable systems like Twitter, Uber, and Netflix from scratch. Start with defining clear functional and non-functional requirements...',
+        thumbnail: '🏗️',
+        status: 'published',
+        views: 1240,
+        likes: 185,
+        commentsCount: 24,
+        tags: ['SystemDesign', 'InterviewPrep', 'Architecture']
+      },
+      {
+        userId: req.user.id,
+        creatorName: user?.name || 'Priya Sharma',
+        creatorAvatar: user?.profilePicture || '',
+        title: 'Building a Fullstack AI Assistant with React & Node.js (Video Course)',
+        type: 'video',
+        description: 'Watch step-by-step as we build a streaming LLM chatbot with custom plugins, vector search, and WebSocket real-time updates.',
+        body: 'https://www.youtube.com/watch?v=demo_video_link\nIn this video tutorial, we explore how to integrate OpenAI and Gemini APIs with a custom Node.js backend and a sleek TailwindCSS React frontend.',
+        thumbnail: '🎥',
+        status: 'published',
+        views: 3420,
+        likes: 492,
+        commentsCount: 68,
+        tags: ['AI', 'React', 'NodeJS', 'Fullstack']
+      },
+      {
+        userId: req.user.id,
+        creatorName: 'Marcus Vance',
+        creatorAvatar: '',
+        title: 'Open Source ATS Resume Analyzer & Score Booster (GitHub Project)',
+        type: 'project',
+        description: 'An open-source NLP tool that checks your resume against job descriptions and provides actionable keyword recommendations.',
+        body: 'Check out the repository on GitHub! Built using Python, FastAPI, and React. Contributions and pull requests are welcome from fellow students and developers looking to improve their open-source portfolio.',
+        thumbnail: '💻',
+        status: 'published',
+        views: 890,
+        likes: 134,
+        commentsCount: 15,
+        tags: ['OpenSource', 'Resume', 'ATS', 'Python']
+      },
+      {
+        userId: req.user.id,
+        creatorName: 'Elena Rostova',
+        creatorAvatar: '',
+        title: 'Curated UI/UX Design System Checklist & Figma Starter Kit',
+        type: 'resource',
+        description: 'Free downloadable design tokens, accessible color palettes, typography scales, and responsive component layouts for students.',
+        body: 'Download the Figma community file and start designing premium web applications faster. Includes dark mode guidelines, glassmorphism styles, and micro-animation specs.',
+        thumbnail: '🎨',
+        status: 'published',
+        views: 2150,
+        likes: 310,
+        commentsCount: 42,
+        tags: ['Design', 'UIUX', 'Figma', 'Frontend']
+      }
+    ];
+
+    const created = await CreatorContent.insertMany(demoItems);
+    res.status(201).json({ message: 'Seeded 4 demo creator content items!', items: created });
+  } catch (err) {
+    res.status(500).json({ message: 'Error seeding demo content', error: err.message });
+  }
+});
 
 // GET /api/creators/quiz-analytics-overview
 router.get('/quiz-analytics-overview', authMiddleware, async (req, res) => {
