@@ -146,17 +146,35 @@ const sendNotification = async (data) => {
 
     data.message = data.message || data.body || 'New Notification';
 
-    // --- Phase 7: Locale-Aware Team Hunt Notification Templates ---
-    if (user && user.locale && type && type.startsWith('team_')) {
+    // --- Phase 7 & 5: Locale-Aware Team Hunt and Skill Swap Notification Templates ---
+    if (user && user.locale && type && (type.startsWith('team_') || type.startsWith('skill_swap_'))) {
       const loc = user.locale;
       const titles = {
+        'en': {
+          'skill_swap_request': 'New Skill Swap Request',
+          'skill_swap_accepted': 'Skill Swap Accepted',
+          'skill_swap_declined': 'Skill Swap Update',
+          'skill_swap_scheduled': 'Session Scheduled',
+          'skill_swap_completed': 'Session Completed',
+          'skill_swap_cancelled': 'Session Cancelled',
+          'skill_swap_review_received': 'New Review Received',
+          'skill_swap_badge': 'New Badge Earned!'
+        },
         'es': {
           'team_application': 'Nueva Solicitud de Equipo',
           'team_application_accepted': '¡Solicitud Aceptada!',
           'team_application_rejected': 'Actualización de Solicitud',
           'team_completed': '¡Proyecto Completado!',
           'team_disbanded': 'Equipo Disuelto',
-          'team_member_removed': 'Eliminado del Equipo'
+          'team_member_removed': 'Eliminado del Equipo',
+          'skill_swap_request': 'Nueva Solicitud de Intercambio',
+          'skill_swap_accepted': 'Intercambio Aceptado',
+          'skill_swap_declined': 'Actualización de Intercambio',
+          'skill_swap_scheduled': 'Sesión Programada',
+          'skill_swap_completed': 'Sesión Completada',
+          'skill_swap_cancelled': 'Sesión Cancelada',
+          'skill_swap_review_received': 'Nueva Reseña Recibida',
+          'skill_swap_badge': '¡Nueva Insignia Obtenida!'
         },
         'ar': {
           'team_application': 'طلب انضمام جديد للفريق',
@@ -164,7 +182,15 @@ const sendNotification = async (data) => {
           'team_application_rejected': 'تحديث حالة الطلب',
           'team_completed': 'اكتمل المشروع!',
           'team_disbanded': 'تم حل الفريق',
-          'team_member_removed': 'تمت إزالتك من الفريق'
+          'team_member_removed': 'تمت إزالتك من الفريق',
+          'skill_swap_request': 'طلب تبادل مهارات جديد',
+          'skill_swap_accepted': 'تم قبول التبادل',
+          'skill_swap_declined': 'تحديث حالة التبادل',
+          'skill_swap_scheduled': 'تمت جدولة الجلسة',
+          'skill_swap_completed': 'اكتملت الجلسة',
+          'skill_swap_cancelled': 'تم إلغاء الجلسة',
+          'skill_swap_review_received': 'تلقيت تقييم جديد',
+          'skill_swap_badge': 'حصلت على شارة جديدة!'
         }
       };
       if (titles[loc] && titles[loc][type]) {
@@ -184,10 +210,13 @@ const sendNotification = async (data) => {
       if (type && type.startsWith('team_')) title = created.title || 'Team Hunt';
       else if (type && type.startsWith('community_')) title = created.title || 'Community Feed';
       else if (type && type.startsWith('placement_')) title = created.title || 'Placement Prep';
+      else if (type && type.startsWith('skill_swap_')) title = created.title || 'Skill Swap';
       
       let url = '/';
       if (type && type.startsWith('team_')) {
         url = created.relatedContentId ? `/team-hunt/${created.relatedContentId}` : '/team-hunt/dashboard';
+      } else if (type && type.startsWith('skill_swap_')) {
+        url = '/skill-swap';
       } else if (created.relatedContentId) {
         url = `/classrooms/${created.relatedContentId}`;
       }

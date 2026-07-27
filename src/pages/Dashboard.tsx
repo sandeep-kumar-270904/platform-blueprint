@@ -15,7 +15,7 @@ import {
   LayoutDashboard, BookOpen, Lightbulb, Users, Bell, Star,
   ArrowRight, Handshake, Radio, User, UserPlus,
   Calendar, Target, GraduationCap, MessageSquare, Briefcase,
-  Flame, Award, TrendingUp, BarChart2, Lock, Building2
+  Flame, Award, TrendingUp, BarChart2, Lock, Building2, RefreshCw
 } from "lucide-react";
 
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
@@ -24,6 +24,7 @@ import { MyIdeas } from "@/components/dashboard/MyIdeas";
 import { MyCollaborations } from "@/components/dashboard/MyCollaborations";
 import { MyTeams } from "@/components/dashboard/MyTeams";
 import { TeamHuntDashboardWidget } from "@/components/dashboard/TeamHuntDashboardWidget";
+import { SkillSwapDashboardWidget } from "@/components/dashboard/SkillSwapDashboardWidget";
 import { HostAnalytics } from "@/components/dashboard/HostAnalytics";
 import { NotificationsPanel } from "@/components/dashboard/NotificationsPanel";
 import { LiveActivity } from "@/components/dashboard/LiveActivity";
@@ -42,7 +43,7 @@ import { CareerVisibilityManager } from "@/components/dashboard/CareerVisibility
 import { MenteeSubscription } from "@/components/dashboard/MenteeSubscription";
 import { PlacementPrepWidget } from "@/components/dashboard/PlacementPrepWidget";
 
-type Section = "overview" | "courses" | "ideas" | "collaborations" | "requests" | "teams" | "progress" | "notifications" | "notification-settings" | "live" | "analytics" | "profile" | "referrals" | "subscription" | "career-visibility" | "security" | "links" | "saved-colleges" | "activity" | "mentor-bookings" | "mentor-management";
+type Section = "overview" | "courses" | "ideas" | "collaborations" | "requests" | "teams" | "skill-swap" | "progress" | "notifications" | "notification-settings" | "live" | "analytics" | "profile" | "referrals" | "subscription" | "career-visibility" | "security" | "links" | "saved-colleges" | "activity" | "mentor-bookings" | "mentor-management";
 
 const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -51,6 +52,7 @@ const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] =
   { id: "collaborations", label: "Collaborations", icon: Handshake },
   { id: "requests", label: "Join Requests", icon: UserPlus },
   { id: "teams", label: "My Teams", icon: Users },
+  { id: "skill-swap", label: "Skill Swap", icon: RefreshCw },
   { id: "progress", label: "Learning Progress", icon: TrendingUp },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "notification-settings", label: "Notification Settings", icon: Bell },
@@ -231,6 +233,8 @@ const Dashboard = () => {
         return <JoinRequestsManager userId={targetUserId} />;
       case "teams":
         return <TeamHuntDashboardWidget />;
+      case "skill-swap":
+        return <SkillSwapDashboardWidget />;
       case "progress":
         return <LearningProgress />;
       case "notifications":

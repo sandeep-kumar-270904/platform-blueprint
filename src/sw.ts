@@ -92,6 +92,55 @@ registerRoute(
 );
 // -----------------------------------------------------------
 
+// --- Phase 5: Skill Swap Background Sync & Offline Caching ---
+const skillSwapSyncPlugin = new BackgroundSyncPlugin('skill-swap-queue', {
+  maxRetentionTime: 24 * 60 // Retry for up to 24 hours
+});
+
+// Cache offers, matches, requests, and sessions for offline viewing
+registerRoute(
+  /\/api\/skill-swap\/.*(offers|matches|requests|sessions)/,
+  new StaleWhileRevalidate({
+    cacheName: 'skill-swap-cache',
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200]
+      }),
+      new ExpirationPlugin({
+        maxEntries: 100,
+        maxAgeSeconds: 24 * 60 * 60 // 24 hours
+      })
+    ]
+  }),
+  'GET'
+);
+
+// Background sync for mutating actions (posting offers, requests, reviews)
+registerRoute(
+  /\/api\/skill-swap\/.*/,
+  new NetworkOnly({
+    plugins: [skillSwapSyncPlugin]
+  }),
+  'POST'
+);
+
+registerRoute(
+  /\/api\/skill-swap\/.*/,
+  new NetworkOnly({
+    plugins: [skillSwapSyncPlugin]
+  }),
+  'PATCH'
+);
+
+registerRoute(
+  /\/api\/skill-swap\/.*/,
+  new NetworkOnly({
+    plugins: [skillSwapSyncPlugin]
+  }),
+  'DELETE'
+);
+// -----------------------------------------------------------
+
 // Push Notifications
 self.addEventListener('push', (event) => {
   let data = { title: 'New Notification', body: '', url: '/' };
