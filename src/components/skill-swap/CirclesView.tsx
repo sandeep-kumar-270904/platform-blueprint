@@ -111,7 +111,7 @@ export function CirclesView() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Skill Circles</h2>
         <Dialog open={isCreating} onOpenChange={setIsCreating}>

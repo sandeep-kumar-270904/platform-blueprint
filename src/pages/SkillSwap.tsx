@@ -311,26 +311,33 @@ export default function SkillSwap() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <ParallaxSection speed={0.3}>
-        <section className="relative overflow-hidden py-16 md:py-24">
+      <ParallaxSection speed={0.2}>
+        <section className="relative overflow-hidden py-6 md:py-8 border-b border-border/40 bg-gradient-to-b from-muted/20 to-background">
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
-              <div className="mx-auto max-w-3xl text-center">
-                <div className="flex justify-center items-center gap-3 mb-6">
-                  <Badge variant="default">
-                    <RefreshCw className="mr-1 h-3 w-3" />
-                    Skill Exchange Phase 5
-                  </Badge>
-                  {syncStatus !== 'live' && syncStatus !== 'connecting' && (
-                    <SyncStatusIndicator status={syncStatus} />
-                  )}
+              <div className="mx-auto max-w-5xl flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
+                <div>
+                  <div className="flex justify-center md:justify-start items-center gap-2 mb-2">
+                    <Badge variant="default" className="px-2.5 py-0.5 text-xs">
+                      <RefreshCw className="mr-1 h-3 w-3" />
+                      Skill Exchange Phase 5
+                    </Badge>
+                    {syncStatus !== 'live' && syncStatus !== 'connecting' && (
+                      <SyncStatusIndicator status={syncStatus} />
+                    )}
+                  </div>
+                  <h1 className="text-2xl font-bold tracking-tight md:text-3xl lg:text-4xl">
+                    {t("Skill Swap", "Skill Swap")}
+                  </h1>
+                  <p className="text-sm md:text-base text-muted-foreground mt-1 max-w-xl">
+                    Exchange knowledge, mentor peers, and learn new skills for free. Connect with fellow students to trade expertise.
+                  </p>
                 </div>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
-                  {t("Skill Swap", "Skill Swap")}
-                </h1>
-                <p className="mb-8 text-lg text-muted-foreground">
-                  Exchange knowledge, mentor peers, and learn new skills for free. Connect with fellow students to trade expertise.
-                </p>
+                <div className="flex-shrink-0">
+                  <Button onClick={() => setIsPosting(true)} size="lg" className="rounded-full shadow-md hover:shadow-lg transition-all font-semibold">
+                    <RefreshCw className="mr-2 h-4 w-4" /> {t("Post Your Offer", "Post Your Offer")}
+                  </Button>
+                </div>
                 
                 <Dialog open={isPosting} onOpenChange={setIsPosting}>
                   <DialogContent>
@@ -380,9 +387,9 @@ export default function SkillSwap() {
         </section>
       </ParallaxSection>
 
-      <div className="container mx-auto px-4 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <div className="flex justify-between items-center flex-wrap gap-4">
+      <div className="container mx-auto px-4 py-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <div className="flex justify-start items-center flex-wrap gap-4 border-b border-border/30 pb-2">
             <TabsList className="bg-background/60 backdrop-blur-md border border-border/50 p-1">
               <TabsTrigger value="browse" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("Browse Offers", "Browse Offers")}</TabsTrigger>
               <TabsTrigger value="matches" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("My Matches", "My Matches")}</TabsTrigger>
@@ -392,16 +399,12 @@ export default function SkillSwap() {
               <TabsTrigger value="circles" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("Circles", "Circles")}</TabsTrigger>
               <TabsTrigger value="growth" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("My Growth", "My Growth")}</TabsTrigger>
             </TabsList>
-
-            <Button onClick={() => setIsPosting(true)} className="rounded-full shadow-lg hover:shadow-xl transition-all">
-              <RefreshCw className="mr-2 h-4 w-4" /> {t("Post Your Offer", "Post Your Offer")}
-            </Button>
           </div>
 
-          <TabsContent value="browse" className="space-y-6">
+          <TabsContent value="browse" className="space-y-4">
             {/* Recommended Section */}
             {recommendations && recommendations.length > 0 && (
-              <div className="mb-10">
+              <div className="mb-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Star className="h-5 w-5 text-yellow-500" fill="currentColor" />
                   <h3 className="text-xl font-semibold">{t("Recommended for You", "Recommended for You")}</h3>
