@@ -88,41 +88,50 @@ export const useStudyGroups = () => {
   }, [searchQuery]);
 
   const fetchMyGroups = useCallback(async () => {
-    if (!user) {
-      setMyGroups([]);
-      setLoadingMyGroups(false);
-      return;
-    }
     try {
-      setStatus('syncing');
       const res = await api.get('/study-groups/my-memberships');
       setMyGroups(res.data);
-      setStatus('connected');
-    } catch (err) {
-      console.error('Error fetching my groups:', err);
-      setStatus('offline');
+    } catch (error) {
+      console.error('Error fetching my groups:', error);
+      setStatus('error');
     } finally {
       setLoadingMyGroups(false);
     }
-  }, [user]);
+  }, []);
 
-  const fetchDiscoverGroups = useCallback(async () => {
+  const fetchDiscoverGroups = useCallback(async (params?: Record<string, string>) => {
     try {
-      setStatus('syncing');
-      const params = new URLSearchParams();
-      if (debouncedSearch) params.append('search', debouncedSearch);
-      if (user) params.append('excludeUserId', user.id);
-
-      const res = await api.get(`/study-groups?${params.toString()}`);
-      setDiscoverGroups(res.data);
-      setStatus('connected');
-    } catch (err) {
-      console.error('Error fetching discover groups:', err);
-      setStatus('offline');
+      setLoadingDiscover(true);
+      const queryParams = new URLSearchParams();
+      if (user) {
+        queryParams.append('excludeUserId', user.id);
+      }
+      if (params) {
+        Object.entries(params).forEach(([k, v]) => {
+          if (v) queryParams.append(k, v);
+        });
+      }
+      
+      const res = await api.get(`/study-groups?${queryParams.toString()}`);
+      
+      // Update logic to handle object payload from Phase 6
+      if (res.data && Array.isArray(res.data.discoverGroups)) {
+        setDiscoverGroups(res.data.discoverGroups);
+        setRecommendedGroups(res.data.recommendedGroups || []);
+      } else {
+        // Fallback if backend wasn't updated
+        setDiscoverGroups(Array.isArray(res.data) ? res.data : []);
+        setRecommendedGroups([]);
+      }
+      
+      setStatus('synced');
+    } catch (error) {
+      console.error('Error fetching discover groups:', error);
+      setStatus('error');
     } finally {
       setLoadingDiscover(false);
     }
-  }, [user, debouncedSearch]);
+  }, [user]);
 
   // Initial fetch and on debounce change
   useEffect(() => {
