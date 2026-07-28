@@ -11,7 +11,7 @@ import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import VerifyEmail from "./pages/auth/VerifyEmail";
-import StudySession from "./pages/StudySession";
+
 import Analytics from "./pages/Analytics";
 import QABoard from "./pages/QABoard";
 import Gamification from "./pages/Gamification";
@@ -84,7 +84,7 @@ import PlacementResources from "./pages/PlacementResources";
 import DoubtSolving from "./pages/DoubtSolving";
 import QuestionDetail from "./pages/QuestionDetail";
 import PlacementSearch from "./pages/PlacementSearch";
-import StudyGroups from "./pages/StudyGroups";
+
 import TeamHunt from "./pages/TeamHunt";
 import TeamHuntManage from "./pages/TeamHuntManage";
 import TeamHuntDashboard from "./pages/TeamHuntDashboard";
@@ -193,7 +193,7 @@ const App = () => (
           {/* Protected Routes */}
             <Route path="/notes" element={<ProtectedRoute><NotesHub /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-            <Route path="/study-session/:sessionId" element={<ProtectedRoute><StudySession /></ProtectedRoute>} />
+  
             <Route path="/placement/oa/simulate/:id" element={<ProtectedRoute><OASimulator /></ProtectedRoute>} />
             <Route path="/placement/oa/results/:id" element={<ProtectedRoute><OAResults /></ProtectedRoute>} />
             <Route path="/placement/resources" element={<ProtectedRoute><PlacementResources /></ProtectedRoute>} />
@@ -275,7 +275,7 @@ const App = () => (
           <Route path="/placement/interview-prep" element={<ProtectedRoute><InterviewPrep /></ProtectedRoute>} />
           <Route path="/placement/interview-prep/:id" element={<ProtectedRoute><CompanyPrepDetail /></ProtectedRoute>} />
           <Route path="/placement/mock-interviews" element={<ProtectedRoute><MockInterviews /></ProtectedRoute>} />
-          <Route path="/study-groups" element={<ProtectedRoute><StudyGroups /></ProtectedRoute>} />
+
           <Route path="/team-hunt" element={<ProtectedRoute><TeamHunt /></ProtectedRoute>} />
           <Route path="/team-hunt/dashboard" element={<ProtectedRoute><TeamHuntDashboard /></ProtectedRoute>} />
           <Route path="/team-hunt/leaderboard" element={<ProtectedRoute><TeamHuntLeaderboard /></ProtectedRoute>} />
