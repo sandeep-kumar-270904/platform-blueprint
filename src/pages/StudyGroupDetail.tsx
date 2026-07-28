@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import GroupChat from '@/components/study-groups/GroupChat';
 import GroupSessions from '@/components/study-groups/GroupSessions';
+import GroupSettings from '@/components/study-groups/GroupSettings';
 
 const StudyGroupDetail = () => {
   const { id } = useParams();
@@ -188,9 +189,11 @@ const StudyGroupDetail = () => {
               </Dialog>
             )}
             
-            <Button variant={isOwner ? "destructive" : "secondary"} onClick={handleLeaveOrDelete}>
-              {isOwner ? "Delete Group" : "Leave Group"}
-            </Button>
+            {!isOwner && (
+              <Button variant="outline" onClick={handleLeaveOrDelete}>
+                Leave Group
+              </Button>
+            )}
           </div>
         </div>
 
@@ -204,7 +207,7 @@ const StudyGroupDetail = () => {
             <TabsTrigger value="sessions">Sessions</TabsTrigger>
             <TabsTrigger value="progress">Members & Progress</TabsTrigger>
             <TabsTrigger value="resources">Shared Resources</TabsTrigger>
-            {isOwner && <TabsTrigger value="manage">Manage</TabsTrigger>}
+            {isOwner && <TabsTrigger value="settings">Settings</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="discussion">
@@ -316,6 +319,12 @@ const StudyGroupDetail = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {isOwner && (
+            <TabsContent value="settings">
+              <GroupSettings group={group} onUpdate={loadGroup} />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>

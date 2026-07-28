@@ -177,6 +177,20 @@ export const useStudyGroups = () => {
     }
   };
 
+  const updateGroup = async (groupId: string, payload: Partial<StudyGroup>) => {
+    const res = await api.put(`/study-groups/${groupId}`, payload);
+    toast.success("Group updated successfully");
+    fetchMyGroups();
+    return res.data;
+  };
+
+  const transferOwnership = async (groupId: string, newOwnerId: string) => {
+    const res = await api.post(`/study-groups/${groupId}/transfer-ownership`, { newOwnerId });
+    toast.success("Ownership transferred successfully");
+    fetchMyGroups();
+    return res.data;
+  };
+
   const fetchGroupDetail = async (groupId: string): Promise<StudyGroupDetailType> => {
     const res = await api.get(`/study-groups/${groupId}`);
     return res.data;
@@ -259,6 +273,8 @@ export const useStudyGroups = () => {
     status, 
     createGroup, 
     joinGroup,
+    updateGroup,
+    transferOwnership,
     fetchGroupDetail,
     manageMembership,
     leaveGroup,
