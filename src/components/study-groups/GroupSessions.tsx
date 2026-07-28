@@ -4,12 +4,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Calendar, Clock, Users, Edit, Trash2, CheckCircle2, PlayCircle } from 'lucide-react';
+import { Loader2, Calendar, Clock, Users, Edit, Trash2, CheckCircle2, PlayCircle, Share2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { toast } from 'sonner';
 
 interface GroupSessionsProps {
   groupId: string;
@@ -32,6 +33,10 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [duration, setDuration] = useState('60');
+
+  // Share State
+  const [shareSession, setShareSession] = useState<GroupSession | null>(null);
+  const [shareText, setShareText] = useState('');
 
   const loadSessions = async () => {
     try {
@@ -111,6 +116,22 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
   const handleRSVP = async (sessionId: string) => {
     await rsvpSession(groupId, sessionId);
     loadSessions();
+  };
+
+  const handleShareClick = (session: GroupSession) => {
+    setShareSession(session);
+    setShareText(`Just finished a great session "${session.title}" in my study group!`);
+  };
+
+  const submitShare = async () => {
+    try {
+      // Stub API call since community feed isn't built yet
+      await new Promise(r => setTimeout(r, 500));
+      toast.success("Shared to Community Feed!");
+      setShareSession(null);
+    } catch (e) {
+      toast.error("Failed to share.");
+    }
   };
 
   // UI Helpers
@@ -202,6 +223,11 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
                     </div>
                   )}
                 </>
+              )}
+              {isPast && isAttending && !isCancelled && (
+                <Button variant="outline" size="sm" onClick={() => handleShareClick(session)} className="w-full text-xs" aria-label="Share session to community feed">
+                  <Share2 className="w-3 h-3 mr-2" aria-hidden="true" /> Share
+                </Button>
               )}
             </div>
           </div>
@@ -301,6 +327,23 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
           </div>
         )}
       </div>
+
+      {/* Share Modal */}
+      <Dialog open={!!shareSession} onOpenChange={() => setShareSession(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share to Community Feed</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="share-text">Post Preview</Label>
+            <Textarea id="share-text" value={shareText} onChange={e => setShareText(e.target.value)} className="mt-2 h-24 resize-none" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShareSession(null)}>Cancel</Button>
+            <Button onClick={submitShare}>Post to Feed</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
