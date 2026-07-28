@@ -334,6 +334,7 @@ router.post('/:id/messages', authMiddleware, async (req, res) => {
   try {
     const { text } = req.body;
     if (!text || !text.trim()) return res.status(400).json({ message: 'Message text is required.' });
+    if (text.length > 2000) return res.status(400).json({ message: 'Message exceeds the 2000 character limit.' });
 
     const group = await StudyGroup.findById(req.params.id);
     if (!group) return res.status(404).json({ message: 'Group not found.' });
@@ -343,6 +344,18 @@ router.post('/:id/messages', authMiddleware, async (req, res) => {
     
     if (!isOwner && !isActiveMember) {
       return res.status(403).json({ message: 'Only members can send messages.' });
+    }
+
+    // Anti-Spam: Check if the exact same message was sent by this user within the last 2 seconds
+    const twoSecondsAgo = new Date(Date.now() - 2000);
+    const recentDuplicate = await GroupMessage.findOne({
+      group_id: req.params.id,
+      sender: req.user.id,
+      text: text.trim(),
+      createdAt: { $gte: twoSecondsAgo }
+    });
+    if (recentDuplicate) {
+      return res.status(429).json({ message: 'You are sending messages too quickly.' });
     }
 
     const message = new GroupMessage({
