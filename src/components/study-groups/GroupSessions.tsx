@@ -190,14 +190,15 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
                     variant={isAttending ? "secondary" : "default"} 
                     onClick={() => handleRSVP(session._id)}
                     className="w-full"
+                    aria-label={isAttending ? "Cancel RSVP to session" : "RSVP to session"}
                   >
-                    {isAttending ? <><CheckCircle2 className="w-4 h-4 mr-2" /> Joined</> : "Join Session"}
+                    {isAttending ? <><CheckCircle2 className="w-4 h-4 mr-2" aria-hidden="true" /> Joined</> : "Join Session"}
                   </Button>
                   
                   {isCreator && (
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(session)}><Edit className="w-4 h-4"/></Button>
-                      <Button variant="outline" size="sm" className="flex-1 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(session._id)}><Trash2 className="w-4 h-4"/></Button>
+                    <div className="flex gap-2 mt-2">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(session)} aria-label="Edit session"><Edit className="w-4 h-4" aria-hidden="true" /></Button>
+                      <Button variant="outline" size="sm" className="flex-1 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDelete(session._id)} aria-label="Delete session"><Trash2 className="w-4 h-4" aria-hidden="true" /></Button>
                     </div>
                   )}
                 </>
@@ -232,21 +233,21 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Topic / Title</Label>
-                <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Mock Technical Interview" />
+                <Label htmlFor="session-title">Topic / Title</Label>
+                <Input id="session-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Mock Technical Interview" />
               </div>
               <div className="space-y-2">
-                <Label>Format (Optional)</Label>
-                <Input value={format} onChange={e => setFormat(e.target.value)} placeholder="e.g. GD Practice, Q&A" />
+                <Label htmlFor="session-format">Format (Optional)</Label>
+                <Input id="session-format" value={format} onChange={e => setFormat(e.target.value)} placeholder="e.g. GD Practice, Q&A" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Input type="date" value={date} onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} />
+                  <Label htmlFor="session-date">Date</Label>
+                  <Input id="session-date" type="date" value={date} onChange={e => setDate(e.target.value)} min={new Date().toISOString().split('T')[0]} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Time (Local)</Label>
-                  <Input type="time" value={time} onChange={e => setTime(e.target.value)} />
+                  <Label htmlFor="session-time">Time (Local)</Label>
+                  <Input id="session-time" type="time" value={time} onChange={e => setTime(e.target.value)} />
                 </div>
               </div>
               <div className="space-y-2">

@@ -42,10 +42,10 @@ export const StudyGroupsDashboardWidget = () => {
 
   if (loadingMyGroups || loadingSessions) {
     return (
-      <Card className="col-span-full border border-slate-200 shadow-sm">
+      <Card className="col-span-full border border-slate-200 shadow-sm" aria-live="polite" aria-busy="true">
         <CardContent className="p-8 flex justify-center items-center">
           <div className="animate-pulse flex items-center space-x-2 text-muted-foreground">
-            <Users className="w-5 h-5" />
+            <Users className="w-5 h-5" aria-hidden="true" />
             <span>Loading Study Groups...</span>
           </div>
         </CardContent>
@@ -96,16 +96,24 @@ export const StudyGroupsDashboardWidget = () => {
               return (
                 <div 
                   key={group._id} 
+                  role="button"
+                  tabIndex={0}
                   onClick={() => navigate(`/placement/study-groups?groupId=${group._id}`)}
-                  className="p-4 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate(`/placement/study-groups?groupId=${group._id}`);
+                    }
+                  }}
+                  className="p-4 flex items-center justify-between hover:bg-slate-50 cursor-pointer transition-colors focus-visible:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500"
                 >
                   <div className="flex flex-col overflow-hidden pr-4">
                     <span className="font-semibold text-foreground truncate">{group.name}</span>
                     <span className="text-xs text-muted-foreground truncate">{group.category}</span>
                   </div>
                   {group.hasUnread && (
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="relative flex h-2.5 w-2.5">
+                    <div className="flex items-center gap-1.5 shrink-0" aria-label="New activity in group">
+                      <span className="relative flex h-2.5 w-2.5" aria-hidden="true">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
                       </span>

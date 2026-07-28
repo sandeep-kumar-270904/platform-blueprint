@@ -202,13 +202,15 @@ const StudyGroupDetail = () => {
           onValueChange={(val) => setSearchParams({ tab: val })}
           className="w-full"
         >
-          <TabsList className="mb-6">
-            <TabsTrigger value="discussion">Discussion</TabsTrigger>
-            <TabsTrigger value="sessions">Sessions</TabsTrigger>
-            <TabsTrigger value="progress">Members & Progress</TabsTrigger>
-            <TabsTrigger value="resources">Shared Resources</TabsTrigger>
-            {isOwner && <TabsTrigger value="settings">Settings</TabsTrigger>}
-          </TabsList>
+          <div className="w-full overflow-x-auto pb-2 mb-4 scrollbar-hide">
+            <TabsList className="w-max min-w-full justify-start">
+              <TabsTrigger value="discussion">Discussion</TabsTrigger>
+              <TabsTrigger value="sessions">Sessions</TabsTrigger>
+              <TabsTrigger value="progress">Members & Progress</TabsTrigger>
+              <TabsTrigger value="resources">Shared Resources</TabsTrigger>
+              {isOwner && <TabsTrigger value="settings">Settings</TabsTrigger>}
+            </TabsList>
+          </div>
 
           <TabsContent value="discussion">
             <GroupChat groupId={group._id} />

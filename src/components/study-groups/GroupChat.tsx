@@ -181,15 +181,15 @@ const GroupChat: React.FC<GroupChatProps> = ({ groupId }) => {
   }
 
   return (
-    <div className="flex flex-col h-[600px] border rounded-lg bg-card overflow-hidden relative">
+    <div className="flex flex-col h-[calc(100vh-250px)] md:h-[600px] border rounded-lg bg-card overflow-hidden relative focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
       {!isConnected && (
-        <div className="absolute top-0 left-0 right-0 bg-red-500/10 text-red-500 text-xs py-1 px-3 flex items-center justify-center gap-2 z-10">
-          <WifiOff className="w-3 h-3" /> Connection lost. Retrying...
+        <div className="absolute top-0 left-0 right-0 bg-red-500/10 text-red-500 text-xs py-1 px-3 flex items-center justify-center gap-2 z-10" role="alert">
+          <WifiOff className="w-3 h-3" aria-hidden="true" /> Connection lost. Retrying...
         </div>
       )}
       
       {/* Messages List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 relative">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 relative" aria-live="polite" aria-atomic="false">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <p>No messages yet.</p>
@@ -247,12 +247,15 @@ const GroupChat: React.FC<GroupChatProps> = ({ groupId }) => {
       {/* Input Area */}
       <div className="p-4 bg-background border-t">
         <div className="relative">
+          <label htmlFor="chat-input" className="sr-only">Message</label>
           <textarea
+            id="chat-input"
             value={inputText}
             onChange={handleTyping}
             onKeyDown={handleKeyDown}
             placeholder="Type a message... (Shift+Enter for new line)"
-            className="w-full resize-none rounded-lg border bg-background px-4 py-3 pr-12 text-sm outline-none focus:border-primary disabled:opacity-50 min-h-[50px] max-h-[150px]"
+            aria-label="Type a message"
+            className="w-full resize-none rounded-lg border bg-background px-4 py-3 pr-12 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 min-h-[50px] max-h-[150px]"
             rows={1}
             disabled={!isConnected}
           />
@@ -261,8 +264,9 @@ const GroupChat: React.FC<GroupChatProps> = ({ groupId }) => {
             className="absolute right-2 top-2 h-8 w-8" 
             onClick={handleSend}
             disabled={!inputText.trim() || !isConnected}
+            aria-label="Send message"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-4 h-4" aria-hidden="true" />
           </Button>
         </div>
       </div>

@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, Users, Lock, Globe, Plus, Search, Sparkles } from 'lucide-react';
+import { Plus, Users, Search, Globe, Lock, Sparkles, Loader2, Activity } from 'lucide-react';
 import { useStudyGroups, StudyGroup } from '@/hooks/useStudyGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { SyncStatusIndicator } from '@/components/dashboard/SyncStatusIndicator';
@@ -98,18 +98,18 @@ const StudyGroups = () => {
     }
     
     return (
-    <Card key={group._id} className="flex flex-col h-full hover:border-primary/50 transition-colors">
+    <Card key={group._id} className="flex flex-col h-full hover:border-primary/50 transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
       <CardHeader>
         <div className="flex justify-between items-start mb-2">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={group.privacy === 'public' ? 'secondary' : 'outline'}>
-              {group.privacy === 'public' ? <Globe className="w-3 h-3 mr-1" /> : <Lock className="w-3 h-3 mr-1" />}
+              {group.privacy === 'public' ? <Globe className="w-3 h-3 mr-1" aria-hidden="true" /> : <Lock className="w-3 h-3 mr-1" aria-hidden="true" />}
               {group.privacy}
             </Badge>
-            {isActive && <Badge variant="default" className="bg-green-500 hover:bg-green-600">Active</Badge>}
+            {isActive && <Badge variant="default" className="bg-green-500 hover:bg-green-600"><Activity className="w-3 h-3 mr-1" aria-hidden="true" /> Active</Badge>}
           </div>
-          <div className="flex items-center text-sm text-muted-foreground whitespace-nowrap ml-2">
-            <Users className="w-4 h-4 mr-1" />
+          <div className="flex items-center text-sm text-muted-foreground whitespace-nowrap ml-2" aria-label={`${group.member_count} out of ${group.member_limit} members`}>
+            <Users className="w-4 h-4 mr-1" aria-hidden="true" />
             {group.member_count} / {group.member_limit}
           </div>
         </div>
@@ -247,7 +247,7 @@ const StudyGroups = () => {
 
           <TabsContent value="my-groups" className="min-h-[400px]">
             {loadingMyGroups ? (
-              <div className="flex justify-center items-center h-40">
+              <div className="flex justify-center items-center h-40" aria-live="polite" aria-busy="true" aria-label="Loading your groups">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
             ) : myGroups.length === 0 ? (
@@ -317,7 +317,7 @@ const StudyGroups = () => {
             </div>
 
             {loadingDiscover ? (
-              <div className="flex justify-center items-center h-40">
+              <div className="flex justify-center items-center h-40" aria-live="polite" aria-busy="true" aria-label="Loading discover groups">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
             ) : discoverGroups.length === 0 ? (
