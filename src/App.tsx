@@ -114,6 +114,7 @@ import AdminClassroomsPanel from "./pages/admin/AdminClassroomsPanel";
 import DailyHacks from "./pages/DailyHacks";
 import VideoRoomPage from "./pages/VideoRoomPage";
 import AdminJobsPanel from "./pages/admin/AdminJobsPanel";
+import AdminStudyGroupsPanel from "./pages/admin/AdminStudyGroupsPanel";
 import RecruiterVerify from "./pages/RecruiterVerify";
 import { ThemeProvider } from "./components/theme-provider";
 import PostSkill from "./pages/PostSkill";
@@ -317,6 +318,7 @@ const App = () => (
           <Route path="/admin/community" element={<ProtectedRoute><AdminCommunityPanel /></ProtectedRoute>} />
           <Route path="/admin/career-opportunities" element={<ProtectedRoute><AdminCareerOpportunities /></ProtectedRoute>} />
           <Route path="/admin/placement" element={<ProtectedRoute><AdminPlacementPanel /></ProtectedRoute>} />
+          <Route path="/admin/study-groups" element={<ProtectedRoute><AdminStudyGroupsPanel /></ProtectedRoute>} />
           <Route path="/admin/quiz-reports" element={<ProtectedRoute><AdminQuizReports /></ProtectedRoute>} />
           <Route path="/admin/news-moderation" element={<ProtectedRoute><AdminNewsModeration /></ProtectedRoute>} />
           <Route path="/admin/classrooms" element={<ProtectedRoute><AdminClassroomsPanel /></ProtectedRoute>} />
