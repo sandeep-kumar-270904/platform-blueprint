@@ -7,12 +7,24 @@ import { useStudyGroups } from '@/hooks/useStudyGroups';
 import api from '@/lib/api';
 
 export const StudyGroupsDashboardWidget = () => {
-  const { myGroups, loadingMyGroups } = useStudyGroups();
+  const [myGroups, setMyGroups] = useState<any[]>([]);
+  const [loadingMyGroups, setLoadingMyGroups] = useState(true);
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const res = await api.get('/study-groups/dashboard/summary');
+        setMyGroups(res.data);
+      } catch (error) {
+        console.error('Error fetching dashboard summary:', error);
+      } finally {
+        setLoadingMyGroups(false);
+      }
+    };
+    
     const fetchUpcomingSessions = async () => {
       try {
         const res = await api.get('/study-groups/sessions/upcoming');
@@ -23,6 +35,8 @@ export const StudyGroupsDashboardWidget = () => {
         setLoadingSessions(false);
       }
     };
+
+    fetchSummary();
     fetchUpcomingSessions();
   }, []);
 
@@ -79,9 +93,6 @@ export const StudyGroupsDashboardWidget = () => {
         <CardContent className="p-0 flex-1 flex flex-col">
           <div className="divide-y max-h-[250px] overflow-y-auto">
             {myGroups.slice(0, 5).map(group => {
-              // Mock active indicator: if last_activity is within the last 24 hours
-              const isActive = group.last_activity ? (new Date().getTime() - new Date(group.last_activity).getTime()) / (1000 * 3600 * 24) <= 1 : false;
-              
               return (
                 <div 
                   key={group._id} 
@@ -92,7 +103,7 @@ export const StudyGroupsDashboardWidget = () => {
                     <span className="font-semibold text-foreground truncate">{group.name}</span>
                     <span className="text-xs text-muted-foreground truncate">{group.category}</span>
                   </div>
-                  {isActive && (
+                  {group.hasUnread && (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className="relative flex h-2.5 w-2.5">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>

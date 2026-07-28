@@ -55,6 +55,13 @@ const StudyGroupDetail = () => {
     loadGroup();
   }, [id]);
 
+  useEffect(() => {
+    if (activeTab === 'chat' && group) {
+      // Ping backend to update last_viewed telemetry
+      api.post(`/study-groups/${group._id}/view`).catch(err => console.error('Failed to update view telemetry:', err));
+    }
+  }, [activeTab, group]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">

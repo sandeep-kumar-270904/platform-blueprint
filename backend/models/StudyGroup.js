@@ -45,6 +45,10 @@ const studyGroupSchema = new mongoose.Schema({
         enum: ['active', 'pending'],
         default: 'active'
       },
+      last_viewed: {
+        type: Date,
+        default: Date.now
+      },
       joinedAt: {
         type: Date,
         default: Date.now
