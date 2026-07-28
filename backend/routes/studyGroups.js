@@ -197,12 +197,20 @@ router.put('/:id/memberships/:userId', authMiddleware, async (req, res) => {
         return res.status(400).json({ message: 'Group is full.' });
       }
       group.memberships[membershipIndex].status = 'active';
-    } else if (status === 'rejected') {
+    } else if (status === 'rejected' || action === 'remove') {
       group.memberships.splice(membershipIndex, 1);
     }
-    
-    await group.save();
-    res.json(group);
+        await group.save();
+
+        // If member was removed, pull them from any future RSVPs
+        if (action === 'remove' || status === 'rejected') {
+          await GroupSession.updateMany(
+            { group_id: group._id, scheduled_at: { $gt: new Date() } },
+            { $pull: { attendees: targetUserId } }
+          );
+        }
+
+        return res.json(group);
   } catch (error) {
     console.error('Manage membership error:', error);
     res.status(500).json({ message: 'Server error managing membership.' });
@@ -430,14 +438,31 @@ router.get('/:id/sessions', authMiddleware, async (req, res) => {
 // POST /api/study-groups/:id/sessions - Create a session
 router.post('/:id/sessions', authMiddleware, async (req, res) => {
   try {
-    const { title, description, scheduled_at, duration_minutes } = req.body;
+    const { title, description, format, scheduled_at, duration_minutes } = req.body;
     
     if (!title || !scheduled_at || !duration_minutes) {
       return res.status(400).json({ message: 'Title, scheduled time, and duration are required.' });
     }
 
-    if (new Date(scheduled_at) <= new Date()) {
+    const proposedStart = new Date(scheduled_at);
+    if (proposedStart <= new Date()) {
       return res.status(400).json({ message: 'Scheduled time must be in the future.' });
+    }
+
+    const proposedEnd = new Date(proposedStart.getTime() + duration_minutes * 60000);
+
+    // Overlap check
+    const existingSessions = await GroupSession.find({
+      group_id: req.params.id,
+      status: 'active'
+    });
+
+    for (const s of existingSessions) {
+      const sStart = new Date(s.scheduled_at);
+      const sEnd = new Date(sStart.getTime() + s.duration_minutes * 60000);
+      if (proposedStart < sEnd && proposedEnd > sStart) {
+        return res.status(409).json({ message: 'This session overlaps with an existing active session in this group.' });
+      }
     }
 
     const group = await StudyGroup.findById(req.params.id);
@@ -455,8 +480,10 @@ router.post('/:id/sessions', authMiddleware, async (req, res) => {
       creator_id: req.user.id,
       title,
       description,
+      format,
       scheduled_at,
       duration_minutes,
+      status: 'active',
       attendees: [req.user.id] // Creator auto-RSVPs
     });
 
@@ -473,7 +500,7 @@ router.post('/:id/sessions', authMiddleware, async (req, res) => {
 // PUT /api/study-groups/:id/sessions/:sessionId - Edit a session
 router.put('/:id/sessions/:sessionId', authMiddleware, async (req, res) => {
   try {
-    const { title, description, scheduled_at, duration_minutes } = req.body;
+    const { title, description, format, scheduled_at, duration_minutes } = req.body;
     
     const session = await GroupSession.findById(req.params.sessionId);
     if (!session) return res.status(404).json({ message: 'Session not found.' });
@@ -483,16 +510,39 @@ router.put('/:id/sessions/:sessionId', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Only the session creator can edit it.' });
     }
 
+    if (session.status === 'cancelled') {
+      return res.status(400).json({ message: 'Cannot edit a cancelled session.' });
+    }
+
     if (new Date(session.scheduled_at) <= new Date()) {
       return res.status(400).json({ message: 'Cannot edit a session that has already started.' });
     }
 
-    if (scheduled_at && new Date(scheduled_at) <= new Date()) {
+    const proposedStart = scheduled_at ? new Date(scheduled_at) : new Date(session.scheduled_at);
+    if (scheduled_at && proposedStart <= new Date()) {
       return res.status(400).json({ message: 'New scheduled time must be in the future.' });
+    }
+    const proposedDuration = duration_minutes || session.duration_minutes;
+    const proposedEnd = new Date(proposedStart.getTime() + proposedDuration * 60000);
+
+    // Overlap check (excluding self)
+    const existingSessions = await GroupSession.find({
+      group_id: req.params.id,
+      status: 'active',
+      _id: { $ne: session._id }
+    });
+
+    for (const s of existingSessions) {
+      const sStart = new Date(s.scheduled_at);
+      const sEnd = new Date(sStart.getTime() + s.duration_minutes * 60000);
+      if (proposedStart < sEnd && proposedEnd > sStart) {
+        return res.status(409).json({ message: 'This edit causes an overlap with an existing active session.' });
+      }
     }
 
     if (title) session.title = title;
     if (description !== undefined) session.description = description;
+    if (format !== undefined) session.format = format;
     if (scheduled_at) session.scheduled_at = scheduled_at;
     if (duration_minutes) session.duration_minutes = duration_minutes;
 
@@ -522,7 +572,9 @@ router.delete('/:id/sessions/:sessionId', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Cannot cancel a session that has already started.' });
     }
 
-    await session.deleteOne();
+    // Soft delete
+    session.status = 'cancelled';
+    await session.save();
     res.json({ message: 'Session cancelled.' });
   } catch (error) {
     console.error('Cancel session error:', error);
@@ -542,6 +594,10 @@ router.post('/:id/sessions/:sessionId/rsvp', authMiddleware, async (req, res) =>
     
     if (!isOwner && !isActiveMember) {
       return res.status(403).json({ message: 'Only members can RSVP.' });
+    }
+
+    if (session.status === 'cancelled') {
+      return res.status(400).json({ message: 'Cannot RSVP to a cancelled session.' });
     }
 
     const endTime = new Date(session.scheduled_at.getTime() + session.duration_minutes * 60000);

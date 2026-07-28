@@ -28,6 +28,7 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
   const [editSessionId, setEditSessionId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [format, setFormat] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [duration, setDuration] = useState('60');
@@ -53,6 +54,7 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
     setEditSessionId(null);
     setTitle('');
     setDescription('');
+    setFormat('');
     setDate('');
     setTime('');
     setDuration('60');
@@ -63,6 +65,7 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
     setEditSessionId(session._id);
     setTitle(session.title);
     setDescription(session.description || '');
+    setFormat(session.format || '');
     
     // Format date and time for inputs
     const d = new Date(session.scheduled_at);
@@ -80,6 +83,7 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
     const payload = {
       title,
       description,
+      format,
       scheduled_at,
       duration_minutes: parseInt(duration)
     };
@@ -111,6 +115,10 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
 
   // UI Helpers
   const getSessionStatusBadge = (session: GroupSession) => {
+    if (session.status === 'cancelled') {
+      return <Badge variant="destructive" className="bg-red-500/10 text-red-500 hover:bg-red-500/20">Cancelled</Badge>;
+    }
+
     const startTime = new Date(session.scheduled_at);
     const endTime = new Date(startTime.getTime() + session.duration_minutes * 60000);
     const now = new Date();
@@ -121,7 +129,7 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
     
     const diffMs = startTime.getTime() - now.getTime();
     if (diffMs > 0 && diffMs <= 60 * 60 * 1000) { // < 1 hour
-      return <Badge variant="destructive">Starting Soon</Badge>;
+      return <Badge variant="secondary" className="bg-yellow-500/10 text-yellow-600">Starting Soon</Badge>;
     }
     
     return null;
@@ -131,19 +139,23 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
     const isCreator = session.creator_id._id === user?.id;
     const isAttending = session.attendees.some(a => a._id === user?.id);
     const d = new Date(session.scheduled_at);
+    const isCancelled = session.status === 'cancelled';
 
     return (
-      <Card key={session._id} className={`overflow-hidden transition-all ${!isPast ? 'hover:border-primary/50' : 'opacity-70'}`}>
+      <Card key={session._id} className={`overflow-hidden transition-all ${!isPast && !isCancelled ? 'hover:border-primary/50' : 'opacity-70'}`}>
         <CardContent className="p-5">
           <div className="flex flex-col md:flex-row justify-between gap-4">
             <div className="space-y-3 flex-1">
               <div className="flex items-center gap-3">
                 <h3 className="font-semibold text-lg">{session.title}</h3>
-                {!isPast && getSessionStatusBadge(session)}
+                {getSessionStatusBadge(session)}
               </div>
               
-              {session.description && (
-                <p className="text-sm text-muted-foreground line-clamp-2">{session.description}</p>
+              {(session.description || session.format) && (
+                <div className="space-y-1">
+                  {session.format && <Badge variant="outline" className="mb-1 text-xs">{session.format}</Badge>}
+                  {session.description && <p className="text-sm text-muted-foreground line-clamp-2">{session.description}</p>}
+                </div>
               )}
 
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
@@ -172,7 +184,7 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
             </div>
 
             <div className="flex flex-row md:flex-col justify-end gap-2 shrink-0 md:min-w-[120px]">
-              {!isPast && (
+              {!isPast && !isCancelled && (
                 <>
                   <Button 
                     variant={isAttending ? "secondary" : "default"} 
@@ -222,6 +234,10 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
               <div className="space-y-2">
                 <Label>Topic / Title</Label>
                 <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Mock Technical Interview" />
+              </div>
+              <div className="space-y-2">
+                <Label>Format (Optional)</Label>
+                <Input value={format} onChange={e => setFormat(e.target.value)} placeholder="e.g. GD Practice, Q&A" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
