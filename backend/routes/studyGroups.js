@@ -420,6 +420,10 @@ router.post('/:id/messages', authMiddleware, async (req, res) => {
 
     await message.save();
 
+    // Update group activity
+    group.last_activity = new Date();
+    await group.save();
+
     // Notify active members (debounce spam by checking for existing unread)
     const activeMembers = group.memberships
       .filter(m => m.status === 'active' && m.user.toString() !== req.user.id)
@@ -468,9 +472,9 @@ router.post('/:id/messages', authMiddleware, async (req, res) => {
     const populatedMessage = await message.populate('sender', 'username avatar_url');
     
     // Broadcast via socket
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`group_${req.params.id}`).emit('new_group_message', populatedMessage);
+    const io_broadcast = req.app.get('io');
+    if (io_broadcast) {
+      io_broadcast.to(`group_${req.params.id}`).emit('new_group_message', populatedMessage);
     }
 
     res.json(populatedMessage);
@@ -578,6 +582,10 @@ router.post('/:id/sessions', authMiddleware, async (req, res) => {
     });
 
     await session.save();
+
+    // Update group activity
+    group.last_activity = new Date();
+    await group.save();
     
     // Notify active members
     const activeMembers = group.memberships

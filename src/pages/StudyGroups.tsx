@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, Users, Lock, Globe, Plus, Search } from 'lucide-react';
+import { Loader2, Users, Lock, Globe, Plus, Search, Sparkles } from 'lucide-react';
 import { useStudyGroups, StudyGroup } from '@/hooks/useStudyGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { SyncStatusIndicator } from '@/components/dashboard/SyncStatusIndicator';
@@ -32,6 +32,11 @@ const StudyGroups = () => {
   
   const [activeTab, setActiveTab] = useState('my-groups');
   
+  // Filtering & Sorting State
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterActivity, setFilterActivity] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('most_active');
+  
   // Create Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -41,6 +46,79 @@ const StudyGroups = () => {
     privacy: 'public' as 'public' | 'private',
     member_limit: 50
   });
+
+  // Derive unique categories for dropdown
+  const uniqueCategories = useMemo(() => {
+    const cats = new Set(discoverGroups.map(g => g.category));
+    return Array.from(cats).sort();
+  }, [discoverGroups]);
+
+  const recommendedGroups = useMemo(() => {
+    if (!discoverGroups || discoverGroups.length === 0) return [];
+    // @ts-ignore - Assuming interestTags exists on user
+    const userInterests = user?.interestTags || [];
+    
+    let scored = discoverGroups.map(g => {
+      let score = 0;
+      if (userInterests.some((i: string) => g.category.toLowerCase().includes(i.toLowerCase()))) score += 10;
+      if (g.last_activity) {
+        const days = (new Date().getTime() - new Date(g.last_activity).getTime()) / (1000 * 3600 * 24);
+        if (days <= 7) score += 5;
+      }
+      return { ...g, score };
+    });
+    
+    return scored.sort((a, b) => b.score - a.score).slice(0, 3);
+  }, [discoverGroups, user]);
+
+  const filteredDiscoverGroups = useMemo(() => {
+    let result = [...discoverGroups];
+    
+    if (filterCategory !== 'all') {
+      result = result.filter(g => g.category === filterCategory);
+    }
+    
+    if (filterActivity === 'active_week') {
+      result = result.filter(g => {
+        if (!g.last_activity) return false;
+        return (new Date().getTime() - new Date(g.last_activity).getTime()) / (1000 * 3600 * 24) <= 7;
+      });
+    } else if (filterActivity === 'active_month') {
+      result = result.filter(g => {
+        if (!g.last_activity) return false;
+        return (new Date().getTime() - new Date(g.last_activity).getTime()) / (1000 * 3600 * 24) <= 30;
+      });
+    }
+    
+    if (sortBy === 'most_members') {
+      result.sort((a, b) => b.member_count - a.member_count);
+    } else if (sortBy === 'most_active') {
+      result.sort((a, b) => {
+        const aDate = a.last_activity ? new Date(a.last_activity).getTime() : 0;
+        const bDate = b.last_activity ? new Date(b.last_activity).getTime() : 0;
+        return bDate - aDate;
+      });
+    } else if (sortBy === 'newest') {
+      result.sort((a, b) => {
+        const aId = a._id.toString();
+        const bId = b._id.toString();
+        return bId.localeCompare(aId);
+      });
+    } else if (sortBy === 'best_match') {
+      // @ts-ignore
+      const userInterests = user?.interestTags || [];
+      result.sort((a, b) => {
+        const aMatch = userInterests.some((i: string) => a.category.toLowerCase().includes(i.toLowerCase())) ? 1 : 0;
+        const bMatch = userInterests.some((i: string) => b.category.toLowerCase().includes(i.toLowerCase())) ? 1 : 0;
+        if (aMatch !== bMatch) return bMatch - aMatch;
+        const aDate = a.last_activity ? new Date(a.last_activity).getTime() : 0;
+        const bDate = b.last_activity ? new Date(b.last_activity).getTime() : 0;
+        return bDate - aDate;
+      });
+    }
+    
+    return result;
+  }, [discoverGroups, filterCategory, filterActivity, sortBy, user]);
 
   const handleCreateSubmit = async () => {
     if (!formData.name || !formData.description || !formData.category) return;
@@ -58,15 +136,24 @@ const StudyGroups = () => {
 
 
 
-  const renderGroupCard = (group: StudyGroup, isMember: boolean) => (
+  const renderGroupCard = (group: StudyGroup, isMember: boolean) => {
+    let isActive = false;
+    if (group.last_activity) {
+      isActive = (new Date().getTime() - new Date(group.last_activity).getTime()) / (1000 * 3600 * 24) <= 7;
+    }
+    
+    return (
     <Card key={group._id} className="flex flex-col h-full hover:border-primary/50 transition-colors">
       <CardHeader>
         <div className="flex justify-between items-start mb-2">
-          <Badge variant={group.privacy === 'public' ? 'secondary' : 'outline'}>
-            {group.privacy === 'public' ? <Globe className="w-3 h-3 mr-1" /> : <Lock className="w-3 h-3 mr-1" />}
-            {group.privacy}
-          </Badge>
-          <div className="flex items-center text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant={group.privacy === 'public' ? 'secondary' : 'outline'}>
+              {group.privacy === 'public' ? <Globe className="w-3 h-3 mr-1" /> : <Lock className="w-3 h-3 mr-1" />}
+              {group.privacy}
+            </Badge>
+            {isActive && <Badge variant="default" className="bg-green-500 hover:bg-green-600">Active</Badge>}
+          </div>
+          <div className="flex items-center text-sm text-muted-foreground whitespace-nowrap ml-2">
             <Users className="w-4 h-4 mr-1" />
             {group.member_count} / {group.member_limit}
           </div>
@@ -97,6 +184,7 @@ const StudyGroups = () => {
       </CardFooter>
     </Card>
   );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -224,16 +312,55 @@ const StudyGroups = () => {
           </TabsContent>
 
           <TabsContent value="discover" className="min-h-[400px]">
-            <div className="mb-6 relative max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search by group name or focus area..." 
-                className="pl-9"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            {/* Filter and Sort Bar */}
+            <div className="flex flex-col md:flex-row gap-4 mb-8 p-4 bg-muted/30 rounded-lg border">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search by group name or focus area..." 
+                  className="pl-9 bg-background"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="w-[160px] bg-background">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Subjects</SelectItem>
+                    {uniqueCategories.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Select value={filterActivity} onValueChange={setFilterActivity}>
+                  <SelectTrigger className="w-[160px] bg-background">
+                    <SelectValue placeholder="Activity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any Activity</SelectItem>
+                    <SelectItem value="active_week">Active this week</SelectItem>
+                    <SelectItem value="active_month">Active this month</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-[160px] bg-background">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="most_active">Most Active</SelectItem>
+                    <SelectItem value="best_match">Best Match</SelectItem>
+                    <SelectItem value="most_members">Most Members</SelectItem>
+                    <SelectItem value="newest">Newest</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            
+
             {loadingDiscover ? (
               <div className="flex justify-center items-center h-40">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -250,9 +377,33 @@ const StudyGroups = () => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {discoverGroups.map(g => renderGroupCard(g, false))}
-              </div>
+              <>
+                {/* Recommended Section (Only show if not strictly filtering) */}
+                {!searchQuery && filterCategory === 'all' && filterActivity === 'all' && recommendedGroups.length > 0 && (
+                  <div className="mb-10">
+                    <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-yellow-500" />
+                      Recommended for You
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {recommendedGroups.map(g => renderGroupCard(g, false))}
+                    </div>
+                  </div>
+                )}
+                
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">All Groups</h2>
+                  {filteredDiscoverGroups.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
+                      No groups match your active filters.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {filteredDiscoverGroups.map(g => renderGroupCard(g, false))}
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </TabsContent>
         </Tabs>

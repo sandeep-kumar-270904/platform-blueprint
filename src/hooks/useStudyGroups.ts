@@ -12,6 +12,7 @@ export interface StudyGroup {
   member_limit: number;
   member_count: number;
   owner_id: string;
+  last_activity?: string;
 }
 
 export interface StudyGroupUser {
