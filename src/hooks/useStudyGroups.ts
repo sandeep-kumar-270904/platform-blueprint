@@ -52,6 +52,8 @@ export interface StudyGroupResource {
     creator_id: { _id: string; username: string; avatar_url?: string };
     title: string;
     description?: string;
+    format?: string;
+    status: string;
     scheduled_at: string;
     duration_minutes: number;
     attendees: { _id: string; username: string; avatar_url?: string }[];

@@ -23,6 +23,16 @@ const GroupSessionSchema = new mongoose.Schema({
     trim: true,
     maxlength: 500
   },
+  format: {
+    type: String,
+    trim: true,
+    maxlength: 50
+  },
+  status: {
+    type: String,
+    enum: ['active', 'cancelled'],
+    default: 'active'
+  },
   scheduled_at: {
     type: Date,
     required: true
