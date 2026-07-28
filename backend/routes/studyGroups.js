@@ -145,16 +145,30 @@ router.post('/:id/join', authMiddleware, async (req, res) => {
 });
 
 // GET /api/study-groups/:id - Fetch group details with populated members
-router.get('/:id', async (req, res) => {
+router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const group = await StudyGroup.findById(req.params.id)
       .populate('memberships.user', 'username avatar_url learningStreak quizStreak full_name')
       .populate('resources.added_by', 'username avatar_url');
       
     if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    const isOwner = group.owner_id.toString() === req.user.id;
+    const isActiveMember = group.memberships.some(m => m.user._id.toString() === req.user.id && m.status === 'active');
+    
+    // Access control: Only owner or active member can view detail
+    if (!isOwner && !isActiveMember) {
+      return res.status(403).json({ message: 'Not authorized to view this group.' });
+    }
     
     const obj = group.toObject();
     obj.member_count = getActiveMemberCount(group);
+    
+    // Data Masking: Only owner sees pending requests
+    if (!isOwner) {
+      obj.memberships = obj.memberships.filter(m => m.status === 'active');
+    }
+
     res.json(obj);
   } catch (error) {
     console.error('Fetch group detail error:', error);
@@ -238,6 +252,12 @@ router.post('/:id/resources', authMiddleware, async (req, res) => {
 
     const group = await StudyGroup.findById(req.params.id);
     if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    // Duplicate check
+    const isDuplicate = group.resources.some(r => r.url === url);
+    if (isDuplicate) {
+      return res.status(400).json({ message: 'This resource has already been shared in this group.' });
+    }
 
     // Must be active member
     const membership = group.memberships.find(m => m.user.toString() === req.user.id && m.status === 'active');
