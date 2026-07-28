@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const logger = require('./utils/logger');
 const { startCron } = require('./jobs/classroomCron');
+const { startStudyGroupCron } = require('./jobs/studyGroupCron');
 const mongoose = require('mongoose');
 const StudyGroup = require('./models/StudyGroup');
 
@@ -16,6 +17,9 @@ const envFile = process.env.NODE_ENV === 'production' ? '.env.production' :
                 process.env.NODE_ENV === 'staging' ? '.env.staging' : '.env';
 dotenv.config({ path: envFile });
 
+// Start Cron Jobs
+startCron();
+startStudyGroupCron();
 
 const http = require('http');
 const { Server } = require('socket.io');
