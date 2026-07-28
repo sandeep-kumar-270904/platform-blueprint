@@ -58,7 +58,11 @@ const studyGroupSchema = new mongoose.Schema({
       added_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
       created_at: { type: Date, default: Date.now }
     }
-  ]
+  ],
+  last_activity: {
+    type: Date,
+    default: Date.now
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('StudyGroup', studyGroupSchema);
