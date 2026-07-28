@@ -558,6 +558,78 @@ router.post('/:id/leave', authMiddleware, async (req, res) => {
   }
 });
 
+// PUT /api/study-groups/:id - Update group settings
+router.put('/:id', authMiddleware, async (req, res) => {
+  try {
+    const { name, description, category, privacy, member_limit } = req.body;
+    const group = await StudyGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    if (group.owner_id.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Only the owner can update group settings.' });
+    }
+
+    if (member_limit) {
+      const activeMembers = getActiveMemberCount(group);
+      if (member_limit < activeMembers) {
+        return res.status(400).json({ message: `Cannot lower member limit below current active members (${activeMembers}).` });
+      }
+      group.member_limit = member_limit;
+    }
+
+    if (name) group.name = name;
+    if (description) group.description = description;
+    if (category) group.category = category;
+    if (privacy) group.privacy = privacy;
+
+    await group.save();
+    res.json(group);
+  } catch (error) {
+    console.error('Update group settings error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'A group with that name already exists. Please choose another.' });
+    }
+    res.status(500).json({ message: 'Server error updating group.' });
+  }
+});
+
+// POST /api/study-groups/:id/transfer-ownership
+router.post('/:id/transfer-ownership', authMiddleware, async (req, res) => {
+  try {
+    const { newOwnerId } = req.body;
+    const group = await StudyGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    if (group.owner_id.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Only the owner can transfer ownership.' });
+    }
+
+    if (group.owner_id.toString() === newOwnerId) {
+      return res.status(400).json({ message: 'Cannot transfer ownership to yourself.' });
+    }
+
+    const currentOwnerMembershipIndex = group.memberships.findIndex(m => m.user.toString() === req.user.id);
+    const newOwnerMembershipIndex = group.memberships.findIndex(m => m.user.toString() === newOwnerId && m.status === 'active');
+
+    if (newOwnerMembershipIndex === -1) {
+      return res.status(400).json({ message: 'The designated new owner must be an active member of the group.' });
+    }
+
+    // Atomic reassignment
+    group.owner_id = newOwnerId;
+    if (currentOwnerMembershipIndex !== -1) {
+      group.memberships[currentOwnerMembershipIndex].role = 'member';
+    }
+    group.memberships[newOwnerMembershipIndex].role = 'owner';
+
+    await group.save();
+    res.json({ message: 'Ownership transferred successfully.', group });
+  } catch (error) {
+    console.error('Transfer ownership error:', error);
+    res.status(500).json({ message: 'Server error transferring ownership.' });
+  }
+});
+
 // DELETE /api/study-groups/:id
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
@@ -568,7 +640,18 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ message: 'Only the owner can delete the group.' });
     }
 
+    // Phase 9: Cascade Delete
+    await GroupMessage.deleteMany({ group_id: group._id });
+    await GroupSession.deleteMany({ group_id: group._id });
+    await Notification.deleteMany({ relatedContentId: group._id });
+
     await group.deleteOne();
+    
+    // Disconnect sockets cleanly
+    if (req.app.get('io')) {
+      req.app.get('io').to('group_' + group._id).disconnectSockets();
+    }
+
     res.json({ message: 'Group deleted successfully.' });
   } catch (error) {
     console.error('Delete group error:', error);
