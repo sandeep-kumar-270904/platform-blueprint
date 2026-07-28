@@ -8,13 +8,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Loader2, ArrowLeft, Users, Globe, Lock, Shield, Link, Plus, Trash2, Check, X, Trophy } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, Globe, Lock, Shield, Link, Plus, Trash2, Check, X, Trophy, Flag } from 'lucide-react';
 import { useStudyGroups, StudyGroupDetailType, StudyGroupMembership } from '@/hooks/useStudyGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import GroupChat from '@/components/study-groups/GroupChat';
 import GroupSessions from '@/components/study-groups/GroupSessions';
 import GroupSettings from '@/components/study-groups/GroupSettings';
+import { ReportModal } from '@/components/study-groups/ReportModal';
+import { api } from '@/lib/api';
 
 const StudyGroupDetail = () => {
   const { id } = useParams();
@@ -33,11 +35,21 @@ const StudyGroupDetail = () => {
 
   const [group, setGroup] = useState<StudyGroupDetailType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('discussion');
   
   // Resource Form
   const [resourceTitle, setResourceTitle] = useState('');
   const [resourceUrl, setResourceUrl] = useState('');
   const [isResourceOpen, setIsResourceOpen] = useState(false);
+
+  // Reporting
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{type: 'group' | 'member' | 'message', id: string, name?: string} | null>(null);
+
+  const openReport = (type: 'group' | 'member', id: string, name?: string) => {
+    setReportTarget({ type, id, name });
+    setReportModalOpen(true);
+  };
 
   const loadGroup = async () => {
     if (!id) return;
@@ -58,7 +70,6 @@ const StudyGroupDetail = () => {
 
   useEffect(() => {
     if (activeTab === 'chat' && group) {
-      // Ping backend to update last_viewed telemetry
       api.post(`/study-groups/${group._id}/view`).catch(err => console.error('Failed to update view telemetry:', err));
     }
   }, [activeTab, group]);
@@ -80,7 +91,6 @@ const StudyGroupDetail = () => {
   const activeMembers = group.memberships.filter(m => m.status === 'active');
   const pendingMembers = group.memberships.filter(m => m.status === 'pending');
 
-  // Simple leaderboard: Rank by learningStreak + quizStreak
   const leaderboard = [...activeMembers].sort((a, b) => {
     const scoreA = (a.user.learningStreak?.current || 0) + (a.user.quizStreak?.current || 0);
     const scoreB = (b.user.learningStreak?.current || 0) + (b.user.quizStreak?.current || 0);
@@ -131,12 +141,11 @@ const StudyGroupDetail = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <div className="container mx-auto px-4 pt-24 pb-12 max-w-6xl">
-        {/* Header Section */}
         <Button variant="ghost" className="mb-6 -ml-4" onClick={() => navigate('/study-groups')}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Directory
         </Button>
         
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4, mb-8">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold">{group.name}</h1>
@@ -194,12 +203,28 @@ const StudyGroupDetail = () => {
                 Leave Group
               </Button>
             )}
+            
+            <Button variant="ghost" size="icon" onClick={() => openReport('group', group._id, group.name)} className="text-muted-foreground hover:text-orange-500" aria-label="Report Group">
+              <Flag className="w-4 h-4" />
+            </Button>
           </div>
         </div>
 
+        {['Data Structures', 'System Design'].includes(group.category) && (
+          <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h4 className="font-semibold text-indigo-900">Looking to practice?</h4>
+              <p className="text-sm text-indigo-700">Check out the Placement Prep modules for {group.category}.</p>
+            </div>
+            <Button variant="outline" className="border-indigo-200 text-indigo-700 hover:bg-indigo-100 shrink-0" onClick={() => navigate('/placement/prep')}>
+              Go to Prep
+            </Button>
+          </div>
+        )}
+
         <Tabs 
           value={searchParams.get('tab') || 'discussion'} 
-          onValueChange={(val) => setSearchParams({ tab: val })}
+          onValueChange={(val) => { setSearchParams({ tab: val }); setActiveTab(val); }}
           className="w-full"
         >
           <div className="w-full overflow-x-auto pb-2 mb-4 scrollbar-hide">
@@ -251,9 +276,16 @@ const StudyGroupDetail = () => {
                             <div className="text-xs text-muted-foreground">Joined {new Date(m.joinedAt).toLocaleDateString()}</div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-bold text-lg">{score}</div>
-                          <div className="text-xs text-muted-foreground">Total Prep Score</div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <div className="font-bold text-lg">{score}</div>
+                            <div className="text-xs text-muted-foreground">Total Prep Score</div>
+                          </div>
+                          {m.user._id !== user.id && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-orange-500" onClick={() => openReport('member', m.user._id, m.user.username)} aria-label="Report Member">
+                              <Flag className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     );
@@ -296,27 +328,26 @@ const StudyGroupDetail = () => {
                     <p>No resources shared yet.</p>
                   </div>
                 ) : (
-                    {group.resources.map(res => {
-                      const canDelete = isOwner || res.added_by._id === user.id;
-                      return (
-                        <div key={res._id} className="flex justify-between items-start p-4 border rounded-lg hover:border-primary/50 transition-colors">
-                          <div className="overflow-hidden">
-                            <a href={res.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline block truncate mb-1">
-                              {res.title}
-                            </a>
-                            <div className="text-xs text-muted-foreground flex items-center gap-1">
-                              Added by {res.added_by.username}
-                            </div>
+                  group.resources.map(res => {
+                    const canDelete = isOwner || res.added_by._id === user.id;
+                    return (
+                      <div key={res._id} className="flex justify-between items-start p-4 border rounded-lg hover:border-primary/50 transition-colors mb-2">
+                        <div className="overflow-hidden">
+                          <a href={res.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline block truncate mb-1">
+                            {res.title}
+                          </a>
+                          <div className="text-xs text-muted-foreground flex items-center gap-1">
+                            Added by {res.added_by.username}
                           </div>
-                          {canDelete && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500 shrink-0" onClick={() => handleDeleteResource(res._id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
                         </div>
-                      )
-                    })}
-                  </div>
+                        {canDelete && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-red-500 shrink-0" onClick={() => handleDeleteResource(res._id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )
+                  })
                 )}
               </CardContent>
             </Card>
@@ -329,6 +360,17 @@ const StudyGroupDetail = () => {
           )}
         </Tabs>
       </div>
+
+      {reportTarget && (
+        <ReportModal 
+          isOpen={reportModalOpen} 
+          onClose={() => setReportModalOpen(false)} 
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          targetName={reportTarget.name}
+          groupId={group._id}
+        />
+      )}
     </div>
   );
 };

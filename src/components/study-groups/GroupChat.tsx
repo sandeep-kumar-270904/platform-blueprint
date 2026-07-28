@@ -4,7 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useStudyGroups, GroupMessagePayload } from '@/hooks/useStudyGroups';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, WifiOff, AlertCircle } from 'lucide-react';
+import { Loader2, Send, WifiOff, AlertCircle, Flag } from 'lucide-react';
+import { ReportModal } from './ReportModal';
 
 interface GroupChatProps {
   groupId: string;
@@ -21,6 +22,9 @@ const GroupChat: React.FC<GroupChatProps> = ({ groupId }) => {
   // States for sending/failed
   const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
   const [failedIds, setFailedIds] = useState<Set<string>>(new Set());
+  
+  // Reporting
+  const [reportTarget, setReportTarget] = useState<{id: string, name?: string} | null>(null);
   
   // Typing indicators
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
@@ -203,7 +207,7 @@ const GroupChat: React.FC<GroupChatProps> = ({ groupId }) => {
             const showAvatar = index === 0 || messages[index - 1].sender._id !== msg.sender._id;
 
             return (
-              <div key={msg._id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+              <div key={msg._id} className={`flex gap-3 group/msg ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                 {showAvatar ? (
                   <Avatar className="w-8 h-8 shrink-0">
                     <AvatarImage src={msg.sender.avatar_url} />
@@ -213,15 +217,27 @@ const GroupChat: React.FC<GroupChatProps> = ({ groupId }) => {
                   <div className="w-8 shrink-0" />
                 )}
                 
-                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[70%]`}>
+                <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[70%] relative`}>
                   {showAvatar && (
                     <span className="text-xs text-muted-foreground mb-1 ml-1 mr-1">
                       {isMe ? 'You' : msg.sender.username}
                     </span>
                   )}
                   
-                  <div className={`px-4 py-2 rounded-2xl ${isMe ? 'bg-primary text-primary-foreground rounded-tr-sm' : 'bg-muted rounded-tl-sm'}`}>
+                  <div className={`px-4 py-2 rounded-2xl relative ${isMe ? 'bg-primary text-primary-foreground rounded-tr-sm' : 'bg-muted rounded-tl-sm'}`}>
                     <p className="whitespace-pre-wrap break-words text-sm">{msg.text}</p>
+                    
+                    {!isMe && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute -right-10 top-0 h-8 w-8 opacity-0 group-hover/msg:opacity-100 transition-opacity text-muted-foreground hover:text-orange-500"
+                        onClick={() => setReportTarget({ id: msg._id, name: msg.text.slice(0, 30) + (msg.text.length > 30 ? '...' : '') })}
+                        aria-label="Report Message"
+                      >
+                        <Flag className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                   
                   <div className="flex items-center gap-2 mt-1 mx-1 text-[10px] text-muted-foreground">
@@ -270,6 +286,17 @@ const GroupChat: React.FC<GroupChatProps> = ({ groupId }) => {
           </Button>
         </div>
       </div>
+
+      {reportTarget && (
+        <ReportModal 
+          isOpen={!!reportTarget} 
+          onClose={() => setReportTarget(null)} 
+          targetType="message"
+          targetId={reportTarget.id}
+          targetName={reportTarget.name}
+          groupId={groupId}
+        />
+      )}
     </div>
   );
 };
