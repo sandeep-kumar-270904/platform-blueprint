@@ -117,20 +117,20 @@ export default function GroupSettings({ group, onUpdate }: GroupSettingsProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label>Group Name</Label>
-            <Input value={name} onChange={e => setName(e.target.value)} />
+            <Label htmlFor="group-name">Group Name</Label>
+            <Input id="group-name" value={name} onChange={e => setName(e.target.value)} />
           </div>
           
           <div className="space-y-2">
-            <Label>Description</Label>
-            <Input value={description} onChange={e => setDescription(e.target.value)} />
+            <Label htmlFor="group-desc">Description</Label>
+            <Input id="group-desc" value={description} onChange={e => setDescription(e.target.value)} />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label>Focus Area</Label>
+              <Label htmlFor="group-category">Focus Area</Label>
               <Select value={category} onValueChange={setCategory}>
-                <SelectTrigger>
+                <SelectTrigger id="group-category">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -145,8 +145,9 @@ export default function GroupSettings({ group, onUpdate }: GroupSettingsProps) {
             </div>
             
             <div className="space-y-2">
-              <Label>Member Limit</Label>
+              <Label htmlFor="group-limit">Member Limit</Label>
               <Input 
+                id="group-limit"
                 type="number" 
                 value={memberLimit} 
                 onChange={e => setMemberLimit(e.target.value)} 
@@ -246,8 +247,9 @@ export default function GroupSettings({ group, onUpdate }: GroupSettingsProps) {
                   <p className="text-sm text-muted-foreground">This action cannot be undone. This will permanently delete the <strong>{group.name}</strong> group, messages, sessions, and remove all member associations.</p>
                   
                   <div className="space-y-2">
-                    <Label>Please type <span className="font-bold select-none">{group.name}</span> to confirm.</Label>
+                    <Label htmlFor="confirm-delete">Please type <span className="font-bold select-none">{group.name}</span> to confirm.</Label>
                     <Input 
+                      id="confirm-delete"
                       value={deleteConfirmationName} 
                       onChange={e => setDeleteConfirmationName(e.target.value)}
                       placeholder={group.name}

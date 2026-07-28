@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { ArrowLeft, Search, Trash2, ShieldAlert, Flag, CheckCircle, Users, Globe, Lock, AlertTriangle, Eye, UserMinus } from 'lucide-react';
+import { Search, ShieldAlert, Users, Calendar, Flag, Eye, Trash2, ArrowLeft, Loader2, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/hooks/useAdmin';
 import { toast } from 'sonner';
@@ -209,26 +209,27 @@ export default function AdminStudyGroupsPanel() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {isActive ? <Badge className="bg-green-500 text-[10px]">Active</Badge> : <span className="text-xs text-muted-foreground">Inactive</span>}
+                    {isActive ? <Badge className="bg-green-500 text-[10px]"><Activity className="w-3 h-3 mr-1" aria-hidden="true"/> Active</Badge> : <span className="text-xs text-muted-foreground">Inactive</span>}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {new Date(g.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => { setViewGroup(g); fetchMembers(g._id); }}>
-                        <Eye className="w-4 h-4" />
+                      <Button variant="ghost" size="sm" onClick={() => { setViewGroup(g); fetchMembers(g._id); }} aria-label="View group details">
+                        <Eye className="w-4 h-4" aria-hidden="true" />
                       </Button>
                       <Button 
                         variant="ghost" 
                         size="sm" 
                         className={g.isFlagged ? "text-orange-500" : "text-muted-foreground hover:text-orange-500"}
                         onClick={() => handleFlag(g._id, !g.isFlagged)}
+                        aria-label={g.isFlagged ? "Remove flag" : "Flag group"}
                       >
-                        <Flag className="w-4 h-4" />
+                        <Flag className="w-4 h-4" aria-hidden="true" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-red-500 hover:bg-red-50" onClick={() => setConfirmDeleteId(g._id)}>
-                        <Trash2 className="w-4 h-4" />
+                      <Button variant="ghost" size="sm" className="text-red-500 hover:bg-red-50" onClick={() => setConfirmDeleteId(g._id)} aria-label="Delete group">
+                        <Trash2 className="w-4 h-4" aria-hidden="true" />
                       </Button>
                     </div>
                   </td>
