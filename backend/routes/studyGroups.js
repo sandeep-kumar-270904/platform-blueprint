@@ -3,6 +3,7 @@ const router = express.Router();
 const StudyGroup = require('../models/StudyGroup');
 const GroupMessage = require('../models/GroupMessage');
 const GroupSession = require('../models/GroupSession');
+const Notification = require('../models/Notification');
 const authMiddleware = require('../middleware/auth');
 
 // Helper: Count active members
@@ -139,6 +140,17 @@ router.post('/:id/join', authMiddleware, async (req, res) => {
     });
 
     await group.save();
+
+    // Notify Owner if pending request
+    if (status === 'pending') {
+      await Notification.create({
+        userId: group.owner_id,
+        type: 'group_join_request',
+        relatedContentId: group._id,
+        message: `Someone requested to join your group: ${group.name}`
+      });
+    }
+
     res.json({ message: status === 'active' ? 'Joined successfully.' : 'Join request sent.' });
   } catch (error) {
     console.error('Join study group error:', error);
@@ -202,12 +214,21 @@ router.put('/:id/memberships/:userId', authMiddleware, async (req, res) => {
     }
         await group.save();
 
-        // If member was removed, pull them from any future RSVPs
-        if (action === 'remove' || status === 'rejected') {
-          await GroupSession.updateMany(
-            { group_id: group._id, scheduled_at: { $gt: new Date() } },
-            { $pull: { attendees: targetUserId } }
-          );
+        // Notify Member
+        if (status === 'active') {
+          await Notification.create({
+            userId: targetUserId,
+            type: 'group_request_approved',
+            relatedContentId: group._id,
+            message: `Your request to join ${group.name} was approved.`
+          });
+        } else if (status === 'rejected') {
+          await Notification.create({
+            userId: targetUserId,
+            type: 'group_request_denied',
+            relatedContentId: group._id,
+            message: `Your request to join ${group.name} was denied.`
+          });
         }
 
         return res.json(group);
@@ -374,7 +395,40 @@ router.post('/:id/messages', authMiddleware, async (req, res) => {
     });
 
     await message.save();
+
+    // Notify active members (debounce spam by checking for existing unread)
+    const activeMembers = group.memberships
+      .filter(m => m.status === 'active' && m.user.toString() !== req.user.id)
+      .map(m => m.user.toString());
+    if (group.owner_id.toString() !== req.user.id) activeMembers.push(group.owner_id.toString());
     
+    // De-duplicate in case owner is in memberships
+    const uniqueMembers = [...new Set(activeMembers)];
+
+    // We only create a notification if they don't already have an UNREAD chat notif for this group
+    const notificationsToCreate = [];
+    for (const userId of uniqueMembers) {
+      const existingUnread = await Notification.findOne({
+        userId,
+        type: 'group_new_message',
+        relatedContentId: group._id,
+        isRead: false
+      });
+      if (!existingUnread) {
+        notificationsToCreate.push({
+          userId,
+          type: 'group_new_message',
+          relatedContentId: group._id,
+          message: `New message in ${group.name}`,
+          isRead: false
+        });
+      }
+    }
+    if (notificationsToCreate.length > 0) {
+      await Notification.insertMany(notificationsToCreate);
+    }
+
+    // Populate sender info for the socket payload
     const populatedMessage = await message.populate('sender', 'username avatar_url');
     
     // Broadcast via socket
@@ -489,6 +543,24 @@ router.post('/:id/sessions', authMiddleware, async (req, res) => {
 
     await session.save();
     
+    // Notify active members
+    const activeMembers = group.memberships
+      .filter(m => m.status === 'active' && m.user.toString() !== req.user.id)
+      .map(m => m.user.toString());
+    if (group.owner_id.toString() !== req.user.id) activeMembers.push(group.owner_id.toString());
+    const uniqueMembers = [...new Set(activeMembers)];
+
+    const notificationsToCreate = uniqueMembers.map(userId => ({
+      userId,
+      type: 'group_session_scheduled',
+      relatedContentId: group._id,
+      message: `New session scheduled in ${group.name}: ${title}`,
+      isRead: false
+    }));
+    if (notificationsToCreate.length > 0) {
+      await Notification.insertMany(notificationsToCreate);
+    }
+
     const populated = await session.populate('creator_id attendees', 'username avatar_url');
     res.json(populated);
   } catch (error) {

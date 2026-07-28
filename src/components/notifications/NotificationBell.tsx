@@ -169,6 +169,15 @@ export const NotificationBell = () => {
       return n.relatedContentId ? `/creators?contentId=${n.relatedContentId}` : '/creators';
     }
     
+    if (n.type.startsWith('group_')) {
+      const groupId = n.relatedContentId;
+      if (!groupId) return '/study-groups';
+      if (n.type === 'group_join_request') return `/study-groups/${groupId}?tab=manage`;
+      if (n.type === 'group_new_message') return `/study-groups/${groupId}?tab=chat`;
+      if (n.type === 'group_session_scheduled' || n.type === 'group_session_starting') return `/study-groups/${groupId}?tab=sessions`;
+      return `/study-groups/${groupId}`;
+    }
+    
     if (n.relatedCollegeId) {
       return `/colleges/${n.relatedCollegeId}`;
     }

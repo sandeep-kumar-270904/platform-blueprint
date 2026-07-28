@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import GroupSessions from '@/components/study-groups/GroupSessions';
 const StudyGroupDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   
   const { 
@@ -186,12 +187,17 @@ const StudyGroupDetail = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="discussion" className="w-full">
+        <Tabs 
+          value={searchParams.get('tab') || 'discussion'} 
+          onValueChange={(val) => setSearchParams({ tab: val })}
+          className="w-full"
+        >
           <TabsList className="mb-6">
             <TabsTrigger value="discussion">Discussion</TabsTrigger>
             <TabsTrigger value="sessions">Sessions</TabsTrigger>
             <TabsTrigger value="progress">Members & Progress</TabsTrigger>
             <TabsTrigger value="resources">Shared Resources</TabsTrigger>
+            {isOwner && <TabsTrigger value="manage">Manage</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="discussion">
@@ -259,27 +265,25 @@ const StudyGroupDetail = () => {
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
-                        <Label>Resource Title</Label>
-                        <Input value={resourceTitle} onChange={e => setResourceTitle(e.target.value)} placeholder="e.g. System Design Primer" />
+                        <Label>Title</Label>
+                        <Input value={resourceTitle} onChange={e => setResourceTitle(e.target.value)} placeholder="e.g. Dynamic Programming Guide" />
                       </div>
                       <div className="space-y-2">
-                        <Label>URL Link</Label>
-                        <Input value={resourceUrl} onChange={e => setResourceUrl(e.target.value)} placeholder="https://..." />
+                        <Label>URL</Label>
+                        <Input type="url" value={resourceUrl} onChange={e => setResourceUrl(e.target.value)} placeholder="https://..." />
                       </div>
+                      <Button onClick={handleAddResource} className="w-full">Share Resource</Button>
                     </div>
-                    <Button onClick={handleAddResource} disabled={!resourceTitle || !resourceUrl}>Share</Button>
                   </DialogContent>
                 </Dialog>
               </CardHeader>
               <CardContent>
                 {group.resources.length === 0 ? (
-                  <div className="flex flex-col items-center py-12 text-center border rounded-lg border-dashed text-muted-foreground">
-                    <Link className="w-10 h-10 mb-4 opacity-20" />
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Link className="w-12 h-12 mx-auto mb-4 opacity-20" />
                     <p>No resources shared yet.</p>
-                    <p className="text-sm">Be the first to share a helpful link with the group!</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {group.resources.map(res => {
                       const canDelete = isOwner || res.added_by._id === user.id;
                       return (
