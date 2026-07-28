@@ -9,17 +9,42 @@ const getActiveMemberCount = (group) => {
   return group.memberships.filter(m => m.status === 'active').length;
 };
 
-// GET /api/study-groups - Fetch all groups
+// GET /api/study-groups - Fetch Discover groups (supports search & excludes joined)
 router.get('/', async (req, res) => {
   try {
-    const groups = await StudyGroup.find().sort({ createdAt: -1 });
+    const { search, excludeUserId } = req.query;
+    
+    let query = {};
+    
+    // Server-side Search
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { name: searchRegex },
+        { category: searchRegex }
+      ];
+    }
+    
+    // Exclude groups the user is already in (or pending in)
+    if (excludeUserId) {
+      query.memberships = { 
+        $not: { $elemMatch: { user: excludeUserId } } 
+      };
+    }
+
+    // Optionally exclude full groups
+    // If we wanted to, but the prompt says "Return all public (plus eligible private) groups"
+    // So we'll just fetch them and the frontend will show the member count
+
+    const groups = await StudyGroup.find(query).sort({ createdAt: -1 });
+    
     const transformedGroups = groups.map(g => {
       const obj = g.toObject();
       obj.member_count = getActiveMemberCount(g);
-      // Strip memberships array from public listing to save bandwidth and privacy
-      delete obj.memberships;
+      delete obj.memberships; // Clean up payload
       return obj;
     });
+    
     res.json(transformedGroups);
   } catch (error) {
     console.error('Fetch study groups error:', error);
@@ -27,14 +52,21 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/study-groups/my-memberships - Fetch IDs of groups user has joined
+// GET /api/study-groups/my-memberships - Fetch full groups user has joined
 router.get('/my-memberships', authMiddleware, async (req, res) => {
   try {
     const groups = await StudyGroup.find({
       memberships: { $elemMatch: { user: req.user.id, status: 'active' } }
-    }).select('_id');
-    const groupIds = groups.map(g => g._id);
-    res.json(groupIds);
+    }).sort({ createdAt: -1 });
+    
+    const transformedGroups = groups.map(g => {
+      const obj = g.toObject();
+      obj.member_count = getActiveMemberCount(g);
+      delete obj.memberships; // Clean up payload
+      return obj;
+    });
+    
+    res.json(transformedGroups);
   } catch (error) {
     console.error('Fetch my memberships error:', error);
     res.status(500).json({ message: 'Server error fetching memberships.' });
@@ -68,6 +100,9 @@ router.post('/', authMiddleware, async (req, res) => {
     res.status(201).json(savedGroup);
   } catch (error) {
     console.error('Create study group error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'A group with that name already exists. Please choose another.' });
+    }
     res.status(500).json({ message: 'Server error creating group.' });
   }
 });

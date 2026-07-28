@@ -16,35 +16,71 @@ export interface StudyGroup {
 
 export const useStudyGroups = () => {
   const { user } = useAuth();
-  const [groups, setGroups] = useState<StudyGroup[]>([]);
-  const [myGroupIds, setMyGroupIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  
+  // Split state
+  const [myGroups, setMyGroups] = useState<StudyGroup[]>([]);
+  const [discoverGroups, setDiscoverGroups] = useState<StudyGroup[]>([]);
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  const [loadingMyGroups, setLoadingMyGroups] = useState(true);
+  const [loadingDiscover, setLoadingDiscover] = useState(true);
   const [status, setStatus] = useState<'connected' | 'syncing' | 'offline'>('syncing');
 
-  const fetchAll = useCallback(async () => {
+  // Debounce logic for search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  const fetchMyGroups = useCallback(async () => {
+    if (!user) {
+      setMyGroups([]);
+      setLoadingMyGroups(false);
+      return;
+    }
     try {
       setStatus('syncing');
-      
-      const [groupsRes, membershipsRes] = await Promise.all([
-        api.get('/study-groups'),
-        user ? api.get('/study-groups/my-memberships') : Promise.resolve({ data: [] })
-      ]);
-
-      setGroups(groupsRes.data);
-      setMyGroupIds(new Set(membershipsRes.data));
+      const res = await api.get('/study-groups/my-memberships');
+      setMyGroups(res.data);
       setStatus('connected');
     } catch (err) {
-      console.error('Error fetching groups:', err);
+      console.error('Error fetching my groups:', err);
       setStatus('offline');
-      toast.error('Failed to load study groups');
     } finally {
-      setLoading(false);
+      setLoadingMyGroups(false);
     }
   }, [user]);
 
+  const fetchDiscoverGroups = useCallback(async () => {
+    try {
+      setStatus('syncing');
+      const params = new URLSearchParams();
+      if (debouncedSearch) params.append('search', debouncedSearch);
+      if (user) params.append('excludeUserId', user.id);
+
+      const res = await api.get(`/study-groups?${params.toString()}`);
+      setDiscoverGroups(res.data);
+      setStatus('connected');
+    } catch (err) {
+      console.error('Error fetching discover groups:', err);
+      setStatus('offline');
+    } finally {
+      setLoadingDiscover(false);
+    }
+  }, [user, debouncedSearch]);
+
+  // Initial fetch and on debounce change
   useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    fetchMyGroups();
+  }, [fetchMyGroups]);
+
+  useEffect(() => {
+    fetchDiscoverGroups();
+  }, [fetchDiscoverGroups]);
 
   const createGroup = async (payload: Partial<StudyGroup>) => {
     if (!user) return toast.error("Sign in required");
@@ -52,12 +88,16 @@ export const useStudyGroups = () => {
       setStatus('syncing');
       const res = await api.post('/study-groups', payload);
       toast.success("Group created successfully!");
-      // Re-fetch to update state
-      await fetchAll();
+      
+      // Re-fetch both lists
+      await fetchMyGroups();
+      await fetchDiscoverGroups();
+      
       return res.data;
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Failed to create group');
       setStatus('connected');
+      throw err; // Re-throw to allow component to handle failure
     }
   };
 
@@ -67,7 +107,10 @@ export const useStudyGroups = () => {
       setStatus('syncing');
       const res = await api.post(`/study-groups/${groupId}/join`);
       toast.success(res.data.message || "Action successful");
-      await fetchAll();
+      
+      // Re-fetch both lists so the group moves from Discover to My Groups instantly
+      await fetchMyGroups();
+      await fetchDiscoverGroups();
     } catch (err: any) {
       toast.error(err.response?.data?.message || err.message || 'Failed to join group');
       setStatus('connected');
@@ -75,12 +118,18 @@ export const useStudyGroups = () => {
   };
 
   return { 
-    groups, 
-    myGroupIds, 
-    loading, 
+    myGroups, 
+    discoverGroups, 
+    loadingMyGroups,
+    loadingDiscover,
+    searchQuery,
+    setSearchQuery,
     status, 
     createGroup, 
     joinGroup,
-    refetch: fetchAll
+    refetch: () => {
+      fetchMyGroups();
+      fetchDiscoverGroups();
+    }
   };
 };
