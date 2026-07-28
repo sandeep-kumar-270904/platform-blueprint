@@ -173,6 +173,9 @@ const AdminPanel = () => {
                     <Link to="/admin/placement"><Activity className="mr-3 h-5 w-5 text-green-500" /> Placement Prep</Link>
                   </Button>
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/study-groups"><Users className="mr-3 h-5 w-5 text-indigo-500" /> Peer Study Groups</Link>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
                     <Link to="/admin/classrooms"><Video className="mr-3 h-5 w-5 text-red-500" /> Virtual Classrooms</Link>
                   </Button>
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
