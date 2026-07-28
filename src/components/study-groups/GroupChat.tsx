@@ -59,7 +59,7 @@ const GroupChat: React.FC<GroupChatProps> = ({ groupId }) => {
 
     socket.on('connect', () => {
       setIsConnected(true);
-      socket.emit('join_group_room', groupId);
+      socket.emit('join_group_room', { groupId, userId: user.id || user._id });
     });
 
     socket.on('disconnect', () => {

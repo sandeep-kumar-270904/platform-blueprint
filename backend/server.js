@@ -9,6 +9,7 @@ const morgan = require('morgan');
 const logger = require('./utils/logger');
 const { startCron } = require('./jobs/classroomCron');
 const mongoose = require('mongoose');
+const StudyGroup = require('./models/StudyGroup');
 
 // Determine environment
 const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : 
@@ -838,7 +839,28 @@ io.on('connection', (socket) => {
     console.log(`Socket ${socket.id} left community_post_${postId}`);
   });
 
-  socket.on('join_group_room', (groupId) => {
+  socket.on('join_group_room', async (data) => {
+    // Handle both payload signatures for backward compatibility (string vs object)
+    const groupId = typeof data === 'string' ? data : data.groupId;
+    const userId = typeof data === 'string' ? null : data.userId;
+
+    if (userId) {
+      try {
+        const group = await StudyGroup.findById(groupId);
+        if (group) {
+          const isOwner = group.owner_id.toString() === userId;
+          const isActiveMember = group.memberships.some(m => m.user.toString() === userId && m.status === 'active');
+          
+          if (!isOwner && !isActiveMember) {
+            console.log(`Socket ${socket.id} (User: ${userId}) unauthorized attempt to join group_${groupId}`);
+            return; // Reject connection to room
+          }
+        }
+      } catch (err) {
+        console.error("Socket join group error:", err);
+      }
+    }
+
     socket.join(`group_${groupId}`);
     console.log(`Socket ${socket.id} joined group_${groupId}`);
   });
