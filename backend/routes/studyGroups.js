@@ -214,7 +214,18 @@ router.put('/:id/memberships/:userId', authMiddleware, async (req, res) => {
     }
         await group.save();
 
-        // Notify Member
+        // If member was removed or rejected, clean up future RSVPs and Notifications
+        if (action === 'remove' || status === 'rejected') {
+          await GroupSession.updateMany(
+            { group_id: group._id, scheduled_at: { $gt: new Date() } },
+            { $pull: { attendees: targetUserId } }
+          );
+          await Notification.deleteMany({
+            userId: targetUserId,
+            relatedContentId: group._id,
+            type: { $ne: 'group_request_denied' } // keep the denial notice if any
+          });
+        }
         if (status === 'active') {
           await Notification.create({
             userId: targetUserId,
@@ -250,6 +261,19 @@ router.post('/:id/leave', authMiddleware, async (req, res) => {
 
     group.memberships = group.memberships.filter(m => m.user.toString() !== req.user.id);
     await group.save();
+
+    // Cleanup: Remove future RSVPs
+    await GroupSession.updateMany(
+      { group_id: group._id, scheduled_at: { $gt: new Date() } },
+      { $pull: { attendees: req.user.id } }
+    );
+
+    // Cleanup: Remove pending notifications related to this group
+    await Notification.deleteMany({
+      userId: req.user.id,
+      relatedContentId: group._id
+    });
+
     res.json({ message: 'Left group successfully.' });
   } catch (error) {
     console.error('Leave group error:', error);
@@ -403,7 +427,19 @@ router.post('/:id/messages', authMiddleware, async (req, res) => {
     if (group.owner_id.toString() !== req.user.id) activeMembers.push(group.owner_id.toString());
     
     // De-duplicate in case owner is in memberships
-    const uniqueMembers = [...new Set(activeMembers)];
+    let uniqueMembers = [...new Set(activeMembers)];
+
+    // Phase 5 Hardening: Suppress new-message notifications for currently connected members
+    const io = req.app.get('io');
+    if (io) {
+      try {
+        const roomSockets = await io.in(`group_${group._id}`).fetchSockets();
+        const connectedUserIds = roomSockets.map(s => s.userId).filter(Boolean);
+        uniqueMembers = uniqueMembers.filter(userId => !connectedUserIds.includes(userId));
+      } catch (err) {
+        console.error('Error fetching connected sockets for notifications:', err);
+      }
+    }
 
     // We only create a notification if they don't already have an UNREAD chat notif for this group
     const notificationsToCreate = [];
