@@ -720,6 +720,7 @@ app.use('/api/admin/resumes', require('./routes/adminResumes'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/users', require('./routes/users'));
+app.use('/api/reports', require('./routes/reports'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/courses', require('./routes/courses'));
 app.use('/api/learning-paths', require('./routes/learningPaths'));
