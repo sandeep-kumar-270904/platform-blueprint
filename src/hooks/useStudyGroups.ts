@@ -38,10 +38,18 @@ export interface StudyGroupResource {
   created_at: string;
 }
 
-export interface StudyGroupDetailType extends StudyGroup {
-  memberships: StudyGroupMembership[];
-  resources: StudyGroupResource[];
-}
+  export interface GroupMessagePayload {
+    _id: string;
+    group_id: string;
+    sender: { _id: string; username: string; avatar_url?: string };
+    text: string;
+    createdAt: string;
+  }
+  
+  export interface StudyGroupDetailType extends StudyGroup {
+    memberships: StudyGroupMembership[];
+    resources: StudyGroupResource[];
+  }
 
 export const useStudyGroups = () => {
   const { user } = useAuth();
@@ -180,6 +188,16 @@ export const useStudyGroups = () => {
     toast.success("Resource deleted");
   };
 
+  const fetchMessages = async (groupId: string, skip = 0, limit = 50): Promise<GroupMessagePayload[]> => {
+    const res = await api.get(`/study-groups/${groupId}/messages?skip=${skip}&limit=${limit}`);
+    return res.data;
+  };
+
+  const sendMessage = async (groupId: string, text: string): Promise<GroupMessagePayload> => {
+    const res = await api.post(`/study-groups/${groupId}/messages`, { text });
+    return res.data;
+  };
+
   return { 
     myGroups, 
     discoverGroups, 
@@ -196,6 +214,8 @@ export const useStudyGroups = () => {
     deleteGroup,
     addResource,
     deleteResource,
+    fetchMessages,
+    sendMessage,
     refetch: () => {
       fetchMyGroups();
       fetchDiscoverGroups();

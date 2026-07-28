@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const StudyGroup = require('../models/StudyGroup');
+const GroupMessage = require('../models/GroupMessage');
 const authMiddleware = require('../middleware/auth');
 
 // Helper: Count active members
@@ -296,6 +297,74 @@ router.delete('/:id/resources/:resourceId', authMiddleware, async (req, res) => 
   } catch (error) {
     console.error('Delete resource error:', error);
     res.status(500).json({ message: 'Server error deleting resource.' });
+  }
+});
+
+// GET /api/study-groups/:id/messages - Fetch chat history
+router.get('/:id/messages', authMiddleware, async (req, res) => {
+  try {
+    const group = await StudyGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    const isOwner = group.owner_id.toString() === req.user.id;
+    const isActiveMember = group.memberships.some(m => m.user.toString() === req.user.id && m.status === 'active');
+    
+    if (!isOwner && !isActiveMember) {
+      return res.status(403).json({ message: 'Only members can view messages.' });
+    }
+
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = parseInt(req.query.skip) || 0;
+
+    const messages = await GroupMessage.find({ group_id: req.params.id })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('sender', 'username avatar_url');
+      
+    res.json(messages.reverse());
+  } catch (error) {
+    console.error('Fetch messages error:', error);
+    res.status(500).json({ message: 'Server error fetching messages.' });
+  }
+});
+
+// POST /api/study-groups/:id/messages - Send a message
+router.post('/:id/messages', authMiddleware, async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ message: 'Message text is required.' });
+
+    const group = await StudyGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    const isOwner = group.owner_id.toString() === req.user.id;
+    const isActiveMember = group.memberships.some(m => m.user.toString() === req.user.id && m.status === 'active');
+    
+    if (!isOwner && !isActiveMember) {
+      return res.status(403).json({ message: 'Only members can send messages.' });
+    }
+
+    const message = new GroupMessage({
+      group_id: req.params.id,
+      sender: req.user.id,
+      text: text.trim()
+    });
+
+    await message.save();
+    
+    const populatedMessage = await message.populate('sender', 'username avatar_url');
+    
+    // Broadcast via socket
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`group_${req.params.id}`).emit('new_group_message', populatedMessage);
+    }
+
+    res.json(populatedMessage);
+  } catch (error) {
+    console.error('Send message error:', error);
+    res.status(500).json({ message: 'Server error sending message.' });
   }
 });
 

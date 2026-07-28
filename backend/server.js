@@ -847,6 +847,14 @@ io.on('connection', (socket) => {
     socket.leave(`group_${groupId}`);
     console.log(`Socket ${socket.id} left group_${groupId}`);
   });
+  
+  // Group typing indicators
+  socket.on('group_typing', ({ groupId, username }) => {
+    socket.to(`group_${groupId}`).emit('group_typing', { username });
+  });
+  socket.on('group_stop_typing', ({ groupId, username }) => {
+    socket.to(`group_${groupId}`).emit('group_stop_typing', { username });
+  });
 
   socket.on('join_user_room', (userId) => {
     socket.join(`user:${userId}`);
