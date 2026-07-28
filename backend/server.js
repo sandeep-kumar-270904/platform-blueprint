@@ -743,6 +743,7 @@ app.use('/api/admin/creators', require('./routes/adminCreators'));
   app.use('/api/admin/aptitude', require('./routes/adminAptitude'));
   app.use('/api/admin/team-moderation', require('./routes/adminTeamModeration'));
   app.use('/api/admin/team-hunt', require('./routes/adminTeamModeration'));
+  app.use('/api/admin/study-groups', require('./routes/adminStudyGroups'));
   app.use('/api/question-bank', require('./routes/questionBank'));
 app.use('/api/me', require('./routes/me'));
 app.use('/api/mentor-community', require('./routes/mentorCommunity'));
