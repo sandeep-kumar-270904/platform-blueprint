@@ -12,6 +12,7 @@ import { Loader2, ArrowLeft, Users, Globe, Lock, Shield, Link, Plus, Trash2, Che
 import { useStudyGroups, StudyGroupDetailType, StudyGroupMembership } from '@/hooks/useStudyGroups';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import GroupChat from '@/components/study-groups/GroupChat';
 
 const StudyGroupDetail = () => {
   const { id } = useParams();
@@ -184,11 +185,16 @@ const StudyGroupDetail = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="progress" className="w-full">
+        <Tabs defaultValue="discussion" className="w-full">
           <TabsList className="mb-6">
+            <TabsTrigger value="discussion">Discussion</TabsTrigger>
             <TabsTrigger value="progress">Members & Progress</TabsTrigger>
             <TabsTrigger value="resources">Shared Resources</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="discussion">
+            <GroupChat groupId={group._id} />
+          </TabsContent>
 
           <TabsContent value="progress">
             <Card>
