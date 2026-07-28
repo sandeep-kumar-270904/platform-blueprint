@@ -14,6 +14,35 @@ export interface StudyGroup {
   owner_id: string;
 }
 
+export interface StudyGroupUser {
+  _id: string;
+  username: string;
+  full_name?: string;
+  avatar_url?: string;
+  learningStreak?: { current: number };
+  quizStreak?: { current: number };
+}
+
+export interface StudyGroupMembership {
+  user: StudyGroupUser;
+  role: 'owner' | 'member';
+  status: 'active' | 'pending';
+  joinedAt: string;
+}
+
+export interface StudyGroupResource {
+  _id: string;
+  title: string;
+  url: string;
+  added_by: { _id: string; username: string; avatar_url?: string };
+  created_at: string;
+}
+
+export interface StudyGroupDetailType extends StudyGroup {
+  memberships: StudyGroupMembership[];
+  resources: StudyGroupResource[];
+}
+
 export const useStudyGroups = () => {
   const { user } = useAuth();
   
@@ -117,6 +146,40 @@ export const useStudyGroups = () => {
     }
   };
 
+  const fetchGroupDetail = async (groupId: string): Promise<StudyGroupDetailType> => {
+    const res = await api.get(`/study-groups/${groupId}`);
+    return res.data;
+  };
+
+  const manageMembership = async (groupId: string, userId: string, status: 'active' | 'rejected') => {
+    const res = await api.put(`/study-groups/${groupId}/memberships/${userId}`, { status });
+    toast.success(status === 'active' ? "Member approved" : "Request denied");
+    return res.data;
+  };
+
+  const leaveGroup = async (groupId: string) => {
+    await api.post(`/study-groups/${groupId}/leave`);
+    toast.success("You left the group");
+    fetchMyGroups();
+  };
+
+  const deleteGroup = async (groupId: string) => {
+    await api.delete(`/study-groups/${groupId}`);
+    toast.success("Group deleted");
+    fetchMyGroups();
+  };
+
+  const addResource = async (groupId: string, payload: { title: string; url: string }) => {
+    const res = await api.post(`/study-groups/${groupId}/resources`, payload);
+    toast.success("Resource added");
+    return res.data;
+  };
+
+  const deleteResource = async (groupId: string, resourceId: string) => {
+    await api.delete(`/study-groups/${groupId}/resources/${resourceId}`);
+    toast.success("Resource deleted");
+  };
+
   return { 
     myGroups, 
     discoverGroups, 
@@ -127,6 +190,12 @@ export const useStudyGroups = () => {
     status, 
     createGroup, 
     joinGroup,
+    fetchGroupDetail,
+    manageMembership,
+    leaveGroup,
+    deleteGroup,
+    addResource,
+    deleteResource,
     refetch: () => {
       fetchMyGroups();
       fetchDiscoverGroups();
