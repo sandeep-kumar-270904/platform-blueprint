@@ -45,6 +45,17 @@ export interface StudyGroupResource {
     text: string;
     createdAt: string;
   }
+
+  export interface GroupSession {
+    _id: string;
+    group_id: string;
+    creator_id: { _id: string; username: string; avatar_url?: string };
+    title: string;
+    description?: string;
+    scheduled_at: string;
+    duration_minutes: number;
+    attendees: { _id: string; username: string; avatar_url?: string }[];
+  }
   
   export interface StudyGroupDetailType extends StudyGroup {
     memberships: StudyGroupMembership[];
@@ -198,6 +209,34 @@ export const useStudyGroups = () => {
     return res.data;
   };
 
+  const fetchSessions = async (groupId: string) => {
+    const res = await api.get(`/study-groups/${groupId}/sessions`);
+    return res.data as { upcoming: GroupSession[], past: GroupSession[] };
+  };
+
+  const createSession = async (groupId: string, payload: Partial<GroupSession>) => {
+    const res = await api.post(`/study-groups/${groupId}/sessions`, payload);
+    toast.success("Session scheduled!");
+    return res.data;
+  };
+
+  const updateSession = async (groupId: string, sessionId: string, payload: Partial<GroupSession>) => {
+    const res = await api.put(`/study-groups/${groupId}/sessions/${sessionId}`, payload);
+    toast.success("Session updated");
+    return res.data;
+  };
+
+  const deleteSession = async (groupId: string, sessionId: string) => {
+    await api.delete(`/study-groups/${groupId}/sessions/${sessionId}`);
+    toast.success("Session cancelled");
+  };
+
+  const rsvpSession = async (groupId: string, sessionId: string) => {
+    const res = await api.post(`/study-groups/${groupId}/sessions/${sessionId}/rsvp`);
+    toast.success("RSVP updated");
+    return res.data;
+  };
+
   return { 
     myGroups, 
     discoverGroups, 
@@ -216,6 +255,11 @@ export const useStudyGroups = () => {
     deleteResource,
     fetchMessages,
     sendMessage,
+    fetchSessions,
+    createSession,
+    updateSession,
+    deleteSession,
+    rsvpSession,
     refetch: () => {
       fetchMyGroups();
       fetchDiscoverGroups();

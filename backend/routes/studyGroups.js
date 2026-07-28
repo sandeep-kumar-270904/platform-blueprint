@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const StudyGroup = require('../models/StudyGroup');
 const GroupMessage = require('../models/GroupMessage');
+const GroupSession = require('../models/GroupSession');
 const authMiddleware = require('../middleware/auth');
 
 // Helper: Count active members
@@ -378,6 +379,192 @@ router.post('/:id/messages', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Send message error:', error);
     res.status(500).json({ message: 'Server error sending message.' });
+  }
+});
+
+// ==========================================
+// Phase 4: Group Sessions (GD Practice / Live)
+// ==========================================
+
+// GET /api/study-groups/:id/sessions - Fetch all sessions
+router.get('/:id/sessions', authMiddleware, async (req, res) => {
+  try {
+    const group = await StudyGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    const isOwner = group.owner_id.toString() === req.user.id;
+    const isActiveMember = group.memberships.some(m => m.user.toString() === req.user.id && m.status === 'active');
+    
+    if (!isOwner && !isActiveMember) {
+      return res.status(403).json({ message: 'Only members can view sessions.' });
+    }
+
+    const sessions = await GroupSession.find({ group_id: req.params.id })
+      .populate('creator_id', 'username avatar_url')
+      .populate('attendees', 'username avatar_url')
+      .sort({ scheduled_at: 1 }); // Sort chronologically
+
+    const now = new Date();
+    
+    // Bucket into upcoming and past based on (scheduled_at + duration) vs now
+    const upcoming = [];
+    const past = [];
+
+    sessions.forEach(session => {
+      const endTime = new Date(session.scheduled_at.getTime() + session.duration_minutes * 60000);
+      if (endTime > now) {
+        upcoming.push(session);
+      } else {
+        past.push(session);
+      }
+    });
+
+    // Reverse past so most recent is first
+    res.json({ upcoming, past: past.reverse() });
+  } catch (error) {
+    console.error('Fetch sessions error:', error);
+    res.status(500).json({ message: 'Server error fetching sessions.' });
+  }
+});
+
+// POST /api/study-groups/:id/sessions - Create a session
+router.post('/:id/sessions', authMiddleware, async (req, res) => {
+  try {
+    const { title, description, scheduled_at, duration_minutes } = req.body;
+    
+    if (!title || !scheduled_at || !duration_minutes) {
+      return res.status(400).json({ message: 'Title, scheduled time, and duration are required.' });
+    }
+
+    if (new Date(scheduled_at) <= new Date()) {
+      return res.status(400).json({ message: 'Scheduled time must be in the future.' });
+    }
+
+    const group = await StudyGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ message: 'Group not found.' });
+
+    const isOwner = group.owner_id.toString() === req.user.id;
+    const isActiveMember = group.memberships.some(m => m.user.toString() === req.user.id && m.status === 'active');
+    
+    if (!isOwner && !isActiveMember) {
+      return res.status(403).json({ message: 'Only members can create sessions.' });
+    }
+
+    const session = new GroupSession({
+      group_id: req.params.id,
+      creator_id: req.user.id,
+      title,
+      description,
+      scheduled_at,
+      duration_minutes,
+      attendees: [req.user.id] // Creator auto-RSVPs
+    });
+
+    await session.save();
+    
+    const populated = await session.populate('creator_id attendees', 'username avatar_url');
+    res.json(populated);
+  } catch (error) {
+    console.error('Create session error:', error);
+    res.status(500).json({ message: 'Server error creating session.' });
+  }
+});
+
+// PUT /api/study-groups/:id/sessions/:sessionId - Edit a session
+router.put('/:id/sessions/:sessionId', authMiddleware, async (req, res) => {
+  try {
+    const { title, description, scheduled_at, duration_minutes } = req.body;
+    
+    const session = await GroupSession.findById(req.params.sessionId);
+    if (!session) return res.status(404).json({ message: 'Session not found.' });
+    if (session.group_id.toString() !== req.params.id) return res.status(400).json({ message: 'Session does not belong to this group.' });
+
+    if (session.creator_id.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Only the session creator can edit it.' });
+    }
+
+    if (new Date(session.scheduled_at) <= new Date()) {
+      return res.status(400).json({ message: 'Cannot edit a session that has already started.' });
+    }
+
+    if (scheduled_at && new Date(scheduled_at) <= new Date()) {
+      return res.status(400).json({ message: 'New scheduled time must be in the future.' });
+    }
+
+    if (title) session.title = title;
+    if (description !== undefined) session.description = description;
+    if (scheduled_at) session.scheduled_at = scheduled_at;
+    if (duration_minutes) session.duration_minutes = duration_minutes;
+
+    await session.save();
+    const populated = await session.populate('creator_id attendees', 'username avatar_url');
+    res.json(populated);
+  } catch (error) {
+    console.error('Edit session error:', error);
+    res.status(500).json({ message: 'Server error editing session.' });
+  }
+});
+
+// DELETE /api/study-groups/:id/sessions/:sessionId - Cancel/Delete a session
+router.delete('/:id/sessions/:sessionId', authMiddleware, async (req, res) => {
+  try {
+    const session = await GroupSession.findById(req.params.sessionId);
+    if (!session) return res.status(404).json({ message: 'Session not found.' });
+
+    const group = await StudyGroup.findById(req.params.id);
+    const isGroupOwner = group && group.owner_id.toString() === req.user.id;
+
+    if (session.creator_id.toString() !== req.user.id && !isGroupOwner) {
+      return res.status(403).json({ message: 'Only the creator or group owner can cancel this session.' });
+    }
+
+    if (new Date(session.scheduled_at) <= new Date() && !isGroupOwner) {
+      return res.status(400).json({ message: 'Cannot cancel a session that has already started.' });
+    }
+
+    await session.deleteOne();
+    res.json({ message: 'Session cancelled.' });
+  } catch (error) {
+    console.error('Cancel session error:', error);
+    res.status(500).json({ message: 'Server error cancelling session.' });
+  }
+});
+
+// POST /api/study-groups/:id/sessions/:sessionId/rsvp - Toggle RSVP
+router.post('/:id/sessions/:sessionId/rsvp', authMiddleware, async (req, res) => {
+  try {
+    const session = await GroupSession.findById(req.params.sessionId);
+    if (!session) return res.status(404).json({ message: 'Session not found.' });
+
+    const group = await StudyGroup.findById(req.params.id);
+    const isOwner = group.owner_id.toString() === req.user.id;
+    const isActiveMember = group.memberships.some(m => m.user.toString() === req.user.id && m.status === 'active');
+    
+    if (!isOwner && !isActiveMember) {
+      return res.status(403).json({ message: 'Only members can RSVP.' });
+    }
+
+    const endTime = new Date(session.scheduled_at.getTime() + session.duration_minutes * 60000);
+    if (endTime <= new Date()) {
+      return res.status(400).json({ message: 'Cannot RSVP to a past session.' });
+    }
+
+    const attendeeIndex = session.attendees.findIndex(id => id.toString() === req.user.id);
+    
+    if (attendeeIndex === -1) {
+      // Join
+      session.attendees.push(req.user.id);
+    } else {
+      // Leave
+      session.attendees.splice(attendeeIndex, 1);
+    }
+
+    await session.save();
+    const populated = await session.populate('creator_id attendees', 'username avatar_url');
+    res.json(populated);
+  } catch (error) {
+    console.error('RSVP error:', error);
+    res.status(500).json({ message: 'Server error with RSVP.' });
   }
 });
 
