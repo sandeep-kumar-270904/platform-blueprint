@@ -11,6 +11,8 @@ import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import VerifyEmail from "./pages/auth/VerifyEmail";
+import StudyGroups from "./pages/StudyGroups";
+import StudyGroupDetail from "./pages/StudyGroupDetail";
 
 import Analytics from "./pages/Analytics";
 import QABoard from "./pages/QABoard";
@@ -275,6 +277,9 @@ const App = () => (
           <Route path="/placement/interview-prep" element={<ProtectedRoute><InterviewPrep /></ProtectedRoute>} />
           <Route path="/placement/interview-prep/:id" element={<ProtectedRoute><CompanyPrepDetail /></ProtectedRoute>} />
           <Route path="/placement/mock-interviews" element={<ProtectedRoute><MockInterviews /></ProtectedRoute>} />
+          
+          <Route path="/study-groups" element={<ProtectedRoute><StudyGroups /></ProtectedRoute>} />
+          <Route path="/placement/study-groups/:id" element={<ProtectedRoute><StudyGroupDetail /></ProtectedRoute>} />
 
           <Route path="/team-hunt" element={<ProtectedRoute><TeamHunt /></ProtectedRoute>} />
           <Route path="/team-hunt/dashboard" element={<ProtectedRoute><TeamHuntDashboard /></ProtectedRoute>} />
