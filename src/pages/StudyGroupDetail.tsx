@@ -13,6 +13,7 @@ import { useStudyGroups, StudyGroupDetailType, StudyGroupMembership } from '@/ho
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import GroupChat from '@/components/study-groups/GroupChat';
+import GroupSessions from '@/components/study-groups/GroupSessions';
 
 const StudyGroupDetail = () => {
   const { id } = useParams();
@@ -188,12 +189,17 @@ const StudyGroupDetail = () => {
         <Tabs defaultValue="discussion" className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="discussion">Discussion</TabsTrigger>
+            <TabsTrigger value="sessions">Sessions</TabsTrigger>
             <TabsTrigger value="progress">Members & Progress</TabsTrigger>
             <TabsTrigger value="resources">Shared Resources</TabsTrigger>
           </TabsList>
 
           <TabsContent value="discussion">
             <GroupChat groupId={group._id} />
+          </TabsContent>
+
+          <TabsContent value="sessions">
+            <GroupSessions groupId={group._id} />
           </TabsContent>
 
           <TabsContent value="progress">
