@@ -62,6 +62,10 @@ const studyGroupSchema = new mongoose.Schema({
   last_activity: {
     type: Date,
     default: Date.now
+  },
+  isFlagged: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 
