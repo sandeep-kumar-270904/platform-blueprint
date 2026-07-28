@@ -199,7 +199,126 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/study-groups/dashboard/summary
+router.get('/dashboard/summary', authMiddleware, async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    
+    const pipeline = [
+      {
+        $match: {
+          memberships: {
+            $elemMatch: { user: userId, status: 'active' }
+          }
+        }
+      },
+      {
+        $addFields: {
+          myMembership: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: "$memberships",
+                  cond: { $eq: ["$$this.user", userId] }
+                }
+              }, 
+              0
+            ]
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          category: 1,
+          last_activity: 1,
+          hasUnread: {
+            $gt: [
+              { $ifNull: ["$last_activity", new Date(0)] },
+              { $ifNull: ["$myMembership.last_viewed", new Date(0)] }
+            ]
+          }
+        }
+      },
+      { $sort: { last_activity: -1 } }
+    ];
+
+    const groups = await StudyGroup.aggregate(pipeline);
+    res.json(groups);
+  } catch (error) {
+    console.error('Fetch dashboard summary error:', error);
+    res.status(500).json({ message: 'Server error fetching dashboard summary.' });
+  }
+});
+
+// GET /api/study-groups/sessions/upcoming - Fetch cross-group upcoming sessions
+router.get('/sessions/upcoming', authMiddleware, async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const now = new Date();
+
+    const pipeline = [
+      {
+        $match: {
+          attendees: userId,
+          status: 'active'
+        }
+      },
+      // Check if session hasn't started yet (or hasn't ended, based on duration)
+      // Here we filter by scheduled_at > now, as requested "hasn't started yet"
+      {
+        $match: {
+          scheduled_at: { $gt: now }
+        }
+      },
+      // Lookup the parent group to verify membership
+      {
+        $lookup: {
+          from: 'studygroups',
+          localField: 'group_id',
+          foreignField: '_id',
+          as: 'group'
+        }
+      },
+      { $unwind: "$group" },
+      // Ensure the user is actually STILL an active member of this group
+      {
+        $match: {
+          "group.memberships": {
+            $elemMatch: { user: userId, status: 'active' }
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          group_id: 1,
+          group_name: "$group.name",
+          title: 1,
+          description: 1,
+          format: 1,
+          scheduled_at: 1,
+          duration_minutes: 1,
+          creator_id: 1,
+          date: "$scheduled_at" // Map for frontend convenience
+        }
+      },
+      { $sort: { scheduled_at: 1 } }
+    ];
+
+    const upcomingSessions = await GroupSession.aggregate(pipeline);
+    res.json(upcomingSessions);
+  } catch (error) {
+    console.error('Fetch upcoming sessions error:', error);
+    res.status(500).json({ message: 'Server error fetching upcoming sessions.' });
+  }
+});
+
 // GET /api/study-groups/my-memberships - Fetch full groups user has joined
+// (used for the main Study Groups page)
 router.get('/my-memberships', authMiddleware, async (req, res) => {
   try {
     const groups = await StudyGroup.find({
@@ -299,6 +418,20 @@ router.post('/:id/join', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Join study group error:', error);
     res.status(500).json({ message: 'Server error joining group.' });
+  }
+});
+
+// POST /api/study-groups/:id/view - Update last_viewed telemetry
+router.post('/:id/view', authMiddleware, async (req, res) => {
+  try {
+    await StudyGroup.updateOne(
+      { _id: req.params.id, "memberships.user": req.user.id },
+      { $set: { "memberships.$.last_viewed": new Date() } }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update last_viewed error:', error);
+    res.status(500).json({ message: 'Server error updating view telemetry.' });
   }
 });
 
