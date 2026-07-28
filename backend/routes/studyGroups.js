@@ -4,6 +4,7 @@ const StudyGroup = require('../models/StudyGroup');
 const GroupMessage = require('../models/GroupMessage');
 const GroupSession = require('../models/GroupSession');
 const Notification = require('../models/Notification');
+const DSAProblem = require('../models/DSAProblem');
 const authMiddleware = require('../middleware/auth');
 
 // Helper: Count active members
@@ -456,14 +457,28 @@ router.get('/:id', authMiddleware, async (req, res) => {
     
     const obj = group.toObject();
     obj.member_count = getActiveMemberCount(group);
-    
-    // Data Masking: Only owner sees pending requests
-    if (!isOwner) {
-      obj.memberships = obj.memberships.filter(m => m.status === 'active');
-    }
+        // Data Masking: Only owner sees pending requests
+      if (!isOwner) {
+        obj.memberships = obj.memberships.filter(m => m.status === 'active');
+      }
 
-    res.json(obj);
-  } catch (error) {
+      // Cross-Module Data Links: Dynamically inject read-only context without copying schema
+      if (['Data Structures', 'System Design'].includes(group.category)) {
+        try {
+          const problemCount = await DSAProblem.countDocuments({ topic: group.category === 'Data Structures' ? { $in: ['Arrays', 'Trees', 'Graphs', 'DP'] } : 'System Design' });
+          obj.crossModuleContext = {
+            type: 'placement_prep',
+            suggestedCount: problemCount,
+            link: '/placement/prep'
+          };
+        } catch (err) {
+          // Swallow cross-module errors to avoid breaking the core group fetch
+          console.warn('Failed to fetch cross-module context:', err);
+        }
+      }
+  
+      res.json(obj);
+    } catch (error) {
     console.error('Fetch group detail error:', error);
     res.status(500).json({ message: 'Server error fetching group details.' });
   }
