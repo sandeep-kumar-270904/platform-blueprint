@@ -50,6 +50,14 @@ const studyGroupSchema = new mongoose.Schema({
         default: Date.now
       }
     }
+  ],
+  resources: [
+    {
+      title: { type: String, required: true },
+      url: { type: String, required: true },
+      added_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+      created_at: { type: Date, default: Date.now }
+    }
   ]
 }, { timestamps: true });
 
