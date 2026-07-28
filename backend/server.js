@@ -32,6 +32,7 @@ const io = new Server(server, {
     methods: ["GET", "POST"]
   }
 });
+app.set('io', io);
 
 // Connect to MongoDB
 connectDB().then(async () => {
@@ -849,6 +850,7 @@ io.on('connection', (socket) => {
     const userId = typeof data === 'string' ? null : data.userId;
 
     if (userId) {
+      socket.userId = userId;
       try {
         const group = await StudyGroup.findById(groupId);
         if (group) {
