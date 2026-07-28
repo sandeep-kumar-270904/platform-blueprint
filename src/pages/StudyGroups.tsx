@@ -18,10 +18,19 @@ import { SyncStatusIndicator } from '@/components/dashboard/SyncStatusIndicator'
 const StudyGroups = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { groups, myGroupIds, loading, status, createGroup, joinGroup } = useStudyGroups();
+  const { 
+    myGroups, 
+    discoverGroups, 
+    loadingMyGroups, 
+    loadingDiscover, 
+    searchQuery, 
+    setSearchQuery, 
+    status, 
+    createGroup, 
+    joinGroup 
+  } = useStudyGroups();
   
   const [activeTab, setActiveTab] = useState('my-groups');
-  const [searchQuery, setSearchQuery] = useState('');
   
   // Create Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -36,21 +45,18 @@ const StudyGroups = () => {
   const handleCreateSubmit = async () => {
     if (!formData.name || !formData.description || !formData.category) return;
     
-    await createGroup(formData);
-    setIsCreateModalOpen(false);
-    setFormData({ name: '', description: '', category: '', privacy: 'public', member_limit: 50 });
-    // Switch to 'my-groups' tab so they see their new group immediately
-    setActiveTab('my-groups');
+    try {
+      await createGroup(formData);
+      setIsCreateModalOpen(false);
+      setFormData({ name: '', description: '', category: '', privacy: 'public', member_limit: 50 });
+      // Switch to 'my-groups' tab so they see their new group immediately
+      setActiveTab('my-groups');
+    } catch (e) {
+      // Error handled by hook toast, keep modal open
+    }
   };
 
-  // Derived state
-  const myGroups = groups.filter(g => myGroupIds.has(g._id));
-  
-  const discoverGroups = groups.filter(g => !myGroupIds.has(g._id)).filter(g => {
-    if (!searchQuery) return true;
-    const lowerQ = searchQuery.toLowerCase();
-    return g.name.toLowerCase().includes(lowerQ) || g.category.toLowerCase().includes(lowerQ);
-  });
+
 
   const renderGroupCard = (group: StudyGroup, isMember: boolean) => (
     <Card key={group._id} className="flex flex-col h-full hover:border-primary/50 transition-colors">
@@ -197,7 +203,7 @@ const StudyGroups = () => {
           </TabsList>
 
           <TabsContent value="my-groups" className="min-h-[400px]">
-            {loading ? (
+            {loadingMyGroups ? (
               <div className="flex justify-center items-center h-40">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
@@ -228,7 +234,7 @@ const StudyGroups = () => {
               />
             </div>
             
-            {loading ? (
+            {loadingDiscover ? (
               <div className="flex justify-center items-center h-40">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
