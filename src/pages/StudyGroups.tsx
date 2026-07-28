@@ -20,15 +20,18 @@ const StudyGroups = () => {
   const navigate = useNavigate();
   const { 
     myGroups, 
-    discoverGroups, 
+    discoverGroups,
+    recommendedGroups, 
     loadingMyGroups, 
     loadingDiscover, 
-    searchQuery, 
-    setSearchQuery, 
     status, 
     createGroup, 
-    joinGroup 
+    joinGroup,
+    fetchDiscoverGroups
   } = useStudyGroups();
+  
+  // Local Search state (replaces hook's internal search)
+  const [searchQuery, setSearchQuery] = useState('');
   
   const [activeTab, setActiveTab] = useState('my-groups');
   
@@ -47,78 +50,30 @@ const StudyGroups = () => {
     member_limit: 50
   });
 
-  // Derive unique categories for dropdown
-  const uniqueCategories = useMemo(() => {
-    const cats = new Set(discoverGroups.map(g => g.category));
-    return Array.from(cats).sort();
-  }, [discoverGroups]);
+  // Fetch backend data whenever filters change
+  React.useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchDiscoverGroups({
+        search: searchQuery,
+        category: filterCategory,
+        activityLevel: filterActivity,
+        sortBy
+      });
+    }, 300);
 
-  const recommendedGroups = useMemo(() => {
-    if (!discoverGroups || discoverGroups.length === 0) return [];
-    // @ts-ignore - Assuming interestTags exists on user
-    const userInterests = user?.interestTags || [];
-    
-    let scored = discoverGroups.map(g => {
-      let score = 0;
-      if (userInterests.some((i: string) => g.category.toLowerCase().includes(i.toLowerCase()))) score += 10;
-      if (g.last_activity) {
-        const days = (new Date().getTime() - new Date(g.last_activity).getTime()) / (1000 * 3600 * 24);
-        if (days <= 7) score += 5;
-      }
-      return { ...g, score };
-    });
-    
-    return scored.sort((a, b) => b.score - a.score).slice(0, 3);
-  }, [discoverGroups, user]);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, filterCategory, filterActivity, sortBy, fetchDiscoverGroups]);
 
-  const filteredDiscoverGroups = useMemo(() => {
-    let result = [...discoverGroups];
-    
-    if (filterCategory !== 'all') {
-      result = result.filter(g => g.category === filterCategory);
-    }
-    
-    if (filterActivity === 'active_week') {
-      result = result.filter(g => {
-        if (!g.last_activity) return false;
-        return (new Date().getTime() - new Date(g.last_activity).getTime()) / (1000 * 3600 * 24) <= 7;
-      });
-    } else if (filterActivity === 'active_month') {
-      result = result.filter(g => {
-        if (!g.last_activity) return false;
-        return (new Date().getTime() - new Date(g.last_activity).getTime()) / (1000 * 3600 * 24) <= 30;
-      });
-    }
-    
-    if (sortBy === 'most_members') {
-      result.sort((a, b) => b.member_count - a.member_count);
-    } else if (sortBy === 'most_active') {
-      result.sort((a, b) => {
-        const aDate = a.last_activity ? new Date(a.last_activity).getTime() : 0;
-        const bDate = b.last_activity ? new Date(b.last_activity).getTime() : 0;
-        return bDate - aDate;
-      });
-    } else if (sortBy === 'newest') {
-      result.sort((a, b) => {
-        const aId = a._id.toString();
-        const bId = b._id.toString();
-        return bId.localeCompare(aId);
-      });
-    } else if (sortBy === 'best_match') {
-      // @ts-ignore
-      const userInterests = user?.interestTags || [];
-      result.sort((a, b) => {
-        const aMatch = userInterests.some((i: string) => a.category.toLowerCase().includes(i.toLowerCase())) ? 1 : 0;
-        const bMatch = userInterests.some((i: string) => b.category.toLowerCase().includes(i.toLowerCase())) ? 1 : 0;
-        if (aMatch !== bMatch) return bMatch - aMatch;
-        const aDate = a.last_activity ? new Date(a.last_activity).getTime() : 0;
-        const bDate = b.last_activity ? new Date(b.last_activity).getTime() : 0;
-        return bDate - aDate;
-      });
-    }
-    
-    return result;
-  }, [discoverGroups, filterCategory, filterActivity, sortBy, user]);
+  // Derive unique categories dynamically for dropdown or hardcode them
+  const uniqueCategories = [
+    'Data Structures',
+    'System Design',
+    'React',
+    'Node.js',
+    'Machine Learning',
+    'Web3',
+    'Competitive Programming'
+  ];
 
   const handleCreateSubmit = async () => {
     if (!formData.name || !formData.description || !formData.category) return;
@@ -393,13 +348,13 @@ const StudyGroups = () => {
                 
                 <div>
                   <h2 className="text-xl font-semibold mb-4">All Groups</h2>
-                  {filteredDiscoverGroups.length === 0 ? (
+                  {discoverGroups.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
                       No groups match your active filters.
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredDiscoverGroups.map(g => renderGroupCard(g, false))}
+                      {discoverGroups.map(g => renderGroupCard(g, false))}
                     </div>
                   )}
                 </div>

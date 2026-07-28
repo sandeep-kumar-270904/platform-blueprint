@@ -15,40 +15,184 @@ const getActiveMemberCount = (group) => {
 // GET /api/study-groups - Fetch Discover groups (supports search & excludes joined)
 router.get('/', async (req, res) => {
   try {
-    const { search, excludeUserId } = req.query;
+    const { search, excludeUserId, category, activityLevel, sortBy } = req.query;
     
-    let query = {};
+    const mongoose = require('mongoose');
+    let userInterests = [];
+    
+    if (excludeUserId && mongoose.Types.ObjectId.isValid(excludeUserId)) {
+      const User = require('../models/User');
+      const requestingUser = await User.findById(excludeUserId);
+      if (requestingUser && requestingUser.interestTags) {
+        userInterests = requestingUser.interestTags.map(t => new RegExp(t, 'i')); // case insensitive match
+      }
+    }
+
+    let matchStage = {};
     
     // Server-side Search
     if (search) {
       const searchRegex = new RegExp(search, 'i');
-      query.$or = [
+      matchStage.$or = [
         { name: searchRegex },
-        { category: searchRegex }
+        { category: searchRegex },
+        { description: searchRegex }
       ];
     }
     
+    // Category filter
+    if (category && category !== 'all') {
+      matchStage.category = category;
+    }
+    
+    // Activity filter
+    const now = new Date();
+    if (activityLevel === 'active_week') {
+      const lastWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      matchStage.last_activity = { $gte: lastWeek };
+    } else if (activityLevel === 'active_month') {
+      const lastMonth = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      matchStage.last_activity = { $gte: lastMonth };
+    }
+    
     // Exclude groups the user is already in (or pending in)
-    if (excludeUserId) {
-      query.memberships = { 
-        $not: { $elemMatch: { user: excludeUserId } } 
+    if (excludeUserId && mongoose.Types.ObjectId.isValid(excludeUserId)) {
+      matchStage.memberships = { 
+        $not: { $elemMatch: { user: new mongoose.Types.ObjectId(excludeUserId) } } 
       };
     }
 
-    // Optionally exclude full groups
-    // If we wanted to, but the prompt says "Return all public (plus eligible private) groups"
-    // So we'll just fetch them and the frontend will show the member count
+    // Determine Sort Stage
+    let sortStage = { createdAt: -1 };
+    if (sortBy === 'most_members') {
+      sortStage = { member_count: -1, createdAt: -1 };
+    } else if (sortBy === 'most_active') {
+      sortStage = { last_activity: -1, createdAt: -1 };
+    } else if (sortBy === 'best_match') {
+      sortStage = { totalScore: -1, last_activity: -1, createdAt: -1 };
+    } else if (sortBy === 'newest') {
+      sortStage = { createdAt: -1 };
+    }
 
-    const groups = await StudyGroup.find(query).sort({ createdAt: -1 });
-    
-    const transformedGroups = groups.map(g => {
-      const obj = g.toObject();
-      obj.member_count = getActiveMemberCount(g);
-      delete obj.memberships; // Clean up payload
-      return obj;
+    // Aggregation Pipeline for Discover Groups
+    const discoverPipeline = [
+      { $match: matchStage },
+      { 
+        $addFields: {
+          member_count: {
+            $size: {
+              $filter: {
+                input: { $ifNull: ["$memberships", []] },
+                cond: { $eq: ["$this.status", "active"] }
+              }
+            }
+          },
+          // Calculate Match Score
+          categoryMatches: {
+            $reduce: {
+              input: userInterests.length > 0 ? userInterests.map(regex => ({
+                $regexMatch: { input: "$category", regex: regex.source, options: "i" }
+              })) : [false],
+              initialValue: false,
+              in: { $or: ["$value", "$this"] }
+            }
+          }
+        }
+      },
+      {
+        $addFields: {
+          matchScore: { $cond: { if: "$categoryMatches", then: 10, else: 0 } },
+          activeScore: { 
+            $cond: { 
+              if: { 
+                $gte: [
+                  { $ifNull: ["$last_activity", new Date(0)] }, 
+                  new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+                ] 
+              }, 
+              then: 5, 
+              else: 0 
+            } 
+          }
+        }
+      },
+      {
+        $addFields: {
+          totalScore: { $add: ["$matchScore", "$activeScore"] }
+        }
+      },
+      { $sort: sortStage },
+      { $project: { memberships: 0, categoryMatches: 0, matchScore: 0, activeScore: 0 } }
+    ];
+
+    const discoverGroups = await StudyGroup.aggregate(discoverPipeline);
+
+    // Calculate Recommended Groups (Top 3)
+    let recommendedGroups = [];
+    if (!search && (!category || category === 'all') && (!activityLevel || activityLevel === 'all')) {
+      const recPipeline = [
+        { 
+          $match: excludeUserId && mongoose.Types.ObjectId.isValid(excludeUserId) ? {
+            memberships: { $not: { $elemMatch: { user: new mongoose.Types.ObjectId(excludeUserId) } } }
+          } : {}
+        },
+        { 
+          $addFields: {
+            member_count: {
+              $size: {
+                $filter: {
+                  input: { $ifNull: ["$memberships", []] },
+                  cond: { $eq: ["$this.status", "active"] }
+                }
+              }
+            },
+            categoryMatches: {
+              $reduce: {
+                input: userInterests.length > 0 ? userInterests.map(regex => ({
+                  $regexMatch: { input: "$category", regex: regex.source, options: "i" }
+                })) : [false],
+                initialValue: false,
+                in: { $or: ["$value", "$this"] }
+              }
+            }
+          }
+        },
+        {
+          $addFields: {
+            matchScore: { $cond: { if: "$categoryMatches", then: 10, else: 0 } },
+            activeScore: { 
+              $cond: { 
+                if: { 
+                  $gte: [
+                    { $ifNull: ["$last_activity", new Date(0)] }, 
+                    new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+                  ] 
+                }, 
+                then: 5, 
+                else: 0 
+              } 
+            }
+          }
+        },
+        {
+          $addFields: {
+            totalScore: { $add: ["$matchScore", "$activeScore"] }
+          }
+        },
+        { $sort: { totalScore: -1, last_activity: -1, createdAt: -1 } },
+        { $limit: 3 },
+        { $project: { memberships: 0, categoryMatches: 0, matchScore: 0, activeScore: 0 } }
+      ];
+      
+      recommendedGroups = await StudyGroup.aggregate(recPipeline);
+      
+      // Fallback: if user has no interests and scores are tied at 5 (just active) or 0, it falls back gracefully via the sort order.
+    }
+
+    res.json({
+      discoverGroups,
+      recommendedGroups
     });
-    
-    res.json(transformedGroups);
   } catch (error) {
     console.error('Fetch study groups error:', error);
     res.status(500).json({ message: 'Server error fetching groups.' });
