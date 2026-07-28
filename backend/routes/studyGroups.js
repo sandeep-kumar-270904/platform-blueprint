@@ -122,7 +122,9 @@ router.get('/', async (req, res) => {
         }
       },
       { $sort: sortStage },
-      { $project: { memberships: 0, categoryMatches: 0, matchScore: 0, activeScore: 0 } }
+      { $project: { memberships: 0, categoryMatches: 0, matchScore: 0, activeScore: 0 } },
+      { $skip: parseInt(req.query.skip) || 0 },
+      { $limit: parseInt(req.query.limit) || 50 }
     ];
 
     const discoverGroups = await StudyGroup.aggregate(discoverPipeline);
