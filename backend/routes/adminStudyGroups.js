@@ -5,8 +5,7 @@ const GroupMessage = require('../models/GroupMessage');
 const GroupSession = require('../models/GroupSession');
 const AdminAuditLog = require('../models/AdminAuditLog');
 const authMiddleware = require('../middleware/auth');
-const io = require('../server').io; // If exported, or we can just emit globally if we figure out how
-
+// We'll use req.app.get('io') for websockets
 // Middleware to enforce Admin Role
 const adminMiddleware = async (req, res, next) => {
   if (!req.user || req.user.role !== 'admin') {

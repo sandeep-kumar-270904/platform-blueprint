@@ -41,7 +41,7 @@ const GroupSessionSchema = new mongoose.Schema({
     type: Number,
     required: true,
     default: 60,
-    min: 15,
+    min: 0,
     max: 300
   },
   attendees: [{

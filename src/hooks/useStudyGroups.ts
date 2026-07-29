@@ -71,6 +71,7 @@ export const useStudyGroups = () => {
   // Split state
   const [myGroups, setMyGroups] = useState<StudyGroup[]>([]);
   const [discoverGroups, setDiscoverGroups] = useState<StudyGroup[]>([]);
+  const [recommendedGroups, setRecommendedGroups] = useState<StudyGroup[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -266,11 +267,14 @@ export const useStudyGroups = () => {
   return { 
     myGroups, 
     discoverGroups, 
+    recommendedGroups,
     loadingMyGroups,
     loadingDiscover,
     searchQuery,
     setSearchQuery,
     status, 
+    fetchMyGroups,
+    fetchDiscoverGroups,
     createGroup, 
     joinGroup,
     updateGroup,

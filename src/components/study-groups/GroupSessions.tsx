@@ -42,8 +42,8 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
     try {
       setLoading(true);
       const data = await fetchSessions(groupId);
-      setUpcoming(data.upcoming);
-      setPast(data.past);
+      setUpcoming(data?.upcoming || []);
+      setPast(data?.past || []);
     } catch (err) {
       console.error('Failed to load sessions', err);
     } finally {
@@ -304,26 +304,26 @@ const GroupSessions: React.FC<GroupSessionsProps> = ({ groupId }) => {
 
       <div className="space-y-4">
         <h3 className="font-semibold text-lg text-muted-foreground border-b pb-2">Upcoming</h3>
-        {upcoming.length === 0 ? (
+        {(upcoming || []).length === 0 ? (
           <div className="py-8 text-center border rounded-lg border-dashed text-muted-foreground">
             No upcoming sessions scheduled.
           </div>
         ) : (
           <div className="space-y-3">
-            {upcoming.map(s => renderSessionCard(s, false))}
+            {(upcoming || []).map(s => renderSessionCard(s, false))}
           </div>
         )}
       </div>
 
       <div className="space-y-4 pt-4">
         <h3 className="font-semibold text-lg text-muted-foreground border-b pb-2">Past Sessions</h3>
-        {past.length === 0 ? (
+        {(past || []).length === 0 ? (
           <div className="py-8 text-center border rounded-lg border-dashed text-muted-foreground">
             No past sessions recorded.
           </div>
         ) : (
           <div className="space-y-3">
-            {past.map(s => renderSessionCard(s, true))}
+            {(past || []).map(s => renderSessionCard(s, true))}
           </div>
         )}
       </div>

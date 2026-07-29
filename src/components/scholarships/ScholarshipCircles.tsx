@@ -4,11 +4,11 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Users, Target, Plus, CheckCircle2, TrendingUp, Calendar } from 'lucide-react';
+import { Users, Target, Plus, CheckCircle2, TrendingUp, Calendar, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function ScholarshipCircles() {
-  const { getCircles, createCircle, joinCircle, getCircleDetails } = useScholarshipCircles();
+  const { getCircles, createCircle, joinCircle, getCircleDetails, leaveCircle } = useScholarshipCircles();
   const [activeCircleId, setActiveCircleId] = useState<string | undefined>();
   const [newCircleName, setNewCircleName] = useState('');
   const [newCircleGoal, setNewCircleGoal] = useState('');
@@ -41,6 +41,17 @@ export default function ScholarshipCircles() {
     try {
       await joinCircle.mutateAsync(inviteCode);
       setInviteCode('');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!activeCircleId) return;
+    if (!confirm('Are you sure you want to leave this circle?')) return;
+    try {
+      await leaveCircle.mutateAsync(activeCircleId);
+      setActiveCircleId(undefined);
     } catch (e) {
       console.error(e);
     }
@@ -139,7 +150,13 @@ export default function ScholarshipCircles() {
                       )}
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-muted-foreground mb-1">Invite Code</p>
+                      <div className="flex items-center gap-2 mb-1 justify-end">
+                        <p className="text-sm text-muted-foreground">Invite Code</p>
+                        <Button variant="ghost" size="sm" onClick={handleLeave} disabled={leaveCircle.isPending} className="h-6 px-2 text-destructive hover:text-destructive hover:bg-destructive/10">
+                          <LogOut className="w-3 h-3 mr-1" />
+                          Leave
+                        </Button>
+                      </div>
                       <code className="bg-muted px-2 py-1 rounded text-lg font-mono">
                         {circleDetailsData.circle.inviteCode}
                       </code>

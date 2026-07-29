@@ -174,6 +174,37 @@ class CronService {
         }
       }
 
+      // 3. Check upcoming Study Group Sessions starting soon (within 24 hours or 1 hour)
+      try {
+        const GroupSession = require('../models/GroupSession');
+        const sessionsSoon = await GroupSession.find({
+          status: 'active',
+          scheduled_at: {
+            $gte: new Date(now.getTime()),
+            $lt: new Date(now.getTime() + 24 * 60 * 60 * 1000)
+          }
+        });
+        for (const session of sessionsSoon) {
+          for (const attendeeId of (session.attendees || [])) {
+            const existing = await Notification.findOne({
+              userId: attendeeId,
+              type: 'group_session_starting',
+              relatedContentId: session._id
+            });
+            if (!existing) {
+              await require("./notificationService").sendNotification({
+                userId: attendeeId,
+                type: 'group_session_starting',
+                relatedContentId: session._id,
+                message: `Reminder: Study group session '${session.title}' is starting soon.`
+              });
+            }
+          }
+        }
+      } catch (sgErr) {
+        console.error('Error checking study group session reminders:', sgErr);
+      }
+
         // --- Handle Waitlist Claim Expirations ---
         try {
           const MentorWaitlist = require('../models/MentorWaitlist');

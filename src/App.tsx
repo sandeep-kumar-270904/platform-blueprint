@@ -115,6 +115,7 @@ import DailyHacks from "./pages/DailyHacks";
 import VideoRoomPage from "./pages/VideoRoomPage";
 import AdminJobsPanel from "./pages/admin/AdminJobsPanel";
 import AdminStudyGroupsPanel from "./pages/admin/AdminStudyGroupsPanel";
+import AdminRoomRentalsPanel from "./pages/admin/AdminRoomRentalsPanel";
 import RecruiterVerify from "./pages/RecruiterVerify";
 import { ThemeProvider } from "./components/theme-provider";
 import PostSkill from "./pages/PostSkill";
@@ -280,6 +281,7 @@ const App = () => (
           <Route path="/placement/mock-interviews" element={<ProtectedRoute><MockInterviews /></ProtectedRoute>} />
           
           <Route path="/study-groups" element={<ProtectedRoute><StudyGroups /></ProtectedRoute>} />
+          <Route path="/study-groups/:id" element={<ProtectedRoute><StudyGroupDetail /></ProtectedRoute>} />
           <Route path="/placement/study-groups/:id" element={<ProtectedRoute><StudyGroupDetail /></ProtectedRoute>} />
 
           <Route path="/team-hunt" element={<ProtectedRoute><TeamHunt /></ProtectedRoute>} />
@@ -307,8 +309,8 @@ const App = () => (
           <Route path="/skill-swap" element={<ProtectedRoute><SkillSwap /></ProtectedRoute>} />
           <Route path="/creators" element={<CreatorsZone />} />
           <Route path="/creators/profile/:id" element={<CreatorProfilePage />} />
-          <Route path="/admin/scholarships" element={<ProtectedRoute><AdminScholarships /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
+          <Route path="/admin/scholarships" element={<ProtectedRoute><AdminScholarships /></ProtectedRoute>} />
           <Route path="/admin/creators" element={<ProtectedRoute><AdminCreatorsPanel /></ProtectedRoute>} />
           <Route path="/admin/users/:id/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/admin/jobs" element={<ProtectedRoute><AdminJobsPanel /></ProtectedRoute>} />
@@ -323,6 +325,7 @@ const App = () => (
           <Route path="/admin/news-moderation" element={<ProtectedRoute><AdminNewsModeration /></ProtectedRoute>} />
           <Route path="/admin/classrooms" element={<ProtectedRoute><AdminClassroomsPanel /></ProtectedRoute>} />
           <Route path="/admin/skill-swap" element={<ProtectedRoute><AdminSkillSwapPanel /></ProtectedRoute>} />
+          <Route path="/admin/room-rentals" element={<ProtectedRoute><AdminRoomRentalsPanel /></ProtectedRoute>} />
           <Route path="/recruiter/verify" element={<ProtectedRoute><RecruiterVerify /></ProtectedRoute>} />
           <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
           <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />

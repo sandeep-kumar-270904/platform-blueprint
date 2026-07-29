@@ -97,11 +97,22 @@ export const useScholarshipCircles = () => {
     }
   });
 
+  const leaveCircle = useMutation({
+    mutationFn: async (circleId: string) => {
+      const res = await api.delete(`/scholarships/circles/${circleId}/leave`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scholarship-circles'] });
+    }
+  });
+
   return {
     getCircles,
     getCircleDetails,
     createCircle,
     joinCircle,
-    shareScholarship
+    shareScholarship,
+    leaveCircle
   };
 };

@@ -57,8 +57,8 @@ router.get('/stats', authMiddleware, async (req, res) => {
     const ideasCount = await Idea.countDocuments({ user_id: userId });
     
     // Check if user is part of a study group
-    const teamsCount = await StudyGroup.countDocuments({ 
-      $or: [ { creator_id: userId }, { 'members.user_id': userId } ]
+    const teamsCount = await StudyGroup.countDocuments({
+      memberships: { $elemMatch: { user: userId, status: 'active' } }
     });
     
     const notificationsCount = await Notification.countDocuments({ userId: userId, isRead: false });

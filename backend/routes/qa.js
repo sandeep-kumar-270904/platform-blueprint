@@ -11,6 +11,8 @@ const authMiddleware = require('../middleware/auth');
 const { qaPostLimiter, voteLimiter } = require('../middleware/rateLimiter');
 const placementGamificationService = require('../services/placementGamificationService');
 const { syncItem, removeItem } = require('../services/placementSearchService');
+const notificationService = require('../services/notificationService');
+const lastNotifiedMap = new Map();
 
 // Helper to check for senior/alumni status
 async function fetchAuthorProfiles(userIds) {
@@ -27,7 +29,7 @@ async function fetchAuthorProfiles(userIds) {
 // GET /api/qa/questions (Feed)
 router.get('/questions', async (req, res) => {
   try {
-    const { category, search, company } = req.query;
+    const { category, search, company, unanswered } = req.query;
     
     // Auto-hide heavily reported items unless moderator reviewed
     let query = { 
@@ -39,11 +41,16 @@ router.get('/questions', async (req, res) => {
 
     if (category && category !== 'All') query.category = category;
     if (company) query.company = company;
+    if (unanswered === 'true') query.answer_count = 0;
+    
     if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { body: { $regex: search, $options: 'i' } }
-      ];
+      try {
+        const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        query.$or = [
+          { title: { $regex: escapedSearch, $options: 'i' } },
+          { body: { $regex: escapedSearch, $options: 'i' } }
+        ];
+      } catch (e) {}
     }
 
     const questions = await QAQuestion.find(query)
@@ -139,6 +146,22 @@ router.post('/questions/:id/answers', authMiddleware, qaPostLimiter, async (req,
     
     await QAQuestion.findByIdAndUpdate(questionId, { $inc: { answer_count: 1 } });
     
+    const question = await QAQuestion.findById(questionId);
+    if (question && question.user_id.toString() !== req.user.id) {
+      const now = Date.now();
+      const lastNotified = lastNotifiedMap.get(questionId) || 0;
+      if (now - lastNotified > 5 * 60 * 1000) {
+        lastNotifiedMap.set(questionId, now);
+        notificationService.sendNotification({
+          userId: question.user_id,
+          type: 'question_answered',
+          relatedContentId: questionId,
+          actorId: req.user.id,
+          message: `Someone answered your question: "${question.title}"`
+        });
+      }
+    }
+    
     if (req.io) {
       req.io.to(`qa_question_${questionId}`).emit('qa_answer_created', savedAnswer);
       req.io.emit('qa_question_updated', questionId);
@@ -161,6 +184,9 @@ async function handleVote(req, res, Model, targetType) {
 
     const target = await Model.findById(targetId);
     if (!target) return res.status(404).json({ message: 'Not found' });
+    if (target.user_id.toString() === userId) {
+      return res.status(403).json({ message: 'Cannot vote on your own post' });
+    }
 
     const existingVote = await QAVote.findOne({ user_id: userId, targetType, targetId });
 
@@ -209,6 +235,9 @@ router.post('/answers/:id/accept', authMiddleware, async (req, res) => {
     if (question.user_id.toString() !== req.user.id) {
       return res.status(403).json({ message: 'Only the asker can accept an answer' });
     }
+    if (answer.user_id.toString() === req.user.id) {
+      return res.status(403).json({ message: 'You cannot accept your own answer' });
+    }
 
     // Reset any previously accepted answer
     await QAAnswer.updateMany({ question_id: answer.question_id, is_accepted: true }, { is_accepted: false });
@@ -217,6 +246,16 @@ router.post('/answers/:id/accept', authMiddleware, async (req, res) => {
     await answer.save();
 
     await QAQuestion.findByIdAndUpdate(question._id, { status: 'Answered' });
+
+    if (answer.user_id.toString() !== req.user.id) {
+      notificationService.sendNotification({
+        userId: answer.user_id,
+        type: 'answer_upvoted',
+        relatedContentId: question._id,
+        actorId: req.user.id,
+        message: 'Your answer was marked as accepted!'
+      });
+    }
 
     // Award XP
     if (!answer.hasReceivedAcceptedXP) {

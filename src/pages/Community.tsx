@@ -216,44 +216,59 @@ const Community = () => {
   const handleOptimisticLike = async (postId: string, type: string = 'like') => {
     if (!user) { toast.error("Please sign in"); return; }
     
+    let originalPost: any = null;
+
     // Optistic UI update
-    setPosts(prev => prev.map(p => {
-      if (p.id === postId) {
-        let newReactions = { ...p.reactions } as any;
-        if (!newReactions) newReactions = { like: 0, celebrate: 0, insightful: 0, support: 0 };
-        let newLikeCount = p.like_count;
-        let newUserReaction = p.user_reaction;
+    setPosts(prev => {
+      originalPost = prev.find(p => p.id === postId);
+      return prev.map(p => {
+        if (p.id === postId) {
+          let newReactions = { ...p.reactions } as any;
+          if (!newReactions) newReactions = { like: 0, celebrate: 0, insightful: 0, support: 0 };
+          let newLikeCount = p.like_count;
+          let newUserReaction = p.user_reaction;
 
-        if (p.user_reaction === type) {
-          // Toggle off
-          newReactions[type] = Math.max(0, (newReactions[type] || 1) - 1);
-          newLikeCount = Math.max(0, newLikeCount - 1);
-          newUserReaction = null;
-        } else {
-          // Changed or Added
-          if (p.user_reaction) {
-            newReactions[p.user_reaction] = Math.max(0, (newReactions[p.user_reaction] || 1) - 1);
+          if (p.user_reaction === type) {
+            // Toggle off
+            newReactions[type] = Math.max(0, (newReactions[type] || 1) - 1);
+            newLikeCount = Math.max(0, newLikeCount - 1);
+            newUserReaction = null;
           } else {
-            newLikeCount++;
+            // Changed or Added
+            if (p.user_reaction) {
+              newReactions[p.user_reaction] = Math.max(0, (newReactions[p.user_reaction] || 1) - 1);
+            } else {
+              newLikeCount++;
+            }
+            newReactions[type] = (newReactions[type] || 0) + 1;
+            newUserReaction = type;
           }
-          newReactions[type] = (newReactions[type] || 0) + 1;
-          newUserReaction = type;
-        }
 
-        return {
-          ...p,
-          like_count: newLikeCount,
-          reactions: newReactions,
-          user_reaction: newUserReaction
-        };
-      }
-      return p;
-    }));
+          return {
+            ...p,
+            like_count: newLikeCount,
+            reactions: newReactions,
+            user_reaction: newUserReaction
+          };
+        }
+        return p;
+      });
+    });
     
     // API call
-    const res = await togglePostLike(postId, type);
-    if (res && res.reactions) {
-      setPosts(prev => prev.map(p => p.id === postId ? { ...p, like_count: res.like_count, reactions: res.reactions } : p));
+    try {
+      const res = await togglePostLike(postId, type);
+      if (res && res.reactions) {
+        setPosts(prev => prev.map(p => p.id === postId ? { ...p, like_count: res.like_count, reactions: res.reactions } : p));
+      } else if (originalPost) {
+        toast.error("Failed to update reaction");
+        setPosts(prev => prev.map(p => p.id === postId ? originalPost : p));
+      }
+    } catch (e) {
+      if (originalPost) {
+        toast.error("Failed to update reaction");
+        setPosts(prev => prev.map(p => p.id === postId ? originalPost : p));
+      }
     }
   };
 
@@ -265,26 +280,37 @@ const Community = () => {
 
   const handleOptimisticVote = async (postId: string, optionIndex: number) => {
     if (!user) { toast.error("Please sign in"); return; }
+    
+    let originalPost: any = null;
+
     // Optimistic Update
-    setPosts(prev => prev.map(p => {
-      if (p.id === postId && p.poll) {
-        const newPoll = { ...p.poll };
-        newPoll.options = [...newPoll.options];
-        newPoll.options[optionIndex].votes = (newPoll.options[optionIndex].votes || 0) + 1;
-        return { ...p, poll: newPoll, user_voted_option_index: optionIndex };
-      }
-      return p;
-    }));
+    setPosts(prev => {
+      originalPost = prev.find(p => p.id === postId);
+      return prev.map(p => {
+        if (p.id === postId && p.poll) {
+          const newPoll = { ...p.poll };
+          newPoll.options = [...newPoll.options];
+          newPoll.options[optionIndex].votes = (newPoll.options[optionIndex].votes || 0) + 1;
+          return { ...p, poll: newPoll, user_voted_option_index: optionIndex };
+        }
+        return p;
+      });
+    });
+
     // API call
     try {
       const updatedPost = await votePoll(postId, optionIndex);
       if (updatedPost && updatedPost.poll) {
         setPosts(prev => prev.map(p => p.id === postId ? { ...p, poll: updatedPost.poll, user_voted_option_index: updatedPost.user_voted_option_index } : p));
+      } else if (originalPost) {
+        toast.error("Failed to submit vote");
+        setPosts(prev => prev.map(p => p.id === postId ? originalPost : p));
       }
     } catch (e) {
-      // Revert if error
-      toast.error("Failed to submit vote");
-      setPosts(prev => [...prev]); // trigger re-render? Better to properly revert, but ignoring for brevity
+      if (originalPost) {
+        toast.error("Failed to submit vote");
+        setPosts(prev => prev.map(p => p.id === postId ? originalPost : p));
+      }
     }
   };
 
