@@ -69,10 +69,7 @@ const defaultNavigationGroups = [
     items: [
       { title: "Room Rentals", href: "/room-rentals", desc: "Find accommodation" },
       { title: "Hostel Info", href: "/hostels", desc: "Campus housing" },
-      { title: "Food & Restaurants", href: "/food", desc: "Student discounts" },
-      { title: "Transport", href: "/transport", desc: "Bus routes and shuttles" },
       { title: "Repair Services", href: "/repair", desc: "Maintenance help" },
-      { title: "Shopping", href: "/shopping", desc: "Local stores" },
     ],
   },
   {
