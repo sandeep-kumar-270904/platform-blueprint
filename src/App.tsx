@@ -96,8 +96,6 @@ import RoommateFind from "./pages/RoommateFind";
 import Wellness from "./pages/Wellness";
 import AdminCareerOpportunities from './pages/admin/AdminCareerOpportunities';
 import RoomRentals from "./pages/RoomRentals";
-import FoodServices from "./pages/FoodServices";
-import Transport from "./pages/Transport";
 import Roadmaps from "./pages/Roadmaps";
 import Forum from "./pages/Forum";
 import Sessions from "./pages/Sessions";
@@ -121,7 +119,6 @@ import { ThemeProvider } from "./components/theme-provider";
 import PostSkill from "./pages/PostSkill";
 import Hostels from "./pages/Hostels";
 import Repair from "./pages/Repair";
-import Shopping from "./pages/Shopping";
 import FoundersPassport from "./pages/FoundersPassport";
 import InviteAccept from "./pages/InviteAccept";
 import Search from "./pages/Search";
@@ -292,8 +289,6 @@ const App = () => (
           <Route path="/roommate-finder" element={<ProtectedRoute><RoommateFind /></ProtectedRoute>} />
           <Route path="/wellness" element={<ProtectedRoute><Wellness /></ProtectedRoute>} />
           <Route path="/room-rentals" element={<ProtectedRoute><RoomRentals /></ProtectedRoute>} />
-          <Route path="/food" element={<ProtectedRoute><FoodServices /></ProtectedRoute>} />
-          <Route path="/transport" element={<ProtectedRoute><Transport /></ProtectedRoute>} />
           <Route path="/qa-board" element={<ProtectedRoute><QABoard /></ProtectedRoute>} />
           <Route path="/gamification" element={<ProtectedRoute><Gamification /></ProtectedRoute>} />
           {/* Virtual Classroom */}
@@ -331,7 +326,6 @@ const App = () => (
           <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />
           <Route path="/hostels" element={<ProtectedRoute><Hostels /></ProtectedRoute>} />
           <Route path="/repair" element={<ProtectedRoute><Repair /></ProtectedRoute>} />
-          <Route path="/shopping" element={<ProtectedRoute><Shopping /></ProtectedRoute>} />
           <Route path="/founders-passport" element={<ProtectedRoute><FoundersPassport /></ProtectedRoute>} />
           <Route path="/settings/notifications" element={<ProtectedRoute><NotificationSettings /></ProtectedRoute>} />
           <Route path="/settings/account" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
