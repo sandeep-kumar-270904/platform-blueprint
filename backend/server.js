@@ -775,6 +775,7 @@ app.use('/api/room-rentals', roomRentalsRoutes);
 app.use('/api/roommates', roommatesRoutes);
 app.use('/api/room-rental-reviews', roomRentalReviewsRoutes);
 app.use('/api/search-alerts', require('./routes/roomSearchAlerts'));
+app.use('/api/hostels', require('./routes/hostels'));
 
 // Optional integration (mocked if unused)
 

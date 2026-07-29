@@ -21,6 +21,14 @@
   <meta name="twitter:title" content="StudentHub - Your All-in-One Student Platform">
   <meta property="og:description" content="Connect, learn, and grow with StudentHub. Access notes, join events, find mentors, and build your career - all in one comprehensive platform for students.">
   <meta name="twitter:description" content="Connect, learn, and grow with StudentHub. Access notes, join events, find mentors, and build your career - all in one comprehensive platform for students.">
+  <script>
+    (function() {
+      const storedTheme = localStorage.getItem('theme');
+      if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
 </head>
 
   <body>
