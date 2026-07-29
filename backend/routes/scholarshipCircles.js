@@ -10,8 +10,19 @@ router.post('/', isNotBanned, auth, async (req, res) => {
   try {
     const { name, sharedGoal } = req.body;
     
-    // Generate a unique 6-character invite code
-    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Check creation limit
+    const userCircles = await ScholarshipCircle.countDocuments({ createdBy: req.user.userId });
+    if (userCircles >= 5) {
+      return res.status(400).json({ message: 'Maximum circle creation limit reached (5).' });
+    }
+
+    let inviteCode;
+    let isUnique = false;
+    while (!isUnique) {
+      inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const existing = await ScholarshipCircle.findOne({ inviteCode });
+      if (!existing) isUnique = true;
+    }
     
     const circle = new ScholarshipCircle({
       name,
@@ -83,20 +94,25 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/join', isNotBanned, auth, async (req, res) => {
   try {
     const { inviteCode } = req.body;
-    const circle = await ScholarshipCircle.findOne({ inviteCode: inviteCode.toUpperCase() });
+    // Atomic join with max 6 members limit and unique check
+    const circle = await ScholarshipCircle.findOneAndUpdate(
+      { 
+        inviteCode: inviteCode.toUpperCase(),
+        'memberIds.5': { $exists: false }, // Enforces array size < 6
+        memberIds: { $ne: req.user.userId } // Enforces uniqueness
+      },
+      { $addToSet: { memberIds: req.user.userId } },
+      { new: true }
+    );
     
-    if (!circle) return res.status(404).json({ message: 'Invalid invite code' });
-    
-    if (circle.memberIds.includes(req.user.userId)) {
-      return res.status(400).json({ message: 'Already a member' });
+    if (!circle) {
+      // Check why it failed to give a helpful error
+      const existing = await ScholarshipCircle.findOne({ inviteCode: inviteCode.toUpperCase() });
+      if (!existing) return res.status(404).json({ message: 'Invalid invite code' });
+      if (existing.memberIds.includes(req.user.userId)) return res.status(400).json({ message: 'Already a member' });
+      if (existing.memberIds.length >= 6) return res.status(400).json({ message: 'Circle is full (maximum 6 members)' });
+      return res.status(400).json({ message: 'Failed to join circle' });
     }
-    
-    if (circle.memberIds.length >= 6) {
-      return res.status(400).json({ message: 'Circle is full (maximum 6 members)' });
-    }
-    
-    circle.memberIds.push(req.user.userId);
-    await circle.save();
     
     res.json(circle);
   } catch (error) {
@@ -128,6 +144,25 @@ router.post('/:id/share', isNotBanned, auth, async (req, res) => {
     res.json(circle);
   } catch (error) {
     console.error('Error sharing scholarship:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// Leave a circle
+router.delete('/:id/leave', isNotBanned, auth, async (req, res) => {
+  try {
+    const circle = await ScholarshipCircle.findOneAndUpdate(
+      { _id: req.params.id, memberIds: req.user.userId },
+      { $pull: { memberIds: req.user.userId } },
+      { new: true }
+    );
+
+    if (!circle) return res.status(404).json({ message: 'Circle not found or not a member' });
+    
+    // Optional: if circle.memberIds.length === 0, we could delete it, but leaving it empty is fine.
+    res.json({ message: 'Left circle successfully' });
+  } catch (error) {
+    console.error('Error leaving circle:', error);
     res.status(500).json({ message: 'Server Error' });
   }
 });

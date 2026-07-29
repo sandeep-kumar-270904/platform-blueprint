@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { io, Socket } from "socket.io-client";
 
@@ -35,33 +35,44 @@ export interface QAAnswer {
   author?: { username: string | null; full_name: string | null; avatar_url: string | null } | null;
 }
 
-export function useQuestions(category?: string) {
+export function useQuestions(category?: string, search?: string, unanswered?: boolean) {
   const [questions, setQuestions] = useState<QAQuestion[]>([]);
   const [loading, setLoading] = useState(true);
+  const reqId = useRef(0);
 
   const fetchQuestions = useCallback(async () => {
+    const currentReq = ++reqId.current;
     try {
       const qs = new URLSearchParams();
       if (category) qs.append('category', category);
+      if (search) qs.append('search', search);
+      if (unanswered) qs.append('unanswered', 'true');
       
       const res = await fetch(`${API_URL}/api/qa/questions?${qs.toString()}`);
+      if (currentReq !== reqId.current) return;
+      
       let data = await res.json();
       data = data.map((q: any) => ({ ...q, id: q._id, created_at: q.createdAt }));
       setQuestions(data);
     } catch (err) {
+      if (currentReq !== reqId.current) return;
       console.error(err);
       toast.error("Failed to load QA questions");
     } finally {
-      setLoading(false);
+      if (currentReq === reqId.current) setLoading(false);
     }
-  }, [category]);
+  }, [category, search, unanswered]);
 
   useEffect(() => {
     setLoading(true);
     fetchQuestions();
     
     const socket = io(API_URL);
-    socket.on('qa_question_created', () => fetchQuestions());
+    socket.on('qa_question_created', (newQuestion) => {
+      newQuestion.id = newQuestion._id;
+      newQuestion.created_at = newQuestion.createdAt;
+      setQuestions(prev => [newQuestion, ...prev]);
+    });
     socket.on('qa_question_updated', () => fetchQuestions());
     
     return () => {
@@ -69,7 +80,26 @@ export function useQuestions(category?: string) {
     };
   }, [fetchQuestions]);
 
-  return { questions, loading, status: 'live', refetch: fetchQuestions };
+  const handleVote = async (id: string) => {
+    setQuestions(prev => prev.map(q => q.id === id ? { ...q, upvotes: q.upvotes + 1 } : q));
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/qa/questions/${id}/vote`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vote: 1 })
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to vote');
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+      setQuestions(prev => prev.map(q => q.id === id ? { ...q, upvotes: q.upvotes - 1 } : q));
+    }
+  };
+
+  return { questions, loading, status: 'live', refetch: fetchQuestions, handleVote };
 }
 
 export async function createQuestion(input: { title: string; body: string; category: string; tags: string[] }) {
@@ -86,18 +116,6 @@ export async function createQuestion(input: { title: string; body: string; categ
   } catch (err: any) {
     toast.error(err.message);
     return null;
-  }
-}
-
-export async function toggleQuestionVote(questionId: string) {
-  const token = localStorage.getItem('token');
-  try {
-    await fetch(`${API_URL}/api/qa/questions/${questionId}/vote`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-  } catch (err: any) {
-    toast.error(err.message);
   }
 }
 
@@ -141,10 +159,7 @@ export function useAnswers(questionId: string | null) {
       setAnswers(prev => [...prev, newAnswer]);
     });
     
-    socket.on('qa_answer_updated', () => {
-      // Just re-fetch to get new vote counts
-      fetchAnswers();
-    });
+    socket.on('qa_answer_updated', () => fetchAnswers());
     
     return () => {
       socket.emit('leave_qa_question', questionId);
@@ -152,7 +167,26 @@ export function useAnswers(questionId: string | null) {
     };
   }, [questionId, fetchAnswers]);
 
-  return { answers, loading, status: 'live', refetch: fetchAnswers };
+  const handleVote = async (id: string) => {
+    setAnswers(prev => prev.map(a => a.id === id ? { ...a, upvotes: a.upvotes + 1 } : a));
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`${API_URL}/api/qa/answers/${id}/vote`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vote: 1 })
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to vote');
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+      setAnswers(prev => prev.map(a => a.id === id ? { ...a, upvotes: a.upvotes - 1 } : a));
+    }
+  };
+
+  return { answers, loading, status: 'live', refetch: fetchAnswers, handleVote };
 }
 
 export async function postAnswer(questionId: string, body: string) {
@@ -170,17 +204,5 @@ export async function postAnswer(questionId: string, body: string) {
   } catch (err: any) {
     toast.error(err.message);
     return null;
-  }
-}
-
-export async function toggleAnswerVote(answerId: string) {
-  const token = localStorage.getItem('token');
-  try {
-    await fetch(`${API_URL}/api/qa/answers/${answerId}/vote`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-  } catch (err: any) {
-    toast.error(err.message);
   }
 }

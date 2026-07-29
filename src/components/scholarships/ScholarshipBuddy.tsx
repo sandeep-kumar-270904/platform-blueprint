@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Users, StopCircle, RefreshCw } from 'lucide-react';
+import { Loader2, Users, StopCircle, RefreshCw, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export const ScholarshipBuddy: React.FC = () => {
-  const [buddyState, setBuddyState] = useState<'none' | 'waiting' | 'matched' | 'loading'>('loading');
+  const [buddyState, setBuddyState] = useState<'none' | 'waiting' | 'matched' | 'loading' | 'error'>('loading');
   const [pairing, setPairing] = useState<any>(null);
   const [buddyProgress, setBuddyProgress] = useState<any>(null);
 
@@ -31,10 +31,12 @@ export const ScholarshipBuddy: React.FC = () => {
         }
       } else if (res.status === 404) {
         setBuddyState('none');
+      } else {
+        setBuddyState('error');
       }
     } catch (err) {
       console.error(err);
-      setBuddyState('none');
+      setBuddyState('error');
     }
   };
 
@@ -86,6 +88,21 @@ export const ScholarshipBuddy: React.FC = () => {
     return (
       <Card className="mb-8">
         <CardContent className="py-8 flex justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></CardContent>
+      </Card>
+    );
+  }
+
+  if (buddyState === 'error') {
+    return (
+      <Card className="mb-8 border-destructive/50 bg-destructive/5">
+        <CardContent className="py-8 text-center space-y-4">
+          <AlertCircle className="h-8 w-8 text-destructive mx-auto opacity-50" />
+          <div>
+            <h3 className="font-semibold text-destructive">Couldn't load buddy status</h3>
+            <p className="text-sm text-destructive/70">There was an issue connecting to the server.</p>
+          </div>
+          <Button variant="outline" onClick={fetchBuddyState} className="mt-2 border-destructive text-destructive hover:bg-destructive/10">Try Again</Button>
+        </CardContent>
       </Card>
     );
   }

@@ -101,7 +101,14 @@ const notificationSchema = new mongoose.Schema({
       'creator_publish',
       'creator_comment',
       'creator_like',
-      'creator_reply'
+      'creator_reply',
+      'room_rental_inquiry_received',
+      'room_rental_inquiry_responded',
+      'roommate_connection_request',
+      'roommate_connection_accepted',
+      'roommate_connection_declined',
+      'room_rental_alert_match',
+      'room_rental_review_received'
     ],
     required: true
   },

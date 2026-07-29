@@ -585,6 +585,9 @@ const { requireRole } = require('./middleware/roleAuth');
 const placementReferrals = require('./routes/placementReferrals');
 const placementOnboarding = require('./routes/placementOnboarding');
 const aptitudeRoutes = require('./routes/aptitude');
+const roomRentalsRoutes = require('./routes/roomRentals');
+const roommatesRoutes = require('./routes/roommates');
+const roomRentalReviewsRoutes = require('./routes/roomRentalReviews');
 
 const adminMentorsOverviewRoutes = require('./routes/adminMentorsOverview');
 
@@ -609,6 +612,7 @@ app.use('/api/integration', require('./routes/integration'));
 app.use('/api/forum', require('./routes/forum'));
 app.use('/api/qa', require('./routes/qa'));
 app.use('/api/feedback', require('./routes/feedback'));
+app.use('/api/room-rentals', require('./routes/roomRentals'));
 app.use('/api/coach', require('./routes/coach'));
 
 const notificationsRouter = require('./routes/notifications');
@@ -767,6 +771,10 @@ app.use('/api/essays', require('./routes/essays'));
   app.use('/api/scholarships', require('./routes/providerFeedback'));
 app.use('/api/subscriptions', require('./routes/subscriptions'));
 app.use('/api/admin/mentors-overview', adminMentorsOverviewRoutes);
+app.use('/api/room-rentals', roomRentalsRoutes);
+app.use('/api/roommates', roommatesRoutes);
+app.use('/api/room-rental-reviews', roomRentalReviewsRoutes);
+app.use('/api/search-alerts', require('./routes/roomSearchAlerts'));
 
 // Optional integration (mocked if unused)
 

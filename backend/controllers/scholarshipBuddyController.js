@@ -110,7 +110,13 @@ exports.getMyPairing = async (req, res) => {
       status: 'active'
     });
 
-    if (!pairing) return res.status(404).json({ message: 'No active pairing found.' });
+    if (!pairing) {
+      const waitlist = await BuddyMatchRequest.findOne({ userId: req.user.id, status: 'waiting' });
+      if (waitlist) {
+        return res.json({ status: 'waiting' });
+      }
+      return res.status(404).json({ message: 'No active pairing found.' });
+    }
 
     const buddyId = pairing.userAId.toString() === req.user.id ? pairing.userBId : pairing.userAId;
 

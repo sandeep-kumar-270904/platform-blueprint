@@ -54,7 +54,7 @@ export default function AdminStudyGroupsPanel() {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/admin/study-groups`, {
-        headers: { 'Authorization': \`Bearer \${token}\` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         setGroups(await res.json());
@@ -72,9 +72,9 @@ export default function AdminStudyGroupsPanel() {
   const handleFlag = async (id: string, flagged: boolean) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/admin/study-groups/\${id}/flag`, {
+      const res = await fetch(`${API_URL}/api/admin/study-groups/${id}/flag`, {
         method: 'POST',
-        headers: { 'Authorization': \`Bearer \${token}\`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ isFlagged: flagged })
       });
       
@@ -93,9 +93,9 @@ export default function AdminStudyGroupsPanel() {
     if (!confirmDeleteId) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/admin/study-groups/\${confirmDeleteId}`, {
+      const res = await fetch(`${API_URL}/api/admin/study-groups/${confirmDeleteId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': \`Bearer \${token}\` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       
       if (res.ok) {
@@ -115,8 +115,8 @@ export default function AdminStudyGroupsPanel() {
     setLoadingMembers(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/admin/study-groups/\${groupId}/members`, {
-        headers: { 'Authorization': \`Bearer \${token}\` }
+      const res = await fetch(`${API_URL}/api/admin/study-groups/${groupId}/members`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         setGroupMembers(await res.json());
@@ -132,13 +132,13 @@ export default function AdminStudyGroupsPanel() {
     if (!confirmKickMember) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/admin/study-groups/\${confirmKickMember.groupId}/members/\${confirmKickMember.userId}`, {
+      const res = await fetch(`${API_URL}/api/admin/study-groups/${confirmKickMember.groupId}/members/${confirmKickMember.userId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': \`Bearer \${token}\` }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       
       if (res.ok) {
-        toast.success(\`\${confirmKickMember.username} removed from the group.\`);
+        toast.success(`${confirmKickMember.username} removed from the group.`);
         // Refresh members
         fetchMembers(confirmKickMember.groupId);
         setConfirmKickMember(null);

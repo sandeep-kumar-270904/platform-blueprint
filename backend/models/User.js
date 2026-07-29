@@ -189,6 +189,14 @@ const UserSchema = new mongoose.Schema({
     collegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
     viewedAt: { type: Date, default: Date.now }
   }],
+  savedScholarships: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Scholarship'
+  }],
+  savedRoomRentals: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'RoomRental'
+  }],
   savedJobs: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Job'

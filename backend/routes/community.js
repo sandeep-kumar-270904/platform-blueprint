@@ -175,26 +175,31 @@ router.get('/posts', optionalAuth, async (req, res) => {
     }
 
     if (search) {
-      const searchRegex = new RegExp(search, 'i');
-      const matchingUsers = await User.find({
-        $or: [
-          { full_name: searchRegex },
-          { username: searchRegex }
-        ]
-      }).select('_id').lean();
-      
-      const searchCondition = {
-        $or: [
-          { content: searchRegex },
-          { tags: searchRegex },
-          { user_id: { $in: matchingUsers.map(u => u._id) } }
-        ]
-      };
+      try {
+        const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const searchRegex = new RegExp(escapedSearch, 'i');
+        const matchingUsers = await User.find({
+          $or: [
+            { full_name: searchRegex },
+            { username: searchRegex }
+          ]
+        }).select('_id').lean();
+        
+        const searchCondition = {
+          $or: [
+            { content: searchRegex },
+            { tags: searchRegex },
+            { user_id: { $in: matchingUsers.map(u => u._id) } }
+          ]
+        };
 
-      if (query.$and) {
-        query.$and.push(searchCondition);
-      } else {
-        query = { $and: [query, searchCondition] };
+        if (query.$and) {
+          query.$and.push(searchCondition);
+        } else {
+          query = { $and: [query, searchCondition] };
+        }
+      } catch (e) {
+        // Ignore malformed regex
       }
     }
 

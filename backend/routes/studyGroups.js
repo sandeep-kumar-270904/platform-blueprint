@@ -407,6 +407,12 @@ router.post('/:id/join', authMiddleware, async (req, res) => {
 
     await group.save();
 
+    if (status === 'active') {
+      const populatedGroup = await StudyGroup.findById(group._id).populate('memberships.user', 'username avatar_url learningStreak quizStreak full_name');
+      const io = req.app.get('io');
+      if (io) io.to('group_' + group._id).emit('membership_updated', { groupId: group._id, memberships: populatedGroup.memberships });
+    }
+
     // Notify Owner if pending request
     if (status === 'pending') {
       await Notification.create({
@@ -487,7 +493,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 // PUT /api/study-groups/:id/memberships/:userId - Approve/Deny
 router.put('/:id/memberships/:userId', authMiddleware, async (req, res) => {
   try {
-    const { status } = req.body; // 'active' or 'rejected'
+    const { status, action } = req.body; // 'active' or 'rejected', action: 'remove'
     const group = await StudyGroup.findById(req.params.id);
     if (!group) return res.status(404).json({ message: 'Group not found.' });
     
@@ -508,31 +514,35 @@ router.put('/:id/memberships/:userId', authMiddleware, async (req, res) => {
     }
         await group.save();
 
+        const populatedGroup = await StudyGroup.findById(group._id).populate('memberships.user', 'username avatar_url learningStreak quizStreak full_name');
+        const io = req.app.get('io');
+        if (io) io.to('group_' + group._id).emit('membership_updated', { groupId: group._id, memberships: populatedGroup.memberships });
+
         // If member was removed or rejected, clean up future RSVPs and Notifications
         if (action === 'remove' || status === 'rejected') {
           await GroupSession.updateMany(
             { group_id: group._id, scheduled_at: { $gt: new Date() } },
-            { $pull: { attendees: targetUserId } }
+            { $pull: { attendees: req.params.userId } }
           );
           await Notification.deleteMany({
-            userId: targetUserId,
+            userId: req.params.userId,
             relatedContentId: group._id,
             type: { $ne: 'group_request_denied' } // keep the denial notice if any
           });
         }
         if (status === 'active') {
           await Notification.create({
-            userId: targetUserId,
+            userId: req.params.userId,
             type: 'group_request_approved',
             relatedContentId: group._id,
             message: `Your request to join ${group.name} was approved.`
           });
         } else if (status === 'rejected') {
           await Notification.create({
-            userId: targetUserId,
+            userId: req.params.userId,
             type: 'group_request_denied',
             relatedContentId: group._id,
-            message: `Your request to join ${group.name} was denied.`
+            message: `Your request to join ${group.name} was declined.`
           });
         }
 

@@ -17,6 +17,7 @@ import GroupSessions from '@/components/study-groups/GroupSessions';
 import GroupSettings from '@/components/study-groups/GroupSettings';
 import { ReportModal } from '@/components/study-groups/ReportModal';
 import { api } from '@/lib/api';
+import { io } from 'socket.io-client';
 
 const StudyGroupDetail = () => {
   const { id } = useParams();
@@ -69,6 +70,27 @@ const StudyGroupDetail = () => {
   }, [id]);
 
   useEffect(() => {
+    if (!group || !user) return;
+    const socket = io();
+    socket.emit('join_group_room', { groupId: group._id, userId: user.id || user._id });
+
+    socket.on('membership_updated', (data: { groupId: string, memberships: StudyGroupMembership[] }) => {
+      if (data.groupId === group._id) {
+        setGroup(prev => prev ? { 
+          ...prev, 
+          memberships: data.memberships || [], 
+          member_count: (data.memberships || []).filter(m => m.status === 'active').length 
+        } : null);
+      }
+    });
+
+    return () => {
+      socket.emit('leave_group_room', group._id);
+      socket.disconnect();
+    };
+  }, [group?._id, user]);
+
+  useEffect(() => {
     if (activeTab === 'chat' && group) {
       api.post(`/study-groups/${group._id}/view`).catch(err => console.error('Failed to update view telemetry:', err));
     }
@@ -88,8 +110,8 @@ const StudyGroupDetail = () => {
   if (!group || !user) return null;
 
   const isOwner = group.owner_id === user.id;
-  const activeMembers = group.memberships.filter(m => m.status === 'active');
-  const pendingMembers = group.memberships.filter(m => m.status === 'pending');
+  const activeMembers = (group.memberships || []).filter(m => m.status === 'active');
+  const pendingMembers = (group.memberships || []).filter(m => m.status === 'pending');
 
   const leaderboard = [...activeMembers].sort((a, b) => {
     const scoreA = (a.user.learningStreak?.current || 0) + (a.user.quizStreak?.current || 0);
@@ -322,13 +344,13 @@ const StudyGroupDetail = () => {
                 </Dialog>
               </CardHeader>
               <CardContent>
-                {group.resources.length === 0 ? (
+                {(group.resources || []).length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Link className="w-12 h-12 mx-auto mb-4 opacity-20" />
                     <p>No resources shared yet.</p>
                   </div>
                 ) : (
-                  group.resources.map(res => {
+                  (group.resources || []).map(res => {
                     const canDelete = isOwner || res.added_by._id === user.id;
                     return (
                       <div key={res._id} className="flex justify-between items-start p-4 border rounded-lg hover:border-primary/50 transition-colors mb-2">
