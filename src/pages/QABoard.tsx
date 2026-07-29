@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageSquare, ThumbsUp, Award, Search, Plus, CheckCircle2, Eye, Loader2 } from "lucide-react";
-import { useQuestions, createQuestion, toggleQuestionVote, useAnswers, postAnswer, toggleAnswerVote, incrementQuestionViews, type QAQuestion } from "@/hooks/useQABoard";
+import { useQuestions, createQuestion, useAnswers, postAnswer, incrementQuestionViews, type QAQuestion } from "@/hooks/useQABoard";
 import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
@@ -19,19 +19,22 @@ const CATEGORIES = ["All", "General", "Placements", "Technology", "Study Tips", 
 const QABoard = () => {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("All");
+  const [showUnanswered, setShowUnanswered] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [selected, setSelected] = useState<QAQuestion | null>(null);
-  const { questions, loading, status } = useQuestions(category);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  const { questions, loading, status, handleVote } = useQuestions(category, debouncedSearch, showUnanswered);
   const [form, setForm] = useState({ title: "", body: "", category: "General", tagInput: "" });
   const [submitting, setSubmitting] = useState(false);
-
-  const filtered = questions.filter(
-    (q) =>
-      !search ||
-      q.title.toLowerCase().includes(search.toLowerCase()) ||
-      q.tags.some((t) => t.toLowerCase().includes(search.toLowerCase()))
-  );
 
   const submit = async () => {
     if (!form.title.trim() || !form.body.trim()) return;
@@ -51,9 +54,9 @@ const QABoard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
-      <section className="container mx-auto px-4 py-12">
+      <section className="container mx-auto px-4 pt-24 pb-12">
         <div className="mb-8 flex flex-col items-center text-center gap-4">
           <Badge><MessageSquare className="mr-1 h-3 w-3" />Community Q&A</Badge>
           <h1 className="text-4xl md:text-5xl font-bold">Ask, Learn & Grow Together</h1>
@@ -86,18 +89,22 @@ const QABoard = () => {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-6 justify-center">
+        <div className="flex flex-wrap gap-2 mb-6 justify-center items-center">
           {CATEGORIES.map((c) => (
             <Button key={c} size="sm" variant={category === c ? "default" : "outline"} onClick={() => setCategory(c)}>{c}</Button>
           ))}
+          <div className="h-6 w-px bg-border mx-2"></div>
+          <Button size="sm" variant={showUnanswered ? "secondary" : "outline"} onClick={() => setShowUnanswered(!showUnanswered)}>
+            Unanswered
+          </Button>
         </div>
 
         <div className="max-w-4xl mx-auto space-y-3">
           {loading ? (
             <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-          ) : filtered.length === 0 ? (
+          ) : questions.length === 0 ? (
             <Card><CardContent className="py-12 text-center text-muted-foreground">No questions yet. Be the first to ask!</CardContent></Card>
-          ) : filtered.map((q) => (
+          ) : questions.map((q) => (
             <Card key={q.id} className="hover:shadow-md cursor-pointer transition-all" onClick={() => openQuestion(q)}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-3">
@@ -119,7 +126,7 @@ const QABoard = () => {
                     <span>{q.author?.full_name || q.author?.username || "Anonymous"} · {formatDistanceToNow(new Date(q.created_at), { addSuffix: true })}</span>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <button className="flex items-center gap-1 hover:text-primary" onClick={(e) => { e.stopPropagation(); toggleQuestionVote(q.id); }}>
+                    <button className="flex items-center gap-1 hover:text-primary" onClick={(e) => { e.stopPropagation(); handleVote(q.id); }}>
                       <ThumbsUp className="h-4 w-4" /><span data-testid={`q-upvotes-${q.id}`}>{q.upvotes}</span>
                     </button>
                     <span className="flex items-center gap-1"><MessageSquare className="h-4 w-4" />{q.answer_count}</span>
@@ -137,14 +144,14 @@ const QABoard = () => {
         </div>
       </section>
 
-      <QuestionDialog question={selected} onClose={() => setSelected(null)} />
+      <QuestionDialog question={selected} onClose={() => setSelected(null)} handleQuestionVote={handleVote} />
     </div>
   );
 };
 
-const QuestionDialog = ({ question, onClose }: { question: QAQuestion | null; onClose: () => void }) => {
+const QuestionDialog = ({ question, onClose, handleQuestionVote }: { question: QAQuestion | null; onClose: () => void; handleQuestionVote: (id: string) => void }) => {
   const { user } = useAuth();
-  const { answers, loading } = useAnswers(question?.id || null);
+  const { answers, loading, handleVote: handleAnswerVote } = useAnswers(question?.id || null);
   const [body, setBody] = useState("");
   const [posting, setPosting] = useState(false);
 
@@ -169,7 +176,7 @@ const QuestionDialog = ({ question, onClose }: { question: QAQuestion | null; on
             <p className="text-sm whitespace-pre-wrap">{question.body}</p>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span>by {question.author?.full_name || "Anonymous"} · {formatDistanceToNow(new Date(question.created_at), { addSuffix: true })}</span>
-              <button className="flex items-center gap-1 hover:text-primary" onClick={() => toggleQuestionVote(question.id)}>
+              <button className="flex items-center gap-1 hover:text-primary" onClick={() => handleQuestionVote(question.id)}>
                 <ThumbsUp className="h-3 w-3" />{question.upvotes}
               </button>
             </div>
@@ -181,7 +188,7 @@ const QuestionDialog = ({ question, onClose }: { question: QAQuestion | null; on
                   <p className="text-sm whitespace-pre-wrap">{a.body}</p>
                   <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
                     <span>{a.author?.full_name || "Anonymous"} · {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}</span>
-                    <button className="flex items-center gap-1 hover:text-primary" onClick={() => toggleAnswerVote(a.id)}>
+                    <button className="flex items-center gap-1 hover:text-primary" onClick={() => handleAnswerVote(a.id)}>
                       <ThumbsUp className="h-3 w-3" />{a.upvotes}
                     </button>
                   </div>

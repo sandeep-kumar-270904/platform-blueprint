@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,8 @@ export const BatchUploadDialog = ({ open, onOpenChange, onSuccess }: BatchUpload
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
   const uploadFile = async (item: UploadItem, index: number) => {
     if (!user) return;
 
@@ -63,18 +65,19 @@ export const BatchUploadDialog = ({ open, onOpenChange, onSuccess }: BatchUpload
         prev.map((f, i) => (i === index ? { ...f, status: "uploading", progress: 30 } : f))
       );
 
-      // Upload to storage
-      const fileExt = "pdf";
-      const fileName = `${user.id}/${Date.now()}-${item.file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("notes")
-        .upload(fileName, item.file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("notes")
-        .getPublicUrl(fileName);
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', item.file);
+      
+      const uploadRes = await fetch(`${API_URL}/api/uploads`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      
+      if (!uploadRes.ok) throw new Error('Upload failed');
+      const uploadData = await uploadRes.json();
+      const publicUrl = `${API_URL}${uploadData.url}`;
 
       setFiles((prev) =>
         prev.map((f, i) => (i === index ? { ...f, progress: 50 } : f))
@@ -87,12 +90,15 @@ export const BatchUploadDialog = ({ open, onOpenChange, onSuccess }: BatchUpload
           prev.map((f, i) => (i === index ? { ...f, status: "enhancing", progress: 60 } : f))
         );
 
-        const { data: enhancedData, error: enhanceError } = await supabase.functions.invoke(
-          "enhance-pdf",
-          { body: { pdfUrl: publicUrl } }
-        );
+        const aiRes = await fetch(`${API_URL}/api/ai/process-note`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ title: item.file.name, fileUrl: publicUrl })
+        });
+        
+        const enhancedData = aiRes.ok ? await aiRes.json() : null;
 
-        if (!enhanceError && enhancedData?.enhancedUrl) {
+        if (enhancedData?.enhancedUrl) {
           enhancedUrl = enhancedData.enhancedUrl;
         }
       }
@@ -102,20 +108,20 @@ export const BatchUploadDialog = ({ open, onOpenChange, onSuccess }: BatchUpload
       );
 
       // Create note record
-      const { data: noteData, error: insertError } = await supabase
-        .from("notes")
-        .insert({
-          user_id: user.id,
+      const createRes = await fetch(`${API_URL}/api/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
           title: item.file.name.replace(".pdf", ""),
           subject: subject || "General",
           branch: branch || null,
           semester: semester ? parseInt(semester) : null,
           content_url: enhancedUrl,
         })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
+      });
+      
+      if (!createRes.ok) throw new Error('Failed to create note');
+      const noteData = await createRes.json();
 
       setFiles((prev) =>
         prev.map((f, i) =>
@@ -165,8 +171,7 @@ export const BatchUploadDialog = ({ open, onOpenChange, onSuccess }: BatchUpload
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <Label>Subject</Label>
-              <Input
+              <Label htmlFor="subject">Subject</Label><Input id="subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="e.g., Physics"
@@ -174,8 +179,7 @@ export const BatchUploadDialog = ({ open, onOpenChange, onSuccess }: BatchUpload
               />
             </div>
             <div>
-              <Label>Branch</Label>
-              <Input
+              <Label htmlFor="branch">Branch</Label><Input id="branch"
                 value={branch}
                 onChange={(e) => setBranch(e.target.value)}
                 placeholder="e.g., CSE"
@@ -183,8 +187,7 @@ export const BatchUploadDialog = ({ open, onOpenChange, onSuccess }: BatchUpload
               />
             </div>
             <div>
-              <Label>Semester</Label>
-              <Input
+              <Label htmlFor="semester">Semester</Label><Input id="semester"
                 value={semester}
                 onChange={(e) => setSemester(e.target.value)}
                 placeholder="e.g., 3"

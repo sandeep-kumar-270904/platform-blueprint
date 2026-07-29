@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Bookmark } from "lucide-react";
@@ -19,32 +18,50 @@ export const NoteBookmarkButton = ({ noteId, size = "icon", className }: NoteBoo
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("note_bookmarks")
-      .select("id")
-      .eq("note_id", noteId)
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => setBookmarked(!!data));
+    const fetchBookmark = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/notes/${noteId}/bookmark`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setBookmarked(data.bookmarked);
+        }
+      } catch {}
+    };
+    fetchBookmark();
   }, [noteId, user]);
 
   const toggle = async () => {
     if (!user) { toast.error("Please sign in to bookmark notes"); return; }
-    setLoading(true);
+    
+    // Optimistic UI update
+    const previousState = bookmarked;
+    const newState = !bookmarked;
+    setBookmarked(newState);
+    
+    if (newState) {
+      toast.success("Note bookmarked!");
+    } else {
+      toast.success("Bookmark removed");
+    }
+
     try {
-      if (bookmarked) {
-        await supabase.from("note_bookmarks").delete().eq("note_id", noteId).eq("user_id", user.id);
-        setBookmarked(false);
-        toast.success("Bookmark removed");
-      } else {
-        await supabase.from("note_bookmarks").insert({ note_id: noteId, user_id: user.id } as any);
-        setBookmarked(true);
-        toast.success("Note bookmarked!");
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/notes/${noteId}/bookmark`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        throw new Error("Failed to update");
       }
     } catch {
+      // Revert optimistic update on failure
+      setBookmarked(previousState);
       toast.error("Failed to update bookmark");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -52,11 +69,11 @@ export const NoteBookmarkButton = ({ noteId, size = "icon", className }: NoteBoo
     <Button
       variant="ghost"
       size={size}
-      className={cn("h-7 w-7", className)}
+      className={cn("h-6 w-6", className)}
       onClick={(e) => { e.stopPropagation(); toggle(); }}
-      disabled={loading}
+      aria-label={bookmarked ? "Remove bookmark" : "Bookmark note"}
     >
-      <Bookmark className={cn("h-3.5 w-3.5 transition-colors", bookmarked ? "fill-primary text-primary" : "text-muted-foreground")} />
+      <Bookmark className={cn("h-3.5 w-3.5 transition-colors", bookmarked ? "fill-[var(--color-accent)] text-[var(--color-accent)]" : "text-muted-foreground")} aria-hidden="true" />
     </Button>
   );
 };

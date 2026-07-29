@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Star } from "lucide-react";
@@ -24,29 +23,20 @@ export const NoteRating = ({ noteId, currentRating, compact = false, onRated }: 
   }, [noteId, user]);
 
   const loadRatingData = async () => {
-    // Get total ratings count and average
-    const { data: ratings } = await supabase
-      .from("note_ratings")
-      .select("rating")
-      .eq("note_id", noteId);
-
-    if (ratings) {
-      setTotalRatings(ratings.length);
-      if (ratings.length > 0) {
-        setAvgRating(ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const headers: any = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      
+      const res = await fetch(`${API_URL}/api/notes/${noteId}/ratings`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setTotalRatings(data.totalRatings || 0);
+        setAvgRating(data.avgRating || currentRating);
+        if (data.userRating) setUserRating(data.userRating);
       }
-    }
-
-    // Get user's own rating
-    if (user) {
-      const { data } = await supabase
-        .from("note_ratings")
-        .select("rating")
-        .eq("note_id", noteId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (data) setUserRating(data.rating);
-    }
+    } catch {}
   };
 
   const handleRate = async (rating: number) => {
@@ -56,15 +46,21 @@ export const NoteRating = ({ noteId, currentRating, compact = false, onRated }: 
     }
 
     try {
-      if (userRating > 0) {
-        await supabase.from("note_ratings").update({ rating } as any).eq("note_id", noteId).eq("user_id", user.id);
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/notes/${noteId}/ratings`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating })
+      });
+      if (res.ok) {
+        setUserRating(rating);
+        toast.success(`Rated ${rating} star${rating > 1 ? "s" : ""}!`);
+        loadRatingData();
+        onRated?.();
       } else {
-        await supabase.from("note_ratings").insert({ note_id: noteId, user_id: user.id, rating } as any);
+        toast.error("Failed to submit rating");
       }
-      setUserRating(rating);
-      toast.success(`Rated ${rating} star${rating > 1 ? "s" : ""}!`);
-      loadRatingData();
-      onRated?.();
     } catch {
       toast.error("Failed to submit rating");
     }
@@ -107,7 +103,7 @@ export const NoteRating = ({ noteId, currentRating, compact = false, onRated }: 
               className="p-0.5 hover:scale-125 transition-transform"
             >
               <Star className={cn(
-                "h-5 w-5 transition-colors",
+                "h-4 w-4 transition-colors",
                 (hoverRating || userRating) >= star
                   ? "fill-warning text-warning"
                   : "text-muted-foreground/30"

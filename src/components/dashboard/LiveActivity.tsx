@@ -1,109 +1,98 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { Radio, MessageSquare, Users, ArrowRight, Zap } from "lucide-react";
-import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Radio, MessageSquare, Lightbulb, BookOpen, Clock } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
-interface ActiveRoom {
-  id: string;
-  name: string;
-  topic: string;
-  icon: string | null;
-  participant_count: number | null;
-  mentor_led: boolean | null;
-}
-
-interface ActiveSession {
-  id: string;
-  title: string;
-  topic: string;
-  status: string;
-  participant_count: number | null;
+interface ActivityItem {
+  activity_type: string;
+  reference_id: string;
+  description: string;
+  created_at: string;
 }
 
 export const LiveActivity = () => {
-  const [rooms, setRooms] = useState<ActiveRoom[]>([]);
-  const [sessions, setSessions] = useState<ActiveSession[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   const fetchActivity = useCallback(async () => {
-    const [roomsRes, sessionsRes] = await Promise.all([
-      supabase.from("brainstorm_rooms").select("id, name, topic, icon, participant_count, mentor_led").eq("is_active", true).limit(5),
-      supabase.from("ama_sessions").select("id, title, topic, status, participant_count").eq("status", "live").limit(5),
-    ]);
-    setRooms(roomsRes.data || []);
-    setSessions(sessionsRes.data || []);
-    setLoading(false);
-  }, []);
+    if (!user) return;
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/live-activity`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setActivities(await res.json());
+      } else {
+        setActivities([]);
+      }
+    } catch {
+      setActivities([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
 
-  // Public live data — no per-user filter required (RLS allows all to read).
-  useRealtimeSync({
-    channelName: "dashboard-live-activity",
-    filters: [
-      { table: "brainstorm_rooms" },
-      { table: "brainstorm_participants" },
-      { table: "ama_participants" },
-    ],
-    onChange: fetchActivity,
-    pollIntervalMs: 20000, // ama_sessions not in realtime publication
-  });
-
-  const hasActivity = rooms.length > 0 || sessions.length > 0;
+  useEffect(() => {
+    fetchActivity();
+    const interval = setInterval(fetchActivity, 15000);
+    return () => clearInterval(interval);
+  }, [fetchActivity]);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Radio className="h-5 w-5 text-green-500 animate-pulse" />
-          Live Activity
+        <CardTitle className="flex items-center justify-between text-lg">
+          <div className="flex items-center gap-2">
+            <Radio className="h-4 w-4 text-green-500 animate-pulse" />
+            My Recent Activity
+          </div>
+          <Badge className="bg-red-500/10 text-red-500 border-none">LIVE</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <p className="text-sm text-muted-foreground text-center py-6">Loading...</p>
-        ) : !hasActivity ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-border/50">
+                <Skeleton className="h-4 w-4 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3 w-1/3" />
+                  <Skeleton className="h-3 w-2/3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : activities.length === 0 ? (
           <div className="text-center py-8">
-            <Zap className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground mb-3">No live activity right now</p>
-            <Link to="/innovation-hub">
-              <Button variant="outline" size="sm" className="gap-1">
-                Start a Brainstorm <ArrowRight className="h-3 w-3" />
-              </Button>
-            </Link>
+            <Clock className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground">No recent activity found.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {rooms.map((room) => (
-              <Link to="/innovation-hub" key={room.id}>
-                <div className="flex items-center gap-3 p-3 rounded-lg border border-green-500/20 bg-green-500/5 hover:bg-green-500/10 transition-colors cursor-pointer">
-                  <span className="text-xl">{room.icon || "💡"}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{room.name}</p>
-                    <p className="text-xs text-muted-foreground">{room.topic}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {room.mentor_led && <Badge className="text-[10px] bg-purple-500/10 text-purple-600">Mentor</Badge>}
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Users className="h-3 w-3" /> {room.participant_count || 0}
-                    </span>
-                  </div>
+            {activities.map((item, idx) => (
+              <div key={idx} className="flex items-start gap-3 p-3 rounded-lg border border-primary/10 bg-primary/5 hover:bg-primary/10 transition-colors">
+                {item.activity_type === "note" && <BookOpen className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />}
+                {item.activity_type === "idea" && <Lightbulb className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />}
+                {item.activity_type === "classroom_message" && <MessageSquare className="h-4 w-4 text-purple-500 shrink-0 mt-0.5" />}
+                
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium">
+                    {item.activity_type === "note" && "Uploaded note"}
+                    {item.activity_type === "idea" && "Posted idea"}
+                    {item.activity_type === "classroom_message" && "Classroom message"}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">{item.description}</p>
                 </div>
-              </Link>
-            ))}
-            {sessions.map((session) => (
-              <Link to="/mentors" key={session.id}>
-                <div className="flex items-center gap-3 p-3 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer">
-                  <MessageSquare className="h-5 w-5 text-primary shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{session.title}</p>
-                    <p className="text-xs text-muted-foreground">{session.topic}</p>
-                  </div>
-                  <Badge className="text-[10px] bg-red-500/10 text-red-500">LIVE</Badge>
-                </div>
-              </Link>
+                <span className="text-[10px] text-muted-foreground shrink-0">
+                  {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
             ))}
           </div>
         )}

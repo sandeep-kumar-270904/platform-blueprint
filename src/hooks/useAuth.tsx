@@ -1,35 +1,134 @@
-import { useEffect, useState } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, createContext, useContext } from "react";
 
-export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+interface User {
+  id: string;
+  email: string;
+  full_name?: string;
+  avatar_url?: string;
+  university?: string;
+  degree?: string;
+  graduation_year?: string;
+  is_verified_host?: boolean;
+  host_verification_status?: string;
+  gamification_badges?: any[];
+}
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  signIn: (credentials: any) => Promise<any>;
+  signUp: (userData: any) => Promise<void>;
+  signOut: () => Promise<void>;
+  fetchUser: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+const API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/auth` : "http://localhost:5000/api/auth";
+
+
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<User | null>({ 
+    id: "dummy-user-id", 
+    email: "test@example.com", 
+    full_name: "Test User", 
+    university: "Test University",
+    is_verified_host: false,
+    host_verification_status: "unverified",
+    gamification_badges: []
+  });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+  const fetchUser = async () => {
+    // TEMPORARY AUTH BYPASS: Commenting out real fetch
+    /*
+    try {
+      const token = localStorage.getItem('token');
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_URL}/me`, { 
+        headers,
+        credentials: 'include' 
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser({
+          ...data.user,
+          id: data.user._id || data.user.id
+        });
       }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    } catch (err) {
+      console.error("Auth check failed", err);
+    } finally {
       setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
+    }
+    */
+    setLoading(false);
   };
 
-  return { user, session, loading, signOut };
+  useEffect(() => {
+    fetchUser();
+  }, []);
+
+  const signIn = async (credentials: any) => {
+    try {
+      const res = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(credentials)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 429) throw new Error(data.message || 'Too many attempts. Try again later.');
+        throw new Error(data.message || 'Login failed');
+      }
+      if (data.token) localStorage.setItem('token', data.token);
+      setUser(data.user);
+      return data; // Return full data to handle newDeviceDetails and linkedProvider in UI
+    } catch (error: any) {
+      throw error;
+    }
+  };
+
+  const signUp = async (userData: any) => {
+    try {
+      // userData includes consent, captchaToken, etc.
+      const res = await fetch(`${API_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(userData)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Registration failed');
+      if (data.token) localStorage.setItem('token', data.token);
+      setUser(data.user);
+    } catch (error: any) {
+      throw error;
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await fetch(`${API_URL}/logout`, { method: 'POST', credentials: 'include' });
+    } catch(e) {}
+    localStorage.removeItem('token');
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, fetchUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 };

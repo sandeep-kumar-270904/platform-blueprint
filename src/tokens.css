@@ -1,0 +1,87 @@
+:root {
+  --canvas: #EBE5DB;
+  --surface: #E1DBCF;
+  --surface-sunk: #D6CFC1;
+  --ink: #201C18;
+  --ink-soft: #4A453E;
+  --ink-faint: #8A8478;
+  --accent: #B5651D;
+  --accent-soft: #F4E4D4;
+  --border: #E2DCCE;
+
+  --shadow-sm: 0 1px 3px rgba(32,28,24,0.06);
+  --shadow-md: 0 8px 24px rgba(32,28,24,0.08);
+  --shadow-lg: 0 24px 56px rgba(32,28,24,0.14);
+
+  --cover: #2B1D14;
+  --cover-line: #3D2B1E;
+  --paper: #FBF6EC;
+  --paper-edge: #EFE6D3;
+  --cream-text: #F3EAD9;
+  --cream-soft: #B8A98F;
+  --gold: #C89B3C;
+  --gold-deep: #96712A;
+  --ribbon: #7A2E22;
+  --success: #5C7A5A;
+
+  /* NotesHub New Design System */
+  --color-bg: #FAF7F0;
+  --color-surface: #FFFFFF;
+  --color-surface-dark: #1C1917;
+  --color-text-primary: #1C1917;
+  --color-text-secondary: #6B6459;
+  --color-text-inverse: #F5F1EA;
+  --color-text-inverse-muted: #A8A296;
+  --color-accent: #C4622D;
+  --color-border: #E8E2D6;
+  --color-border-dark: #33302B;
+  --color-success: #3F7A4E;
+  --color-warning: #B8862E;
+}
+
+.dark {
+  --canvas: #1c1917;
+  --surface: #292524;
+  --surface-sunk: #44403c;
+  --ink: #f5f5f4;
+  --ink-soft: #d6d3d1;
+  --ink-faint: #a8a29e;
+  --accent: #d97706;
+  --accent-soft: #78350f;
+  --border: #44403c;
+
+  --cover: #2B1D14;
+  --cover-line: #3D2B1E;
+  --paper: #292524;
+  --paper-edge: #44403c;
+  --cream-text: #F3EAD9;
+  --cream-soft: #B8A98F;
+  
+  --color-bg: #1c1917;
+  --color-surface: #292524;
+  --color-surface-dark: #44403c;
+  --color-text-primary: #f5f5f4;
+  --color-text-secondary: #d6d3d1;
+  --color-text-inverse: #1C1917;
+  --color-text-inverse-muted: #6B6459;
+  --color-border: #44403c;
+  --color-border-dark: #57534e;
+}
+
+:root {
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-6: 48px;
+  --space-8: 64px;
+  --space-12: 96px;
+
+  --radius-sm: 8px;
+  --radius-lg: 20px;
+  
+  --icon-size: 40px;
+  --icon-radius: 10px;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}

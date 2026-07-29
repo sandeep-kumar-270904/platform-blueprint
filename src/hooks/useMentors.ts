@@ -1,9 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { io } from "socket.io-client";
+import { toast } from "sonner";
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface MentorRow {
-  id: string;
+  _id?: string;
+  id?: string;
   user_id: string;
   title: string;
   company: string | null;
@@ -17,56 +20,56 @@ export interface MentorRow {
   verified: boolean;
   availability_text: string | null;
   is_active: boolean;
+  tier: 'new' | 'rising' | 'top-rated' | 'elite';
+  verificationTier: 'unverified' | 'email_verified' | 'institution_verified' | 'identity_verified';
   profile?: { username: string | null; full_name: string | null; avatar_url: string | null };
 }
 
 export interface AvailabilitySlot {
-  id: string;
+  _id?: string;
+  id?: string;
   mentor_id: string;
   starts_at: string;
   ends_at: string;
   is_booked: boolean;
 }
 
-export const useMentors = () => {
+export const useMentors = (filters?: { search?: string; expertise?: string | null; isFree?: string; minRating?: string; sort?: string; page?: number; verifiedOnly?: boolean }) => {
   const [mentors, setMentors] = useState<MentorRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
 
   const fetchMentors = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("mentor_profiles")
-      .select("*")
-      .eq("is_active", true)
-      .order("rating", { ascending: false });
+    setLoading(true);
+    try {
+      let query = `${API_URL}/api/mentors?`;
+      if (filters?.search) query += `search=${encodeURIComponent(filters.search)}&`;
+      if (filters?.expertise) query += `expertise=${encodeURIComponent(filters.expertise)}&`;
+      if (filters?.isFree) query += `isFree=${filters.isFree}&`;
+      if (filters?.minRating) query += `minRating=${filters.minRating}&`;
+      if (filters?.sort) query += `sort=${filters.sort}&`;
+      if (filters?.page) query += `page=${filters.page}&`;
+      if (filters?.verifiedOnly) query += `verifiedOnly=${filters.verifiedOnly}&`;
 
-    if (error || !data) {
+      const res = await fetch(query);
+      if (res.ok) {
+        const data = await res.json();
+        const mapped = data.mentors.map((m: any) => ({ ...m, id: m._id }));
+        setMentors(mapped);
+        setTotal(data.total);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
       setLoading(false);
-      return;
     }
+  }, [filters?.search, filters?.expertise, filters?.isFree, filters?.minRating, filters?.sort, filters?.page, filters?.verifiedOnly]);
 
-    const userIds = [...new Set(data.map((m: any) => m.user_id))];
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, username, full_name, avatar_url")
-      .in("id", userIds);
+  useEffect(() => {
+    fetchMentors();
+  }, [fetchMentors]);
 
-    setMentors(
-      data.map((m: any) => ({
-        ...m,
-        profile: profiles?.find((p: any) => p.id === m.user_id) || undefined,
-      })) as MentorRow[]
-    );
-    setLoading(false);
-  }, []);
-
-  useRealtimeSync({
-    channelName: "mentors-public",
-    filters: [{ table: "mentor_profiles" }, { table: "mentor_reviews" }],
-    onChange: fetchMentors,
-    pollIntervalMs: 60000,
-  });
-
-  return { mentors, loading, refetch: fetchMentors };
+  return { mentors, loading, total, refetch: fetchMentors };
 };
 
 export const useMentorAvailability = (mentorId: string | null) => {
@@ -76,23 +79,65 @@ export const useMentorAvailability = (mentorId: string | null) => {
   const fetchSlots = useCallback(async () => {
     if (!mentorId) return setSlots([]);
     setLoading(true);
-    const { data } = await supabase
-      .from("mentor_availability")
-      .select("*")
-      .eq("mentor_id", mentorId)
-      .gte("starts_at", new Date().toISOString())
-      .order("starts_at", { ascending: true });
-    setSlots((data || []) as AvailabilitySlot[]);
-    setLoading(false);
+    try {
+      const res = await fetch(`${API_URL}/api/mentors/${mentorId}/availability`);
+      if (res.ok) {
+        let data = await res.json();
+        data = data.map((s: any) => ({ ...s, id: s._id }));
+        setSlots(data);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, [mentorId]);
 
-  useRealtimeSync({
-    channelName: mentorId ? `mentor-slots-${mentorId}` : undefined,
-    enabled: !!mentorId,
-    filters: mentorId ? [{ table: "mentor_availability", filter: `mentor_id=eq.${mentorId}` }] : [],
-    onChange: fetchSlots,
-    pollIntervalMs: 30000,
-  });
+  useEffect(() => {
+    fetchSlots();
+
+    if (!mentorId) return;
+
+    const socket = io(API_URL);
+    socket.on('mentor_slots_updated', (updatedMentorId) => {
+      if (updatedMentorId === mentorId) fetchSlots();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchSlots, mentorId]);
 
   return { slots, loading, refetch: fetchSlots };
+};
+
+export const useRecommendedMentors = () => {
+  const [mentors, setMentors] = useState<MentorRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRecommended = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setLoading(false);
+          return;
+        }
+        const res = await fetch(`${API_URL}/api/mentors/recommendations`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setMentors(data.map((m: any) => ({ ...m, id: m._id })));
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRecommended();
+  }, []);
+
+  return { mentors, loading };
 };

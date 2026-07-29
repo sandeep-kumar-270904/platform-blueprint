@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 interface CircleMember {
@@ -62,73 +61,25 @@ export const FeedbackCircles = () => {
 
   const fetchCircles = useCallback(async () => {
     setLoading(true);
-    const { data: circleRows } = await supabase
-      .from("feedback_circles")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!circleRows || circleRows.length === 0) {
-      setCircles([]);
-      setLoading(false);
-      return;
-    }
-
-    const circleIds = circleRows.map(c => c.id);
-
-    // Fetch members for all circles
-    const { data: members } = await supabase
-      .from("feedback_circle_members")
-      .select("*")
-      .in("circle_id", circleIds);
-
-    // Fetch profiles
-    const userIds = [...new Set((members || []).map(m => m.user_id))];
-    const { data: profiles } = userIds.length > 0
-      ? await supabase.from("profiles").select("id, username, avatar_url").in("id", userIds)
-      : { data: [] };
-
-    // Fetch feedback counts per circle using security definer function
-    const { data: feedbackCounts } = await supabase
-      .rpc("count_circle_feedback", { _circle_ids: circleIds });
-
-    const feedbackByCircle: Record<string, number> = {};
-    (feedbackCounts || []).forEach((f: any) => {
-      feedbackByCircle[f.circle_id] = Number(f.feedback_count) || 0;
-    });
-
-    const enriched: FeedbackCircle[] = circleRows.map(circle => {
-      const circleMembers = (members || [])
-        .filter(m => m.circle_id === circle.id)
-        .map(m => ({
-          user_id: m.user_id,
-          project_name: m.project_name,
-          skills: m.skills || [],
-          profile: (profiles || []).find(p => p.id === m.user_id) || undefined,
-        }));
-      const memberCount = circleMembers.length;
-      // Total feedback possible = members * (members - 1) i.e. each member gives to every other
-      const feedbackTotal = memberCount > 1 ? memberCount * (memberCount - 1) : 1;
-      const feedbackGiven = feedbackByCircle[circle.id] || 0;
-
-      return { ...circle, members: circleMembers, feedbackGiven, feedbackTotal };
-    });
-
-    setCircles(enriched);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const headers: any = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      
+      const res = await fetch(`${API_URL}/api/innovation/feedback-circles`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setCircles(data);
+      }
+    } catch {}
     setLoading(false);
   }, []);
 
   useEffect(() => {
     fetchCircles();
-
-    // Realtime subscriptions
-    const channel = supabase
-      .channel("feedback-circles-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "feedback_circles" }, () => fetchCircles())
-      .on("postgres_changes", { event: "*", schema: "public", table: "feedback_circle_members" }, () => fetchCircles())
-      .on("postgres_changes", { event: "*", schema: "public", table: "circle_feedback" }, () => fetchCircles())
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    const interval = setInterval(fetchCircles, 15000);
+    return () => clearInterval(interval);
   }, [fetchCircles]);
 
   // Keep selectedCircle in sync with updated data
@@ -154,20 +105,25 @@ export const FeedbackCircles = () => {
     }
 
     setJoining(true);
-    const { error } = await supabase.from("feedback_circle_members").insert({
-      circle_id: joinable.id,
-      user_id: user.id,
-      project_name: "My Project",
-      skills: [],
-    });
-    setJoining(false);
-
-    if (error) {
-      if (error.code === "23505") toast.info("You're already in this circle!");
-      else toast.error("Failed to join circle");
-      return;
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/innovation/feedback-circles/${joinable.id}/join`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        toast.success(`Joined "${joinable.name}"!`);
+        fetchCircles();
+      } else {
+        const data = await res.json();
+        if (data.message?.includes("already")) toast.info("You're already in this circle!");
+        else toast.error("Failed to join circle");
+      }
+    } catch {
+      toast.error("Failed to join circle");
     }
-    toast.success(`Joined "${joinable.name}"!`);
+    setJoining(false);
   };
 
   const handleCreateCircle = async () => {
@@ -177,41 +133,63 @@ export const FeedbackCircles = () => {
       return;
     }
     setCreating(true);
-    const currentWeek = Math.ceil((new Date().getTime() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
-    const { error } = await supabase.from("feedback_circles").insert({
-      name: newCircle.name.trim(),
-      topic: newCircle.topic.trim(),
-      meeting_time: newCircle.meeting_time.trim() || null,
-      status: newCircle.status,
-      week_number: currentWeek,
-      created_by: user.id,
-    });
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/innovation/feedback-circles`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCircle.name.trim(),
+          topic: newCircle.topic.trim(),
+          meeting_time: newCircle.meeting_time.trim() || null,
+          status: newCircle.status,
+        })
+      });
+      if (res.ok) {
+        toast.success("Circle created!");
+        setCreateOpen(false);
+        setNewCircle({ name: "", topic: "", meeting_time: "", status: "upcoming" });
+        fetchCircles();
+      } else {
+        toast.error("Failed to create circle");
+      }
+    } catch {
+      toast.error("Failed to create circle");
+    }
     setCreating(false);
-    if (error) { toast.error("Failed to create circle"); return; }
-    toast.success("Circle created!");
-    setCreateOpen(false);
-    setNewCircle({ name: "", topic: "", meeting_time: "", status: "upcoming" });
   };
 
   const handleSubmitFeedback = async () => {
     if (!feedbackText.trim() || !feedbackTarget || !selectedCircle || !user || submittingFeedback) return;
 
     setSubmittingFeedback(true);
-    const { error } = await supabase.from("circle_feedback").insert({
-      circle_id: selectedCircle.id,
-      from_user_id: user.id,
-      to_user_id: feedbackTarget.user_id,
-      content: feedbackText.trim(),
-      rating: feedbackRating,
-    });
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/innovation/feedback-circles/${selectedCircle.id}/feedback`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to_user_id: feedbackTarget.user_id,
+          content: feedbackText.trim(),
+          rating: feedbackRating,
+        })
+      });
+      if (res.ok) {
+        toast.success(`Feedback sent to ${feedbackTarget.profile?.username || "member"}!`);
+        setFeedbackText("");
+        setFeedbackRating(4);
+        setFeedbackDialogOpen(false);
+        setFeedbackTarget(null);
+        fetchCircles();
+      } else {
+        toast.error("Failed to submit feedback");
+      }
+    } catch {
+      toast.error("Failed to submit feedback");
+    }
     setSubmittingFeedback(false);
-
-    if (error) { toast.error("Failed to submit feedback"); return; }
-    toast.success(`Feedback sent to ${feedbackTarget.profile?.username || "member"}!`);
-    setFeedbackText("");
-    setFeedbackRating(4);
-    setFeedbackDialogOpen(false);
-    setFeedbackTarget(null);
   };
 
   return (
@@ -291,7 +269,7 @@ export const FeedbackCircles = () => {
       </div>
 
       {/* How it Works */}
-      <Card className="bg-gradient-to-r from-primary/5 to-accent/5 border-primary/20">
+      <Card className="bg-primary text-primary-foreground border-primary/20">
         <CardContent className="p-6">
           <h3 className="font-semibold mb-4">How Feedback Circles Work</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -302,7 +280,7 @@ export const FeedbackCircles = () => {
               { step: "4", title: "Improve", desc: "Apply insights to your project" },
             ].map((item) => (
               <div key={item.step} className="text-center">
-                <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm">
+                <div className="mx-auto mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm">
                   {item.step}
                 </div>
                 <h4 className="text-sm font-semibold">{item.title}</h4>
@@ -416,7 +394,7 @@ export const FeedbackCircles = () => {
                         <Card className="bg-muted/30">
                           <CardContent className="p-4">
                             <div className="flex items-start gap-3">
-                              <Avatar className="h-10 w-10">
+                              <Avatar className="h-8 w-8">
                                 <AvatarFallback>
                                   {(member.profile?.username || "U")[0].toUpperCase()}
                                 </AvatarFallback>
@@ -439,7 +417,7 @@ export const FeedbackCircles = () => {
                                         <Button
                                           size="sm"
                                           variant="outline"
-                                          className="text-xs gap-1 h-7"
+                                          className="text-xs gap-1 h-6"
                                           onClick={() => setFeedbackTarget(member)}
                                         >
                                           <MessageSquare className="h-3 w-3" />

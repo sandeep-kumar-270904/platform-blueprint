@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Bell, Check, X, MessageSquare, Users, Calendar, Lightbulb, Trophy } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Bell, Check, X, MessageSquare, Users, Calendar, Lightbulb, Trophy, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,10 +9,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import io from 'socket.io-client';
 
 interface Notification {
   id: string;
@@ -21,6 +24,7 @@ interface Notification {
   is_read: boolean;
   action_url: string | null;
   created_at: string;
+  metadata?: any;
 }
 
 const getNotificationIcon = (type: string) => {
@@ -49,60 +53,87 @@ export const NotificationCenter = () => {
     if (!user) return;
 
     const fetchNotifications = async () => {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-
-      if (!error && data) {
-        setNotifications(data);
-      }
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/notifications`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // API returns { notifications: [...] }
+          setNotifications(data.notifications || []);
+        }
+      } catch {}
     };
 
     fetchNotifications();
+    const interval = setInterval(fetchNotifications, 15000);
 
-    // Subscribe to real-time notifications
-    const channel = supabase
-      .channel("notifications")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          setNotifications((prev) => [payload.new as Notification, ...prev]);
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const socket = io(API_URL);
+    socket.emit('join_user_room', user.id);
+    socket.on('notification:new', (newNotification: any) => {
+      setNotifications(prev => {
+        const id = newNotification.id || newNotification._id;
+        const existingIdx = prev.findIndex(n => (n.id || (n as any)._id) === id);
+        if (existingIdx !== -1) {
+          const newArr = [...prev];
+          newArr.splice(existingIdx, 1);
+          return [newNotification, ...newArr];
         }
-      )
-      .subscribe();
+        return [newNotification, ...prev];
+      });
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(interval);
+      socket.disconnect();
     };
   }, [user]);
 
-  const markAsRead = async (id: string) => {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-    );
+  const markAsRead = async (notification: Notification) => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/notifications/${notification.id || (notification as any)._id}/read`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setNotifications((prev) =>
+        prev.map((n) => ((n.id || (n as any)._id) === (notification.id || (notification as any)._id) ? { ...n, isRead: true } : n))
+      );
+      
+      // Navigate to actionUrl if present
+      const actionUrl = (notification as any).actionUrl;
+      if (actionUrl) {
+        setIsOpen(false);
+        window.location.href = actionUrl; // or use navigate from react-router-dom if we add the hook
+      }
+    } catch {}
   };
 
   const markAllAsRead = async () => {
     if (!user) return;
-    await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", user.id)
-      .eq("is_read", false);
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      await fetch(`${API_URL}/api/notifications/read-all`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setNotifications((prev) =>
+      prev.map((n) => ({ ...n, is_read: true, isRead: true }))
+    );
+    } catch {}
   };
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const groupedNotifications = notifications;
+
+  const unreadCount = notifications.filter((n) => !n.is_read && !(n as any).isRead).length;
+
+  const latestDigest = notifications.find(n => n.type === 'weekly_digest');
+  const digestData = latestDigest?.metadata || { newFollowers: 0, postReactions: 0, topPostText: 'Check back next week for your first digest!' };
 
   if (!user) return null;
 
@@ -110,7 +141,7 @@ export const NotificationCenter = () => {
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+          <Bell className="h-4 w-4" />
           <AnimatePresence>
             {unreadCount > 0 && (
               <motion.div
@@ -120,7 +151,7 @@ export const NotificationCenter = () => {
               >
                 <Badge
                   variant="destructive"
-                  className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-xs"
+                  className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-xs"
                 >
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </Badge>
@@ -131,7 +162,40 @@ export const NotificationCenter = () => {
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between p-4 border-b">
-          <h4 className="font-semibold">Notifications</h4>
+          <div className="flex items-center gap-2">
+            <h4 className="font-semibold">Notifications</h4>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] text-primary">Weekly Digest</Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Your Week in Review</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-primary/5 p-4 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-primary">{digestData.newFollowers || 0}</p>
+                      <p className="text-xs text-muted-foreground">New Followers</p>
+                    </div>
+                    <div className="bg-primary/5 p-4 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-primary">{digestData.postReactions || 0}</p>
+                      <p className="text-xs text-muted-foreground">Post Reactions</p>
+                    </div>
+                  </div>
+                  <div>
+                    <h5 className="text-sm font-medium mb-2">Most Engaged Post</h5>
+                    <div className="p-3 border rounded-lg bg-muted/20 text-xs text-muted-foreground">
+                      {digestData.topPostText ? `"${digestData.topPostText}"` : "No posts this week."}
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setIsOpen(false); window.location.href = '/settings/notifications'; }}>
+              <Bell className="h-3 w-3" />
+            </Button>
+          </div>
           {unreadCount > 0 && (
             <Button
               variant="ghost"
@@ -151,22 +215,22 @@ export const NotificationCenter = () => {
             </div>
           ) : (
             <div className="divide-y">
-              {notifications.map((notification) => {
+              {groupedNotifications.map((notification) => {
                 const Icon = getNotificationIcon(notification.type);
                 return (
-                  <motion.div
-                    key={notification.id}
+                    <motion.div
+                    key={notification.id || (notification as any)._id}
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={`p-4 hover:bg-muted/50 cursor-pointer transition-colors ${
-                      !notification.is_read ? "bg-primary/5" : ""
+                      !notification.is_read && !(notification as any).isRead ? "bg-primary/5" : ""
                     }`}
-                    onClick={() => markAsRead(notification.id)}
+                    onClick={() => markAsRead(notification)}
                   >
                     <div className="flex gap-3">
                       <div
                         className={`p-2 rounded-full ${
-                          !notification.is_read
+                          !notification.is_read && !(notification as any).isRead
                             ? "bg-primary/10 text-primary"
                             : "bg-muted text-muted-foreground"
                         }`}
@@ -176,21 +240,47 @@ export const NotificationCenter = () => {
                       <div className="flex-1 min-w-0">
                         <p
                           className={`text-sm font-medium ${
-                            !notification.is_read ? "" : "text-muted-foreground"
+                            !notification.is_read && !(notification as any).isRead ? "" : "text-muted-foreground"
                           }`}
                         >
-                          {notification.title}
+                          {notification.title || (notification as any).type.replace(/_/g, ' ')}
                         </p>
                         <p className="text-xs text-muted-foreground line-clamp-2">
                           {notification.message}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {formatDistanceToNow(new Date(notification.created_at), {
+                          {formatDistanceToNow(new Date(notification.created_at || (notification as any).createdAt), {
                             addSuffix: true,
                           })}
                         </p>
+                        {notification.metadata?.secondChanceMatches?.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-purple-500/20 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-600 dark:text-purple-400">
+                              <Sparkles className="h-3.5 w-3.5" />
+                              <span>{notification.metadata.secondChanceMatches.length} other {notification.metadata.secondChanceMatches.length === 1 ? 'team is' : 'teams are'} looking for someone like you:</span>
+                            </div>
+                            <div className="grid gap-1.5 mt-1">
+                              {notification.metadata.secondChanceMatches.map((match: any) => (
+                                <Link
+                                  key={match.teamId}
+                                  to={`/team-hunt/${match.teamId}`}
+                                  className="flex items-center justify-between p-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 transition-colors text-xs"
+                                  onClick={() => setIsOpen(false)}
+                                >
+                                  <div className="flex flex-col min-w-0 pr-2">
+                                    <span className="font-semibold text-foreground truncate">{match.title}</span>
+                                    {match.description && <span className="text-[10px] text-muted-foreground truncate">{match.description}</span>}
+                                  </div>
+                                  <Badge variant="outline" className="bg-purple-500/20 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] shrink-0 font-bold">
+                                    {match.matchScore}% Match
+                                  </Badge>
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      {!notification.is_read && (
+                      {(!notification.is_read && !(notification as any).isRead) && (
                         <div className="w-2 h-2 rounded-full bg-primary" />
                       )}
                     </div>

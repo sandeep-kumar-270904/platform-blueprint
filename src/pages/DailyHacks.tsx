@@ -8,70 +8,20 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Lightbulb, Heart, Share2, Bookmark, TrendingUp, Award } from "lucide-react";
 
-const mockHacks = [
-  {
-    id: 1,
-    user: "Priya Sharma",
-    title: "Quick CSS Grid Layout Trick",
-    content: "Use `display: grid` with `grid-auto-flow: dense` for automatic card arrangements!",
-    category: "Web Dev",
-    likes: 234,
-    shares: 45,
-    timeAgo: "2 hours ago"
-  },
-  {
-    id: 2,
-    user: "Arjun Patel",
-    title: "Python List Comprehension Magic",
-    content: "Transform nested loops into single-line comprehensions for cleaner code.",
-    category: "Python",
-    likes: 189,
-    shares: 32,
-    timeAgo: "5 hours ago"
-  },
-  {
-    id: 3,
-    user: "Sneha Reddy",
-    title: "Git Stash Save Time",
-    content: "Use `git stash -u` to include untracked files when stashing changes.",
-    category: "Git",
-    likes: 156,
-    shares: 28,
-    timeAgo: "1 day ago"
-  }
-];
+const mockHacks = [];
 
-const mockAchievements = [
-  {
-    id: 1,
-    user: "Rahul Verma",
-    title: "Completed First Hackathon",
-    description: "Won 2nd place at TechFest 2024",
-    badge: "🏆",
-    likes: 345,
-    timeAgo: "3 hours ago"
-  },
-  {
-    id: 2,
-    user: "Meera Shah",
-    title: "Published First NPM Package",
-    description: "react-super-hooks now available on npm",
-    badge: "📦",
-    likes: 267,
-    timeAgo: "1 day ago"
-  }
-];
+const mockAchievements = [];
 
 const DailyHacks = () => {
   const [selectedTab, setSelectedTab] = useState("hacks");
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
 
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-20 md:py-32">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 blur-3xl" />
+          
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
@@ -81,7 +31,7 @@ const DailyHacks = () => {
                 </Badge>
                 <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
                   Daily Hacks &{" "}
-                  <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                  <span className="text-foreground display-font">
                     Showcase
                   </span>
                 </h1>

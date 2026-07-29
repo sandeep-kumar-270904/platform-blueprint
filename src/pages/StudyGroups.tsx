@@ -1,165 +1,370 @@
-import { useState } from "react";
-import { Header } from "@/components/layout/Header";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users, Video, MessageSquare, Lock, Globe, Plus, Loader2, Send, LogOut, Link2 } from "lucide-react";
-import { useStudyGroups, useGroupMessages, type StudyGroupRow } from "@/hooks/useStudyGroups";
-import { useAuth } from "@/hooks/useAuth";
-import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
-import { InviteManager } from "@/components/study-groups/InviteManager";
+import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Header } from '@/components/layout/Header';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Plus, Users, Search, Globe, Lock, Sparkles, Loader2, Activity } from 'lucide-react';
+import { useStudyGroups, StudyGroup } from '@/hooks/useStudyGroups';
+import { useAuth } from '@/hooks/useAuth';
+import { SyncStatusIndicator } from '@/components/dashboard/SyncStatusIndicator';
 
 const StudyGroups = () => {
   const { user } = useAuth();
-  const { groups, myGroupIds, loading, status, join, leave, createGroup } = useStudyGroups();
-  const [open, setOpen] = useState(false);
-  const [chatGroup, setChatGroup] = useState<StudyGroupRow | null>(null);
-  const [form, setForm] = useState<any>({ privacy: "public", member_limit: 50 });
+  const navigate = useNavigate();
+  const { 
+    myGroups, 
+    discoverGroups,
+    recommendedGroups, 
+    loadingMyGroups, 
+    loadingDiscover, 
+    status, 
+    createGroup, 
+    joinGroup,
+    fetchDiscoverGroups
+  } = useStudyGroups();
+  
+  // Local Search state (replaces hook's internal search)
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  const [activeTab, setActiveTab] = useState('my-groups');
+  
+  // Filtering & Sorting State
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterActivity, setFilterActivity] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('most_active');
+  
+  // Create Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    category: '',
+    privacy: 'public' as 'public' | 'private',
+    member_limit: 50
+  });
 
-  const handleCreate = async () => {
-    if (!form.name) return;
-    await createGroup(form);
-    setOpen(false);
-    setForm({ privacy: "public", member_limit: 50 });
+  // Fetch backend data whenever filters change
+  React.useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchDiscoverGroups({
+        search: searchQuery,
+        category: filterCategory,
+        activityLevel: filterActivity,
+        sortBy
+      });
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, filterCategory, filterActivity, sortBy, fetchDiscoverGroups]);
+
+  // Derive unique categories dynamically for dropdown or hardcode them
+  const uniqueCategories = [
+    'Data Structures',
+    'System Design',
+    'React',
+    'Node.js',
+    'Machine Learning',
+    'Web3',
+    'Competitive Programming'
+  ];
+
+  const handleCreateSubmit = async () => {
+    if (!formData.name || !formData.description || !formData.category) return;
+    
+    try {
+      await createGroup(formData);
+      setIsCreateModalOpen(false);
+      setFormData({ name: '', description: '', category: '', privacy: 'public', member_limit: 50 });
+      // Switch to 'my-groups' tab so they see their new group immediately
+      setActiveTab('my-groups');
+    } catch (e) {
+      // Error handled by hook toast, keep modal open
+    }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
-      <Header />
-      <div className="container mx-auto px-4 py-12">
-        <div className="mb-8 flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Study Groups</h1>
-            <p className="text-muted-foreground">Join peers, chat, and collaborate live.</p>
+
+
+  const renderGroupCard = (group: StudyGroup, isMember: boolean) => {
+    let isActive = false;
+    if (group.last_activity) {
+      isActive = (new Date().getTime() - new Date(group.last_activity).getTime()) / (1000 * 3600 * 24) <= 7;
+    }
+    
+    return (
+    <Card key={group._id} className="flex flex-col h-full hover:border-primary/50 transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+      <CardHeader>
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant={group.privacy === 'public' ? 'secondary' : 'outline'}>
+              {group.privacy === 'public' ? <Globe className="w-3 h-3 mr-1" aria-hidden="true" /> : <Lock className="w-3 h-3 mr-1" aria-hidden="true" />}
+              {group.privacy}
+            </Badge>
+            {isActive && <Badge variant="default" className="bg-green-500 hover:bg-green-600"><Activity className="w-3 h-3 mr-1" aria-hidden="true" /> Active</Badge>}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center text-sm text-muted-foreground whitespace-nowrap ml-2" aria-label={`${group.member_count} out of ${group.member_limit} members`}>
+            <Users className="w-4 h-4 mr-1" aria-hidden="true" />
+            {group.member_count} / {group.member_limit}
+          </div>
+        </div>
+        <h3 className="text-xl font-bold line-clamp-1">{group.name}</h3>
+        <Badge variant="outline" className="w-fit mt-1">{group.category}</Badge>
+      </CardHeader>
+      
+      <CardContent className="flex-1">
+        <p className="text-sm text-muted-foreground line-clamp-3">{group.description}</p>
+      </CardContent>
+      
+      <CardFooter>
+        {isMember ? (
+          <Button className="w-full" variant="secondary" onClick={() => navigate(`/placement/study-groups/${group._id}`)}>
+            View Group
+          </Button>
+        ) : (
+          <Button 
+            className="w-full" 
+            variant="default"
+            disabled={group.member_count >= group.member_limit}
+            onClick={() => joinGroup(group._id)}
+          >
+            {group.privacy === 'private' ? 'Request to Join' : 'Join Group'}
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      <div className="container mx-auto px-4 pt-24 pb-12">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Peer Study Groups</h1>
+            <p className="text-muted-foreground mt-1">Connect with peers, share resources, and study together.</p>
+          </div>
+          
+          <div className="flex items-center gap-4">
             <SyncStatusIndicator status={status} />
+            
             {user && (
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" />Create Group</Button></DialogTrigger>
+              <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+                <DialogTrigger asChild>
+                  <Button><Plus className="w-4 h-4 mr-2" /> Create Group</Button>
+                </DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>Create Study Group</DialogTitle></DialogHeader>
-                  <div className="space-y-3">
-                    <div><Label>Name</Label><Input value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
-                    <div><Label>Description</Label><Textarea value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
-                    <div><Label>Category</Label><Input value={form.category || ""} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="DSA, Web Dev, AI..." /></div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
+                  <DialogHeader>
+                    <DialogTitle>Create a Study Group</DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Group Name</Label>
+                      <Input 
+                        id="name" 
+                        placeholder="e.g. Amazon SDE Prep Fall 2026" 
+                        value={formData.name}
+                        onChange={e => setFormData({...formData, name: e.target.value})}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea 
+                        id="description" 
+                        placeholder="What is this group about?" 
+                        value={formData.description}
+                        onChange={e => setFormData({...formData, description: e.target.value})}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="category">Focus Area (Subject)</Label>
+                      <Input 
+                        id="category" 
+                        placeholder="e.g. Data Structures, React, System Design" 
+                        value={formData.category}
+                        onChange={e => setFormData({...formData, category: e.target.value})}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
                         <Label>Privacy</Label>
-                        <Select value={form.privacy} onValueChange={v => setForm({ ...form, privacy: v })}>
+                        <Select 
+                          value={formData.privacy} 
+                          onValueChange={(val: 'public'|'private') => setFormData({...formData, privacy: val})}
+                        >
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="public">Public</SelectItem>
-                            <SelectItem value="private">Private</SelectItem>
+                            <SelectItem value="private">Private (Invite/Request)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      <div><Label>Member Limit</Label><Input type="number" value={form.member_limit} onChange={e => setForm({ ...form, member_limit: +e.target.value })} /></div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="limit">Member Limit</Label>
+                        <Input 
+                          id="limit" 
+                          type="number" 
+                          min={2} 
+                          max={200}
+                          value={formData.member_limit}
+                          onChange={e => setFormData({...formData, member_limit: parseInt(e.target.value) || 50})}
+                        />
+                      </div>
                     </div>
                   </div>
-                  <DialogFooter><Button onClick={handleCreate}>Create</Button></DialogFooter>
+                  
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
+                    <Button 
+                      onClick={handleCreateSubmit}
+                      disabled={!formData.name || !formData.description || !formData.category}
+                    >
+                      Create
+                    </Button>
+                  </DialogFooter>
                 </DialogContent>
               </Dialog>
             )}
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-        ) : groups.length === 0 ? (
-          <div className="text-center py-16">
-            <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground">No groups yet — create the first one!</p>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {groups.map(group => {
-              const isMember = myGroupIds.has(group.id);
-              return (
-                <Card key={group.id} className="hover-scale">
-                  <CardHeader>
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant={group.privacy === "public" ? "secondary" : "outline"}>
-                        {group.privacy === "public" ? <Globe className="mr-1 h-3 w-3" /> : <Lock className="mr-1 h-3 w-3" />}
-                        {group.privacy}
-                      </Badge>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />{group.member_count}/{group.member_limit}
-                      </div>
-                    </div>
-                    <h3 className="text-xl font-bold">{group.name}</h3>
-                    {group.category && <Badge variant="outline" className="mt-1 w-fit">{group.category}</Badge>}
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <p className="text-sm text-muted-foreground line-clamp-2">{group.description}</p>
-                    <div className="flex items-center gap-2 text-sm"><Video className="h-4 w-4 text-primary" />{group.active_room_count} active rooms</div>
-                  </CardContent>
-                  <CardFooter className="gap-2 flex-wrap">
-                    {isMember ? (
-                      <>
-                        <Button variant="outline" size="sm" className="flex-1" onClick={() => setChatGroup(group)}><MessageSquare className="h-4 w-4 mr-1" />Chat</Button>
-                        <InviteManager
-                          groupId={group.id}
-                          groupName={group.name}
-                          trigger={<Button size="sm" variant="outline"><Link2 className="h-4 w-4" /></Button>}
-                        />
-                        <Button variant="ghost" size="sm" onClick={() => leave(group.id)}><LogOut className="h-4 w-4" /></Button>
-                      </>
-                    ) : (
-                      <Button size="sm" className="flex-1" onClick={() => join(group.id)} disabled={group.privacy === "private"}>
-                        {group.privacy === "private" ? "Invite Only" : "Join Group"}
-                      </Button>
-                    )}
-                  </CardFooter>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-8">
+            <TabsTrigger value="my-groups">My Groups</TabsTrigger>
+            <TabsTrigger value="discover">Discover Groups</TabsTrigger>
+          </TabsList>
 
-      <Dialog open={!!chatGroup} onOpenChange={o => !o && setChatGroup(null)}>
-        <DialogContent className="max-w-2xl h-[600px] flex flex-col">
-          <DialogHeader><DialogTitle>{chatGroup?.name}</DialogTitle></DialogHeader>
-          {chatGroup && <GroupChat groupId={chatGroup.id} />}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
+          <TabsContent value="my-groups" className="min-h-[400px]">
+            {loadingMyGroups ? (
+              <div className="flex justify-center items-center h-40" aria-live="polite" aria-busy="true" aria-label="Loading your groups">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : myGroups.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center py-20 border rounded-lg bg-muted/10 border-dashed">
+                <Users className="w-12 h-12 text-muted-foreground mb-4 opacity-20" />
+                <h3 className="text-xl font-semibold mb-2">You haven't joined any groups yet</h3>
+                <p className="text-muted-foreground mb-6 max-w-md">
+                  Join a study group to collaborate with peers, share resources, and track progress together.
+                </p>
+                <Button onClick={() => setActiveTab('discover')}>Discover groups to join</Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {myGroups.map(g => renderGroupCard(g, true))}
+              </div>
+            )}
+          </TabsContent>
 
-const GroupChat = ({ groupId }: { groupId: string }) => {
-  const { user } = useAuth();
-  const { messages, send } = useGroupMessages(groupId);
-  const [text, setText] = useState("");
-  const submit = async () => { if (!text.trim()) return; await send(text); setText(""); };
-  return (
-    <>
-      <ScrollArea className="flex-1 -mx-6 px-6">
-        <div className="space-y-3 py-2">
-          {messages.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">No messages yet — say hi!</p>
-          ) : messages.map(m => (
-            <div key={m.id} className={`flex ${m.user_id === user?.id ? "justify-end" : "justify-start"}`}>
-              <div className={`rounded-lg px-3 py-2 max-w-[75%] text-sm ${m.user_id === user?.id ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                {m.content}
-                <div className="text-xs opacity-60 mt-1">{new Date(m.created_at).toLocaleTimeString()}</div>
+          <TabsContent value="discover" className="min-h-[400px]">
+            {/* Filter and Sort Bar */}
+            <div className="flex flex-col md:flex-row gap-4 mb-8 p-4 bg-muted/30 rounded-lg border">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search by group name or focus area..." 
+                  className="pl-9 bg-background"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="w-[160px] bg-background">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Subjects</SelectItem>
+                    {uniqueCategories.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Select value={filterActivity} onValueChange={setFilterActivity}>
+                  <SelectTrigger className="w-[160px] bg-background">
+                    <SelectValue placeholder="Activity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any Activity</SelectItem>
+                    <SelectItem value="active_week">Active this week</SelectItem>
+                    <SelectItem value="active_month">Active this month</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-[160px] bg-background">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="most_active">Most Active</SelectItem>
+                    <SelectItem value="best_match">Best Match</SelectItem>
+                    <SelectItem value="most_members">Most Members</SelectItem>
+                    <SelectItem value="newest">Newest</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          ))}
-        </div>
-      </ScrollArea>
-      <div className="flex gap-2 pt-3 border-t">
-        <Input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()} placeholder="Type a message..." />
-        <Button onClick={submit} disabled={!text.trim()}><Send className="h-4 w-4" /></Button>
+
+            {loadingDiscover ? (
+              <div className="flex justify-center items-center h-40" aria-live="polite" aria-busy="true" aria-label="Loading discover groups">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : discoverGroups.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center py-20 border rounded-lg bg-muted/10 border-dashed">
+                <Globe className="w-12 h-12 text-muted-foreground mb-4 opacity-20" />
+                <h3 className="text-xl font-semibold mb-2">No groups found</h3>
+                <p className="text-muted-foreground mb-6">
+                  {searchQuery ? "We couldn't find any groups matching your search." : "There are no public groups available to join right now."}
+                </p>
+                {searchQuery && (
+                  <Button variant="outline" onClick={() => setSearchQuery('')}>Clear Search</Button>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* Recommended Section (Only show if not strictly filtering) */}
+                {!searchQuery && filterCategory === 'all' && filterActivity === 'all' && recommendedGroups.length > 0 && (
+                  <div className="mb-10">
+                    <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-yellow-500" />
+                      Recommended for You
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {recommendedGroups.map(g => renderGroupCard(g, false))}
+                    </div>
+                  </div>
+                )}
+                
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">All Groups</h2>
+                  {discoverGroups.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground border rounded-lg border-dashed">
+                      No groups match your active filters.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {discoverGroups.map(g => renderGroupCard(g, false))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
+
       </div>
-    </>
+    </div>
   );
 };
 

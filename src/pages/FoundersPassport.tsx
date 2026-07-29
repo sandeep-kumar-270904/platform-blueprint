@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { supabase } from "@/integrations/supabase/client";
+
 import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";
 import {
@@ -51,23 +51,35 @@ const FoundersPassport = () => {
   useEffect(() => {
     if (!user) return;
     const fetchData = async () => {
-      const [ideasRes, teamsRes, notesRes, profileRes] = await Promise.all([
-        supabase.from("ideas").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("team_members").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("notes").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("profiles").select("username, full_name").eq("id", user.id).single(),
-      ]);
-      setStats({
-        ideasPosted: ideasRes.count || 0,
-        teamsJoined: teamsRes.count || 0,
-        projectsLaunched: Math.floor((ideasRes.count || 0) * 0.3),
-        mentorSessions: 3,
-        notesShared: notesRes.count || 0,
-        quizzesCompleted: 8,
-        eventsAttended: 5,
-        feedbackGiven: 12,
-      });
-      if (profileRes.data) setProfile(profileRes.data);
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/dashboard/stats`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch stats');
+        const data = await res.json();
+        
+        setStats({
+          ideasPosted: data.ideas || 0,
+          teamsJoined: data.teams || 0,
+          projectsLaunched: Math.floor((data.ideas || 0) * 0.3),
+          mentorSessions: 3,
+          notesShared: data.notes?.total || 0,
+          quizzesCompleted: 8,
+          eventsAttended: 5,
+          feedbackGiven: 12,
+        });
+        
+        if (user.user_metadata) {
+          setProfile({
+            username: user.user_metadata.username || null,
+            full_name: user.user_metadata.full_name || null
+          });
+        }
+      } catch (err) {
+        console.error(err);
+      }
     };
     fetchData();
   }, [user]);
@@ -107,13 +119,13 @@ const FoundersPassport = () => {
   const displayName = profile?.full_name || profile?.username || user?.email?.split("@")[0] || "Student";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
 
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-16 md:py-24">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 blur-3xl" />
-          <div className="container mx-auto px-4 relative z-10">
+          
+          <div className="container mx-auto px-4 relative z-8">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
                 <Badge variant="accent" className="mb-6">
@@ -122,7 +134,7 @@ const FoundersPassport = () => {
                 </Badge>
                 <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
                   Founder's{" "}
-                  <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                  <span className="text-foreground display-font">
                     Passport
                   </span>
                 </h1>
@@ -154,13 +166,13 @@ const FoundersPassport = () => {
                 animate={{ rotateY: 0, scale: 1 }}
                 transition={{ duration: 0.6, ease: "easeOut" }}
               >
-                <Card className="overflow-hidden border-2 border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 shadow-xl">
-                  <div className="h-2 bg-gradient-to-r from-primary via-accent to-primary" />
+                <Card className="overflow-hidden border-2 border-primary/20 bg-primary text-primary-foreground shadow-xl">
+                  <div className="h-2 bg-primary text-primary-foreground" />
                   <CardContent className="p-8">
                     <div className="flex flex-col md:flex-row items-start gap-6">
                       <div className="flex flex-col items-center gap-3">
                         <Avatar className="h-24 w-24 ring-4 ring-primary/20">
-                          <AvatarFallback className="text-2xl bg-gradient-to-br from-primary to-accent text-primary-foreground">
+                          <AvatarFallback className="text-2xl bg-primary text-primary-foreground text-primary-foreground">
                             {displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
                           </AvatarFallback>
                         </Avatar>
@@ -211,8 +223,8 @@ const FoundersPassport = () => {
                     transition={{ delay: 0.1 + index * 0.05 }}
                   >
                     <Card className="bg-card/50 backdrop-blur-sm hover:shadow-md transition-all">
-                      <CardContent className="p-5 text-center">
-                        <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color} mb-3`}>
+                      <CardContent className="p-4 text-center">
+                        <div className={`inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground${stat.color} mb-3`}>
                           <stat.icon className="h-6 w-6" />
                         </div>
                         <p className="text-3xl font-bold">{stat.value}</p>
@@ -229,7 +241,7 @@ const FoundersPassport = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Award className="h-5 w-5 text-primary" />
+                    <Award className="h-4 w-4 text-primary" />
                     Badges Earned ({earnedCount}/{badges.length})
                   </CardTitle>
                 </CardHeader>
@@ -263,7 +275,7 @@ const FoundersPassport = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
+                    <TrendingUp className="h-4 w-4 text-primary" />
                     Innovation Journey
                   </CardTitle>
                 </CardHeader>
@@ -279,8 +291,8 @@ const FoundersPassport = () => {
                     ].map((milestone, index) => (
                       <div key={index} className="flex items-start gap-4">
                         <div className="flex flex-col items-center">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20">
-                            <milestone.icon className="h-5 w-5 text-primary" />
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 border-2 border-primary/20">
+                            <milestone.icon className="h-4 w-4 text-primary" />
                           </div>
                           {index < 5 && <div className="w-0.5 h-8 bg-border mt-1" />}
                         </div>
@@ -307,7 +319,7 @@ const FoundersPassport = () => {
                 ].map((action) => (
                   <Link key={action.label} to={action.href}>
                     <Button variant="outline" className="w-full gap-2 h-auto py-4 flex-col">
-                      <action.icon className="h-5 w-5" />
+                      <action.icon className="h-4 w-4" />
                       <span className="text-xs">{action.label}</span>
                     </Button>
                   </Link>

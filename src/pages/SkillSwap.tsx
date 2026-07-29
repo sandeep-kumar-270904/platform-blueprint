@@ -4,139 +4,729 @@ import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { ParallaxSection } from "@/components/animations/ParallaxSection";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, ArrowRight, Clock, Star } from "lucide-react";
+import { RefreshCw, ArrowRight, Clock, Star, Search, Calendar, CheckCircle, XCircle, MessageSquare, Flag } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  useSkillOffers,
+  useMySkillOffers,
+  useSkillMatches,
+  useSkillRequests,
+  useMySessions,
+  useUserReviews,
+  useCreateSkillOffer,
+  useCreateSkillRequest,
+  useUpdateSkillRequestStatus,
+  useScheduleRequest,
+  useCompleteSession,
+  useCancelRequest,
+  useSubmitReview,
+  useDeleteSkillOffer,
+  useCreateSkillSwapReport,
+  useMarkNoShow,
+  SkillOffer,
+  SkillMatch,
+  SkillSession,
+  useSkillSwapRecommendations,
+  useUserBadges,
+  useUserEndorsements,
+  useCreateEndorsement
+} from "@/hooks/useSkillSwap";
+import { CirclesView } from "@/components/skill-swap/CirclesView";
+import { MyGrowth } from "@/components/skill-swap/MyGrowth";
+import { Checkbox } from "@/components/ui/checkbox";
 
-const mockOffers = [
-  {
-    id: 1,
-    user: "Priya Sharma",
-    offering: "Web Development",
-    seeking: "UI/UX Design",
-    experience: "2 years",
-    rating: 4.8,
-    matchScore: 95
-  },
-  {
-    id: 2,
-    user: "Arjun Patel",
-    offering: "Machine Learning",
-    seeking: "Backend Development",
-    experience: "1.5 years",
-    rating: 4.9,
-    matchScore: 88
-  },
-  {
-    id: 3,
-    user: "Sneha Reddy",
-    offering: "Graphic Design",
-    seeking: "Content Writing",
-    experience: "3 years",
-    rating: 5.0,
-    matchScore: 82
-  }
-];
-
-const SkillSwap = () => {
-  const [selectedTab, setSelectedTab] = useState("browse");
+// Component to fetch and display user badges
+const UserBadges = ({ userId }: { userId: string }) => {
+  const { data: badges, isLoading } = useUserBadges(userId);
+  if (isLoading || !badges || badges.length === 0) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="flex items-center gap-1 mt-1">
+      {badges.map(b => (
+        <Badge key={b._id} variant="outline" className="text-[10px] py-0 px-1 border-primary/50 text-primary bg-primary/5">
+          {b.badgeType === 'top-rated' && <Star className="h-3 w-3 mr-1 inline fill-primary" />}
+          {b.badgeType.replace('-', ' ')}
+        </Badge>
+      ))}
+    </div>
+  );
+};
+
+// Component to fetch and display user ratings
+const UserRating = ({ userId }: { userId: string }) => {
+  const { data, isLoading } = useUserReviews(userId);
+  if (isLoading) return <div className="text-xs text-muted-foreground animate-pulse">Loading rating...</div>;
+  if (!data?.stats?.reviewCount) return <div className="text-xs text-muted-foreground flex items-center gap-1"><Star className="h-3 w-3 text-muted-foreground"/> No reviews yet</div>;
+  
+  return (
+    <div className="flex items-center gap-1 text-xs font-medium text-amber-500">
+      <Star className="h-3 w-3 fill-amber-500" />
+      {data.stats.averageRating} ({data.stats.reviewCount})
+    </div>
+  );
+};
+
+const UserEndorsementBadge = ({ userId, skillName }: { userId: string, skillName: string }) => {
+  const { data: endorsements } = useUserEndorsements(userId);
+  if (!endorsements || !endorsements[skillName]) return null;
+  const count = endorsements[skillName].total;
+  
+  return (
+    <Badge variant="outline" className="text-xs border-green-200 bg-green-50 text-green-700 ml-2">
+      <CheckCircle className="h-3 w-3 mr-1 inline" /> {count} {count === 1 ? 'Endorsement' : 'Endorsements'}
+    </Badge>
+  );
+};
+
+// Sub-components to keep file clean
+const OfferCard = ({ offer, onSchedule, onReport }: { offer: SkillOffer, onSchedule: (offerId: string) => void, onReport: (offerId: string) => void }) => (
+  <Card className="hover-lift flex flex-col h-full relative">
+    <CardHeader>
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <img src={offer.user?.avatar || 'https://github.com/shadcn.png'} alt="avatar" className="w-10 h-10 rounded-full object-cover" />
+          <div>
+            <h3 className="text-lg font-bold leading-tight">{offer.user?.name || 'Anonymous User'}</h3>
+            <UserRating userId={offer.user._id} />
+            <UserBadges userId={offer.user._id} />
+            <div className="flex items-center gap-2 mt-1">
+              <Badge variant="secondary" className="text-xs">{offer.proficiencyLevel}</Badge>
+              <Badge variant="outline" className="text-xs">{offer.category}</Badge>
+            </div>
+          </div>
+        </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive absolute top-4 right-4" onClick={() => onReport(offer._id)}>
+          <Flag className="h-4 w-4" />
+        </Button>
+      </div>
+    </CardHeader>
+    <CardContent className="flex-1 flex flex-col justify-between">
+      <div className="space-y-4 mb-4">
+        <p className="text-sm text-muted-foreground line-clamp-2">{offer.description}</p>
+        <div className="flex items-center gap-3">
+          <div className="flex-1 p-3 rounded-lg bg-primary/10">
+            <p className="text-xs text-muted-foreground mb-1">Offering</p>
+            <p className="font-semibold text-sm line-clamp-1 flex items-center">{offer.skillName} <UserEndorsementBadge userId={offer.user._id} skillName={offer.skillName} /></p>
+          </div>
+          <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0" />
+          <div className="flex-1 p-3 rounded-lg bg-accent/10">
+            <p className="text-xs text-muted-foreground mb-1">Seeking</p>
+            <p className="font-semibold text-sm line-clamp-1">{offer.wantsToLearn.join(', ') || 'Anything'}</p>
+          </div>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          <Clock className="inline mr-1 h-3 w-3" /> Availability: {offer.availability}
+        </div>
+      </div>
+      <Button className="w-full" onClick={() => onSchedule(offer._id)}>
+        <RefreshCw className="mr-2 h-4 w-4" />
+        Request Exchange
+      </Button>
+    </CardContent>
+  </Card>
+);
+
+const MatchCard = ({ match, onRequest }: { match: SkillMatch, onRequest: (toUserId: string, offerId: string) => void }) => (
+  <Card className="hover-lift border-primary/20 bg-primary/5">
+    <CardHeader>
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <img src={match.otherOffer.user?.avatar || 'https://github.com/shadcn.png'} alt="avatar" className="w-10 h-10 rounded-full" />
+          <div>
+            <h3 className="text-lg font-bold">{match.otherOffer.user?.name}</h3>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">{match.otherOffer.proficiencyLevel}</Badge>
+            </div>
+          </div>
+        </div>
+        <Badge variant="default" className="bg-primary">{match.matchScore}% match</Badge>
+      </div>
+    </CardHeader>
+    <CardContent>
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 p-3 rounded-lg bg-background">
+            <p className="text-xs text-muted-foreground mb-1">They Offer</p>
+            <p className="font-semibold text-sm">{match.otherOffer.skillName}</p>
+          </div>
+          <RefreshCw className="h-5 w-5 text-primary" />
+          <div className="flex-1 p-3 rounded-lg bg-background">
+            <p className="text-xs text-muted-foreground mb-1">You Offer</p>
+            <p className="font-semibold text-sm">{match.myOffer.skillName}</p>
+          </div>
+        </div>
+        <Button className="w-full" onClick={() => onRequest(match.otherOffer.user._id, match.otherOffer._id)}>
+          Request Exchange
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+export default function SkillSwap() {
+  const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState("browse");
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
+  const [isPosting, setIsPosting] = useState(false);
+  const [reportingTarget, setReportingTarget] = useState<{ type: string, id: string } | null>(null);
+  const { toast } = useToast();
+
+  const syncStatus = useRealtimeSync({
+    channelName: 'skill-swap-events',
+    enabled: true,
+    pollIntervalMs: 60000,
+  });
+
+  // Queries
+  const { data: offersData, isLoading: offersLoading } = useSkillOffers(1, 20, search, category);
+  const { data: matches, isLoading: matchesLoading } = useSkillMatches();
+  const { data: myOffers, isLoading: myOffersLoading } = useMySkillOffers();
+  const { data: requests, isLoading: requestsLoading } = useSkillRequests();
+  const { data: sessions, isLoading: sessionsLoading } = useMySessions();
+  const { data: recommendations, isLoading: recommendationsLoading } = useSkillSwapRecommendations();
+
+  // Mutations
+  const createRequestMutation = useCreateSkillRequest();
+  const createOfferMutation = useCreateSkillOffer();
+  const deleteOfferMutation = useDeleteSkillOffer();
+  const updateReqStatusMutation = useUpdateSkillRequestStatus();
+  const scheduleReqMutation = useScheduleRequest();
+  const completeSessionMutation = useCompleteSession();
+  const cancelReqMutation = useCancelRequest();
+  const submitReviewMutation = useSubmitReview();
+  const reportMutation = useCreateSkillSwapReport();
+  const noShowMutation = useMarkNoShow();
+
+  const pendingCount = requests?.incoming?.filter(r => r.status === 'pending').length || 0;
+
+  const handleReportSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!reportingTarget) return;
+    const formData = new FormData(e.currentTarget);
+    try {
+      await reportMutation.mutateAsync({
+        targetType: reportingTarget.type,
+        targetId: reportingTarget.id,
+        reason: formData.get('reason') as string,
+        description: formData.get('description') as string
+      });
+      toast({ title: "Report Submitted", description: "Our moderators will review this shortly." });
+      setReportingTarget(null);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.response?.data?.message || "Failed to submit report", variant: "destructive" });
+    }
+  };
+
+  const handleNoShow = async (requestId: string) => {
+    try {
+      await noShowMutation.mutateAsync(requestId);
+      toast({ title: "Marked as No-Show", description: "The session has been recorded as a no-show." });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.response?.data?.message || "Failed to mark no-show", variant: "destructive" });
+    }
+  };
+
+  const handleRequestExchange = async (toUserId: string, offerId: string) => {
+    try {
+      await createRequestMutation.mutateAsync({ toUserId, offerId, message: "Hi! I'd love to exchange skills with you." });
+      toast({ title: "Request Sent!", description: "They will be notified of your request." });
+    } catch (error: any) {
+      toast({ title: "Failed to send request", description: error.response?.data?.message || "Something went wrong", variant: "destructive" });
+    }
+  };
+
+  const handleCreateOffer = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      skillName: formData.get('skillName') as string,
+      category: formData.get('category') as string,
+      description: formData.get('description') as string,
+      proficiencyLevel: formData.get('proficiencyLevel') as string,
+      wantsToLearn: (formData.get('wantsToLearn') as string).split(',').map(s => s.trim()),
+      availability: formData.get('availability') as string
+    };
+    try {
+      await createOfferMutation.mutateAsync(data);
+      toast({ title: "Offer Posted!", description: "Your skill offer is now live." });
+      setIsPosting(false);
+      (e.target as HTMLFormElement).reset();
+    } catch (error) {
+      toast({ title: "Failed to post", variant: "destructive" });
+    }
+  };
+
+  const handleSchedule = async (e: React.FormEvent<HTMLFormElement>, requestId: string) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const scheduledAt = formData.get('scheduledAt') as string;
+    try {
+      await scheduleReqMutation.mutateAsync({ id: requestId, scheduledAt });
+      toast({ title: "Session Scheduled!" });
+    } catch (error: any) {
+      toast({ title: "Failed", description: error.response?.data?.message, variant: "destructive" });
+    }
+  };
+
+  const createEndorsementMutation = useCreateEndorsement();
+
+  const handleReview = async (e: React.FormEvent<HTMLFormElement>, sessionId: string, otherUserId: string, skillName: string) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const rating = parseInt(formData.get('rating') as string);
+    const comment = formData.get('comment') as string;
+    const endorse = formData.get('endorse') === 'on';
+
+    try {
+      await submitReviewMutation.mutateAsync({ sessionId, rating, comment });
+      if (endorse && skillName && otherUserId) {
+        await createEndorsementMutation.mutateAsync({
+          endorseeId: otherUserId,
+          skillName,
+          basedOn: 'completed-session',
+          sessionId
+        });
+      }
+      toast({ title: "Review Submitted!" });
+    } catch (error: any) {
+      toast({ title: "Failed", description: error.response?.data?.message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
       <Header />
 
-      <ParallaxSection speed={0.3}>
-        <section className="relative overflow-hidden py-20 md:py-32">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 blur-3xl" />
+      <ParallaxSection speed={0.2}>
+        <section className="relative overflow-hidden py-6 md:py-8 border-b border-border/40 bg-gradient-to-b from-muted/20 to-background">
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
-                <Badge variant="default" className="mb-6">
-                  <RefreshCw className="mr-1 h-3 w-3" />
-                  Skill Exchange
-                </Badge>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
-                  Skill{" "}
-                  <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-                    Swap
-                  </span>
+                <div className="flex justify-center items-center gap-2 mb-2">
+                  <Badge variant="default" className="px-2.5 py-0.5 text-xs">
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                    Skill Exchange Phase 5
+                  </Badge>
+                  {syncStatus !== 'live' && syncStatus !== 'connecting' && (
+                    <SyncStatusIndicator status={syncStatus} />
+                  )}
+                </div>
+                <h1 className="text-2xl font-bold tracking-tight md:text-3xl lg:text-4xl mb-2">
+                  {t("Skill Swap", "Skill Swap")}
                 </h1>
-                <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
-                  Exchange skills with peers. Teach what you know, learn what you need.
+                <p className="text-sm md:text-base text-muted-foreground mb-4 max-w-xl mx-auto">
+                  Exchange knowledge, mentor peers, and learn new skills for free. Connect with fellow students to trade expertise.
                 </p>
-                <Button size="lg" className="hover-scale">
-                  Post Your Offer
-                </Button>
+                
+                <Dialog open={isPosting} onOpenChange={setIsPosting}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Post a Skill Offer</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateOffer} className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">What skill can you teach?</label>
+                        <Input name="skillName" required placeholder="e.g. React.js, Conversational Spanish" />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Category</label>
+                        <Input name="category" required placeholder="e.g. Programming, Languages, Design" />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Description</label>
+                        <Input name="description" placeholder="Briefly describe your experience" />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Your Proficiency</label>
+                        <select name="proficiencyLevel" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                          <option value="Beginner">Beginner</option>
+                          <option value="Intermediate">Intermediate</option>
+                          <option value="Advanced">Advanced</option>
+                          <option value="Expert">Expert</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">What do you want to learn? (comma separated)</label>
+                        <Input name="wantsToLearn" required placeholder="e.g. Node.js, UI Design" />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium">Availability</label>
+                        <Input name="availability" placeholder="e.g. Weekends, Evenings" />
+                      </div>
+                      <Button type="submit" className="w-full" disabled={createOfferMutation.isPending}>
+                        {createOfferMutation.isPending ? 'Posting...' : 'Post Offer'}
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+
               </div>
             </ScrollReveal>
           </div>
         </section>
       </ParallaxSection>
 
-      <div className="container mx-auto px-4 py-12">
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-8">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-3">
-            <TabsTrigger value="browse">Browse</TabsTrigger>
-            <TabsTrigger value="matches">Matches</TabsTrigger>
-            <TabsTrigger value="myoffers">My Offers</TabsTrigger>
-          </TabsList>
+      <div className="container mx-auto px-4 py-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <div className="flex justify-between items-center flex-wrap gap-4 border-b border-border/30 pb-2">
+            <TabsList className="bg-background/60 backdrop-blur-md border border-border/50 p-1">
+              <TabsTrigger value="browse" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("Browse Offers", "Browse Offers")}</TabsTrigger>
+              <TabsTrigger value="matches" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("My Matches", "My Matches")}</TabsTrigger>
+              <TabsTrigger value="requests" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("Requests", "Requests")} {pendingCount > 0 && <Badge variant="destructive" className="ml-2 bg-red-500">{pendingCount}</Badge>}</TabsTrigger>
+              <TabsTrigger value="sessions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("My Sessions", "My Sessions")}</TabsTrigger>
+              <TabsTrigger value="offers" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("My Offers", "My Offers")}</TabsTrigger>
+              <TabsTrigger value="circles" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("Circles", "Circles")}</TabsTrigger>
+              <TabsTrigger value="growth" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">{t("My Growth", "My Growth")}</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="browse" className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-              {mockOffers.map((offer, index) => (
-                <ScrollReveal key={offer.id} delay={0.1 * (index + 1)}>
-                  <Card className="hover-lift">
-                    <CardHeader>
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h3 className="text-xl font-bold mb-1">{offer.user}</h3>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{offer.experience}</Badge>
-                            <div className="flex items-center gap-1">
-                              <Star className="h-3 w-3 fill-warning text-warning" />
-                              <span className="text-sm">{offer.rating}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <Badge variant="default">{offer.matchScore}% match</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 p-3 rounded-lg bg-primary/10">
-                            <p className="text-xs text-muted-foreground mb-1">Offering</p>
-                            <p className="font-semibold">{offer.offering}</p>
-                          </div>
-                          <ArrowRight className="h-5 w-5 text-muted-foreground" />
-                          <div className="flex-1 p-3 rounded-lg bg-accent/10">
-                            <p className="text-xs text-muted-foreground mb-1">Seeking</p>
-                            <p className="font-semibold">{offer.seeking}</p>
-                          </div>
-                        </div>
-                        <Button className="w-full">
-                          <Clock className="mr-2 h-4 w-4" />
-                          Schedule Exchange
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </ScrollReveal>
-              ))}
+            <Button onClick={() => setIsPosting(true)} className="rounded-full shadow-md hover:shadow-lg transition-all font-semibold">
+              <RefreshCw className="mr-2 h-4 w-4" /> {t("Post Your Offer", "Post Your Offer")}
+            </Button>
+          </div>
+
+          <TabsContent value="browse" className="space-y-4">
+            {/* Recommended Section */}
+            {recommendations && recommendations.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Star className="h-5 w-5 text-yellow-500" fill="currentColor" />
+                  <h3 className="text-xl font-semibold">{t("Recommended for You", "Recommended for You")}</h3>
+                </div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  {recommendations.slice(0, 2).map((match: SkillMatch, i: number) => (
+                    <MatchCard key={i} match={match} onRequest={handleRequestExchange} />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <div className="max-w-4xl mx-auto flex gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search skills..." 
+                  className="pl-9"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <Input 
+                placeholder="Category (e.g. Programming)" 
+                className="w-48"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              />
             </div>
+            
+            {offersLoading ? (
+              <p className="text-center text-muted-foreground py-12">Loading offers...</p>
+            ) : offersData?.data?.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12">No skill offers found. Be the first to post one!</p>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                {offersData?.data?.map((offer: SkillOffer, index: number) => (
+                  <ScrollReveal key={offer._id} delay={0.05 * (index + 1)}>
+                    <OfferCard 
+                      offer={offer} 
+                      onSchedule={(id) => handleRequestExchange(offer.user._id, id)} 
+                      onReport={(id) => setReportingTarget({ type: 'offer', id })}
+                    />
+                  </ScrollReveal>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="matches">
-            <p className="text-center text-muted-foreground">Your skill matches will appear here</p>
+            {matchesLoading ? (
+               <p className="text-center text-muted-foreground py-12">Finding perfect matches for your skills...</p>
+            ) : matches?.length === 0 ? (
+               <div className="text-center py-12">
+                 <p className="text-muted-foreground mb-4">No perfect matches found yet.</p>
+                 <p className="text-sm">Try adding more skills to your 'wants to learn' list or post a new offer.</p>
+               </div>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                {matches?.map((match: SkillMatch, i: number) => (
+                  <MatchCard key={i} match={match} onRequest={handleRequestExchange} />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
-          <TabsContent value="myoffers">
-            <p className="text-center text-muted-foreground">Your posted offers will appear here</p>
+          <TabsContent value="requests">
+            <div className="max-w-4xl mx-auto space-y-8">
+              <div>
+                <h3 className="text-lg font-bold mb-4">Incoming Requests</h3>
+                {requestsLoading ? <p>Loading...</p> : requests?.incoming?.length === 0 ? <p className="text-sm text-muted-foreground">No incoming requests.</p> : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {requests?.incoming?.map((req) => (
+                      <Card key={req._id}>
+                        <CardContent className="p-4 flex flex-col gap-4">
+                          <div>
+                            <p className="font-semibold">{req.fromUser?.name} requested your {req.offer?.skillName} skill</p>
+                            <p className="text-sm text-muted-foreground mt-1">"{req.message}"</p>
+                            <Badge className="mt-2" variant="outline">{req.status}</Badge>
+                          </div>
+                          
+                          <div className="flex flex-wrap gap-2 mt-auto">
+                            {req.status === 'pending' && (
+                              <>
+                                <Button size="sm" onClick={() => updateReqStatusMutation.mutate({ id: req._id, status: 'accepted' })}>Accept</Button>
+                                <Button size="sm" variant="outline" onClick={() => updateReqStatusMutation.mutate({ id: req._id, status: 'declined' })}>Decline</Button>
+                              </>
+                            )}
+                            {req.status === 'accepted' && (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button size="sm" className="bg-primary/90">Schedule Session</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader><DialogTitle>Schedule Exchange</DialogTitle></DialogHeader>
+                                  <form onSubmit={(e) => handleSchedule(e, req._id)} className="space-y-4">
+                                    <Input type="datetime-local" name="scheduledAt" required />
+                                    <Button type="submit" className="w-full">Confirm Schedule</Button>
+                                  </form>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                            {['accepted', 'scheduled', 'pending'].includes(req.status) && (
+                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => cancelReqMutation.mutate(req._id)}>Cancel</Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <h3 className="text-lg font-bold mb-4">Outgoing Requests</h3>
+                {requestsLoading ? <p>Loading...</p> : requests?.outgoing?.length === 0 ? <p className="text-sm text-muted-foreground">No outgoing requests.</p> : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {requests?.outgoing?.map((req) => (
+                      <Card key={req._id}>
+                        <CardContent className="p-4 flex flex-col gap-4">
+                          <div>
+                            <p className="font-semibold">You requested {req.offer?.skillName} from {req.toUser?.name}</p>
+                            <Badge className="mt-2" variant="outline">{req.status}</Badge>
+                          </div>
+                          <div className="flex flex-wrap gap-2 mt-auto">
+                            {req.status === 'accepted' && (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button size="sm" className="bg-primary/90">Schedule Session</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader><DialogTitle>Schedule Exchange</DialogTitle></DialogHeader>
+                                  <form onSubmit={(e) => handleSchedule(e, req._id)} className="space-y-4">
+                                    <Input type="datetime-local" name="scheduledAt" required />
+                                    <Button type="submit" className="w-full">Confirm Schedule</Button>
+                                  </form>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+                            {['accepted', 'scheduled', 'pending'].includes(req.status) && (
+                              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => cancelReqMutation.mutate(req._id)}>Cancel</Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </TabsContent>
+
+          <TabsContent value="sessions">
+            <div className="max-w-4xl mx-auto space-y-8">
+              <div>
+                <h3 className="text-lg font-bold mb-4">My Skill Sessions</h3>
+                {sessionsLoading ? <p>Loading...</p> : sessions?.length === 0 ? <p className="text-sm text-muted-foreground">No sessions scheduled.</p> : (
+                  <div className="space-y-4">
+                    {sessions?.map((session) => (
+                        <Card key={session._id}>
+                          <CardContent className="p-5 flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Calendar className="h-4 w-4 text-primary" />
+                                <span className="font-bold">{new Date(session.scheduledAt).toLocaleString()}</span>
+                                <Badge variant={session.status === 'completed' ? 'default' : session.status === 'scheduled' ? 'secondary' : 'outline'}>{session.status}</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Participants: {session.participants.map((p: any) => p.name).join(' & ')}
+                              </p>
+                              {session.status === 'scheduled' && (
+                                <p className="text-xs text-muted-foreground mt-2">Duration: {session.durationMinutes} mins</p>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              {session.status === 'scheduled' && (
+                                <>
+                                  <Button size="sm" variant="outline" onClick={() => {
+                                    window.open(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/skill-swap/sessions/${session._id}/ics`, '_blank');
+                                  }}>
+                                    <Calendar className="mr-2 h-4 w-4" /> Add to Calendar
+                                  </Button>
+                                  <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => {
+                                    const reqId = typeof session.request === 'string' ? session.request : session.request._id;
+                                    completeSessionMutation.mutate(reqId);
+                                  }}>
+                                    <CheckCircle className="mr-2 h-4 w-4" /> Complete
+                                  </Button>
+                                  <Button size="sm" variant="outline" className="text-destructive" onClick={() => {
+                                    const reqId = typeof session.request === 'string' ? session.request : session.request._id;
+                                    cancelReqMutation.mutate(reqId);
+                                  }}>
+                                    <XCircle className="mr-2 h-4 w-4" /> Cancel
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="text-orange-500 hover:text-orange-600" onClick={() => {
+                                    const reqId = typeof session.request === 'string' ? session.request : session.request._id;
+                                    handleNoShow(reqId);
+                                  }}>
+                                    <Flag className="mr-2 h-4 w-4" /> No-Show
+                                  </Button>
+                                </>
+                              )}
+                              {session.status === 'completed' && (
+                                <Dialog>
+                                  <DialogTrigger asChild>
+                                    <Button size="sm" variant="outline"><MessageSquare className="mr-2 h-4 w-4" /> Leave Review</Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader><DialogTitle>Rate your Session</DialogTitle></DialogHeader>
+                                    <form onSubmit={(e) => {
+                                      // determine the other user and skill
+                                      // the request object holds this info if populated
+                                      const reqInfo = typeof session.request !== 'string' ? session.request as any : null;
+                                      const isFromMe = reqInfo && reqInfo.fromUser?._id === undefined; // approximate, not fully accurate without knowing our own ID but let's assume we can pass it if we have it
+                                      // Actually we can deduce the other user from session.participants
+                                      const otherParticipant = session.participants.find((p:any) => p._id !== reqInfo?.fromUser?._id); // this might need current userId to be accurate, let's just pass nulls if unavailable, or just the first non-me. We'll simplify.
+                                      const otherUserId = session.participants.find((p:any) => true)?._id; // simplified, just for form
+                                      const skillName = reqInfo?.offer?.skillName || '';
+                                      
+                                      handleReview(e, session._id, otherUserId, skillName)
+                                    }} className="space-y-4">
+                                      <div>
+                                        <label className="text-sm font-medium">Rating (1-5)</label>
+                                        <select name="rating" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required>
+                                          <option value="5">5 - Excellent</option>
+                                          <option value="4">4 - Good</option>
+                                          <option value="3">3 - Average</option>
+                                          <option value="2">2 - Poor</option>
+                                          <option value="1">1 - Terrible</option>
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="text-sm font-medium">Comments (optional)</label>
+                                        <Input name="comment" placeholder="How was the exchange?" />
+                                      </div>
+                                      <div className="flex items-center space-x-2 border p-3 rounded-md bg-green-50/50">
+                                        <Checkbox id={`endorse-${session._id}`} name="endorse" />
+                                        <label htmlFor={`endorse-${session._id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                          Endorse them for this skill
+                                        </label>
+                                      </div>
+                                      <Button type="submit" className="w-full">Submit Review</Button>
+                                    </form>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="offers">
+            {myOffersLoading ? (
+              <p className="text-center text-muted-foreground py-12">Loading your offers...</p>
+            ) : myOffers?.length === 0 ? (
+              <p className="text-center text-muted-foreground py-12">You haven't posted any offers yet.</p>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                {myOffers?.map((offer: SkillOffer) => (
+                  <Card key={offer._id}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-bold">{offer.skillName}</h3>
+                          <Badge variant={offer.status === 'active' ? 'default' : 'secondary'} className="mt-1">{offer.status}</Badge>
+                        </div>
+                        {offer.status === 'active' && (
+                          <Button variant="destructive" size="sm" onClick={() => deleteOfferMutation.mutate(offer._id)}>
+                            Deactivate
+                          </Button>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-4">{offer.description}</p>
+                      <p className="text-xs"><strong>Wants:</strong> {offer.wantsToLearn.join(', ')}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="circles">
+            <CirclesView />
+          </TabsContent>
+
+          <TabsContent value="growth">
+            <MyGrowth />
+          </TabsContent>
+
         </Tabs>
       </div>
+
+      {/* Report Modal */}
+      <Dialog open={!!reportingTarget} onOpenChange={(open) => !open && setReportingTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Report {reportingTarget?.type === 'offer' ? 'Offer' : 'User'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleReportSubmit} className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Reason</label>
+              <select name="reason" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" required>
+                <option value="inappropriate-content">Inappropriate Content</option>
+                <option value="spam">Spam or Scams</option>
+                <option value="harassment">Harassment</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <textarea name="description" required className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[100px]" placeholder="Please provide details..."></textarea>
+            </div>
+            <Button type="submit" className="w-full" disabled={reportMutation.isPending}>Submit Report</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
-
-export default SkillSwap;

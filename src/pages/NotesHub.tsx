@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { useNotes } from "@/hooks/useNotes";
@@ -27,18 +27,25 @@ import { NoteCard } from "@/components/notes/NoteCard";
 import { NotesStatsBar } from "@/components/notes/NotesStatsBar";
 import { NotesFilterBar } from "@/components/notes/NotesFilterBar";
 import { TopContributors } from "@/components/notes/TopContributors";
-import { supabase } from "@/integrations/supabase/client";
+import { NoteSkeleton } from "@/components/notes/NoteSkeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
+
 
 const NotesHub = () => {
   const navigate = useNavigate();
   const {
     notes, myNotes, bookmarkedNotes, filters, updateFilter, clearFilters,
     getFilteredNotes, subjects, categories, branches, semesters,
-    totalViews, totalDownloads, loadNotes, deleteNote, user,
+    totalViews, totalDownloads, loadNotes, deleteNote, user, loading
   } = useNotes();
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [activeTab, setActiveTab] = useState("browse");
+  const [visibleCount, setVisibleCount] = useState(20);
+
+  useEffect(() => {
+    setVisibleCount(20);
+  }, [filters, activeTab]);
 
   // Dialog states
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -64,11 +71,32 @@ const NotesHub = () => {
   const createStudySession = async () => {
     if (!user) { toast.error("Please sign in"); navigate("/auth"); return; }
     if (!sessionName.trim()) { toast.error("Please enter a session name"); return; }
-    const { data, error } = await supabase.from("study_sessions").insert({
-      note_id: selectedNote.id, host_id: user.id, session_name: sessionName,
-    }).select().single();
-    if (error) toast.error("Failed to create session");
-    else { toast.success("Study session created!"); setShowSessionDialog(false); setSessionName(""); navigate(`/study-session/${data.id}`); }
+    
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/study-sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          note_id: selectedNote.id,
+          session_name: sessionName
+        })
+      });
+
+      if (!res.ok) throw new Error("Failed to create");
+      const data = await res.json();
+      
+      toast.success("Study session created!"); 
+      setShowSessionDialog(false); 
+      setSessionName(""); 
+      navigate(`/study-session/${data.id || data._id}`);
+    } catch {
+      toast.error("Failed to create session");
+    }
   };
 
   const handleDeleteNote = async () => {
@@ -92,39 +120,64 @@ const NotesHub = () => {
     onDelete: (note: any) => { setDeleteNoteState(note); setShowDeleteDialog(true); },
   };
 
-  const renderNotesList = (notesList: any[], isOwner = false) => (
-    <>
-      {notesList.length > 0 ? (
-        <div className={viewMode === "grid" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-3"}>
-          {notesList.map((note, index) => (
-            <NoteCard key={note.id} note={note} index={index} isOwner={isOwner} {...cardHandlers} />
+  const renderNotesList = (notesList: any[], isOwner = false) => {
+    if (loading) {
+      return (
+        <div className={viewMode === "grid" ? "grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-4"}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <NoteSkeleton key={i} />
           ))}
         </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-            <BookOpen className="h-8 w-8 text-muted-foreground" />
+      );
+    }
+
+    const visibleNotes = notesList.slice(0, visibleCount);
+    const hasMore = visibleCount < notesList.length;
+
+    return (
+      <>
+        {notesList.length > 0 ? (
+          <div className="space-y-6">
+            <div className={viewMode === "grid" ? "grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-3"}>
+              {visibleNotes.map((note, index) => (
+                <NoteCard key={note.id} note={note} index={index} isOwner={isOwner} {...cardHandlers} />
+              ))}
+            </div>
+            {hasMore && (
+              <div className="flex justify-center pt-4 pb-8">
+                <Button 
+                  variant="outline" 
+                  className="rounded-full px-8 bg-transparent border-[var(--color-border)] hover:bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors shadow-sm"
+                  onClick={() => setVisibleCount(prev => prev + 20)}
+                >
+                  Load More
+                </Button>
+              </div>
+            )}
           </div>
-          <h3 className="mb-2 text-lg font-semibold">No notes found</h3>
-          <p className="mb-4 text-muted-foreground text-sm">Try adjusting your search or filters, or upload the first note!</p>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={clearFilters}>Clear Filters</Button>
-            {user && <Button onClick={() => setShowUploadDialog(true)}><Upload className="mr-2 h-4 w-4" />Upload Note</Button>}
-          </div>
-        </div>
-      )}
-    </>
-  );
+        ) : (
+          <EmptyState
+            icon={BookOpen}
+            title="No notes found"
+            description="We couldn't find any materials matching your current filters. Try adjusting your search or be the first to upload one!"
+            actionLabel="Clear Filters"
+            onAction={clearFilters}
+          />
+        )}
+      </>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-[var(--color-bg)]">
       <Header />
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 pt-6 pb-6">
         <NotesStatsBar
           totalNotes={notes.length}
           totalViews={totalViews}
           totalDownloads={totalDownloads}
           totalSubjects={subjects.length}
+          isLoading={loading}
         />
 
         <NotesFilterBar
@@ -136,18 +189,39 @@ const NotesHub = () => {
           semesters={semesters}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onUploadClick={() => setShowUploadDialog(true)}
-          onBatchUploadClick={() => setShowBatchUpload(true)}
-          showUploadButtons={!!user}
+          onUploadClick={() => {
+            if (!user) {
+              toast.error("Please sign in to upload notes");
+              return;
+            }
+            setShowUploadDialog(true);
+          }}
+          onBatchUploadClick={() => {
+            if (!user) {
+              toast.error("Please sign in to upload notes");
+              return;
+            }
+            setShowBatchUpload(true);
+          }}
         />
 
-        <div className="flex gap-6 mb-6">
+        <div className="flex flex-col lg:flex-row gap-6 mb-6">
           <div className="flex-1 min-w-0">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList>
-                <TabsTrigger value="browse"><BookOpen className="mr-1.5 h-3.5 w-3.5" />Browse All ({filteredNotes.length})</TabsTrigger>
-                {user && <TabsTrigger value="my-notes"><FolderOpen className="mr-1.5 h-3.5 w-3.5" />My Notes ({filteredMyNotes.length})</TabsTrigger>}
-                {user && <TabsTrigger value="bookmarks"><Bookmark className="mr-1.5 h-3.5 w-3.5" />Bookmarks ({filteredBookmarks.length})</TabsTrigger>}
+              <TabsList className="bg-[var(--color-surface)] border border-[var(--color-border)] shadow-sm">
+                <TabsTrigger value="browse" className="data-[state=active]:bg-[var(--color-text-primary)] data-[state=active]:text-[var(--color-text-inverse)] text-[var(--color-text-secondary)]">
+                  <BookOpen className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />Browse All ({filteredNotes.length})
+                </TabsTrigger>
+                {user && (
+                  <TabsTrigger value="my-notes" className="data-[state=active]:bg-[var(--color-text-primary)] data-[state=active]:text-[var(--color-text-inverse)] text-[var(--color-text-secondary)]">
+                    <FolderOpen className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />My Notes ({filteredMyNotes.length})
+                  </TabsTrigger>
+                )}
+                {user && (
+                  <TabsTrigger value="bookmarks" className="data-[state=active]:bg-[var(--color-text-primary)] data-[state=active]:text-[var(--color-text-inverse)] text-[var(--color-text-secondary)]">
+                    <Bookmark className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />Bookmarks ({filteredBookmarks.length})
+                  </TabsTrigger>
+                )}
               </TabsList>
               <TabsContent value="browse" className="mt-4">
                 {renderNotesList(filteredNotes)}
@@ -155,33 +229,31 @@ const NotesHub = () => {
               {user && (
                 <TabsContent value="my-notes" className="mt-4">
                   {filteredMyNotes.length === 0 && !filters.searchQuery && !filters.selectedSubject && !filters.selectedCategory ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                        <Upload className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                      <h3 className="mb-2 text-lg font-semibold">You haven't uploaded any notes yet</h3>
-                      <p className="mb-4 text-muted-foreground text-sm">Share your notes with the community and help fellow students!</p>
-                      <Button onClick={() => setShowUploadDialog(true)}><Upload className="mr-2 h-4 w-4" />Upload Your First Note</Button>
-                    </div>
+                    <EmptyState
+                      icon={Upload}
+                      title="You haven't uploaded any notes yet"
+                      description="Share your knowledge with the community. Uploading notes helps fellow students and earns you reputation points!"
+                      actionLabel="Upload Your First Note"
+                      actionIcon={Upload}
+                      onAction={() => setShowUploadDialog(true)}
+                    />
                   ) : renderNotesList(filteredMyNotes, true)}
                 </TabsContent>
               )}
               {user && (
                 <TabsContent value="bookmarks" className="mt-4">
                   {filteredBookmarks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center">
-                      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-                        <Bookmark className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                      <h3 className="mb-2 text-lg font-semibold">No bookmarked notes</h3>
-                      <p className="mb-4 text-muted-foreground text-sm">Click the bookmark icon on any note to save it for later!</p>
-                    </div>
+                    <EmptyState
+                      icon={Bookmark}
+                      title="No bookmarked notes"
+                      description="Click the bookmark icon on any note to save it for later quick access!"
+                    />
                   ) : renderNotesList(filteredBookmarks)}
                 </TabsContent>
               )}
             </Tabs>
           </div>
-          <div className="hidden lg:block w-72 shrink-0">
+          <div className="w-full lg:w-72 shrink-0">
             <div className="sticky top-4">
               <TopContributors />
             </div>

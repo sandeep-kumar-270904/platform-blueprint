@@ -1,89 +1,153 @@
-import { useCallback, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { useRealtimeSync } from "./useRealtimeSync";
-import { useAuth } from "./useAuth";
+import { useCallback, useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
+import { io } from "socket.io-client";
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export interface EventRow {
-  id: string;
-  organizer_id: string;
+  _id?: string;
+  id?: string;
   title: string;
   description: string;
-  type: string;
-  mode: string;
-  venue: string | null;
-  starts_at: string;
-  ends_at: string | null;
-  registration_deadline: string | null;
-  capacity: number;
-  registration_count: number;
-  prize: string | null;
-  tags: string[];
-  banner_url: string | null;
-  featured: boolean;
+  eventType: string;
+  bannerImage: string | null;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  isVirtual: boolean;
+  venue: string;
+  hostedBy: any;
+  hostName: string;
   status: string;
+  registrationRequired: boolean;
+  registrationDeadline: string | null;
+  capacity: number | null;
+  registrationCount?: number;
+  teamSize?: { min: number, max: number };
+  prizes?: string[];
+  agenda?: any[];
+  rulesDocument?: string | null;
+  tags: string[];
+  createdAt: string;
 }
 
-export const useEvents = (typeFilter: string = "all") => {
-  const { user } = useAuth();
+export const useEvents = (typeFilter: string = "all", timeFilter: string = "upcoming", searchQuery: string = "", month: string = "") => {
   const [events, setEvents] = useState<EventRow[]>([]);
+  const [thisWeekEvents, setThisWeekEvents] = useState<EventRow[]>([]);
   const [myRegistrations, setMyRegistrations] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState('live');
 
   const fetchAll = useCallback(async () => {
-    let q = supabase.from("events").select("*").eq("status", "published").order("starts_at", { ascending: true });
-    if (typeFilter !== "all") q = q.eq("type", typeFilter);
-    const { data, error } = await q;
-    if (!error && data) setEvents(data as EventRow[]);
-    if (user) {
-      const { data: regs } = await supabase.from("event_registrations").select("event_id").eq("user_id", user.id);
-      if (regs) setMyRegistrations(new Set(regs.map((r: any) => r.event_id)));
-    } else {
-      setMyRegistrations(new Set());
-    }
-    setLoading(false);
-  }, [typeFilter, user]);
+    try {
+      const token = localStorage.getItem('token');
+      const qs = new URLSearchParams();
+      if (typeFilter !== "all") qs.append('type', typeFilter);
+      if (timeFilter !== "all") qs.append('filter', timeFilter);
+      if (searchQuery) qs.append('search', searchQuery);
+      if (month) qs.append('month', month);
+      
+      const [res, twRes] = await Promise.all([
+        fetch(`${API_URL}/api/events?${qs.toString()}`),
+        fetch(`${API_URL}/api/events?filter=this_week`)
+      ]);
+      
+      let data = await res.json();
+      const eventsArray = data.events || data;
+      const mappedEvents = eventsArray.map((e: any) => ({ ...e, id: e._id }));
+      setEvents(mappedEvents);
 
-  const status = useRealtimeSync({
-    channelName: `events-${typeFilter}`,
-    filters: [{ table: "events" }, { table: "event_registrations" }],
-    onChange: fetchAll,
-  });
+      let twData = await twRes.json();
+      const twEventsArray = twData.events || twData;
+      const mappedTwEvents = twEventsArray.map((e: any) => ({ ...e, id: e._id }));
+      setThisWeekEvents(mappedTwEvents);
+
+      if (token) {
+        const regsRes = await fetch(`${API_URL}/api/users/me/events/registered`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (regsRes.ok) {
+          const data = await regsRes.json();
+          const allRegs = [...(data.upcoming || []), ...(data.past || [])];
+          setMyRegistrations(new Set(allRegs.map((r: any) => r._id)));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Error", description: "Failed to load events", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  }, [typeFilter, timeFilter, searchQuery, month]);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchAll();
+
+    const socket = io(API_URL);
+    socket.on('event_created', () => fetchAll());
+    socket.on('event_updated', () => fetchAll());
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchAll]);
 
   const register = async (eventId: string) => {
-    if (!user) return toast({ title: "Sign in required", variant: "destructive" });
-    const { error } = await supabase.rpc("register_for_event", { _event_id: eventId });
-    if (error) toast({ title: "Registration failed", description: error.message, variant: "destructive" });
-    else toast({ title: "Registered!" });
+    const token = localStorage.getItem('token');
+    if (!token) return toast({ title: "Sign in required", variant: "destructive" });
+    try {
+      const res = await fetch(`${API_URL}/api/events/${eventId}/register`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Registration failed');
+      }
+      toast({ title: "Registered!" });
+    } catch (error: any) {
+      toast({ title: "Registration failed", description: error.message, variant: "destructive" });
+    }
   };
 
   const cancel = async (eventId: string) => {
-    if (!user) return;
-    const { error } = await supabase.rpc("cancel_event_registration", { _event_id: eventId });
-    if (error) toast({ title: "Cancel failed", description: error.message, variant: "destructive" });
-    else toast({ title: "Registration cancelled" });
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_URL}/api/events/${eventId}/register`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Cancel failed');
+      }
+      toast({ title: "Registration cancelled" });
+    } catch (error: any) {
+      toast({ title: "Cancel failed", description: error.message, variant: "destructive" });
+    }
   };
 
   const createEvent = async (payload: Partial<EventRow>) => {
-    if (!user) return toast({ title: "Sign in required", variant: "destructive" });
-    const { error } = await supabase.from("events").insert({
-      organizer_id: user.id,
-      title: payload.title!,
-      description: payload.description || "",
-      type: payload.type || "workshop",
-      mode: payload.mode || "online",
-      venue: payload.venue || null,
-      starts_at: payload.starts_at!,
-      ends_at: payload.ends_at || null,
-      registration_deadline: payload.registration_deadline || null,
-      capacity: payload.capacity || 100,
-      prize: payload.prize || null,
-      tags: payload.tags || [],
-      featured: false,
-    });
-    if (error) toast({ title: "Failed", description: error.message, variant: "destructive" });
-    else toast({ title: "Event created" });
+    const token = localStorage.getItem('token');
+    if (!token) return toast({ title: "Sign in required", variant: "destructive" });
+    try {
+      const res = await fetch(`${API_URL}/api/events`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to create event');
+      }
+      toast({ title: "Event created" });
+    } catch (error: any) {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    }
   };
 
-  return { events, myRegistrations, loading, status, register, cancel, createEvent, refetch: fetchAll };
+  return { events, thisWeekEvents, myRegistrations, loading, status, register, cancel, createEvent, refetch: fetchAll };
 };

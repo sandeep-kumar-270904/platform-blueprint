@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+
 
 export type SyncStatus = "connecting" | "live" | "polling" | "error";
 
@@ -36,10 +35,10 @@ export function useRealtimeSync({
   channelName,
   filters,
   onChange,
-  pollIntervalMs = 30000,
+  pollIntervalMs = 5000,
   enabled = true,
 }: Options): SyncStatus {
-  const [status, setStatus] = useState<SyncStatus>("connecting");
+  const [status, setStatus] = useState<SyncStatus>("live");
   const handlerRef = useRef(onChange);
   handlerRef.current = onChange;
 
@@ -60,43 +59,21 @@ export function useRealtimeSync({
   useEffect(() => {
     if (!enabled) return;
 
-    let channel: RealtimeChannel | null = null;
     let cancelled = false;
-    const name = channelName || `rt-${Math.random().toString(36).slice(2, 10)}`;
 
-    const ch = supabase.channel(name);
-    filters.forEach((f) => {
-      ch.on(
-        // @ts-expect-error supabase typing for postgres_changes
-        "postgres_changes",
-        {
-          event: f.event || "*",
-          schema: f.schema || "public",
-          table: f.table,
-          ...(f.filter ? { filter: f.filter } : {}),
-        },
-        () => safeInvoke()
-      );
-    });
-
-    ch.subscribe((s) => {
-      if (cancelled) return;
-      if (s === "SUBSCRIBED") setStatus("live");
-      else if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") setStatus("polling");
-      else if (s === "CLOSED") setStatus((prev) => (prev === "live" ? "polling" : prev));
-    });
-    channel = ch;
-
-    // Initial fetch + polling fallback (always runs — keeps data fresh if WS dies silently)
+    // Initial fetch + polling fallback (always runs — keeps data fresh)
     safeInvoke();
-    const pollId = window.setInterval(() => safeInvoke(), pollIntervalMs);
+    const pollId = window.setInterval(() => {
+      if (!cancelled) {
+        safeInvoke();
+      }
+    }, pollIntervalMs);
 
     return () => {
       cancelled = true;
       window.clearInterval(pollId);
-      if (channel) supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [filterKey, channelName, pollIntervalMs, enabled, safeInvoke]);
 
   return status;

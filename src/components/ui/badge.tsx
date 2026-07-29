@@ -21,6 +21,14 @@ const badgeVariants = cva(
           "border-transparent bg-warning text-warning-foreground shadow hover:bg-warning/80",
         accent:
           "border-transparent bg-accent text-accent-foreground shadow hover:bg-accent/80",
+        hackathon:
+          "border-transparent bg-blue-600 text-white shadow hover:bg-blue-700",
+        competition:
+          "border-transparent bg-orange-600 text-white shadow hover:bg-orange-700",
+        workshop:
+          "border-transparent bg-purple-600 text-white shadow hover:bg-purple-700",
+        seminar:
+          "border-transparent bg-green-600 text-white shadow hover:bg-green-700",
       },
     },
     defaultVariants: {

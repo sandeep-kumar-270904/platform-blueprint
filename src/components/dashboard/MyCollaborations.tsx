@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { Handshake, ArrowRight } from "lucide-react";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
@@ -33,48 +32,31 @@ export const MyCollaborations = ({ userId }: { userId: string }) => {
   const [teamIds, setTeamIds] = useState<string[]>([]);
 
   const fetchCollabs = useCallback(async () => {
-    const { data: memberships } = await supabase
-      .from("team_members")
-      .select("team_id, role")
-      .eq("user_id", userId);
-
-    if (memberships && memberships.length > 0) {
-      const ids = memberships.map(m => m.team_id);
-      setTeamIds(ids);
-      const [{ data: teams }, { data: ideas }] = await Promise.all([
-        supabase.from("teams").select("id, name").in("id", ids),
-        supabase.from("ideas").select("team_id, title, category").in("team_id", ids),
-      ]);
-
-      const result: Collaboration[] = memberships.map(m => {
-        const team = teams?.find(t => t.id === m.team_id);
-        const idea = ideas?.find(i => i.team_id === m.team_id);
-        return {
-          team_id: m.team_id,
-          role: m.role,
-          team_name: team?.name || "Unknown Team",
-          idea_title: idea?.title || null,
-          idea_category: idea?.category || null,
-        };
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/my-collaborations`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      setCollabs(result);
-    } else {
-      setTeamIds([]);
+      if (res.ok) {
+        const data = await res.json();
+        setCollabs(data);
+        setTeamIds(data.map((c: any) => c.team_id));
+      } else {
+        setCollabs([]);
+        setTeamIds([]);
+      }
+    } catch {
       setCollabs([]);
+      setTeamIds([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [userId]);
 
-  // Tighten ideas filter to teams the user actually belongs to.
-  // When teamIds is empty we still subscribe to membership changes so we re-fetch.
   useRealtimeSync({
-    channelName: `my-collabs-${userId}-${teamIds.join(",")}`,
-    filters: [
-      { table: "team_members", filter: `user_id=eq.${userId}` },
-      ...(teamIds.length > 0
-        ? [{ table: "ideas" as const, filter: `team_id=in.(${teamIds.join(",")})` }]
-        : []),
-    ],
+    channelName: `my-collabs-${userId}`,
+    filters: [],
     onChange: fetchCollabs,
   });
 
@@ -82,7 +64,7 @@ export const MyCollaborations = ({ userId }: { userId: string }) => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Handshake className="h-5 w-5 text-primary" />
+          <Handshake className="h-4 w-4 text-primary" />
           My Collaborations ({collabs.length})
         </CardTitle>
       </CardHeader>
@@ -91,7 +73,7 @@ export const MyCollaborations = ({ userId }: { userId: string }) => {
           <p className="text-sm text-muted-foreground text-center py-6">Loading...</p>
         ) : collabs.length === 0 ? (
           <div className="text-center py-8">
-            <Handshake className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <Handshake className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground mb-3">Not collaborating on any ideas yet</p>
             <Link to="/team-hunt">
               <Button variant="outline" size="sm" className="gap-1">

@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TeamChat } from "./TeamChat";
 import { TaskBoard } from "./TaskBoard";
 import { PresenceIndicator } from "./PresenceIndicator";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";
 
@@ -62,42 +61,19 @@ export const TeamDashboard = ({ teamId }: TeamDashboardProps) => {
     if (!teamId) return;
 
     const fetchTeamData = async () => {
-      // Fetch team
-      const { data: teamData } = await supabase
-        .from("teams")
-        .select("*")
-        .eq("id", teamId)
-        .single();
-
-      if (teamData) {
-        setTeam(teamData);
-      }
-
-      // Fetch members
-      const { data: membersData } = await supabase
-        .from("team_members")
-        .select("*")
-        .eq("team_id", teamId);
-
-      if (membersData) {
-        setMembers(membersData as TeamMember[]);
-      }
-
-      // Fetch stats
-      const [ideasResult, tasksResult, messagesResult] = await Promise.all([
-        supabase.from("ideas").select("id", { count: "exact" }).eq("team_id", teamId),
-        supabase.from("tasks").select("id, status").eq("team_id", teamId),
-        supabase.from("team_messages").select("id", { count: "exact" }).eq("team_id", teamId),
-      ]);
-
-      const completedTasks = tasksResult.data?.filter((t) => t.status === "done").length || 0;
-
-      setStats({
-        ideas: ideasResult.count || 0,
-        tasks: tasksResult.data?.length || 0,
-        completedTasks,
-        messages: messagesResult.count || 0,
-      });
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/innovation/teams/${teamId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.team) setTeam(data.team);
+          if (data.members) setMembers(data.members);
+          if (data.stats) setStats(data.stats);
+        }
+      } catch {}
     };
 
     fetchTeamData();
@@ -120,7 +96,7 @@ export const TeamDashboard = ({ teamId }: TeamDashboardProps) => {
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="h-16 w-16 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-2xl font-bold text-white">
+              <div className="h-16 w-16 rounded-xl bg-primary text-primary-foreground flex items-center justify-center text-2xl font-bold text-white">
                 {team.name[0]}
               </div>
               <div>
@@ -145,7 +121,7 @@ export const TeamDashboard = ({ teamId }: TeamDashboardProps) => {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10">
-                  <Users className="h-5 w-5 text-primary" />
+                  <Users className="h-4 w-4 text-primary" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{members.length}</p>
@@ -161,7 +137,7 @@ export const TeamDashboard = ({ teamId }: TeamDashboardProps) => {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-accent/10">
-                  <Lightbulb className="h-5 w-5 text-accent" />
+                  <Lightbulb className="h-4 w-4 text-accent" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.ideas}</p>
@@ -177,7 +153,7 @@ export const TeamDashboard = ({ teamId }: TeamDashboardProps) => {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-success/10">
-                  <CheckSquare className="h-5 w-5 text-success" />
+                  <CheckSquare className="h-4 w-4 text-success" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
@@ -195,7 +171,7 @@ export const TeamDashboard = ({ teamId }: TeamDashboardProps) => {
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-warning/10">
-                  <MessageSquare className="h-5 w-5 text-warning" />
+                  <MessageSquare className="h-4 w-4 text-warning" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{stats.messages}</p>

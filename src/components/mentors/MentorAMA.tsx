@@ -9,7 +9,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
 import { Mic, Users, MessageSquare, Clock, CheckCircle2, Pin, Send, Calendar, Radio, ArrowUp, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -33,9 +32,23 @@ export const MentorAMA = () => {
 
   const join = async (id: string) => {
     if (!user) return toast({ title: "Sign in required", variant: "destructive" });
-    const { error } = await supabase.rpc("join_ama_session", { _session_id: id });
-    if (error && !error.message.includes("duplicate")) toast({ title: "Could not join", description: error.message, variant: "destructive" });
-    setSelectedId(id);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/amas/sessions/${id}/register`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        if (!data.message?.includes("duplicate")) {
+          toast({ title: "Could not join", description: data.message, variant: "destructive" });
+        }
+      }
+      setSelectedId(id);
+    } catch (error: any) {
+      toast({ title: "Could not join", description: error.message, variant: "destructive" });
+    }
   };
 
   const ask = async () => {
@@ -77,7 +90,7 @@ export const MentorAMA = () => {
                         <div className="flex items-center gap-3">
                           <Avatar className="h-12 w-12 ring-2 ring-primary/20">
                             <AvatarImage src={s.mentor_profile?.avatar_url || ""} />
-                            <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground text-sm">
+                            <AvatarFallback className="bg-primary text-primary-foreground text-primary-foreground text-sm">
                               {(s.mentor_profile?.full_name || s.mentor_profile?.username || "M").split(" ").map((n) => n[0]).join("").slice(0, 2)}
                             </AvatarFallback>
                           </Avatar>
@@ -121,9 +134,9 @@ export const MentorAMA = () => {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Avatar className="h-14 w-14 ring-2 ring-primary/20">
+                    <Avatar className="h-12 w-12 ring-2 ring-primary/20">
                       <AvatarImage src={selected.mentor_profile?.avatar_url || ""} />
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground">
+                      <AvatarFallback className="bg-primary text-primary-foreground text-primary-foreground">
                         {(selected.mentor_profile?.full_name || "M").split(" ").map((n) => n[0]).join("").slice(0, 2)}
                       </AvatarFallback>
                     </Avatar>
@@ -140,7 +153,7 @@ export const MentorAMA = () => {
 
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-3">
-              <h3 className="font-semibold flex items-center gap-2"><MessageSquare className="h-5 w-5 text-primary" />Questions ({questions.length})</h3>
+              <h3 className="font-semibold flex items-center gap-2"><MessageSquare className="h-4 w-4 text-primary" />Questions ({questions.length})</h3>
               <div ref={scrollRef} className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
                 <AnimatePresence>
                   {questions.length === 0 ? (
@@ -157,7 +170,7 @@ export const MentorAMA = () => {
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className="text-sm font-medium">{q.user_profile?.full_name || q.user_profile?.username || "User"}</span>
                                     {q.is_pinned && <Pin className="h-3 w-3 text-primary" />}
-                                    {q.is_answered && <Badge className="text-[10px] h-5 bg-green-500/20 text-green-400">Answered</Badge>}
+                                    {q.is_answered && <Badge className="text-[10px] h-4 bg-green-500/20 text-green-400">Answered</Badge>}
                                   </div>
                                   <p className="text-sm">{q.question}</p>
                                 </div>

@@ -46,20 +46,20 @@ const Roadmaps = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
 
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-20 md:py-32">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 blur-3xl" />
-          <div className="container mx-auto px-4 relative z-10">
+          
+          <div className="container mx-auto px-4 relative z-8">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
                 <div className="flex justify-center mb-4"><SyncStatusIndicator status={status} /></div>
                 <Badge variant="default" className="mb-6"><Map className="mr-1 h-3 w-3" />Learning Paths</Badge>
                 <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
                   Roadmaps &{" "}
-                  <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">Cheat Sheets</span>
+                  <span className="text-foreground display-font">Cheat Sheets</span>
                 </h1>
                 <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
                   Follow structured learning paths and grab quick reference guides. Track your progress live.
@@ -178,7 +178,7 @@ const Roadmaps = () => {
                 return (
                   <Card key={s.id} className={`p-4 cursor-pointer transition ${done ? "bg-primary/5 border-primary/40" : ""}`} onClick={() => user && onToggle(openRoadmap.id, s.id)}>
                     <div className="flex items-start gap-3">
-                      {done ? <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 shrink-0" /> : <Circle className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />}
+                      {done ? <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />}
                       <div className="flex-1">
                         <h4 className={`font-semibold ${done ? "line-through text-muted-foreground" : ""}`}>{i + 1}. {s.title}</h4>
                         {s.description && <p className="text-sm text-muted-foreground mt-1">{s.description}</p>}
@@ -228,15 +228,15 @@ const CreateRoadmapDialog = ({ onClose }: { onClose: () => void }) => {
     <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
       <DialogHeader><DialogTitle>Create a Roadmap</DialogTitle></DialogHeader>
       <div className="space-y-4">
-        <div><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} /></div>
-        <div><Label>Description</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} /></div>
+        <div><Label htmlFor="title">Title</Label><Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} /></div>
+        <div><Label htmlFor="description">Description</Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} /></div>
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Category</Label><Input value={category} onChange={(e) => setCategory(e.target.value)} maxLength={50} /></div>
-          <div><Label>Difficulty</Label><Input value={difficulty} onChange={(e) => setDifficulty(e.target.value)} maxLength={20} /></div>
+          <div><Label htmlFor="category">Category</Label><Input id="category" value={category} onChange={(e) => setCategory(e.target.value)} maxLength={50} /></div>
+          <div><Label htmlFor="difficulty">Difficulty</Label><Input id="difficulty" value={difficulty} onChange={(e) => setDifficulty(e.target.value)} maxLength={20} /></div>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Duration (e.g. "6 months")</Label><Input value={duration} onChange={(e) => setDuration(e.target.value)} maxLength={50} /></div>
-          <div><Label>Topics (comma-separated)</Label><Input value={topics} onChange={(e) => setTopics(e.target.value)} /></div>
+          <div><Label htmlFor="duration-e-g-6-months">Duration (e.g. "6 months")</Label><Input id="duration-e-g-6-months" value={duration} onChange={(e) => setDuration(e.target.value)} maxLength={50} /></div>
+          <div><Label htmlFor="topics-comma-separated">Topics (comma-separated)</Label><Input id="topics-comma-separated" value={topics} onChange={(e) => setTopics(e.target.value)} /></div>
         </div>
         <div className="space-y-3">
           <div className="flex justify-between items-center">

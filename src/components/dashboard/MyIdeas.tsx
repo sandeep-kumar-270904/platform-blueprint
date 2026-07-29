@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Lightbulb, ThumbsUp, Users, ArrowRight, Plus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
@@ -33,41 +33,31 @@ export const MyIdeas = ({ userId }: { userId: string }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchIdeas = useCallback(async () => {
-    const { data } = await supabase
-      .from("ideas")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-
-    if (data) {
-      setIdeas(data);
-      const teamIds = data.filter(i => i.team_id).map(i => i.team_id!);
-      if (teamIds.length > 0) {
-        const { data: members } = await supabase
-          .from("team_members")
-          .select("team_id")
-          .in("team_id", teamIds);
-        if (members) {
-          const counts: Record<string, number> = {};
-          members.forEach(m => { counts[m.team_id] = (counts[m.team_id] || 0) + 1; });
-          setTeamCounts(counts);
-        }
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/my-ideas`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setIdeas(data.ideas || []);
+        setTeamCounts(data.teamCounts || {});
       } else {
+        setIdeas([]);
         setTeamCounts({});
       }
+    } catch {
+      setIdeas([]);
+      setTeamCounts({});
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [userId]);
 
-  // Subscribe only to rows the user owns (RLS-aligned).
   useRealtimeSync({
     channelName: `my-ideas-${userId}`,
-    filters: [
-      { table: "ideas", filter: `user_id=eq.${userId}` },
-      // team_members has no per-team filter we can pre-compute cheaply,
-      // but we scope to memberships involving this user to stay RLS-relevant.
-      { table: "team_members", filter: `user_id=eq.${userId}` },
-    ],
+    filters: [],
     onChange: fetchIdeas,
   });
 
@@ -75,7 +65,7 @@ export const MyIdeas = ({ userId }: { userId: string }) => {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Lightbulb className="h-5 w-5 text-primary" />
+          <Lightbulb className="h-4 w-4 text-primary" />
           My Ideas ({ideas.length})
         </CardTitle>
         <Link to="/innovation-hub">
@@ -86,10 +76,20 @@ export const MyIdeas = ({ userId }: { userId: string }) => {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Loading...</p>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-start gap-4 p-4 rounded-xl border border-border/50">
+                <div className="flex-1 space-y-2">
+                  <div className="flex gap-2 mb-2"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-4 w-12" /></div>
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-2/3" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : ideas.length === 0 ? (
           <div className="text-center py-8">
-            <Lightbulb className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <Lightbulb className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground mb-3">No ideas yet. Start innovating!</p>
             <Link to="/innovation-hub">
               <Button variant="outline" size="sm" className="gap-1">

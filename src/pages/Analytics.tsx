@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -36,33 +36,39 @@ const Analytics = () => {
   const loadAnalytics = async () => {
     if (!user) return;
 
-    const { data: notes } = await supabase
-      .from("notes")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("views", { ascending: false });
-
-    if (notes) {
-      const totalViews = notes.reduce((sum, n) => sum + (n.views || 0), 0);
-      const totalDownloads = notes.reduce((sum, n) => sum + (n.downloads || 0), 0);
-      const totalStudyTime = notes.reduce((sum, n) => sum + (n.study_time_minutes || 0), 0);
-
-      setStats({
-        totalNotes: notes.length,
-        totalViews,
-        totalDownloads,
-        totalStudyTime,
-        topNotes: notes.slice(0, 5),
-        recentActivity: notes.filter((n) => n.last_viewed_at).slice(0, 5),
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/dashboard/analytics`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (!res.ok) throw new Error('Failed to load analytics');
+      const data = await res.json();
+      const notes = data.notes;
+
+      if (notes) {
+        const totalViews = notes.reduce((sum: any, n: any) => sum + (n.views || 0), 0);
+        const totalDownloads = notes.reduce((sum: any, n: any) => sum + (n.downloads || 0), 0);
+        const totalStudyTime = notes.reduce((sum: any, n: any) => sum + (n.study_time_minutes || 0), 0);
+
+        setStats({
+          totalNotes: notes.length,
+          totalViews,
+          totalDownloads,
+          totalStudyTime,
+          topNotes: notes.slice(0, 5),
+          recentActivity: notes.filter((n: any) => n.last_viewed_at).slice(0, 5),
+        });
+      }
+    } catch (error) {
+      console.error(error);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
-
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 pt-24 pb-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Analytics Dashboard</h1>
           <p className="text-muted-foreground">Track your notes performance and study habits</p>
@@ -120,7 +126,7 @@ const Analytics = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
+                <TrendingUp className="h-4 w-4" />
                 Top Performing Notes
               </CardTitle>
             </CardHeader>
@@ -166,7 +172,7 @@ const Analytics = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
+                <BarChart3 className="h-4 w-4" />
                 Recent Activity
               </CardTitle>
             </CardHeader>

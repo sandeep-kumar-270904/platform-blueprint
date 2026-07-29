@@ -35,16 +35,16 @@ const Sessions = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-20 md:py-32">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 blur-3xl" />
-          <div className="container mx-auto px-4 relative z-10">
+          
+          <div className="container mx-auto px-4 relative z-8">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
                 <Badge variant="default" className="mb-6"><Video className="mr-1 h-3 w-3" />Learning Sessions</Badge>
-                <h1 className="mb-6 text-4xl font-bold md:text-6xl">Mentor & <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">Peer Sessions</span></h1>
+                <h1 className="mb-6 text-4xl font-bold md:text-6xl">Mentor & <span className="text-foreground display-font">Peer Sessions</span></h1>
                 <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">Live, interactive sessions hosted by mentors and peers across the community.</p>
               </div>
             </ScrollReveal>

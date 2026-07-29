@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { supabase } from "@/integrations/supabase/client";
 import { Users, ArrowRight, Crown } from "lucide-react";
 
 interface TeamWithMembers {
@@ -20,52 +19,33 @@ export const MyTeams = ({ userId }: { userId: string }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data: memberships } = await supabase
-        .from("team_members")
-        .select("team_id, role")
-        .eq("user_id", userId);
-
-      if (memberships && memberships.length > 0) {
-        const teamIds = memberships.map(m => m.team_id);
-        const [teamsRes, allMembersRes] = await Promise.all([
-          supabase.from("teams").select("id, name, description").in("id", teamIds),
-          supabase.from("team_members").select("team_id, user_id, role").in("team_id", teamIds),
-        ]);
-
-        const profileIds = [...new Set(allMembersRes.data?.map(m => m.user_id) || [])];
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, username")
-          .in("id", profileIds);
-
-        const result: TeamWithMembers[] = (teamsRes.data || []).map(team => {
-          const myMembership = memberships.find(m => m.team_id === team.id);
-          const teamMembers = (allMembersRes.data || [])
-            .filter(m => m.team_id === team.id)
-            .map(m => ({
-              user_id: m.user_id,
-              role: m.role,
-              username: profiles?.find(p => p.id === m.user_id)?.username || null,
-            }));
-          return {
-            ...team,
-            myRole: myMembership?.role || "user",
-            members: teamMembers,
-          };
+    const fetchTeams = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/dashboard/my-teams`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
-        setTeams(result);
+        if (res.ok) {
+          const data = await res.json();
+          setTeams(data);
+        } else {
+          setTeams([]);
+        }
+      } catch {
+        setTeams([]);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
-    fetch();
+    fetchTeams();
   }, [userId]);
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Users className="h-5 w-5 text-primary" />
+          <Users className="h-4 w-4 text-primary" />
           My Teams ({teams.length})
         </CardTitle>
         <Link to="/team-hunt">
@@ -79,7 +59,7 @@ export const MyTeams = ({ userId }: { userId: string }) => {
           <p className="text-sm text-muted-foreground text-center py-6">Loading...</p>
         ) : teams.length === 0 ? (
           <div className="text-center py-8">
-            <Users className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <Users className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
             <p className="text-sm text-muted-foreground mb-3">You haven't joined any teams yet</p>
             <Link to="/team-hunt">
               <Button variant="outline" size="sm" className="gap-1">
@@ -105,7 +85,7 @@ export const MyTeams = ({ userId }: { userId: string }) => {
                 </div>
                 <div className="flex items-center gap-1">
                   {team.members.slice(0, 5).map((m) => (
-                    <Avatar key={m.user_id} className="h-7 w-7 border-2 border-background -ml-1 first:ml-0">
+                    <Avatar key={m.user_id} className="h-6 w-6 border-2 border-background -ml-1 first:ml-0">
                       <AvatarFallback className="text-[10px] bg-muted">
                         {(m.username || "U")[0].toUpperCase()}
                       </AvatarFallback>

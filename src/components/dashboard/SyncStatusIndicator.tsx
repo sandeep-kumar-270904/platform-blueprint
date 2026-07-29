@@ -7,7 +7,7 @@ interface Props {
   className?: string;
 }
 
-const meta: Record<SyncStatus, { label: string; tip: string; icon: typeof Wifi; color: string; dot: string }> = {
+const meta: Record<string, { label: string; tip: string; icon: typeof Wifi; color: string; dot: string }> = {
   connecting: {
     label: "Connecting",
     tip: "Establishing real-time connection…",
@@ -29,6 +29,13 @@ const meta: Record<SyncStatus, { label: string; tip: string; icon: typeof Wifi; 
     color: "text-amber-600",
     dot: "bg-amber-500",
   },
+  offline: {
+    label: "Reconnecting",
+    tip: "Connection dropped. Reconnecting...",
+    icon: WifiOff,
+    color: "text-muted-foreground",
+    dot: "bg-muted-foreground",
+  },
   error: {
     label: "Offline",
     tip: "Sync unavailable. Reconnecting…",
@@ -39,7 +46,7 @@ const meta: Record<SyncStatus, { label: string; tip: string; icon: typeof Wifi; 
 };
 
 export const SyncStatusIndicator = ({ status, className = "" }: Props) => {
-  const m = meta[status];
+  const m = meta[status] || meta["error"]; // fallback to error/offline if unknown status
   const Icon = m.icon;
   return (
     <TooltipProvider delayDuration={200}>
@@ -48,6 +55,8 @@ export const SyncStatusIndicator = ({ status, className = "" }: Props) => {
           <div
             data-testid="sync-status"
             data-status={status}
+            role="status"
+            aria-live="polite"
             className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border border-border/60 bg-background/60 text-xs font-medium ${m.color} ${className}`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} />

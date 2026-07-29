@@ -1,257 +1,306 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
-import { ScrollReveal } from "@/components/animations/ScrollReveal";
-import { ParallaxSection } from "@/components/animations/ParallaxSection";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { OnboardingModal } from "@/components/OnboardingModal";
 import {
   BookOpen,
   Calendar,
   Users,
   MessageSquare,
-  Sparkles,
   TrendingUp,
   GraduationCap,
   Lightbulb,
-  Award,
-  Target,
-  Zap,
   ArrowRight,
+  Play
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
-const Index = () => {
-  const [isLoaded, setIsLoaded] = useState(false);
+const AnimatedNumber = ({ end, duration = 1200 }: { end: number, duration?: number }) => {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    setIsLoaded(true);
-  }, []);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          let startTimestamp: number | null = null;
+          const step = (timestamp: number) => {
+            if (!startTimestamp) startTimestamp = timestamp;
+            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            setCount(Math.floor(progress * end));
+            if (progress < 1) {
+              window.requestAnimationFrame(step);
+            }
+          };
+          window.requestAnimationFrame(step);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [end, duration]);
 
-  const handleOnboardingComplete = (preferences: any) => {
-    console.log("Onboarding completed with preferences:", preferences);
-  };
+  return <span ref={ref}>{count}</span>;
+};
+
+const useScrollReveal = () => {
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("animate-fade-up");
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+
+    const elements = document.querySelectorAll(".reveal-element");
+    elements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, []);
+};
+
+const Index = () => {
+  const { user } = useAuth();
+  useScrollReveal();
 
   const features = [
     {
+      id: "notes",
       icon: BookOpen,
       title: "Notes Hub",
       description: "Share and access quality study materials from peers across all subjects",
-      color: "text-primary",
+      featured: true,
     },
     {
-      icon: Calendar,
-      title: "Events & Hackathons",
-      description: "Never miss opportunities - track competitions and events with registration",
-      color: "text-accent",
-    },
-    {
-      icon: MessageSquare,
-      title: "Community Forum",
-      description: "Connect with students, ask questions, and share knowledge in vibrant discussions",
-      color: "text-success",
-    },
-    {
-      icon: Lightbulb,
-      title: "Innovation Hub",
-      description: "Showcase your startup ideas, find co-founders, and get mentor guidance",
-      color: "text-warning",
-    },
-    {
+      id: "career",
       icon: TrendingUp,
       title: "Career Resources",
       description: "Access jobs, internships, resume tips, and ATS optimization tools",
-      color: "text-primary",
+      featured: true,
     },
     {
+      id: "events",
+      icon: Calendar,
+      title: "Events & Hackathons",
+      description: "Track competitions and events with registration",
+    },
+    {
+      id: "community",
+      icon: MessageSquare,
+      title: "Community Forum",
+      description: "Connect with students, ask questions, and share knowledge",
+    },
+    {
+      id: "innovation",
+      icon: Lightbulb,
+      title: "Innovation Hub",
+      description: "Showcase your startup ideas and find co-founders",
+    },
+    {
+      id: "study",
       icon: Users,
       title: "Study Groups",
-      description: "Form teams, join virtual study rooms, and collaborate on projects",
-      color: "text-accent",
+      description: "Join virtual study rooms and collaborate on projects",
     },
   ];
 
   const stats = [
-    { label: "Active Students", value: "10K+", icon: Users },
-    { label: "Study Resources", value: "5K+", icon: BookOpen },
-    { label: "Events Listed", value: "500+", icon: Calendar },
-    { label: "Success Stories", value: "2K+", icon: Award },
+    { label: "Active Students", value: 10, suffix: "K+", icon: Users },
+    { label: "Study Resources", value: 5, suffix: "K+", icon: BookOpen },
+    { label: "Events Listed", value: 500, suffix: "+", icon: Calendar },
+    { label: "Success Stories", value: 2, suffix: "K+", icon: GraduationCap },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5 relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 -left-4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-0 -right-4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
-      </div>
-      
-      <OnboardingModal onComplete={handleOnboardingComplete} />
+    <div className="min-h-screen">
       <Header />
 
       {/* Hero Section */}
-      <ParallaxSection speed={0.3}>
-        <section className="relative overflow-hidden py-20 md:py-32">
-          <ScrollReveal direction="down">
-            <div className="container mx-auto px-4">
-              <div className="mx-auto max-w-4xl text-center">
-                <Badge variant="accent" className="mb-6 animate-fade-in">
-                  <Sparkles className="mr-1 h-3 w-3" />
-                  Your All-in-One Student Platform
-                </Badge>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl lg:text-7xl">
-                  Where Students{" "}
-                  <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent animate-pulse-glow">
-                    Succeed Together
-                  </span>
-                </h1>
-                <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground md:text-xl">
-                  Connect, learn, and grow with a comprehensive platform designed for student success. Access notes, join events, find mentors, and build your career - all in one place.
-                </p>
-                <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-                  <Button variant="hero" size="xl" className="group">
-                    Explore Platform
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </Button>
-                  <Button variant="outline" size="xl">
-                    Watch Demo
-                  </Button>
+      <section className="relative overflow-hidden pt-32 pb-16 md:pt-40 md:pb-24">
+        <div className="container">
+          <div className="flex flex-col lg:grid lg:grid-cols-12 gap-12 items-center">
+            
+            {/* Visual (On top for mobile) */}
+            <div className="lg:col-span-5 lg:order-2 w-full animate-fade-up" style={{ animationDelay: '100ms' }}>
+              <div className="dashboard-card">
+                <div className="flex items-center justify-between border-b border-[var(--border)] pb-4 mb-4">
+                  <div className="text-title">Student Dashboard</div>
+                  <div className="flex gap-1.5" aria-hidden="true">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-400"></div>
+                    <div className="w-2.5 h-2.5 rounded-full bg-[var(--accent)]"></div>
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-400"></div>
+                  </div>
+                </div>
+                
+                {/* Faux UI Rows */}
+                <div className="space-y-4">
+                  <div className="bg-[var(--surface-sunk)] rounded-[var(--radius-sm)] border-none p-3 flex justify-between items-center">
+                    <span className="text-label">DSA Progress</span>
+                    <span className="text-caption">47/150</span>
+                  </div>
+                  <div className="w-full bg-[var(--border)] rounded-full h-1.5 mb-2">
+                    <div className="bg-[var(--ink)] h-1.5 rounded-full" style={{ width: "31%" }}></div>
+                  </div>
+                  
+                  <div className="bg-[var(--surface-sunk)] rounded-[var(--radius-sm)] border-none p-4 mt-6">
+                    <div className="label mb-1">Next Event</div>
+                    <div className="text-title mb-1">Campus Coding Hackathon</div>
+                    <div className="text-caption flex items-center gap-2">
+                      <Calendar className="w-3.5 h-3.5" /> Tomorrow, 10:00 AM
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-[var(--space-2)]">
+                    <div className="bg-[var(--surface-sunk)] rounded-[var(--radius-sm)] border-none p-3">
+                       <div className="text-label">Study Hours</div>
+                       <div className="text-value mt-1">14.5h</div>
+                    </div>
+                    <div className="bg-[var(--surface-sunk)] rounded-[var(--radius-sm)] border-none p-3">
+                       <div className="text-label">New Notes</div>
+                       <div className="text-value mt-1">8</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </ScrollReveal>
-        </section>
-      </ParallaxSection>
+
+            {/* Left Column (Text & CTAs) */}
+            <div className="lg:col-span-7 lg:order-1 text-left w-full animate-fade-up">
+              <div className="hero-eyebrow mb-4 inline-flex items-center">
+                Your All-in-One Student Platform
+              </div>
+              <h1 className="hero-headline mb-6">
+                Where Students <span className="highlight inline-block pb-1">Succeed</span> Together
+              </h1>
+              <p className="body-text mb-8 max-w-xl">
+                Connect, learn, and grow with a comprehensive platform designed for student success. Access notes, join events, find mentors, and build your career - all in one place.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-start">
+                <Link to={user ? "/dashboard" : "/auth"}>
+                  <Button size="lg" className="btn-primary w-full sm:w-auto">
+                    Get Started
+                  </Button>
+                </Link>
+                <Link to="/about">
+                  <Button size="lg" className="btn-secondary w-full sm:w-auto">
+                    <Play className="mr-2 h-4 w-4" /> Watch Demo
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
 
       {/* Stats Section */}
-      <section className="border-y border-border/40 bg-card/30 backdrop-blur-sm py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-            {stats.map((stat, index) => (
-              <ScrollReveal key={index} delay={index * 0.1} direction="scale">
-                <div className="text-center">
-                  <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                    <stat.icon className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="text-3xl font-bold">{stat.value}</div>
-                  <div className="text-sm text-muted-foreground">{stat.label}</div>
+      <section className="py-12 border-y border-[var(--border)] section-dark">
+        <div className="container">
+          <div className="stats-grid text-center">
+            {stats.map((stat, i) => (
+              <div 
+                key={i} 
+                className="reveal-element opacity-0 flex flex-col items-center justify-center" 
+                style={{ animationDelay: `${i * 80}ms` }}
+              >
+                <div className="stat-number text-4xl md:text-5xl mb-2">
+                  <AnimatedNumber end={stat.value} />{stat.suffix}
                 </div>
-              </ScrollReveal>
+                <div className="text-sm font-medium text-[var(--ink-soft)] flex items-center gap-1.5">
+                  {stat.label} <span className="text-xs text-[var(--ink-faint)]">(and growing)</span>
+                </div>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Features Grid */}
-      <ParallaxSection speed={0.2}>
-        <section className="py-20">
-          <div className="container mx-auto px-4">
-            <ScrollReveal direction="up">
-              <div className="mb-12 text-center">
-                <Badge variant="outline" className="mb-4">
-                  <Target className="mr-1 h-3 w-3" />
-                  Platform Features
-                </Badge>
-                <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-                  Everything You Need to Succeed
-                </h2>
-                <p className="mx-auto max-w-2xl text-muted-foreground">
-                  A comprehensive suite of tools and resources designed to support your academic journey and career growth
-                </p>
-              </div>
-            </ScrollReveal>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {features.map((feature, index) => (
-                <ScrollReveal key={index} delay={index * 0.05} direction="scale">
-                  <div className="group card-hover rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm p-6 shadow-sm">
-                    <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-muted transition-colors group-hover:bg-primary/10 ${feature.color}`}>
-                      <feature.icon className="h-6 w-6" />
-                    </div>
-                    <h3 className="mb-2 text-lg font-semibold">{feature.title}</h3>
-                    <p className="text-sm text-muted-foreground">{feature.description}</p>
-                    <Button variant="ghost" size="sm" className="mt-4 group-hover:text-primary">
-                      Learn more
-                      <ArrowRight className="ml-1 h-3 w-3 transition-transform group-hover:translate-x-1" />
-                    </Button>
-                  </div>
-                </ScrollReveal>
-              ))}
-            </div>
+      {/* Feature Grid */}
+      <section className="py-24">
+        <div className="container">
+          <div className="mb-16 max-w-2xl reveal-element opacity-0">
+            <h2 className="section-headline mb-4">Everything you need, in one workspace.</h2>
+            <p className="body-text">Replace five different tools with a single, seamlessly integrated platform designed specifically for how students actually work.</p>
           </div>
-        </section>
-      </ParallaxSection>
 
-      {/* CTA Section */}
-      <ParallaxSection speed={0.1}>
-        <section className="border-t border-border/40 bg-card/30 backdrop-blur-sm py-20">
-          <div className="container mx-auto px-4">
-              <ScrollReveal direction="up">
-                <div className="mx-auto max-w-3xl text-center">
-                  <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-accent shadow-glow">
-                    <Zap className="h-8 w-8 text-white" />
+          <div className="feature-grid">
+            {features.map((feature, i) => (
+              <div 
+                key={feature.id} 
+                className={`card reveal-element opacity-0 feature-${feature.id}`}
+                style={{ animationDelay: `${i * 80}ms` }}
+              >
+                <div className="mb-6 flex items-center justify-start">
+                  <div className="icon-box">
+                    <feature.icon className="h-6 w-6" strokeWidth={2} />
                   </div>
-                  <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-                    Ready to Transform Your Student Experience?
-                  </h2>
-                  <p className="mb-8 text-lg text-muted-foreground">
-                    Join thousands of students already using StudentHub to excel in their academics and career
-                  </p>
-                  <Button variant="hero" size="xl" className="group">
-                    Start Your Journey
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </Button>
                 </div>
-              </ScrollReveal>
-            </div>
-          </section>
-        </ParallaxSection>
+                <h3 className="text-title mb-3">{feature.title}</h3>
+                <p className="body-text text-sm mb-6">{feature.description}</p>
+                <div className="mt-auto pt-4 border-t card-footer-border">
+                  <Link to={`/${feature.id === 'career' ? 'dashboard' : feature.id}`} className="card-link inline-flex items-center text-sm font-medium transition-colors">
+                    Explore {feature.title} <ArrowRight className="ml-1 h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Footer */}
-      <footer className="border-t border-border/40 py-12">
-        <div className="container mx-auto px-4">
+      <footer className="border-t border-[var(--border)] py-12 section-dark">
+        <div className="container">
           <div className="grid gap-8 md:grid-cols-4">
             <div>
               <div className="mb-4 flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent">
-                  <GraduationCap className="h-4 w-4 text-white" />
+                <div className="icon-box bg-[var(--canvas)] text-[var(--ink)]">
+                  <GraduationCap className="h-4 w-4" />
                 </div>
-                <span className="font-bold">StudentHub</span>
+                <span className="font-fraunces font-bold text-xl">StudentHub</span>
               </div>
               <p className="text-sm text-muted-foreground">
                 Empowering students with the tools they need to succeed.
               </p>
             </div>
             <div>
-              <h4 className="mb-4 font-semibold">Platform</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link to="/notes" className="hover:text-foreground">Notes Hub</Link></li>
-                <li><Link to="/events" className="hover:text-foreground">Events</Link></li>
-                <li><Link to="/community" className="hover:text-foreground">Community</Link></li>
-                <li><Link to="/dashboard" className="hover:text-foreground">Dashboard</Link></li>
+              <h4 className="mb-4 font-bold">Platform</h4>
+              <ul className="flex flex-col gap-[var(--space-1)] text-sm text-muted-foreground">
+                <li><Link to="/notes" className="transition-colors">Notes Hub</Link></li>
+                <li><Link to="/events" className="transition-colors">Events & Hackathons</Link></li>
+                <li><Link to="/community" className="transition-colors">Community Forum</Link></li>
+                <li><Link to="/innovation" className="transition-colors">Innovation Hub</Link></li>
+                <li><Link to="/study" className="transition-colors">Study Groups</Link></li>
+                <li><Link to="/dashboard" className="transition-colors">Career Resources</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="mb-4 font-semibold">Resources</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground">Documentation</a></li>
-                <li><a href="#" className="hover:text-foreground">Tutorials</a></li>
-                <li><a href="#" className="hover:text-foreground">Blog</a></li>
-                <li><a href="#" className="hover:text-foreground">Support</a></li>
+              <h4 className="mb-4 font-bold">Resources</h4>
+              <ul className="flex flex-col gap-[var(--space-1)] text-sm text-muted-foreground">
+                <li><a href="#" className="transition-colors">Documentation</a></li>
+                <li><a href="#" className="transition-colors">Tutorials</a></li>
+                <li><a href="#" className="transition-colors">Blog</a></li>
+                <li><a href="#" className="transition-colors">Support</a></li>
               </ul>
             </div>
             <div>
-              <h4 className="mb-4 font-semibold">Company</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground">About</a></li>
-                <li><a href="#" className="hover:text-foreground">Careers</a></li>
-                <li><a href="#" className="hover:text-foreground">Privacy</a></li>
-                <li><a href="#" className="hover:text-foreground">Terms</a></li>
+              <h4 className="mb-4 font-bold">Company</h4>
+              <ul className="flex flex-col gap-[var(--space-1)] text-sm text-muted-foreground">
+                <li><a href="#" className="transition-colors">About</a></li>
+                <li><a href="#" className="transition-colors">Careers</a></li>
+                <li><a href="#" className="transition-colors">Privacy</a></li>
+                <li><a href="#" className="transition-colors">Terms</a></li>
               </ul>
             </div>
           </div>
-          <div className="mt-12 border-t border-border/40 pt-8 text-center text-sm text-muted-foreground">
-            © 2025 StudentHub. All rights reserved.
+          <div className="mt-12 border-t border-[var(--border)] pt-8 text-center text-sm text-muted-foreground">
+            © 2026 StudentHub. All rights reserved.
           </div>
         </div>
       </footer>

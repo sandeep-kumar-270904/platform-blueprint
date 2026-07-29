@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
@@ -41,49 +40,22 @@ export const TeamChat = ({ teamId }: TeamChatProps) => {
     if (!teamId || !user) return;
 
     const fetchMessages = async () => {
-      const { data, error } = await supabase
-        .from("team_messages")
-        .select("*")
-        .eq("team_id", teamId)
-        .order("created_at", { ascending: true })
-        .limit(100);
-
-      if (!error && data) {
-        setMessages(data as Message[]);
-      }
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/innovation/teams/${teamId}/messages`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setMessages(data);
+        }
+      } catch {}
     };
 
     fetchMessages();
-
-    // Subscribe to new messages
-    const channel = supabase
-      .channel(`team-chat-${teamId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "team_messages",
-          filter: `team_id=eq.${teamId}`,
-        },
-        async (payload) => {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("username, avatar_url")
-            .eq("id", payload.new.user_id)
-            .single();
-
-          setMessages((prev) => [
-            ...prev,
-            { ...payload.new as Message, user: profile },
-          ]);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const interval = setInterval(fetchMessages, 5000);
+    return () => clearInterval(interval);
   }, [teamId, user]);
 
   useEffect(() => {
@@ -95,18 +67,24 @@ export const TeamChat = ({ teamId }: TeamChatProps) => {
   const sendMessage = async () => {
     if (!newMessage.trim() || !user || !teamId) return;
 
-    const { error } = await supabase.from("team_messages").insert({
-      team_id: teamId,
-      user_id: user.id,
-      content: newMessage,
-      message_type: "text",
-      reply_to: replyTo?.id || null,
-    });
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/innovation/teams/${teamId}/messages`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: newMessage,
+          message_type: "text",
+          reply_to: replyTo?.id || null,
+        })
+      });
 
-    if (!error) {
-      setNewMessage("");
-      setReplyTo(null);
-    }
+      if (res.ok) {
+        setNewMessage("");
+        setReplyTo(null);
+      }
+    } catch {}
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -222,7 +200,7 @@ export const TeamChat = ({ teamId }: TeamChatProps) => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-5 w-5 opacity-0 group-hover:opacity-100"
+                        className="h-4 w-4 opacity-0 group-hover:opacity-100"
                         onClick={() => setReplyTo(message)}
                       >
                         <Reply className="h-3 w-3" />
@@ -258,7 +236,7 @@ export const TeamChat = ({ teamId }: TeamChatProps) => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-5 w-5"
+                className="h-4 w-4"
                 onClick={() => setReplyTo(null)}
               >
                 ×

@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { motion } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
@@ -35,10 +34,10 @@ interface Stats {
 }
 
 const getRankIcon = (rank: number) => {
-  if (rank === 1) return <Crown className="h-5 w-5 text-yellow-500" />;
-  if (rank === 2) return <Medal className="h-5 w-5 text-gray-400" />;
-  if (rank === 3) return <Medal className="h-5 w-5 text-amber-600" />;
-  return <span className="text-sm font-bold text-muted-foreground w-5 text-center">#{rank}</span>;
+  if (rank === 1) return <Crown className="h-4 w-4 text-yellow-500" />;
+  if (rank === 2) return <Medal className="h-4 w-4 text-gray-400" />;
+  if (rank === 3) return <Medal className="h-4 w-4 text-amber-600" />;
+  return <span className="text-sm font-bold text-muted-foreground w-4 text-center">#{rank}</span>;
 };
 
 const getRankBg = (rank: number) => {
@@ -58,138 +57,31 @@ export const InnovationLeaderboard = () => {
   const [myRank, setMyRank] = useState<{ rank: number; total: number; upvotes: number; ideas: number } | null>(null);
 
   const fetchLeaderboard = useCallback(async () => {
-    // Fetch top ideas by upvotes (deterministic tiebreaker on id to prevent flicker)
-    const { data: ideas } = await supabase
-      .from("ideas")
-      .select("id, title, category, upvotes, user_id")
-      .eq("is_public", true)
-      .order("upvotes", { ascending: false })
-      .order("id", { ascending: true })
-      .limit(10);
-
-    if (ideas && ideas.length > 0) {
-      const userIds = [...new Set(ideas.map(i => i.user_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, username")
-        .in("id", userIds);
-
-      const nextTop = ideas.map((idea, idx) => ({
-        rank: idx + 1,
-        id: idea.id,
-        title: idea.title,
-        author: (profiles || []).find(p => p.id === idea.user_id)?.username || "Anonymous",
-        upvotes: idea.upvotes || 0,
-        category: idea.category,
-      }));
-      // Only update affected rows to minimize re-renders / flicker
-      setTopIdeas(prev => {
-        if (
-          prev.length === nextTop.length &&
-          prev.every((p, i) => p.id === nextTop[i].id && p.upvotes === nextTop[i].upvotes && p.rank === nextTop[i].rank)
-        ) return prev;
-        return nextTop;
-      });
-    } else {
-      setTopIdeas(prev => (prev.length === 0 ? prev : []));
-    }
-
-    // Fetch all public ideas to compute creator stats
-    const { data: allIdeas } = await supabase
-      .from("ideas")
-      .select("user_id, upvotes, created_at")
-      .eq("is_public", true);
-
-    if (allIdeas && allIdeas.length > 0) {
-      const creatorMap: Record<string, { ideas: number; upvotes: number }> = {};
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      let thisWeekCount = 0;
-
-      allIdeas.forEach(idea => {
-        if (!creatorMap[idea.user_id]) creatorMap[idea.user_id] = { ideas: 0, upvotes: 0 };
-        creatorMap[idea.user_id].ideas++;
-        creatorMap[idea.user_id].upvotes += idea.upvotes || 0;
-        if (new Date(idea.created_at) > oneWeekAgo) thisWeekCount++;
-      });
-
-      // Deterministic sort: upvotes desc, ideas desc, user_id asc
-      const sortedAll = Object.entries(creatorMap).sort((a, b) => {
-        if (b[1].upvotes !== a[1].upvotes) return b[1].upvotes - a[1].upvotes;
-        if (b[1].ideas !== a[1].ideas) return b[1].ideas - a[1].ideas;
-        return a[0].localeCompare(b[0]);
-      });
-      const creatorEntries = sortedAll.slice(0, 10);
-
-      const creatorIds = creatorEntries.map(([uid]) => uid);
-      const { data: creatorProfiles } = await supabase
-        .from("profiles")
-        .select("id, username")
-        .in("id", creatorIds);
-
-      const nextCreators = creatorEntries.map(([uid, data], idx) => ({
-        rank: idx + 1,
-        user_id: uid,
-        name: (creatorProfiles || []).find(p => p.id === uid)?.username || "Anonymous",
-        ideas: data.ideas,
-        upvotes: data.upvotes,
-      }));
-      setActiveCreators(prev => {
-        if (
-          prev.length === nextCreators.length &&
-          prev.every((p, i) =>
-            p.user_id === nextCreators[i].user_id &&
-            p.upvotes === nextCreators[i].upvotes &&
-            p.ideas === nextCreators[i].ideas &&
-            p.rank === nextCreators[i].rank
-          )
-        ) return prev;
-        return nextCreators;
-      });
-
-      setStats(prev => {
-        const next = {
-          totalIdeas: allIdeas.length,
-          activeCreators: Object.keys(creatorMap).length,
-          thisWeek: thisWeekCount,
-        };
-        if (prev.totalIdeas === next.totalIdeas && prev.activeCreators === next.activeCreators && prev.thisWeek === next.thisWeek) return prev;
-        return next;
-      });
-
-      if (user) {
-        const myIndex = sortedAll.findIndex(([uid]) => uid === user.id);
-        if (myIndex >= 0) {
-          const [, mine] = sortedAll[myIndex];
-          setMyRank(prev => {
-            const next = { rank: myIndex + 1, total: sortedAll.length, upvotes: mine.upvotes, ideas: mine.ideas };
-            if (prev && prev.rank === next.rank && prev.total === next.total && prev.upvotes === next.upvotes && prev.ideas === next.ideas) return prev;
-            return next;
-          });
-        } else {
-          setMyRank(prev => (prev === null ? prev : null));
-        }
-      } else {
-        setMyRank(prev => (prev === null ? prev : null));
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const headers: any = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      
+      const res = await fetch(`${API_URL}/api/innovation/leaderboard`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setTopIdeas(data.topIdeas || []);
+        setActiveCreators(data.activeCreators || []);
+        setStats(data.stats || { totalIdeas: 0, activeCreators: 0, thisWeek: 0 });
+        setMyRank(data.myRank || null);
       }
-    } else {
-      setActiveCreators(prev => (prev.length === 0 ? prev : []));
-      setStats(prev => (prev.totalIdeas === 0 && prev.activeCreators === 0 && prev.thisWeek === 0 ? prev : { totalIdeas: 0, activeCreators: 0, thisWeek: 0 }));
-      setMyRank(prev => (prev === null ? prev : null));
-    }
-
+    } catch {}
     setLoading(false);
-  }, [user]);
+  }, []);
 
-  // Realtime: refresh on any ideas mutation (insert/update/delete) — covers
-  // upvotes, new ideas, and deletions. Polling fallback ensures we don't drift
-  // if the WebSocket stalls.
-  const syncStatus = useRealtimeSync({
-    channelName: "leaderboard-rt",
-    filters: [{ table: "ideas" }],
-    onChange: fetchLeaderboard,
-    pollIntervalMs: 25000,
-  });
+  useEffect(() => {
+    fetchLeaderboard();
+    const interval = setInterval(fetchLeaderboard, 25000);
+    return () => clearInterval(interval);
+  }, [fetchLeaderboard]);
+
+  const syncStatus = 'synced';
 
   const maxUpvotes = topIdeas.length > 0 ? topIdeas[0].upvotes : 1;
 
@@ -197,7 +89,7 @@ export const InnovationLeaderboard = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <Trophy className="h-7 w-7 text-primary" />
+          <Trophy className="h-6 w-6 text-primary" />
           <div>
             <h2 className="text-2xl font-bold">Innovation Leaderboard</h2>
             <p className="text-muted-foreground">Top performers across the Innovation Hub</p>
@@ -214,7 +106,7 @@ export const InnovationLeaderboard = () => {
           animate={{ opacity: 1, y: 0 }}
           data-testid="my-rank"
         >
-          <Card className="border-primary/40 bg-gradient-to-r from-primary/5 to-accent/5">
+          <Card className="border-primary/40 bg-primary text-primary-foreground">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 {getRankIcon(myRank.rank)}
@@ -276,7 +168,7 @@ export const InnovationLeaderboard = () => {
                 <Card className={`${getRankBg(idea.rank)} transition-all hover:shadow-md`}>
                   <CardContent className="p-4 flex items-center gap-4">
                     {getRankIcon(idea.rank)}
-                    <Avatar className="h-10 w-10">
+                    <Avatar className="h-8 w-8">
                       <AvatarFallback>{idea.author[0]}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
@@ -307,7 +199,7 @@ export const InnovationLeaderboard = () => {
                   <Card className={`${getRankBg(creator.rank)} transition-all hover:shadow-md`}>
                     <CardContent className="p-4 flex items-center gap-4">
                       {getRankIcon(creator.rank)}
-                      <Avatar className="h-10 w-10">
+                      <Avatar className="h-8 w-8">
                         <AvatarFallback>{creator.name[0]}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">

@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { redeemInvite } from "@/hooks/useGroupInvites";
 import { Loader2, Users, CheckCircle2, AlertTriangle } from "lucide-react";
@@ -20,15 +19,29 @@ const InviteAccept = () => {
   useEffect(() => {
     if (!token) return;
     (async () => {
-      const { data } = await supabase.from("study_group_invites").select("*").eq("token", token).maybeSingle();
-      if (!data) { setState("invalid"); setError("Invite not found"); return; }
-      if (data.revoked) { setState("invalid"); setError("This invite has been revoked"); return; }
-      if (new Date(data.expires_at).getTime() < Date.now()) { setState("invalid"); setError("This invite has expired"); return; }
-      if (data.uses >= data.max_uses) { setState("invalid"); setError("This invite has been fully used"); return; }
-      setMeta(data);
-      const { data: g } = await supabase.from("study_groups").select("*").eq("id", data.group_id).maybeSingle();
-      setGroup(g);
-      setState("ready");
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/study-groups/invites/info/${token}`);
+        if (!res.ok) {
+          setState("invalid");
+          setError("Invite not found");
+          return;
+        }
+        
+        const data = await res.json();
+        const inv = data.invite;
+        
+        if (inv.revoked) { setState("invalid"); setError("This invite has been revoked"); return; }
+        if (new Date(inv.expires_at).getTime() < Date.now()) { setState("invalid"); setError("This invite has expired"); return; }
+        if (inv.uses >= inv.max_uses) { setState("invalid"); setError("This invite has been fully used"); return; }
+        
+        setMeta(inv);
+        setGroup(data.group);
+        setState("ready");
+      } catch (err) {
+        setState("invalid");
+        setError("Error loading invite");
+      }
     })();
   }, [token]);
 
@@ -42,13 +55,13 @@ const InviteAccept = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
-      <div className="container mx-auto px-4 py-16 max-w-md">
+      <div className="container mx-auto px-4 pt-24 pb-16 max-w-md">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" /> Group Invitation
+              <Users className="h-4 w-4 text-primary" /> Group Invitation
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -56,13 +69,13 @@ const InviteAccept = () => {
               <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
             ) : state === "invalid" ? (
               <div className="text-center py-4">
-                <AlertTriangle className="h-10 w-10 mx-auto text-destructive mb-2" />
+                <AlertTriangle className="h-8 w-8 mx-auto text-destructive mb-2" />
                 <p className="font-semibold">{error}</p>
                 <Link to="/study-groups"><Button variant="outline" className="mt-4">Browse groups</Button></Link>
               </div>
             ) : state === "done" ? (
               <div className="text-center py-4">
-                <CheckCircle2 className="h-10 w-10 mx-auto text-green-500 mb-2" />
+                <CheckCircle2 className="h-8 w-8 mx-auto text-green-500 mb-2" />
                 <p className="font-semibold">You joined {group?.name}!</p>
                 <p className="text-sm text-muted-foreground">Taking you to the group...</p>
               </div>

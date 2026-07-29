@@ -10,7 +10,6 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Rocket, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -45,21 +44,31 @@ export const PostIdeaDialog = ({ open, onOpenChange }: PostIdeaDialogProps) => {
       return;
     }
     setSubmitting(true);
-    const { error } = await supabase.from("ideas").insert({
-      user_id: user.id,
-      title: title.trim(),
-      description: description.trim(),
-      category,
-      tags,
-      status: "draft",
-      is_public: true,
-    });
-    if (error) {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/innovation/ideas`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          category,
+          tags,
+          status: "draft",
+          is_public: true,
+        })
+      });
+
+      if (res.ok) {
+        toast.success("Idea posted!");
+        setTitle(""); setDescription(""); setCategory(""); setTags([]);
+        onOpenChange(false);
+      } else {
+        toast.error("Failed to post idea");
+      }
+    } catch {
       toast.error("Failed to post idea");
-    } else {
-      toast.success("Idea posted!");
-      setTitle(""); setDescription(""); setCategory(""); setTags([]);
-      onOpenChange(false);
     }
     setSubmitting(false);
   };
@@ -69,17 +78,15 @@ export const PostIdeaDialog = ({ open, onOpenChange }: PostIdeaDialogProps) => {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Rocket className="h-5 w-5 text-primary" /> Post Your Idea
+            <Rocket className="h-4 w-4 text-primary" /> Post Your Idea
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
-            <Label>Title *</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Your idea name" maxLength={100} />
+            <Label htmlFor="title">Title *</Label><Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Your idea name" maxLength={100} />
           </div>
           <div className="space-y-2">
-            <Label>Description *</Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe your idea, the problem it solves, and your vision..." rows={4} maxLength={2000} />
+            <Label htmlFor="description">Description *</Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe your idea, the problem it solves, and your vision..." rows={4} maxLength={2000} />
           </div>
           <div className="space-y-2">
             <Label>Category *</Label>

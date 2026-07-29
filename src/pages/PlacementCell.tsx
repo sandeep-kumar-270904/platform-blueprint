@@ -5,30 +5,34 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Target, Code, FileText, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Target, Code, FileText, TrendingUp, CheckCircle2, Users } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useDSAProgress } from "@/hooks/useDSA";
 
 const PlacementCell = () => {
+  const { data: progress } = useDSAProgress();
+  const dsaPercent = progress && progress.totalProblems > 0 
+    ? Math.round((progress.solved_problems.length / progress.totalProblems) * 100) 
+    : 0;
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
 
-      <ParallaxSection speed={0.3}>
-        <section className="relative overflow-hidden py-20 md:py-32">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 blur-3xl" />
-          <div className="container mx-auto px-4 relative z-10">
+      <ParallaxSection speed={0.1}>
+        <section className="relative overflow-hidden py-8 md:py-12">
+          
+          <div className="container mx-auto px-2 md:px-4 relative z-8">
             <ScrollReveal direction="down">
-              <div className="mx-auto max-w-3xl text-center">
-                <Badge variant="accent" className="mb-6">
+              <div className="mx-auto max-w-5xl text-center flex flex-col items-center">
+                <Badge variant="accent" className="mb-4">
                   <Target className="mr-1 h-3 w-3" />
                   Placement Preparation
                 </Badge>
-                <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
-                  Ace Your{" "}
-                  <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-                    Campus Placements
-                  </span>
+                <h1 className="mb-3 text-3xl font-bold tracking-tight md:text-5xl whitespace-nowrap">
+                  Ace Your <span className="text-foreground display-font">Campus Placements</span>
                 </h1>
-                <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
+                <p className="mx-auto mb-4 max-w-2xl text-base md:text-lg text-muted-foreground">
                   Company-wise resources, coding practice, and interview preparation materials.
                 </p>
               </div>
@@ -37,8 +41,8 @@ const PlacementCell = () => {
         </section>
       </ParallaxSection>
 
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="container mx-auto px-2 md:px-4 py-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           <ScrollReveal delay={0.1}>
             <Card className="hover-scale">
               <CardHeader>
@@ -55,11 +59,13 @@ const PlacementCell = () => {
                 <div>
                   <div className="flex justify-between text-sm mb-2">
                     <span>Progress</span>
-                    <span className="font-medium">45%</span>
+                    <span className="font-medium">{dsaPercent}%</span>
                   </div>
-                  <Progress value={45} />
+                  <Progress value={dsaPercent} />
                 </div>
-                <Button className="w-full">Start Practice</Button>
+                <Button className="w-full" asChild>
+                  <Link to="/placement/dsa">Start Practice</Link>
+                </Button>
               </CardContent>
             </Card>
           </ScrollReveal>
@@ -87,7 +93,9 @@ const PlacementCell = () => {
                     <span>HR Round Tips</span>
                   </div>
                 </div>
-                <Button className="w-full">View Resources</Button>
+                <Button className="w-full" asChild>
+                  <Link to="/placement/interview-prep">View Resources</Link>
+                </Button>
               </CardContent>
             </Card>
           </ScrollReveal>
@@ -106,7 +114,68 @@ const PlacementCell = () => {
                   Schedule mock interviews with industry professionals
                 </p>
                 <div className="text-2xl font-bold text-primary">12 Available</div>
-                <Button className="w-full">Book Session</Button>
+                <Button className="w-full" asChild>
+                  <Link to="/placement/mock-interviews">Book Session</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+
+          <ScrollReveal delay={0.4}>
+            <Card className="hover-scale">
+              <CardHeader>
+                <div className="flex items-center justify-between mb-4">
+                  <FileText className="h-8 w-8 text-primary" />
+                  <Badge variant="secondary">New</Badge>
+                </div>
+                <h3 className="text-xl font-bold">Resume & ATS Tools</h3>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Score your resume against ATS and get company-specific tips
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span>ATS Formatting</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span>Keyword Matching</span>
+                  </div>
+                </div>
+                <Button className="w-full" asChild>
+                  <Link to="/placement/resume-tools">Analyze Resume</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+          <ScrollReveal delay={0.5}>
+            <Card className="hover-scale">
+              <CardHeader>
+                <div className="flex items-center justify-between mb-4">
+                  <Users className="h-8 w-8 text-primary" />
+                  <Badge variant="secondary">Collaborate</Badge>
+                </div>
+                <h3 className="text-xl font-bold">Peer Study Groups</h3>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Join forces with peers to share resources and track progress together.
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span>Shared Progress</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span>Group Discussion</span>
+                  </div>
+                </div>
+                <Button className="w-full" asChild>
+                  <Link to="/placement/study-groups">Join a Group</Link>
+                </Button>
               </CardContent>
             </Card>
           </ScrollReveal>

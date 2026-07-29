@@ -7,39 +7,16 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Home, MapPin, DollarSign, Heart, MessageSquare } from "lucide-react";
 
-const mockProfiles = [
-  {
-    id: 1,
-    name: "Priya S.",
-    age: 21,
-    course: "Computer Science",
-    budget: "₹8-10k",
-    location: "Near Campus",
-    bio: "Clean, organized, and respectful. Looking for a study-friendly environment.",
-    interests: ["Coding", "Reading", "Yoga"],
-    matchScore: 92,
-  },
-  {
-    id: 2,
-    name: "Rahul M.",
-    age: 22,
-    course: "Mechanical Eng.",
-    budget: "₹6-8k",
-    location: "City Center",
-    bio: "Easy-going person who loves cooking. Prefer non-smoking roommates.",
-    interests: ["Sports", "Cooking", "Music"],
-    matchScore: 85,
-  },
-];
+const mockProfiles = [];
 
 const RoommateFind = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-primary/5 to-accent/5">
+    <div className="min-h-screen bg-background">
       <Header />
 
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-20 md:py-32">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 blur-3xl" />
+          
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
@@ -49,7 +26,7 @@ const RoommateFind = () => {
                 </Badge>
                 <h1 className="mb-6 text-4xl font-bold tracking-tight md:text-6xl">
                   Find Your{" "}
-                  <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                  <span className="text-foreground display-font">
                     Perfect Match
                   </span>
                 </h1>
@@ -70,7 +47,7 @@ const RoommateFind = () => {
                 <CardHeader>
                   <div className="flex items-start gap-4">
                     <Avatar className="h-16 w-16">
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-lg">
+                      <AvatarFallback className="bg-primary text-primary-foreground text-white text-lg">
                         {profile.name.split(' ').map(n => n[0]).join('')}
                       </AvatarFallback>
                     </Avatar>
