@@ -97,7 +97,11 @@ const notificationSchema = new mongoose.Schema({
       'skill_swap_completed',
       'skill_swap_cancelled',
       'skill_swap_review_received',
+      'hostel_removed',
+      'hostel_reported',
       'system_alert',
+      'hostel_inquiry_received',
+      'hostel_inquiry_responded',
       'creator_publish',
       'creator_comment',
       'creator_like',
@@ -108,7 +112,9 @@ const notificationSchema = new mongoose.Schema({
       'roommate_connection_accepted',
       'roommate_connection_declined',
       'room_rental_alert_match',
-      'room_rental_review_received'
+      'room_rental_review_received',
+      'hostel_verified',
+      'hostel_review_received'
     ],
     required: true
   },

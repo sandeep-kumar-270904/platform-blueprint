@@ -804,7 +804,7 @@ const RoomRentals = () => {
                     <Button 
                       variant="secondary" 
                       size="icon" 
-                      className="h-8 w-8 rounded-full bg-white/80 backdrop-blur shadow-sm hover:bg-white"
+                      className="h-8 w-8 rounded-full bg-background/80 backdrop-blur shadow-sm hover:bg-background"
                       onClick={(e) => {
                         e.stopPropagation();
                         if (!user) {
@@ -890,7 +890,7 @@ const RoomRentals = () => {
                       <Button 
                         variant="secondary" 
                         size="icon" 
-                        className="h-8 w-8 rounded-full bg-white/80 backdrop-blur shadow-sm hover:bg-white"
+                        className="h-8 w-8 rounded-full bg-background/80 backdrop-blur shadow-sm hover:bg-background"
                         onClick={(e) => {
                           e.stopPropagation();
                           unsaveListing.mutate(room._id);

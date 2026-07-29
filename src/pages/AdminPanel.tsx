@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  DollarSign, Briefcase, GraduationCap, FileText, Activity, MessageSquare, ShieldAlert, BarChart3, AlertTriangle, Users, Video
+  DollarSign, Briefcase, GraduationCap, FileText, Activity, MessageSquare, ShieldAlert, BarChart3, AlertTriangle, Users, Video, Building2
 } from "lucide-react";
 import { AdminModerationQueue } from "@/components/admin/AdminModerationQueue";
 import { AdminFinancials } from "@/components/admin/AdminFinancials";
@@ -183,6 +183,9 @@ const AdminPanel = () => {
                   </Button>
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
                     <Link to="/admin/creators"><Video className="mr-3 h-5 w-5 text-indigo-500" /> Creators Zone Moderation</Link>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/hostels"><Building2 className="mr-3 h-5 w-5 text-emerald-500" /> Student Hostels Moderation</Link>
                   </Button>
                 </CardContent>
               </Card>

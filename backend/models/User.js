@@ -201,6 +201,10 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Job'
   }],
+  savedHostels: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Hostel'
+  }],
   created_at: {
     type: Date,
     default: Date.now

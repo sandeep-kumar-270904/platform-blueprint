@@ -97,7 +97,7 @@ export const Header = () => {
   const navigationGroups = siteData?.navigation?.groups?.length >= 2 ? siteData.navigation.groups : defaultNavigationGroups;
   
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    return localStorage.getItem('theme') === 'dark' || document.documentElement.classList.contains('dark');
+    return document.documentElement.classList.contains('dark');
   });
 
   const toggleTheme = () => {
@@ -113,12 +113,33 @@ export const Header = () => {
   };
 
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      if (!localStorage.getItem('theme')) {
+        const newTheme = e.matches;
+        setIsDarkMode(newTheme);
+        if (newTheme) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }
+    };
+    
+    mediaQuery.addEventListener('change', handleChange);
+    
+    // Initial sync just in case React mounted after OS theme change
+    if (!localStorage.getItem('theme')) {
+      const isSystemDark = mediaQuery.matches;
+      if (isSystemDark !== isDarkMode) {
+        setIsDarkMode(isSystemDark);
+        if (isSystemDark) document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+      }
     }
-  }, [isDarkMode]);
+    
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -480,6 +501,10 @@ export const Header = () => {
             ))}
             {user && (
               <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
+                <Button variant="outline" className="w-full justify-center gap-2" onClick={toggleTheme}>
+                  {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                </Button>
                 <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)}>
                   <Button variant="outline" className="w-full justify-center gap-2">
                     <LayoutDashboard className="h-4 w-4" />
