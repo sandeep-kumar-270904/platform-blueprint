@@ -97,8 +97,8 @@ exports.getProviders = async (req, res) => {
 
     queryObj = queryObj.skip(skip).limit(limitNum);
 
-    // Execution
-    const providers = await queryObj;
+    // Execution with projection to reduce payload size
+    const providers = await queryObj.select('-operatingHours -services -contact -manualStatusOverride');
     
     // Map to include computed availability
     const mappedProviders = providers.map(p => {
@@ -151,9 +151,25 @@ exports.getProviderById = async (req, res) => {
 // @access  Public
 exports.getReviews = async (req, res) => {
   try {
-    const reviews = await RepairReview.find({ providerId: req.params.id })
+    const { page = 1, limit = 10, sort = 'newest' } = req.query;
+    
+    let sortObj = { createdAt: -1 };
+    if (sort === 'helpful') {
+      sortObj = { helpfulCount: -1, createdAt: -1 };
+    }
+
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const reviews = await RepairReview.find({ 
+      providerId: req.params.id,
+      moderationStatus: 'active' 
+    })
       .populate('userId', 'username full_name profile_picture')
-      .sort({ createdAt: -1 });
+      .sort(sortObj)
+      .skip(skip)
+      .limit(limitNum);
 
     const formatted = reviews.map(r => {
       const robj = r.toObject();
@@ -176,6 +192,11 @@ exports.addReview = async (req, res) => {
     const providerId = req.params.id;
     const userId = req.user.id;
 
+    const providerExists = await RepairProvider.findById(providerId);
+    if (!providerExists) {
+      return res.status(404).json({ success: false, error: 'Provider not found' });
+    }
+
     // Check for existing review
     let review = await RepairReview.findOne({ providerId, userId });
 
@@ -183,9 +204,12 @@ exports.addReview = async (req, res) => {
       // Update
       review.rating = rating;
       review.comment = comment;
+      review.isEdited = true;
+      review.lastEditedAt = Date.now();
       await review.save();
     } else {
       // Create
+      // Unique index {providerId, userId} prevents race condition duplicates at DB level
       review = await RepairReview.create({
         providerId,
         userId,
@@ -230,7 +254,19 @@ exports.flagReview = async (req, res) => {
     const review = await RepairReview.findById(req.params.id);
     if (!review) return res.status(404).json({ success: false, error: 'Review not found' });
 
+    if (review.flaggedByUsers && review.flaggedByUsers.includes(req.user.id)) {
+      return res.status(400).json({ success: false, error: 'Already flagged this review' });
+    }
+
+    if (!review.flaggedByUsers) review.flaggedByUsers = [];
+    review.flaggedByUsers.push(req.user.id);
     review.flagsCount += 1;
+
+    // Threshold logic
+    if (review.flagsCount >= 3) {
+      review.moderationStatus = 'flagged';
+    }
+
     await review.save();
 
     res.status(200).json({ success: true, data: review });

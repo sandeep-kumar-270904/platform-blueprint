@@ -34,17 +34,36 @@ const RepairReviewSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  flaggedByUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  moderationStatus: {
+    type: String,
+    enum: ['active', 'flagged', 'removed'],
+    default: 'active'
+  },
+  isEdited: {
+    type: Boolean,
+    default: false
+  },
+  lastEditedAt: {
+    type: Date
+  },
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
 
+// Enforce one review per user per provider
+RepairReviewSchema.index({ providerId: 1, userId: 1 }, { unique: true });
+
 // Static method to compute and update average rating on the provider
 RepairReviewSchema.statics.getAverageRating = async function(providerId) {
   const obj = await this.aggregate([
     {
-      $match: { providerId: providerId }
+      $match: { providerId: providerId, moderationStatus: 'active' }
     },
     {
       $group: {
