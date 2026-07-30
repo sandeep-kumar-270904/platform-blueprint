@@ -22,6 +22,7 @@ import { ServiceCard } from "@/components/repair/ServiceCard";
 import { ServiceCardSkeleton } from "@/components/repair/ServiceCardSkeleton";
 import { EmptyState } from "@/components/repair/EmptyState";
 import { ProviderDetailsSheet } from "@/components/repair/ProviderDetailsSheet";
+import { ListServiceModal } from "@/components/repair/ListServiceModal";
 import { SortOption, RepairCategory } from "@/lib/mockRepairData";
 import { ServiceListing } from "@/types/repair";
 
@@ -48,6 +49,9 @@ const Repair = () => {
   // Compare State
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [isCompareOpen, setIsCompareOpen] = useState(false);
+
+  // List Service State
+  const [isListModalOpen, setIsListModalOpen] = useState(false);
 
   // Debounce search
   useEffect(() => {
@@ -433,6 +437,21 @@ const Repair = () => {
         </div>
       )}
 
+      {/* List Your Service Footer CTA */}
+      <div className="mt-16 mb-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 rounded-2xl p-8 border border-blue-500/20 flex flex-col md:flex-row items-center justify-between text-center md:text-left gap-6 shadow-xl">
+          <div>
+            <h3 className="text-xl font-bold text-white mb-2">Are you a service provider?</h3>
+            <p className="text-blue-200/70 max-w-md">
+              Join our directory to connect with students and staff. We'll review your details and reach out to help you get listed.
+            </p>
+          </div>
+          <Button size="lg" className="shrink-0 bg-blue-600 hover:bg-blue-700" onClick={() => setIsListModalOpen(true)}>
+            List Your Service
+          </Button>
+        </div>
+      </div>
+
       {/* Slide-out Sheets / Drawers */}
       <RepairFiltersSheet 
         open={isFiltersOpen} 
@@ -451,6 +470,12 @@ const Repair = () => {
           setIsCompareOpen(false);
         }}
       />
+      
+      <ListServiceModal 
+        open={isListModalOpen}
+        onOpenChange={setIsListModalOpen}
+      />
+      
       {/* Sheet for displaying Provider details */}
       <ProviderDetailsSheet 
         providerId={selectedProviderId} 

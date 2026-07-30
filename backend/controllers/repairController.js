@@ -412,6 +412,53 @@ exports.getCompareProviders = async (req, res) => {
 };
 
 const RepairRequest = require('../models/RepairRequest');
+const ProviderApplication = require('../models/ProviderApplication');
+const crypto = require('crypto');
+
+// @desc    Submit a provider application (interest capture)
+// @route   POST /api/repair/applications
+// @access  Private (or Public, but we'll use optionalAuth/protect if we want to tie it to a user. Let's assume protect for now)
+exports.submitProviderApplication = async (req, res) => {
+  try {
+    const { businessName, category, contactPhone, contactEmail, serviceArea, description } = req.body;
+
+    // Basic validation
+    if (!businessName || !category || !contactPhone || !contactEmail || !serviceArea || !description) {
+      return res.status(400).json({ success: false, error: 'Please provide all required fields' });
+    }
+
+    // Idempotency: Prevent duplicate rapid-fire submissions (same business name + phone in last 5 mins)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60000);
+    const existingApp = await ProviderApplication.findOne({
+      businessName,
+      contactPhone,
+      createdAt: { $gte: fiveMinutesAgo }
+    });
+
+    if (existingApp) {
+      return res.status(429).json({ success: false, error: 'Application already submitted recently. Please wait before submitting again.' });
+    }
+
+    // Generate unique reference ID
+    const referenceId = 'APP-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+
+    const application = await ProviderApplication.create({
+      businessName,
+      category,
+      contactPhone,
+      contactEmail,
+      serviceArea,
+      description,
+      referenceId,
+      submittedBy: req.user ? req.user.id : null
+    });
+
+    res.status(201).json({ success: true, data: { referenceId: application.referenceId, status: application.status } });
+  } catch (error) {
+    console.error('Error submitting application:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
 
 // @desc    Create a new repair request
 // @route   POST /api/repair/requests

@@ -1,5 +1,5 @@
 const express = require('express');
-const { getProviders, getProviderById, getReviews, addReview, markReviewHelpful, flagReview, getCompareProviders, createRequest, getMyRequests, cancelRequest, addRequestNote, reportProvider, updateRequestStatus, toggleSaveProvider, getSavedProviders, getRecommendations, getDashboardSummary, dismissReviewPrompt, getUrgencyConfig } = require('../controllers/repairController');
+const { getProviders, getProviderById, getReviews, addReview, markReviewHelpful, flagReview, getCompareProviders, createRequest, getMyRequests, cancelRequest, addRequestNote, reportProvider, updateRequestStatus, toggleSaveProvider, getSavedProviders, getRecommendations, getDashboardSummary, dismissReviewPrompt, getUrgencyConfig, submitProviderApplication } = require('../controllers/repairController');
 const { protect, optionalAuth } = require('../middleware/auth');
 const uploadRepairPhoto = require('../middleware/uploadRepairPhoto');
 
@@ -13,6 +13,9 @@ router.route('/compare')
 
 router.route('/urgency-config')
   .get(getUrgencyConfig);
+
+router.route('/applications')
+  .post(optionalAuth, submitProviderApplication);
 
 router.route('/dashboard')
   .get(protect, getDashboardSummary);
