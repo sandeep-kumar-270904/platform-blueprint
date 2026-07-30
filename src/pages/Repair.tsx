@@ -17,7 +17,7 @@ import {
 import { ServiceCard } from "@/components/repair/ServiceCard";
 import { ServiceCardSkeleton } from "@/components/repair/ServiceCardSkeleton";
 import { EmptyState } from "@/components/repair/EmptyState";
-import { fetchMockServices, SortOption, RepairCategory } from "@/lib/mockRepairData";
+import { SortOption, RepairCategory } from "@/lib/mockRepairData";
 import { ServiceListing } from "@/types/repair";
 
 const Repair = () => {
@@ -37,7 +37,27 @@ const Repair = () => {
     }
 
     try {
-      const result = await fetchMockServices(selectedTab, sortBy, isLoadMore ? page : 1);
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const currentPage = isLoadMore ? page : 1;
+      
+      const queryParams = new URLSearchParams({
+        category: selectedTab,
+        sort: sortBy,
+        page: currentPage.toString(),
+        limit: '6'
+      });
+
+      // If sorting by nearest, we need to pass coordinates. Let's pass a mock LA coordinate for now 
+      // since the browser geolocation might be slow or blocked in this demo
+      if (sortBy === 'nearest') {
+        queryParams.append('lat', '34.0522');
+        queryParams.append('lng', '-118.2437');
+      }
+
+      const res = await fetch(`${API_URL}/api/repair?${queryParams.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch services');
+      
+      const result = await res.json();
       
       if (isLoadMore) {
         setServices(prev => [...prev, ...result.data]);
