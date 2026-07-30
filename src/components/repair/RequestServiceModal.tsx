@@ -35,6 +35,7 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
   const [date, setDate] = useState<Date>();
   const [time, setTime] = useState("");
   const [isAsap, setIsAsap] = useState(false);
+  const [isUrgent, setIsUrgent] = useState(false);
   const [phone, setPhone] = useState("123-456-7890"); // Mock prefill
   const [submitting, setSubmitting] = useState(false);
 
@@ -69,6 +70,7 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
       if (date) formData.append('preferredDate', date.toISOString());
       formData.append('preferredTime', time);
       formData.append('isAsap', isAsap.toString());
+      formData.append('isUrgent', isUrgent.toString());
       formData.append('contactPhone', phone);
       
       const res = await fetch(`${API_URL}/api/repair/requests`, {
@@ -98,6 +100,7 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
       setIssue("");
       setDate(undefined);
       setIsAsap(false);
+      setIsUrgent(false);
     }, 300);
   };
 
@@ -173,6 +176,27 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
                 <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer">
                   <Upload className="h-8 w-8 mb-2" />
                   <span className="text-sm">Click to upload or drag and drop</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-gray-800">
+                <div className="flex items-start space-x-3 bg-red-500/5 p-4 rounded-lg border border-red-500/20">
+                  <input 
+                    type="checkbox" 
+                    id="urgent" 
+                    checked={isUrgent}
+                    onChange={(e) => setIsUrgent(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-red-500/50 text-red-500 focus:ring-red-500 bg-transparent" 
+                  />
+                  <div>
+                    <Label htmlFor="urgent" className="font-medium text-red-500 flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Emergency / Urgent Request
+                    </Label>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Check this if you have a time-critical issue (e.g. burst pipe, total power outage). 
+                      Urgent requests are prioritized — most providers respond within 30 minutes.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -257,13 +281,20 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
 
           {step === 4 && (
             <div className="space-y-6 animate-in zoom-in-95 duration-300 py-6 text-center">
-              <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+              <div className={cn("mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4", isUrgent ? "bg-red-100 dark:bg-red-900/30 text-red-600" : "bg-green-100 dark:bg-green-900/30 text-green-600")}>
+                {isUrgent ? (
+                  <AlertTriangle className="h-8 w-8" />
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
               </div>
               <h3 className="text-lg font-semibold">Request Submitted Successfully</h3>
               <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+                {isUrgent ? (
+                  <span className="text-red-500 font-medium block mb-2">Urgent requests are prioritized — most providers respond within 30 minutes.</span>
+                ) : null}
                 {provider.name} has been notified and will contact you shortly to confirm the appointment.
               </p>
               
