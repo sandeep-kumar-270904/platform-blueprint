@@ -1,6 +1,8 @@
 const RepairProvider = require('../models/RepairProvider');
 const ProviderReport = require('../models/ProviderReport');
 const SavedProvider = require('../models/SavedProvider');
+const RepairRequest = require('../models/RepairRequest');
+const RepairReview = require('../models/RepairReview');
 const ProviderStatsService = require('../services/ProviderStatsService');
 const notificationService = require('../services/notificationService');
 
@@ -636,9 +638,71 @@ exports.reportProvider = async (req, res) => {
       details
     });
 
-    res.status(201).json({ success: true, data: report });
+    res.status(200).json({ success: true, data: provider });
   } catch (error) {
     console.error('Error reporting provider:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// @desc    Get user dashboard summary for Repair & Maintenance
+// @route   GET /api/repair/dashboard
+// @access  Private
+exports.getDashboardSummary = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // 1. Fetch active service requests (Pending, Accepted, In Progress)
+    const activeRequests = await RepairRequest.find({
+      userId,
+      status: { $in: ['Pending', 'Accepted', 'In Progress'] }
+    })
+    .populate('providerId', 'name category location verification')
+    .sort({ createdAt: -1 })
+    .limit(5);
+
+    // 2. Fetch count of saved providers
+    const savedProvidersCount = await SavedProvider.countDocuments({ userId });
+
+    // 3. Find pending reviews
+    // Get all completed requests for this user
+    const completedRequests = await RepairRequest.find({
+      userId,
+      status: 'Completed'
+    }).populate('providerId', 'name category').sort({ createdAt: -1 }).limit(10); // Check last 10 completed
+
+    const pendingReviews = [];
+    for (const req of completedRequests) {
+      if (req.providerId) {
+        // Check if a review already exists for this provider by this user
+        const existingReview = await RepairReview.findOne({
+          providerId: req.providerId._id,
+          userId: userId
+        });
+        
+        if (!existingReview) {
+          // Check if we already added this provider to the pending reviews list
+          if (!pendingReviews.some(p => p.providerId._id.toString() === req.providerId._id.toString())) {
+            pendingReviews.push({
+              requestId: req._id,
+              providerId: req.providerId,
+              completedAt: req.updatedAt // Using updatedAt as proxy for completion time
+            });
+          }
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        activeRequests,
+        savedProvidersCount,
+        pendingReviews: pendingReviews.slice(0, 3) // Return up to 3 prompts
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard summary:', error);
     res.status(500).json({ success: false, error: 'Server Error' });
   }
 };

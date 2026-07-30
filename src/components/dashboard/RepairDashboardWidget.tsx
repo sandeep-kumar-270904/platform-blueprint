@@ -1,0 +1,183 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Wrench, ChevronRight, Star, Clock, AlertCircle } from "lucide-react";
+
+interface ProviderSummary {
+  _id: string;
+  name: string;
+  category: string;
+}
+
+interface RepairRequest {
+  _id: string;
+  status: string;
+  providerId: ProviderSummary;
+  createdAt: string;
+}
+
+interface PendingReview {
+  requestId: string;
+  providerId: ProviderSummary;
+  completedAt: string;
+}
+
+interface DashboardSummary {
+  activeRequests: RepairRequest[];
+  savedProvidersCount: number;
+  pendingReviews: PendingReview[];
+}
+
+export const RepairDashboardWidget = () => {
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        
+        const res = await fetch(`${API_URL}/api/repair/dashboard`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            setSummary(json.data);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch repair dashboard summary:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchSummary();
+  }, []);
+
+  if (loading) {
+    return (
+      <Card className="border-border bg-card animate-pulse">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg text-muted-foreground">
+            <Wrench className="h-5 w-5" /> Repair & Maintenance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="h-24"></CardContent>
+      </Card>
+    );
+  }
+
+  // Graceful degradation / Empty State
+  if (!summary || (summary.activeRequests.length === 0 && summary.savedProvidersCount === 0 && summary.pendingReviews.length === 0)) {
+    return (
+      <Card className="border-border bg-card hover:bg-muted/30 transition-colors">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Wrench className="h-5 w-5 text-primary" /> Repair & Maintenance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center py-6 space-y-4">
+          <div className="bg-primary/10 p-4 rounded-full">
+            <Wrench className="h-8 w-8 text-primary" />
+          </div>
+          <p className="text-sm text-muted-foreground text-center">
+            Find trusted service providers for your AC, appliances, electrical, and more.
+          </p>
+          <Button asChild variant="default">
+            <Link to="/repair">Explore Services</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-border bg-card">
+      <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Wrench className="h-5 w-5 text-primary" /> Repair & Maintenance
+        </CardTitle>
+        <Button variant="ghost" size="sm" asChild className="hidden sm:flex">
+          <Link to="/repair">View Directory <ChevronRight className="h-4 w-4 ml-1" /></Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        
+        {/* Pending Reviews Prompt */}
+        {summary.pendingReviews.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium flex items-center gap-2 text-orange-600 dark:text-orange-400">
+              <Star className="h-4 w-4" /> Action Needed
+            </h4>
+            {summary.pendingReviews.map(review => (
+              <div key={review.requestId} className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">How was your experience with {review.providerId.name}?</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Your service request is marked as completed.</p>
+                </div>
+                <Button size="sm" asChild variant="outline" className="border-orange-300 hover:bg-orange-100 dark:border-orange-800 dark:hover:bg-orange-900">
+                  <Link to={`/repair/${review.providerId._id}?review=true`}>Leave a Review</Link>
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Active Requests */}
+        {summary.activeRequests.length > 0 && (
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Clock className="h-4 w-4" /> Active Service Requests
+            </h4>
+            <div className="space-y-2">
+              {summary.activeRequests.map(req => (
+                <Link 
+                  key={req._id} 
+                  to="/repair" 
+                  className="block group"
+                >
+                  <div className="bg-muted/30 border rounded-md p-3 flex justify-between items-center group-hover:bg-muted/60 transition-colors">
+                    <div>
+                      <p className="font-medium text-sm">{req.providerId?.name || 'Unknown Provider'}</p>
+                      <p className="text-xs text-muted-foreground capitalize mt-0.5">{req.providerId?.category || 'Service'}</p>
+                    </div>
+                    <Badge variant={
+                      req.status === 'Accepted' ? 'default' : 
+                      req.status === 'In Progress' ? 'secondary' : 
+                      'outline'
+                    }>
+                      {req.status}
+                    </Badge>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </CardContent>
+      
+      {/* Footer / Saved count */}
+      {summary.savedProvidersCount > 0 && (
+        <CardFooter className="pt-0 pb-4">
+          <Button variant="ghost" asChild className="w-full justify-between h-auto py-2 text-muted-foreground hover:text-foreground">
+            <Link to="/repair?tab=saved">
+              <span className="flex items-center gap-2 text-sm">
+                <Star className="h-4 w-4" /> {summary.savedProvidersCount} Saved Provider{summary.savedProvidersCount !== 1 ? 's' : ''}
+              </span>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </CardFooter>
+      )}
+    </Card>
+  );
+};
