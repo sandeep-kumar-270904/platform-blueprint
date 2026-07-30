@@ -22,6 +22,18 @@ const RepairReviewSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  helpfulCount: {
+    type: Number,
+    default: 0
+  },
+  helpfulUsers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  flagsCount: {
+    type: Number,
+    default: 0
+  },
   createdAt: {
     type: Date,
     default: Date.now

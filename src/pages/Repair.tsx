@@ -17,6 +17,7 @@ import {
 import { ServiceCard } from "@/components/repair/ServiceCard";
 import { ServiceCardSkeleton } from "@/components/repair/ServiceCardSkeleton";
 import { EmptyState } from "@/components/repair/EmptyState";
+import { ProviderDetailsSheet } from "@/components/repair/ProviderDetailsSheet";
 import { SortOption, RepairCategory } from "@/lib/mockRepairData";
 import { ServiceListing } from "@/types/repair";
 
@@ -28,6 +29,16 @@ const Repair = () => {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
+
+  // URL query parameter effect to open provider sheet from shared link
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const providerParam = params.get('provider');
+    if (providerParam) {
+      setSelectedProviderId(providerParam);
+    }
+  }, []);
 
   const loadServices = async (isLoadMore = false) => {
     if (isLoadMore) {
@@ -168,7 +179,10 @@ const Repair = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {services.map((service, index) => (
                     <ScrollReveal key={service.id} delay={0.05 * (index % 6)}>
-                      <ServiceCard service={service} />
+                      <ServiceCard 
+                        service={service} 
+                        onViewDetails={setSelectedProviderId}
+                      />
                     </ScrollReveal>
                   ))}
                 </div>
@@ -200,6 +214,17 @@ const Repair = () => {
           </TabsContent>
         </Tabs>
       </div>
+      {/* Sheet for displaying Provider details */}
+      <ProviderDetailsSheet 
+        providerId={selectedProviderId} 
+        onClose={() => {
+          setSelectedProviderId(null);
+          // Optional: clean up URL query params
+          const url = new URL(window.location.href);
+          url.searchParams.delete('provider');
+          window.history.pushState({}, '', url);
+        }} 
+      />
     </div>
   );
 };

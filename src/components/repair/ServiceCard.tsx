@@ -6,9 +6,10 @@ import { Star, MapPin, Phone, Clock, ShieldCheck, Zap, Droplet, Wrench, Sparkles
 
 interface ServiceCardProps {
   service: ServiceListing;
+  onViewDetails?: (id: string) => void;
 }
 
-export const ServiceCard = ({ service }: ServiceCardProps) => {
+export const ServiceCard = ({ service, onViewDetails }: ServiceCardProps) => {
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case "electronics": return <Zap className="h-3 w-3 mr-1" />;
@@ -42,7 +43,7 @@ export const ServiceCard = ({ service }: ServiceCardProps) => {
           <div className="flex items-center gap-1">
             <Star className="h-4 w-4 fill-warning text-warning" />
             <span className="font-semibold">{service.rating.toFixed(1)}</span>
-            <span className="text-xs text-muted-foreground">({service.reviews} reviews)</span>
+            <span className="text-xs text-muted-foreground">({service.reviewsCount} reviews)</span>
           </div>
         </div>
       </CardHeader>
@@ -84,7 +85,7 @@ export const ServiceCard = ({ service }: ServiceCardProps) => {
         </div>
 
         <div className="mt-auto grid grid-cols-2 gap-3">
-          <Button variant="outline" className="w-full">
+          <Button variant="outline" className="w-full" onClick={() => onViewDetails?.(service.id)}>
             View Details
           </Button>
           <Button className="w-full gap-2">
