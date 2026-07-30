@@ -26,44 +26,58 @@ class ProviderStatsService {
       };
 
       // 2. Calculate Response Rate & Time from RepairRequests
-      // We need at least 3 requests to show a meaningful stat
+      // We process all requests together to find overall response rate/time, and urgent time separately.
       const requests = await RepairRequest.find({ providerId });
       
-      if (requests.length >= 3) {
-        let respondedCount = 0;
-        let totalResponseTimeMs = 0;
-        
-        requests.forEach(req => {
-          // A request is considered "responded" if its status is no longer 'Pending'
-          // We can check the statusHistory to find when it first changed from Pending
-          if (req.status !== 'Pending' && req.statusHistory && req.statusHistory.length > 0) {
-            // Find the earliest status change that is not pending
-            const firstResponse = req.statusHistory.find(h => h.status !== 'Pending');
-            if (firstResponse) {
-              respondedCount++;
-              const responseTimeMs = firstResponse.changedAt - req.createdAt;
-              totalResponseTimeMs += responseTimeMs;
+      let respondedCount = 0;
+      let totalResponseTimeMs = 0;
+      let urgentRespondedCount = 0;
+      let urgentTotalResponseTimeMs = 0;
+
+      requests.forEach(req => {
+        // A request is considered "responded" if its status is no longer 'Pending'
+        if (req.status !== 'Pending' && req.statusHistory && req.statusHistory.length > 0) {
+          const firstResponse = req.statusHistory.find(h => h.status !== 'Pending');
+          if (firstResponse) {
+            respondedCount++;
+            const responseTimeMs = firstResponse.changedAt - req.createdAt;
+            totalResponseTimeMs += responseTimeMs;
+
+            if (req.isUrgent) {
+              urgentRespondedCount++;
+              urgentTotalResponseTimeMs += responseTimeMs;
             }
           }
-        });
+        }
+      });
 
+      // General Stats (min 3 requests)
+      if (requests.length >= 3) {
         const responseRate = Math.round((respondedCount / requests.length) * 100);
         
         if (respondedCount > 0) {
           const avgTimeMs = totalResponseTimeMs / respondedCount;
-          // Convert to hours and round to 1 decimal place
           const responseTimeHours = Math.round((avgTimeMs / (1000 * 60 * 60)) * 10) / 10;
-          
-          provider.reputationStats = {
-            responseRate,
-            responseTimeHours
-          };
+          provider.reputationStats.responseRate = responseRate;
+          provider.reputationStats.responseTimeHours = responseTimeHours;
         } else {
-          provider.reputationStats = { responseRate: 0, responseTimeHours: 0 };
+          provider.reputationStats.responseRate = 0;
+          provider.reputationStats.responseTimeHours = 0;
         }
       } else {
-        // Insufficient data to show meaningful stats
-        provider.reputationStats = { responseRate: 0, responseTimeHours: 0 };
+        // Insufficient data for general stats
+        provider.reputationStats.responseRate = 0;
+        provider.reputationStats.responseTimeHours = 0;
+      }
+
+      // Urgent Stats (min 3 urgent requests)
+      const urgentRequests = requests.filter(r => r.isUrgent);
+      if (urgentRequests.length >= 3 && urgentRespondedCount > 0) {
+        const avgUrgentTimeMs = urgentTotalResponseTimeMs / urgentRespondedCount;
+        provider.reputationStats.urgentResponseTimeHours = Math.round((avgUrgentTimeMs / (1000 * 60 * 60)) * 10) / 10;
+      } else {
+        // Insufficient data for urgent stats
+        provider.reputationStats.urgentResponseTimeHours = 0;
       }
 
       // Re-evaluate overall verification (e.g., must have 3 out of 4)

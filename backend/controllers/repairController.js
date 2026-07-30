@@ -418,7 +418,7 @@ const RepairRequest = require('../models/RepairRequest');
 // @access  Private
 exports.createRequest = async (req, res) => {
   try {
-    const { providerId, issueDescription, quickIssueCategory, preferredDate, preferredTime, isAsap, contactPhone } = req.body;
+    const { providerId, issueDescription, quickIssueCategory, preferredDate, preferredTime, isAsap, isUrgent, contactPhone } = req.body;
     
     // Check if provider exists and is active
     const provider = await RepairProvider.findById(providerId);
@@ -453,6 +453,7 @@ exports.createRequest = async (req, res) => {
       preferredDate: preferredDate ? new Date(preferredDate) : null,
       preferredTime: isAsap ? 'ASAP' : preferredTime,
       isAsap: isAsap === 'true' || isAsap === true,
+      isUrgent: isUrgent === 'true' || isUrgent === true,
       contactSnapshot: {
         phone: contactPhone,
         email: req.user.email // From auth middleware
@@ -479,16 +480,21 @@ exports.createRequest = async (req, res) => {
 // @access  Private
 exports.getMyRequests = async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, sort } = req.query;
     let query = { userId: req.user.id };
     
     if (status) {
       query.status = status;
     }
 
+    let sortOption = '-createdAt';
+    if (sort === 'urgent') {
+      sortOption = { isUrgent: -1, createdAt: -1 };
+    }
+
     const requests = await RepairRequest.find(query)
       .populate('providerId', 'name category')
-      .sort('-createdAt');
+      .sort(sortOption);
 
     // Map to include providerName in root for frontend convenience
     const formatted = requests.map(req => {
@@ -918,4 +924,22 @@ exports.getRecommendations = async (req, res) => {
     console.error('Error getting recommendations:', error);
     res.status(500).json({ success: false, error: 'Server Error' });
   }
+};
+
+// @desc    Get urgency sanity configuration
+// @route   GET /api/repair/urgency-config
+// @access  Public
+exports.getUrgencyConfig = (req, res) => {
+  // Static configuration defining which categories typically warrant "Urgent" status
+  // This allows the frontend to gently discourage urgency for non-critical categories
+  const urgencyConfig = {
+    eligibleCategories: ['plumbing', 'electrical', 'ac', 'appliance', 'security'],
+    warningMessage: 'Are you sure this is urgent? This category typically handles standard requests. Urgent requests should be reserved for critical issues.',
+    plumbing: ['leak', 'burst', 'flooding', 'no water'],
+    electrical: ['outage', 'spark', 'shock', 'burnt smell'],
+    ac: ['not cooling', 'leaking', 'making noise'],
+    security: ['broken lock', 'stuck door', 'alarm issues']
+  };
+
+  res.status(200).json({ success: true, data: urgencyConfig });
 };

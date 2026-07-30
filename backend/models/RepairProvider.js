@@ -75,7 +75,8 @@ const RepairProviderSchema = new mongoose.Schema({
   
   reputationStats: {
     responseRate: { type: Number, default: 0 }, // 0 to 100 percentage
-    responseTimeHours: { type: Number, default: 0 } // e.g. 2 for 2 hours
+    responseTimeHours: { type: Number, default: 0 }, // e.g. 2 for 2 hours
+    urgentResponseTimeHours: { type: Number, default: 0 } // e.g. 0.5 for 30 minutes
   },
   
   handlesEmergencies: {
