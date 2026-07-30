@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { ServiceListing } from "@/types/repair";
 import { toast } from "@/components/ui/use-toast";
+import { generateICS, downloadICS } from "@/utils/calendarUtils";
 
 interface RequestServiceModalProps {
   open: boolean;
@@ -46,6 +47,10 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
       setStep(prev => prev + 1);
       return;
     }
+    if (step === 4) {
+      handleClose();
+      return;
+    }
 
     setSubmitting(true);
     
@@ -78,16 +83,39 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
       if (!res.ok) throw new Error(data.error || 'Failed to submit request');
 
       onSuccess();
-      onOpenChange(false);
-      setStep(1);
-      setIssue("");
-      setDate(undefined);
-      setIsAsap(false);
+      setStep(4); // Show success screen instead of closing immediately
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleClose = () => {
+    onOpenChange(false);
+    setTimeout(() => {
+      setStep(1);
+      setIssue("");
+      setDate(undefined);
+      setIsAsap(false);
+    }, 300);
+  };
+
+  const handleCalendarSync = () => {
+    if (!date) return;
+    
+    // Create start time string combining date and time
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const startTimeStr = `${dateStr}T${time || '10:00'}:00`;
+    
+    const ics = generateICS(
+      `Repair Service: ${provider.name}`,
+      `Service requested for: ${issue}\n\nCategory: ${provider.category}`,
+      startTimeStr,
+      60, // Assume 1 hour
+      window.location.href
+    );
+    downloadICS(`repair-${provider.name}`, ics);
   };
 
   return (
@@ -99,6 +127,7 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
             {step === 1 && "Tell us what you need help with."}
             {step === 2 && "When do you need this done?"}
             {step === 3 && "Confirm your details."}
+            {step === 4 && "Your request has been sent."}
           </DialogDescription>
         </DialogHeader>
 
@@ -226,8 +255,38 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
             </div>
           )}
 
+          {step === 4 && (
+            <div className="space-y-6 animate-in zoom-in-95 duration-300 py-6 text-center">
+              <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-full flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold">Request Submitted Successfully</h3>
+              <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+                {provider.name} has been notified and will contact you shortly to confirm the appointment.
+              </p>
+              
+              {!isAsap && date && (
+                <div className="pt-4 border-t">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="w-full gap-2"
+                    onClick={handleCalendarSync}
+                  >
+                    <CalendarIcon className="h-4 w-4" /> Add to Calendar
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    We'll also send you an automatic reminder shortly before the scheduled time.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <DialogFooter className="flex sm:justify-between items-center gap-2 pt-2 border-t">
-            {step > 1 ? (
+            {step > 1 && step < 4 ? (
               <Button type="button" variant="ghost" onClick={() => setStep(prev => prev - 1)}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
@@ -235,15 +294,21 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
               <div /> // Spacer
             )}
             
-            <Button type="submit" disabled={submitting}>
-              {submitting ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>
-              ) : step < 3 ? (
-                <>Next <ArrowRight className="ml-2 h-4 w-4" /></>
-              ) : (
-                "Submit Request"
-              )}
-            </Button>
+            {step === 4 ? (
+              <Button type="button" onClick={handleClose} className="w-full sm:w-auto">
+                Done
+              </Button>
+            ) : (
+              <Button type="submit" disabled={submitting}>
+                {submitting ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>
+                ) : step < 3 ? (
+                  <>Next <ArrowRight className="ml-2 h-4 w-4" /></>
+                ) : (
+                  "Submit Request"
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>

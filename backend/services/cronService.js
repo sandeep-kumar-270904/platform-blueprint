@@ -22,6 +22,7 @@ class CronService {
     cron.schedule('*/5 * * * *', async () => {
       this.checkSessionReminders();
       this.checkLiveSessionReminders();
+      this.checkRepairReminders();
     });
 
     // Run every minute to transition AMA statuses and check expired holds
@@ -1346,6 +1347,61 @@ const NewsDigestLog = require('../models/NewsDigestLog');
       }
     } catch (err) {
       console.error('Error checking applicant digests:', err);
+    }
+  }
+
+  async checkRepairReminders() {
+    try {
+      const RepairRequest = require('../models/RepairRequest');
+      const notificationService = require('./notificationService');
+      
+      const now = new Date();
+      // Target time is 2 hours from now
+      const in2Hours = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      const in2HoursString = in2Hours.toISOString().split('T')[1].slice(0, 5); // "HH:mm"
+      
+      // Look for requests that are Scheduled for today, within 2 hours, and not yet reminded
+      // Since preferredDate is a Date and preferredTime is "HH:mm", we need to check if the date is today
+      const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(now.setHours(23, 59, 59, 999));
+      now.setTime(new Date().getTime()); // Reset now
+      
+      const upcomingRequests = await RepairRequest.find({
+        status: { $in: ['Pending', 'Accepted'] },
+        isAsap: false,
+        reminderSent: false,
+        preferredDate: {
+          $gte: startOfDay,
+          $lte: endOfDay
+        }
+      }).populate('providerId', 'name');
+
+      for (const req of upcomingRequests) {
+        if (!req.preferredTime) continue;
+        
+        // Convert preferredTime "HH:mm" to a Date object today
+        const [hours, minutes] = req.preferredTime.split(':');
+        const scheduledTime = new Date();
+        scheduledTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+        
+        // If the scheduled time is within the next 2 hours and hasn't passed yet
+        if (scheduledTime > now && scheduledTime <= new Date(now.getTime() + 2 * 60 * 60 * 1000)) {
+          // Send reminder
+          await notificationService.sendNotification({
+            userId: req.userId,
+            type: 'system_alert',
+            title: 'Upcoming Service Reminder',
+            message: `Your repair service with ${req.providerId.name} is scheduled for today at ${req.preferredTime}.`,
+            link: '/dashboard'
+          });
+          
+          req.reminderSent = true;
+          await req.save();
+          console.log(`[Cron] Sent repair reminder for request ${req._id}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error in checkRepairReminders cron:', error);
     }
   }
 }

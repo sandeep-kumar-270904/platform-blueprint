@@ -32,6 +32,10 @@ const RepairRequestSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  reminderSent: {
+    type: Boolean,
+    default: false
+  },
   contactSnapshot: {
     phone: { type: String, required: true },
     email: { type: String }
