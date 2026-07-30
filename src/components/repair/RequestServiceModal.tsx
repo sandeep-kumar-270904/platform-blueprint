@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,25 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
   const [isUrgent, setIsUrgent] = useState(false);
   const [phone, setPhone] = useState("123-456-7890"); // Mock prefill
   const [submitting, setSubmitting] = useState(false);
+  const [urgencyConfig, setUrgencyConfig] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/repair/urgency-config`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            setUrgencyConfig(data.data);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch urgency config", err);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   const commonIssues = COMMON_ISSUES[provider.category] || COMMON_ISSUES.handyman;
   const isClosed = provider.availability === 'Closed' || provider.availability?.includes("Closed");
@@ -180,7 +199,7 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
               </div>
 
               <div className="pt-2 border-t border-gray-800">
-                <div className="flex items-start space-x-3 bg-red-500/5 p-4 rounded-lg border border-red-500/20">
+                <div className={cn("flex items-start space-x-3 p-4 rounded-lg border", isUrgent && urgencyConfig && !urgencyConfig.eligibleCategories.includes(provider.category.toLowerCase()) ? "bg-orange-500/10 border-orange-500/30" : "bg-red-500/5 border-red-500/20")}>
                   <input 
                     type="checkbox" 
                     id="urgent" 
@@ -189,12 +208,18 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
                     className="mt-1 h-4 w-4 rounded border-red-500/50 text-red-500 focus:ring-red-500 bg-transparent" 
                   />
                   <div>
-                    <Label htmlFor="urgent" className="font-medium text-red-500 flex items-center gap-1">
+                    <Label htmlFor="urgent" className={cn("font-medium flex items-center gap-1", isUrgent && urgencyConfig && !urgencyConfig.eligibleCategories.includes(provider.category.toLowerCase()) ? "text-orange-500" : "text-red-500")}>
                       <AlertTriangle className="w-3.5 h-3.5" /> Emergency / Urgent Request
                     </Label>
                     <p className="text-xs text-gray-400 mt-1">
-                      Check this if you have a time-critical issue (e.g. burst pipe, total power outage). 
-                      Urgent requests are prioritized — most providers respond within 30 minutes.
+                      {isUrgent && urgencyConfig && !urgencyConfig.eligibleCategories.includes(provider.category.toLowerCase()) ? (
+                        <span className="text-orange-400">{urgencyConfig.warningMessage}</span>
+                      ) : (
+                        <>
+                          Check this if you have a time-critical issue (e.g. burst pipe, total power outage). 
+                          Urgent requests are prioritized — most providers respond within 30 minutes.
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>

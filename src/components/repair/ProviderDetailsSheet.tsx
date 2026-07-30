@@ -278,6 +278,12 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
                           <span>Provider has a low response rate recently. Bookings may take longer to confirm.</span>
                         </div>
                       )}
+                      {provider.handlesEmergencies && provider.reputationStats.urgentResponseTimeHours > 0 && provider.reputationStats.urgentResponseTimeHours <= 1 && (
+                        <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded flex gap-2 text-xs text-red-400">
+                          <Zap className="w-4 h-4 shrink-0" />
+                          <span>Fast Emergency Response: Typically responds to urgent requests within {provider.reputationStats.urgentResponseTimeHours * 60} minutes.</span>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <p className="text-sm text-gray-400 mt-2">Not enough data to calculate response rate yet.</p>
