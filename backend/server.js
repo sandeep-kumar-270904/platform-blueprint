@@ -611,6 +611,7 @@ app.use('/api/classrooms', require('./routes/classrooms'));
 app.use('/api/integration', require('./routes/integration'));
 app.use('/api/forum', require('./routes/forum'));
 app.use('/api/qa', require('./routes/qa'));
+app.use('/api/repair', require('./routes/repairRoutes'));
 app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/room-rentals', require('./routes/roomRentals'));
 app.use('/api/coach', require('./routes/coach'));
