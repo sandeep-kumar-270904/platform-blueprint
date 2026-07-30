@@ -114,7 +114,9 @@ const notificationSchema = new mongoose.Schema({
       'room_rental_alert_match',
       'room_rental_review_received',
       'hostel_verified',
-      'hostel_review_received'
+      'hostel_review_received',
+      'repair_request_status_change',
+      'repair_request_note'
     ],
     required: true
   },
@@ -141,5 +143,6 @@ const notificationSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 notificationSchema.index({ userId: 1, isRead: 1 });
+notificationSchema.index({ userId: 1, createdAt: -1 }); // Fast retrieval for paginated timeline
 
 module.exports = mongoose.model('Notification', notificationSchema);

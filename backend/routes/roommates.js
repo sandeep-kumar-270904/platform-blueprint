@@ -19,35 +19,40 @@ const roommateActionLimiter = rateLimit({
 const calculateCompatibility = (p1, p2) => {
   let score = 0;
   
-  // Budget Match (30 pts)
+  // Budget Match (25 pts)
   const overlapMin = Math.max(p1.budgetRange.min, p2.budgetRange.min);
   const overlapMax = Math.min(p1.budgetRange.max, p2.budgetRange.max);
   if (overlapMax >= overlapMin) {
-    score += 30; // Strong overlap
+    score += 25; // Strong overlap
   } else if (p1.budgetRange.max >= p2.budgetRange.min - 100 && p1.budgetRange.min <= p2.budgetRange.max + 100) {
-    score += 15; // Close match
+    score += 10; // Close match
   }
 
-  // Cleanliness (20 pts)
+  // Location Match (25 pts)
+  if (p1.preferredLocations && p2.preferredLocations && p1.preferredLocations.length > 0 && p2.preferredLocations.length > 0) {
+    const commonLocations = p1.preferredLocations.filter(loc => p2.preferredLocations.includes(loc));
+    if (commonLocations.length > 0) {
+      score += 25; // Match found
+    }
+  } else if (!p1.preferredLocations?.length || !p2.preferredLocations?.length) {
+    // If either has no specific preference, give partial points to not penalize
+    score += 15;
+  }
+
+  // Cleanliness (15 pts)
   const cleanScores = { 'Messy': 1, 'Average': 2, 'Clean': 3, 'Neat Freak': 4 };
-  const cleanDiff = Math.abs(cleanScores[p1.cleanliness] - cleanScores[p2.cleanliness]);
-  if (cleanDiff === 0) score += 20;
-  else if (cleanDiff === 1) score += 10;
+  const cleanDiff = Math.abs(cleanScores[p1.lifestyle_preferences.cleanliness] - cleanScores[p2.lifestyle_preferences.cleanliness]);
+  if (cleanDiff === 0) score += 15;
+  else if (cleanDiff === 1) score += 7;
 
-  // Sleep Schedule (20 pts)
-  if (p1.sleepSchedule === p2.sleepSchedule) score += 20;
-  else if (p1.sleepSchedule === 'Flexible' || p2.sleepSchedule === 'Flexible') score += 10;
+  // Sleep Schedule (15 pts)
+  if (p1.lifestyle_preferences.sleepSchedule === p2.lifestyle_preferences.sleepSchedule) score += 15;
+  else if (p1.lifestyle_preferences.sleepSchedule === 'Flexible' || p2.lifestyle_preferences.sleepSchedule === 'Flexible') score += 7;
 
-  // Noise Tolerance (15 pts)
-  const noiseScores = { 'Low': 1, 'Medium': 2, 'High': 3 };
-  const noiseDiff = Math.abs(noiseScores[p1.noiseTolerance] - noiseScores[p2.noiseTolerance]);
-  if (noiseDiff === 0) score += 15;
-  else if (noiseDiff === 1) score += 7;
-
-  // Smoking & Pets (15 pts)
-  if (p1.smoking === p2.smoking && p1.pets === p2.pets) score += 15;
-  else if (p1.smoking === 'No' && p2.smoking === 'Yes') score += 0;
-  else score += 7;
+  // Smoking & Pets (20 pts)
+  if (p1.lifestyle_preferences.smoking === p2.lifestyle_preferences.smoking && p1.lifestyle_preferences.pets === p2.lifestyle_preferences.pets) score += 20;
+  else if (p1.lifestyle_preferences.smoking === 'No' && p2.lifestyle_preferences.smoking === 'Yes') score += 0;
+  else score += 10;
 
   return score;
 };
@@ -67,15 +72,18 @@ router.get('/profile', auth, async (req, res) => {
 // POST /profile - Create or update profile
 router.post('/profile', auth, isNotBanned, sanitize, async (req, res) => {
   try {
-    const { cleanliness, sleepSchedule, noiseTolerance, smoking, pets, budgetRange, moveInDate, bio } = req.body;
+    const { preferredLocations, lifestyle_preferences, budgetRange, moveInDate, bio } = req.body;
     
     let profile = await RoommateProfile.findOne({ user: req.user.id });
     if (profile) {
-      if (cleanliness) profile.cleanliness = cleanliness;
-      if (sleepSchedule) profile.sleepSchedule = sleepSchedule;
-      if (noiseTolerance) profile.noiseTolerance = noiseTolerance;
-      if (smoking) profile.smoking = smoking;
-      if (pets) profile.pets = pets;
+      if (preferredLocations) profile.preferredLocations = preferredLocations;
+      if (lifestyle_preferences) {
+        if (lifestyle_preferences.cleanliness) profile.lifestyle_preferences.cleanliness = lifestyle_preferences.cleanliness;
+        if (lifestyle_preferences.sleepSchedule) profile.lifestyle_preferences.sleepSchedule = lifestyle_preferences.sleepSchedule;
+        if (lifestyle_preferences.noiseTolerance) profile.lifestyle_preferences.noiseTolerance = lifestyle_preferences.noiseTolerance;
+        if (lifestyle_preferences.smoking) profile.lifestyle_preferences.smoking = lifestyle_preferences.smoking;
+        if (lifestyle_preferences.pets) profile.lifestyle_preferences.pets = lifestyle_preferences.pets;
+      }
       if (budgetRange) profile.budgetRange = budgetRange;
       if (moveInDate) profile.moveInDate = moveInDate;
       if (bio) profile.bio = bio;
@@ -83,7 +91,7 @@ router.post('/profile', auth, isNotBanned, sanitize, async (req, res) => {
     } else {
       profile = new RoommateProfile({
         user: req.user.id,
-        cleanliness, sleepSchedule, noiseTolerance, smoking, pets, budgetRange, moveInDate, bio
+        preferredLocations, lifestyle_preferences, budgetRange, moveInDate, bio
       });
       await profile.save();
     }
@@ -116,8 +124,8 @@ router.get('/discover', auth, async (req, res) => {
       query.moveInDate = { $gte: new Date(moveInDate) };
     }
 
-    if (cleanliness) query.cleanliness = cleanliness;
-    if (sleepSchedule) query.sleepSchedule = sleepSchedule;
+    if (cleanliness) query['lifestyle_preferences.cleanliness'] = cleanliness;
+    if (sleepSchedule) query['lifestyle_preferences.sleepSchedule'] = sleepSchedule;
 
     const otherProfiles = await RoommateProfile.find(query)
       .populate('user', 'name profilePicture'); // Specifically omit email to protect privacy

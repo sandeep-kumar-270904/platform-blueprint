@@ -14,6 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { Input } from "@/components/ui/input";
+import { Search, SlidersHorizontal, X, Layers, Heart } from "lucide-react";
+import { RepairFiltersSheet, RepairFilters } from "@/components/repair/RepairFiltersSheet";
+import { CompareDrawer } from "@/components/repair/CompareDrawer";
 import { ServiceCard } from "@/components/repair/ServiceCard";
 import { ServiceCardSkeleton } from "@/components/repair/ServiceCardSkeleton";
 import { EmptyState } from "@/components/repair/EmptyState";
@@ -31,6 +35,28 @@ const Repair = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
 
+  // Recommendations State
+  const [recommendations, setRecommendations] = useState<ServiceListing[]>([]);
+  const [showRecommendations, setShowRecommendations] = useState(true);
+
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filters, setFilters] = useState<RepairFilters>({});
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+
+  // Compare State
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+
+  // Debounce search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
   // URL query parameter effect to open provider sheet from shared link
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -38,6 +64,36 @@ const Repair = () => {
     if (providerParam) {
       setSelectedProviderId(providerParam);
     }
+  }, []);
+
+  // Fetch Recommendations (Only for logged-in users, gracefully falls back if no token or error)
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return; // Only fetch if user might be logged in
+
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/repair/recommendations`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data && data.data.length > 0) {
+            setRecommendations(data.data);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch recommendations:", error);
+      }
+    };
+
+    // Defer fetching recommendations to avoid blocking main render on slow devices
+    const timer = setTimeout(() => {
+      fetchRecommendations();
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const loadServices = async (isLoadMore = false) => {
@@ -51,21 +107,43 @@ const Repair = () => {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const currentPage = isLoadMore ? page : 1;
       
+      let endpoint = `${API_URL}/api/repair`;
       const queryParams = new URLSearchParams({
-        category: selectedTab,
-        sort: sortBy,
         page: currentPage.toString(),
         limit: '6'
       });
 
-      // If sorting by nearest, we need to pass coordinates. Let's pass a mock LA coordinate for now 
-      // since the browser geolocation might be slow or blocked in this demo
-      if (sortBy === 'nearest') {
-        queryParams.append('lat', '34.0522');
-        queryParams.append('lng', '-118.2437');
+      if (selectedTab === 'saved') {
+        endpoint = `${API_URL}/api/repair/saved`;
+      } else {
+        queryParams.append('category', selectedTab);
+        queryParams.append('sort', sortBy);
+
+        if (debouncedSearch) queryParams.append('search', debouncedSearch);
+        if (filters.minRating) queryParams.append('minRating', filters.minRating.toString());
+        if (filters.priceMin) queryParams.append('priceMin', filters.priceMin.toString());
+        if (filters.priceMax) queryParams.append('priceMax', filters.priceMax.toString());
+        if (filters.openNow) {
+          queryParams.append('openNow', 'true');
+          const now = new Date();
+          const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          queryParams.append('currentDay', days[now.getDay()]);
+          queryParams.append('currentTime', (now.getHours() * 60 + now.getMinutes()).toString());
+        }
+
+        if (sortBy === 'nearest') {
+          queryParams.append('lat', '34.0522');
+          queryParams.append('lng', '-118.2437');
+        }
       }
 
-      const res = await fetch(`${API_URL}/api/repair?${queryParams.toString()}`);
+      const headers: Record<string, string> = {};
+      const token = localStorage.getItem('token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(`${endpoint}?${queryParams.toString()}`, { headers });
       if (!res.ok) throw new Error('Failed to fetch services');
       
       const result = await res.json();
@@ -75,7 +153,7 @@ const Repair = () => {
       } else {
         setServices(result.data);
       }
-      setTotalPages(result.totalPages);
+      setTotalPages(result.totalPages || 1);
     } catch (error) {
       console.error("Failed to fetch services:", error);
     } finally {
@@ -84,12 +162,24 @@ const Repair = () => {
     }
   };
 
-  // Reset page and reload on tab or sort change
+  const handleSaveToggle = (id: string, isSaved: boolean) => {
+    // If we're on the saved tab and removing a save, remove it from the list
+    if (selectedTab === 'saved' && !isSaved) {
+      setServices(prev => prev.filter(s => s.id !== id));
+      return;
+    }
+
+    // Otherwise just update the flag in both lists
+    setServices(prev => prev.map(s => s.id === id ? { ...s, isSaved } : s));
+    setRecommendations(prev => prev.map(s => s.id === id ? { ...s, isSaved } : s));
+  };
+
+  // Reset page and reload on tab, sort, search, or filter change
   useEffect(() => {
     setPage(1);
     loadServices(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTab, sortBy]);
+  }, [selectedTab, sortBy, debouncedSearch, filters]);
 
   // Load more on page change
   useEffect(() => {
@@ -138,14 +228,118 @@ const Repair = () => {
       </ParallaxSection>
 
       <div className="container mx-auto px-4 py-12 max-w-7xl">
+        <div className="mb-8 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search by name, service, or specialty..." 
+                className="pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground"
+                  onClick={() => setSearchQuery("")}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            <Button variant="outline" className="shrink-0 gap-2" onClick={() => setIsFiltersOpen(true)}>
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters
+              {(filters.priceMin || filters.priceMax || filters.minRating || filters.openNow) && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 flex items-center justify-center rounded-full">
+                  {Object.values(filters).filter(Boolean).length}
+                </Badge>
+              )}
+            </Button>
+          </div>
+          
+          {/* Active Filter Chips */}
+          {(filters.priceMin || filters.priceMax || filters.minRating || filters.openNow) && (
+            <div className="flex flex-wrap gap-2 items-center text-sm">
+              <span className="text-muted-foreground text-xs mr-1">Active Filters:</span>
+              {filters.minRating && (
+                <Badge variant="secondary" className="gap-1 font-normal">
+                  {filters.minRating}+ Stars
+                  <button aria-label="Remove minimum rating filter" onClick={() => setFilters(prev => ({ ...prev, minRating: undefined }))}>
+                    <X className="h-3 w-3 cursor-pointer" aria-hidden="true" />
+                  </button>
+                </Badge>
+              )}
+              {(filters.priceMin || filters.priceMax) && (
+                <Badge variant="secondary" className="gap-1 font-normal">
+                  Price: {filters.priceMin ? `$${filters.priceMin}` : '$0'} - {filters.priceMax ? `$${filters.priceMax}` : 'Any'}
+                  <button aria-label="Remove price filter" onClick={() => setFilters(prev => ({ ...prev, priceMin: undefined, priceMax: undefined }))}>
+                    <X className="h-3 w-3 cursor-pointer" aria-hidden="true" />
+                  </button>
+                </Badge>
+              )}
+              {filters.openNow && (
+                <Badge variant="secondary" className="gap-1 font-normal">
+                  Open Now
+                  <button aria-label="Remove open now filter" onClick={() => setFilters(prev => ({ ...prev, openNow: false }))}>
+                    <X className="h-3 w-3 cursor-pointer" aria-hidden="true" />
+                  </button>
+                </Badge>
+              )}
+              <Button variant="ghost" size="sm" aria-label="Clear all active filters" className="h-6 text-xs text-muted-foreground min-h-[44px]" onClick={() => setFilters({})}>
+                Clear All
+              </Button>
+            </div>
+          )}
+        </div>
+
         <Tabs 
           value={selectedTab} 
           onValueChange={(val) => setSelectedTab(val as RepairCategory)} 
           className="space-y-8"
         >
+          {/* Recommendations Section */}
+          {recommendations.length > 0 && showRecommendations && (
+            <div className="mb-8 p-6 bg-secondary/10 border border-secondary/20 rounded-2xl animate-in fade-in slide-in-from-bottom-4 relative">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="absolute right-4 top-4 h-11 w-11 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowRecommendations(false)}
+                aria-label="Dismiss recommendations"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Button>
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h3 className="text-xl font-semibold">Recommended for you</h3>
+              </div>
+              <p className="text-muted-foreground mb-6 text-sm max-w-2xl">
+                Based on your past service requests and saved providers, here are some highly-rated professionals you might find useful.
+              </p>
+              
+              <div className="flex overflow-x-auto pb-4 gap-6 snap-x -mx-2 px-2">
+                {recommendations.map(service => (
+                  <div key={service.id} className="min-w-[300px] w-[300px] md:min-w-[350px] md:w-[350px] shrink-0 snap-start">
+                    <ServiceCard 
+                      service={service} 
+                      onViewDetails={setSelectedProviderId}
+                      onSaveToggle={handleSaveToggle}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <TabsList className="grid w-full max-w-2xl grid-cols-4 lg:grid-cols-6 overflow-x-auto h-auto p-1">
+            <TabsList className="grid w-full max-w-3xl grid-cols-5 lg:grid-cols-7 overflow-x-auto h-auto p-1">
               <TabsTrigger value="all" className="py-2">All</TabsTrigger>
+              <TabsTrigger value="saved" className="py-2 text-primary font-medium data-[state=active]:bg-primary/10">
+                <Heart className="w-3.5 h-3.5 mr-1.5 hidden sm:inline" /> Saved
+              </TabsTrigger>
               <TabsTrigger value="electronics" className="py-2">Electronics</TabsTrigger>
               <TabsTrigger value="plumbing" className="py-2">Plumbing</TabsTrigger>
               <TabsTrigger value="electrical" className="py-2">Electrical</TabsTrigger>
@@ -182,6 +376,16 @@ const Repair = () => {
                       <ServiceCard 
                         service={service} 
                         onViewDetails={setSelectedProviderId}
+                        isCompared={compareIds.includes(service.id)}
+                        onSaveToggle={handleSaveToggle}
+                        onToggleCompare={(id, checked) => {
+                          if (checked) {
+                            if (compareIds.length >= 3) return; // Prevent more than 3
+                            setCompareIds(prev => [...prev, id]);
+                          } else {
+                            setCompareIds(prev => prev.filter(c => c !== id));
+                          }
+                        }}
                       />
                     </ScrollReveal>
                   ))}
@@ -214,6 +418,39 @@ const Repair = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Compare Floating Action Button */}
+      {compareIds.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-10 fade-in zoom-in duration-300">
+          <Button 
+            size="lg" 
+            className="rounded-full shadow-lg h-14 px-6 gap-2"
+            onClick={() => setIsCompareOpen(true)}
+          >
+            <Layers className="h-5 w-5" />
+            Compare ({compareIds.length})
+          </Button>
+        </div>
+      )}
+
+      {/* Slide-out Sheets / Drawers */}
+      <RepairFiltersSheet 
+        open={isFiltersOpen} 
+        onOpenChange={setIsFiltersOpen}
+        filters={filters}
+        onApplyFilters={setFilters}
+      />
+
+      <CompareDrawer 
+        open={isCompareOpen}
+        onOpenChange={setIsCompareOpen}
+        providers={services.filter(s => compareIds.includes(s.id))}
+        onRemove={(id) => setCompareIds(prev => prev.filter(c => c !== id))}
+        onClear={() => {
+          setCompareIds([]);
+          setIsCompareOpen(false);
+        }}
+      />
       {/* Sheet for displaying Provider details */}
       <ProviderDetailsSheet 
         providerId={selectedProviderId} 

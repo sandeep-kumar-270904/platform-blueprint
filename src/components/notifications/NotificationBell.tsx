@@ -178,6 +178,10 @@ export const NotificationBell = () => {
       return `/study-groups/${groupId}`;
     }
     
+    if (n.type.startsWith('repair_request_')) {
+      return '/dashboard/repair-requests';
+    }
+    
     if (n.relatedCollegeId) {
       return `/colleges/${n.relatedCollegeId}`;
     }
@@ -235,7 +239,13 @@ export const NotificationBell = () => {
                     onClick={() => setIsOpen(false)}
                   >
                     <div className={`mt-0.5 shrink-0 rounded-full p-1.5 ${!n.isRead ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                      <Info className="h-4 w-4" />
+                      {n.type === 'repair_request_status_change' ? (
+                        <Check className="h-4 w-4" />
+                      ) : n.type === 'repair_request_note' ? (
+                        <Info className="h-4 w-4" />
+                      ) : (
+                        <Info className="h-4 w-4" />
+                      )}
                     </div>
                     <div className="flex flex-col flex-1 gap-1">
                       <p className={`text-sm leading-snug ${!n.isRead ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
