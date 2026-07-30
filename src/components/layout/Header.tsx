@@ -8,8 +8,8 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu";
-import { GraduationCap, Menu, X, LayoutDashboard, Search, Loader2, MapPin, Calendar, Building2, Moon, Sun, BookOpen } from "lucide-react";
+import { NavigationMenuList, NavigationMenuTrigger } from "@/components/ui/navigation-menu";
+import { GraduationCap, Menu, X, LayoutDashboard, Search, Loader2, MapPin, Calendar, Building2, Moon, Sun, BookOpen, MessageCircle, Wrench } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -140,7 +140,7 @@ export const Header = () => {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<{colleges: any[], events: any[], courses: any[], posts?: any[], tags?: any[]}>({ colleges: [], events: [], courses: [] });
+  const [searchResults, setSearchResults] = useState<{colleges: any[], events: any[], courses: any[], posts?: any[], tags?: any[], providers?: any[]}>({ colleges: [], events: [], courses: [] });
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -177,7 +177,7 @@ export const Header = () => {
     setIsSearching(true);
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/search?q=${encodeURIComponent(debouncedQuery)}`)
       .then(r => r.json())
-      .then(data => setSearchResults({ colleges: data.colleges || [], events: data.events || [], courses: data.courses || [] }))
+      .then(data => setSearchResults({ colleges: data.colleges || [], events: data.events || [], courses: data.courses || [], posts: data.posts, tags: data.tags, providers: data.providers }))
       .catch(console.error)
       .finally(() => setIsSearching(false));
   }, [debouncedQuery]);
@@ -379,6 +379,29 @@ export const Header = () => {
                               <div className="text-sm font-medium truncate">{post.content}</div>
                               <div className="text-xs text-muted-foreground truncate">
                                 By {post.user_id?.full_name || 'Anonymous'}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {searchResults.providers?.length > 0 && (
+                      <div className="space-y-1 mt-2 flex flex-col gap-1 px-2 pb-2">
+                        <div className="w-full py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Local Services</div>
+                        {searchResults.providers.slice(0, 3).map(provider => (
+                          <div 
+                            key={provider._id} 
+                            onClick={() => { setShowSearchDropdown(false); navigate(`/repair?provider=${provider._id}`); }}
+                            className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                          >
+                            <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center">
+                              <Wrench className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="overflow-hidden">
+                              <div className="text-sm font-medium truncate">{provider.name}</div>
+                              <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                                {provider.category} • <Star className="h-3 w-3 fill-amber-400 text-amber-400 inline"/> {provider.rating}
                               </div>
                             </div>
                           </div>

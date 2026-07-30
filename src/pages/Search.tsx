@@ -13,7 +13,7 @@ const Search = () => {
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);
-  const [results, setResults] = useState<{ colleges: any[]; events: any[]; courses: any[] }>({ colleges: [], events: [], courses: [] });
+  const [results, setResults] = useState<{ colleges: any[]; events: any[]; courses: any[]; providers?: any[] }>({ colleges: [], events: [], courses: [] });
   
   useEffect(() => {
     if (!query) {
@@ -26,7 +26,7 @@ const Search = () => {
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/search?q=${encodeURIComponent(query)}`)
       .then(res => res.json())
       .then(data => {
-        setResults({ colleges: data.colleges || [], events: data.events || [], courses: data.courses || [] });
+        setResults({ colleges: data.colleges || [], events: data.events || [], courses: data.courses || [], providers: data.providers || [] });
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -83,7 +83,7 @@ const Search = () => {
             <SearchIcon className="h-12 w-12 mx-auto mb-4 opacity-20" />
             <p>Ready to search.</p>
           </div>
-        ) : (results.colleges.length === 0 && results.events.length === 0 && results.courses.length === 0) ? (
+        ) : (results.colleges.length === 0 && results.events.length === 0 && results.courses.length === 0 && (!results.providers || results.providers.length === 0)) ? (
           <div className="text-center py-24 text-muted-foreground border rounded-lg border-dashed">
             <SearchIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <h3 className="text-xl font-semibold mb-2">No results for "{query}"</h3>
@@ -133,6 +133,44 @@ const Search = () => {
                       typeColorClass={typeColorClass}
                       onClick={() => navigate(`/events/${event._id}`)}
                     />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {results.providers && results.providers.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold">Local Services</h2>
+                  <span className="text-sm text-muted-foreground font-medium bg-muted px-2 py-1 rounded-md">{results.providers.length} found</span>
+                </div>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {results.providers.map(provider => (
+                    <Card key={provider._id} className="hover:shadow-md transition-shadow cursor-pointer flex flex-col h-full overflow-hidden" onClick={() => navigate(`/repair?provider=${provider._id}`)}>
+                      <div className="h-32 bg-muted relative">
+                        {provider.imageUrl ? (
+                          <img src={provider.imageUrl} alt={provider.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-secondary/30">
+                            <span className="text-muted-foreground capitalize font-medium">{provider.category}</span>
+                          </div>
+                        )}
+                        <div className="absolute top-2 right-2 bg-background/90 backdrop-blur-sm px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
+                          <span className="text-amber-500">★</span> {provider.rating}
+                        </div>
+                      </div>
+                      <CardContent className="p-4 flex flex-col flex-1">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-semibold line-clamp-1 flex-1">{provider.name}</h3>
+                        </div>
+                        <div className="flex items-center text-sm text-muted-foreground mb-4">
+                          <span className="capitalize">{provider.category}</span>
+                        </div>
+                        <div className="mt-auto pt-4 flex items-center text-primary font-medium text-sm">
+                          View Details <ArrowRight className="h-4 w-4 ml-1" />
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               </div>
