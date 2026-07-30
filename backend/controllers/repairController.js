@@ -665,10 +665,11 @@ exports.getDashboardSummary = async (req, res) => {
     const savedProvidersCount = await SavedProvider.countDocuments({ userId });
 
     // 3. Find pending reviews
-    // Get all completed requests for this user
+    // Get all completed requests for this user that haven't had the prompt dismissed
     const completedRequests = await RepairRequest.find({
       userId,
-      status: 'Completed'
+      status: 'Completed',
+      dashboardPromptDismissed: { $ne: true }
     }).populate('providerId', 'name category').sort({ createdAt: -1 }).limit(10); // Check last 10 completed
 
     const pendingReviews = [];
@@ -703,6 +704,30 @@ exports.getDashboardSummary = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching dashboard summary:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// @desc    Dismiss review prompt for a request
+// @route   PUT /api/repair/requests/:id/dismiss-prompt
+// @access  Private
+exports.dismissReviewPrompt = async (req, res) => {
+  try {
+    const request = await RepairRequest.findOne({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+
+    if (!request) {
+      return res.status(404).json({ success: false, error: 'Request not found' });
+    }
+
+    request.dashboardPromptDismissed = true;
+    await request.save();
+
+    res.status(200).json({ success: true, data: {} });
+  } catch (error) {
+    console.error('Error dismissing prompt:', error);
     res.status(500).json({ success: false, error: 'Server Error' });
   }
 };

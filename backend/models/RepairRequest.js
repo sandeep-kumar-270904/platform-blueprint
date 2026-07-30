@@ -49,11 +49,18 @@ const RepairRequestSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  dashboardPromptDismissed: {
+    type: Boolean,
+    default: false
+  },
   statusHistory: [
     {
       status: {
         type: String,
         enum: ['Pending', 'Accepted', 'In Progress', 'Completed', 'Cancelled']
+      },
+      systemNote: {
+        type: String
       },
       changedAt: { type: Date, default: Date.now },
       changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
