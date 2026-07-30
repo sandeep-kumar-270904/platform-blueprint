@@ -25,6 +25,17 @@ export interface RepairReview {
   createdAt: string;
 }
 
+export interface GalleryItem {
+  _id: string;
+  imageUrl: string;
+  type: 'single' | 'before' | 'after';
+  groupId?: string;
+  caption?: string;
+  category?: string;
+  order: number;
+  createdAt: string;
+}
+
 export interface ServiceListing {
   id: string;
   name: string;
@@ -55,6 +66,9 @@ export interface ServiceListing {
     responseRate?: number;
     responseTimeHours?: number;
   };
+  handlesEmergencies?: boolean;
+  gallery?: GalleryItem[];
+  completedJobsCount?: number | null;
   isSaved?: boolean;
 }
 
@@ -71,6 +85,7 @@ export interface RepairRequest {
   preferredTime: string; // or 'ASAP'
   contactPhone: string;
   status: RequestStatus;
+  isUrgent?: boolean;
   photoUrl?: string;
   notes?: string;
   createdAt: string;

@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from "@/components/ui/sheet";
 import { ServiceListing } from "@/types/repair";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Phone, Mail, Clock, Share2, Star, CheckCircle, ExternalLink, ShieldCheck, Sparkles, Flag, AlertTriangle, Heart, XCircle } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, Share2, Star, CheckCircle, ExternalLink, ShieldCheck, Sparkles, Flag, AlertTriangle, Heart, XCircle, Zap, ImageIcon, ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ProviderReviews } from "./ProviderReviews";
 import { RequestServiceModal } from "./RequestServiceModal";
 
@@ -17,6 +18,16 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
   const [provider, setProvider] = useState<ServiceListing | null>(null);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const getPairedImage = (currentIdx: number) => {
+    if (!provider?.gallery || lightboxIndex === null) return null;
+    const current = provider.gallery[currentIdx];
+    if (current.type === 'single' || !current.groupId) return null;
+    
+    // Find the other image in the pair
+    return provider.gallery.find(img => img.groupId === current.groupId && img._id !== current._id);
+  };
 
   useEffect(() => {
     if (!providerId) {
@@ -157,6 +168,11 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
                         Top Rated
                       </Badge>
                     )}
+                    {provider.handlesEmergencies && (
+                      <Badge variant="outline" className="text-[10px] uppercase text-red-500 border-red-500/30 bg-red-500/10 h-6">
+                        <Zap className="w-3 h-3 mr-1" /> Handles Emergencies
+                      </Badge>
+                    )}
                   </SheetTitle>
                   <div className="flex items-center space-x-3 mt-2 text-sm">
                     {provider.reviewsCount === 0 ? (
@@ -267,6 +283,28 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
                     <p className="text-sm text-gray-400 mt-2">Not enough data to calculate response rate yet.</p>
                   )}
                 </div>
+
+                <div className="bg-gray-900/40 p-4 rounded-xl border border-gray-800/50 sm:col-span-2 md:col-span-1">
+                  <div className="flex items-center gap-2 mb-2 text-gray-200 font-medium">
+                    <CheckCircle className="w-4 h-4 text-purple-400" /> Completed Jobs
+                  </div>
+                  {provider.completedJobsCount !== null && provider.completedJobsCount !== undefined ? (
+                    <>
+                      <div className="flex items-baseline gap-1 mt-3">
+                        <span className="text-2xl font-bold text-white">{provider.completedJobsCount}</span>
+                        <span className="text-sm text-gray-400">jobs</span>
+                      </div>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Completed via StudentHub.
+                      </p>
+                    </>
+                  ) : (
+                    <div className="flex items-start gap-2 mt-3 text-sm text-gray-400">
+                      <Sparkles className="w-4 h-4 shrink-0 text-purple-400" />
+                      <p>New to StudentHub — no completed jobs yet.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -371,6 +409,83 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
           </div>
         )}
       </SheetContent>
+
+      {/* Lightbox Dialog */}
+      <Dialog open={lightboxIndex !== null} onOpenChange={(open) => !open && setLightboxIndex(null)}>
+        <DialogContent className="max-w-[100vw] h-[100vh] sm:max-w-5xl sm:h-auto sm:max-h-[90vh] p-0 bg-black/95 border-none flex flex-col justify-center overflow-hidden">
+          {lightboxIndex !== null && provider?.gallery && (
+            <div className="relative w-full h-full flex items-center justify-center">
+              {/* Close handled by Dialog primitives, but we add navigation */}
+              {lightboxIndex > 0 && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute left-2 sm:left-4 z-50 rounded-full bg-black/50 text-white hover:bg-black/80 h-10 w-10 sm:h-12 sm:w-12"
+                  onClick={(e) => { e.stopPropagation(); setLightboxIndex(prev => (prev !== null ? prev - 1 : null)); }}
+                >
+                  <ArrowLeft className="w-6 h-6" />
+                </Button>
+              )}
+              
+              <div className="max-h-full max-w-full p-4 flex flex-col items-center">
+                <div className="relative inline-block">
+                  <img 
+                    src={provider.gallery[lightboxIndex].imageUrl} 
+                    alt="Gallery item"
+                    className="max-h-[75vh] max-w-full object-contain rounded" 
+                  />
+                  {provider.gallery[lightboxIndex].type !== 'single' && (
+                    <div className="absolute top-4 left-4 bg-black/70 px-3 py-1.5 rounded-full text-xs font-bold text-white uppercase tracking-widest backdrop-blur-sm">
+                      {provider.gallery[lightboxIndex].type}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Caption / Category Info */}
+                {(provider.gallery[lightboxIndex].caption || provider.gallery[lightboxIndex].category) && (
+                  <div className="mt-4 text-center max-w-2xl bg-black/50 p-4 rounded-lg">
+                    {provider.gallery[lightboxIndex].caption && <p className="text-white text-lg font-medium">{provider.gallery[lightboxIndex].caption}</p>}
+                    {provider.gallery[lightboxIndex].category && <p className="text-gray-400 text-sm mt-1">{provider.gallery[lightboxIndex].category}</p>}
+                  </div>
+                )}
+                
+                {/* Paired Before/After Link */}
+                {getPairedImage(lightboxIndex) && (
+                  <div className="mt-4 flex flex-col items-center">
+                    <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Related Image</p>
+                    <div 
+                      className="h-16 w-16 sm:h-20 sm:w-20 rounded border-2 border-gray-700 overflow-hidden cursor-pointer hover:border-blue-500 transition-colors relative"
+                      onClick={() => {
+                        const targetImg = getPairedImage(lightboxIndex);
+                        if (targetImg) {
+                          const idx = provider.gallery!.findIndex(img => img._id === targetImg._id);
+                          if (idx !== -1) setLightboxIndex(idx);
+                        }
+                      }}
+                    >
+                      <img src={getPairedImage(lightboxIndex)!.imageUrl} className="w-full h-full object-cover opacity-80 hover:opacity-100" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-[10px] font-bold text-white uppercase">
+                        {getPairedImage(lightboxIndex)!.type}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {lightboxIndex < provider.gallery.length - 1 && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute right-2 sm:right-4 z-50 rounded-full bg-black/50 text-white hover:bg-black/80 h-10 w-10 sm:h-12 sm:w-12"
+                  onClick={(e) => { e.stopPropagation(); setLightboxIndex(prev => (prev !== null ? prev + 1 : null)); }}
+                >
+                  <ArrowRight className="w-6 h-6" />
+                </Button>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {provider && (
         <RequestServiceModal 

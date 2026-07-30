@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Wrench, ChevronRight, Star, Clock, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ProviderSummary {
   _id: string;
@@ -16,6 +17,7 @@ interface RepairRequest {
   status: string;
   providerId: ProviderSummary;
   createdAt: string;
+  isUrgent?: boolean;
 }
 
 interface PendingReview {
@@ -179,9 +181,16 @@ export const RepairDashboardWidget = () => {
                   to="/repair" 
                   className="block group"
                 >
-                  <div className="bg-muted/30 border rounded-md p-3 flex justify-between items-center group-hover:bg-muted/60 transition-colors">
+                  <div className={cn("border rounded-md p-3 flex justify-between items-center transition-colors", req.isUrgent ? "bg-red-500/10 border-red-500/20 group-hover:bg-red-500/20" : "bg-muted/30 group-hover:bg-muted/60")}>
                     <div>
-                      <p className="font-medium text-sm">{req.providerId?.name || 'Provider no longer available'}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm">{req.providerId?.name || 'Provider no longer available'}</p>
+                        {req.isUrgent && (
+                          <Badge variant="outline" className="text-[10px] uppercase text-red-500 border-red-500/30 bg-red-500/10 h-5 px-1.5">
+                            Urgent
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground capitalize mt-0.5">{req.providerId?.category || 'Service'}</p>
                     </div>
                     <Badge variant={

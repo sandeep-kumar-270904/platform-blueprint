@@ -78,6 +78,21 @@ const RepairProviderSchema = new mongoose.Schema({
     responseTimeHours: { type: Number, default: 0 } // e.g. 2 for 2 hours
   },
   
+  handlesEmergencies: {
+    type: Boolean,
+    default: false
+  },
+  
+  gallery: [{
+    imageUrl: { type: String, required: true },
+    type: { type: String, enum: ['single', 'before', 'after'], default: 'single' },
+    groupId: { type: String }, // Links before/after pairs together
+    caption: { type: String },
+    category: { type: String },
+    order: { type: Number, default: 0 },
+    createdAt: { type: Date, default: Date.now }
+  }],
+  
   // Derived fields from RepairReviews (cached here for fast sorting/display)
   rating: {
     type: Number,

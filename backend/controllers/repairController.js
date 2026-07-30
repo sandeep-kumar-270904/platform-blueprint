@@ -232,6 +232,15 @@ exports.getProviderById = async (req, res) => {
       pObj.isSaved = false;
     }
 
+    const RepairRequest = require('../models/RepairRequest');
+    const completedJobsCount = await RepairRequest.countDocuments({
+      providerId: pObj._id,
+      status: 'Completed'
+    });
+    
+    // Explicitly return null or 'none' if 0 so frontend can render correctly
+    pObj.completedJobsCount = completedJobsCount === 0 ? null : completedJobsCount;
+
     res.status(200).json({ success: true, data: pObj });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Server Error' });
@@ -658,7 +667,7 @@ exports.getDashboardSummary = async (req, res) => {
       status: { $in: ['Pending', 'Accepted', 'In Progress'] }
     })
     .populate('providerId', 'name category location verification')
-    .sort({ createdAt: -1 })
+    .sort({ isUrgent: -1, createdAt: -1 })
     .limit(5);
 
     // 2. Fetch count of saved providers
