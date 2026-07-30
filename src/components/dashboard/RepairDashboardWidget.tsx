@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Wrench, ChevronRight, Star, Clock, AlertCircle } from "lucide-react";
+import { Wrench, ChevronRight, Star, Clock, X } from "lucide-react";
 
 interface ProviderSummary {
   _id: string;
@@ -62,6 +62,30 @@ export const RepairDashboardWidget = () => {
     fetchSummary();
   }, []);
 
+  const handleDismissPrompt = async (requestId: string) => {
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      
+      // Optimistically remove from UI
+      if (summary) {
+        setSummary({
+          ...summary,
+          pendingReviews: summary.pendingReviews.filter(r => r.requestId !== requestId)
+        });
+      }
+
+      await fetch(`${API_URL}/api/repair/requests/${requestId}/dismiss-prompt`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+    } catch (error) {
+      console.error("Failed to dismiss prompt:", error);
+    }
+  };
+
   if (loading) {
     return (
       <Card className="border-border bg-card animate-pulse">
@@ -118,14 +142,25 @@ export const RepairDashboardWidget = () => {
               <Star className="h-4 w-4" /> Action Needed
             </h4>
             {summary.pendingReviews.map(review => (
-              <div key={review.requestId} className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">How was your experience with {review.providerId.name}?</p>
+              <div key={review.requestId} className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 rounded-lg p-3 relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute top-1 right-1 h-6 w-6 text-muted-foreground hover:text-foreground"
+                  onClick={() => handleDismissPrompt(review.requestId)}
+                  title="Dismiss"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="pr-6">
+                  <p className="text-sm font-medium">How was your experience with {review.providerId?.name || 'Provider no longer available'}?</p>
                   <p className="text-xs text-muted-foreground mt-0.5">Your service request is marked as completed.</p>
                 </div>
-                <Button size="sm" asChild variant="outline" className="border-orange-300 hover:bg-orange-100 dark:border-orange-800 dark:hover:bg-orange-900">
-                  <Link to={`/repair/${review.providerId._id}?review=true`}>Leave a Review</Link>
-                </Button>
+                {review.providerId && (
+                  <Button size="sm" asChild variant="outline" className="border-orange-300 hover:bg-orange-100 dark:border-orange-800 dark:hover:bg-orange-900">
+                    <Link to={`/repair/${review.providerId._id}?review=true`}>Leave a Review</Link>
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -146,7 +181,7 @@ export const RepairDashboardWidget = () => {
                 >
                   <div className="bg-muted/30 border rounded-md p-3 flex justify-between items-center group-hover:bg-muted/60 transition-colors">
                     <div>
-                      <p className="font-medium text-sm">{req.providerId?.name || 'Unknown Provider'}</p>
+                      <p className="font-medium text-sm">{req.providerId?.name || 'Provider no longer available'}</p>
                       <p className="text-xs text-muted-foreground capitalize mt-0.5">{req.providerId?.category || 'Service'}</p>
                     </div>
                     <Badge variant={
