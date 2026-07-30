@@ -50,7 +50,7 @@ exports.getProviders = async (req, res) => {
   try {
     const { category, sort, page = 1, limit = 6, lat, lng, search, minRating, priceMin, priceMax, openNow, currentDay, currentTime } = req.query;
 
-    let query = {};
+    let query = { isActive: { $ne: false } };
     
     // Filtering
     if (category && category !== 'all') {
@@ -775,7 +775,8 @@ exports.getRecommendations = async (req, res) => {
       recommendedProviders = await RepairProvider.find({
         category: { $in: Array.from(categorySet) },
         _id: { $nin: Array.from(interactedProviderIds) },
-        rating: { $gte: 4.0 }
+        rating: { $gte: 4.0 },
+        isActive: { $ne: false }
       })
       .sort({ rating: -1, reviewsCount: -1 })
       .limit(6)
@@ -785,7 +786,8 @@ exports.getRecommendations = async (req, res) => {
     // Fallback if no history or no matches in categories
     if (recommendedProviders.length === 0) {
       recommendedProviders = await RepairProvider.find({
-        _id: { $nin: Array.from(interactedProviderIds) }
+        _id: { $nin: Array.from(interactedProviderIds) },
+        isActive: { $ne: false }
       })
       .sort({ rating: -1, reviewsCount: -1 })
       .limit(6)
