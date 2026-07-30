@@ -121,6 +121,7 @@ import Hostels from "./pages/Hostels";
 import HostelInquiries from "./pages/HostelInquiries";
 import SavedHostels from "./pages/SavedHostels";
 import Repair from "./pages/Repair";
+import RepairRequests from "./pages/dashboard/RepairRequests";
 import FoundersPassport from "./pages/FoundersPassport";
 import InviteAccept from "./pages/InviteAccept";
 import Search from "./pages/Search";
@@ -292,6 +293,8 @@ const App = () => (
           <Route path="/roommate-finder" element={<ProtectedRoute><RoommateFind /></ProtectedRoute>} />
           <Route path="/wellness" element={<ProtectedRoute><Wellness /></ProtectedRoute>} />
           <Route path="/room-rentals" element={<ProtectedRoute><RoomRentals /></ProtectedRoute>} />
+          <Route path="/repair" element={<ProtectedRoute><Repair /></ProtectedRoute>} />
+          <Route path="/dashboard/repair-requests" element={<ProtectedRoute><RepairRequests /></ProtectedRoute>} />
           <Route path="/qa-board" element={<ProtectedRoute><QABoard /></ProtectedRoute>} />
           <Route path="/gamification" element={<ProtectedRoute><Gamification /></ProtectedRoute>} />
           {/* Virtual Classroom */}

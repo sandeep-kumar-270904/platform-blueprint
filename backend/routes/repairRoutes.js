@@ -1,17 +1,45 @@
 const express = require('express');
-const { getProviders, getProviderById, getReviews, addReview, markReviewHelpful, flagReview } = require('../controllers/repairController');
-const { protect } = require('../middleware/auth');
+const { getProviders, getProviderById, getReviews, addReview, markReviewHelpful, flagReview, getCompareProviders, createRequest, getMyRequests, cancelRequest, addRequestNote, reportProvider, updateRequestStatus, toggleSaveProvider, getSavedProviders, getRecommendations } = require('../controllers/repairController');
+const { protect, optionalAuth } = require('../middleware/auth');
+const uploadRepairPhoto = require('../middleware/uploadRepairPhoto');
 
 const router = express.Router();
 
 router.route('/')
-  .get(getProviders);
+  .get(optionalAuth, getProviders);
+
+router.route('/compare')
+  .get(optionalAuth, getCompareProviders);
+
+router.route('/saved')
+  .get(protect, getSavedProviders);
+
+router.route('/recommendations')
+  .get(protect, getRecommendations);
+
+router.route('/requests')
+  .get(protect, getMyRequests)
+  .post(protect, uploadRepairPhoto.single('photo'), createRequest);
+
+router.route('/requests/:id/cancel')
+  .put(protect, cancelRequest);
+
+router.route('/requests/:id/note')
+  .put(protect, addRequestNote);
+
+router.route('/requests/:id/status')
+  .put(protect, updateRequestStatus);
 
 module.exports = router;
 
-
 router.route('/:id')
-  .get(getProviderById);
+  .get(optionalAuth, getProviderById);
+
+router.route('/:id/save')
+  .post(protect, toggleSaveProvider);
+
+router.route('/:id/report')
+  .post(protect, reportProvider);
 
 router.route('/:id/reviews')
   .get(getReviews)

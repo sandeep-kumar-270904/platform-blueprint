@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from "@/components/ui/sheet";
 import { ServiceListing } from "@/types/repair";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Phone, Mail, Clock, Share2, Star, CheckCircle, ExternalLink } from "lucide-react";
+import { MapPin, Phone, Mail, Clock, Share2, Star, CheckCircle, ExternalLink, ShieldCheck, Sparkles, Flag, AlertTriangle, Heart, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import { ProviderReviews } from "./ProviderReviews";
+import { RequestServiceModal } from "./RequestServiceModal";
 
 interface ProviderDetailsSheetProps {
   providerId: string | null;
@@ -15,6 +16,7 @@ interface ProviderDetailsSheetProps {
 export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsSheetProps) {
   const [provider, setProvider] = useState<ServiceListing | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     if (!providerId) {
@@ -50,10 +52,83 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
     });
   };
 
-  const getAvailabilityColor = (status?: string) => {
-    if (status === "Open now" || status === "Available 24/7") return "text-green-400 bg-green-400/10 border-green-400/20";
-    if (status === "Closed") return "text-red-400 bg-red-400/10 border-red-400/20";
-    return "text-yellow-400 bg-yellow-400/10 border-yellow-400/20";
+  const handleToggleSave = async () => {
+    if (!provider) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast({ title: "Sign in required", description: "You must be signed in to save providers.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${API_URL}/api/repair/${provider.id}/save`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProvider({ ...provider, isSaved: data.isSaved });
+        toast({ title: data.isSaved ? "Saved!" : "Removed", description: data.message });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Could not save provider.", variant: "destructive" });
+    }
+  };
+
+  const handleReport = async () => {
+    const reason = prompt("Why are you reporting this provider?\n(e.g., Fraudulent listing, Incorrect info, Inappropriate behavior)");
+    if (!reason || !reason.trim()) return;
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast({ title: "Authentication required", description: "You must be logged in to report a provider.", variant: "destructive" });
+        return;
+      }
+
+      const res = await fetch(`${API_URL}/api/reports`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          targetType: "repair_provider",
+          targetId: provider?.id,
+          reason: reason.trim()
+        })
+      });
+
+      if (res.ok) {
+        toast({ title: "Report Submitted", description: "Thank you. Our moderation team will review this provider." });
+      } else {
+        const error = await res.json();
+        toast({ title: "Error", description: error.message || "Could not submit report.", variant: "destructive" });
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "A network error occurred while reporting.", variant: "destructive" });
+    }
+  };
+
+  const getAvailabilityInfo = (status?: string) => {
+    if (status === "Open now" || status === "Available 24/7") {
+      return {
+        className: "text-green-500 bg-green-500/10 border-green-500/20",
+        icon: <CheckCircle className="w-3 h-3 mr-1" aria-hidden="true" />
+      };
+    }
+    if (status === "Closed") {
+      return {
+        className: "text-red-500 bg-red-500/10 border-red-500/20",
+        icon: <XCircle className="w-3 h-3 mr-1" aria-hidden="true" />
+      };
+    }
+    return {
+      className: "text-yellow-500 bg-yellow-500/10 border-yellow-500/20",
+      icon: <Clock className="w-3 h-3 mr-1" aria-hidden="true" />
+    };
   };
 
   return (
@@ -70,22 +145,47 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
                   <Badge variant="outline" className="mb-2 uppercase tracking-wider text-[10px] text-blue-400 border-blue-400/30">
                     {provider.category}
                   </Badge>
-                  <SheetTitle className="text-2xl font-bold text-white">{provider.name}</SheetTitle>
+                  <SheetTitle className="text-2xl font-bold text-white flex items-center flex-wrap gap-2">
+                    {provider.name}
+                    {provider.verification?.isVerified && (
+                      <Badge variant="outline" className="text-[10px] uppercase text-green-500 border-green-500/30 bg-green-500/10 h-6">
+                        <ShieldCheck className="w-3 h-3 mr-1" /> Verified
+                      </Badge>
+                    )}
+                    {provider.rating >= 4.5 && provider.reviewsCount >= 10 && (
+                      <Badge variant="outline" className="text-[10px] uppercase text-orange-500 border-orange-500/30 bg-orange-500/10 h-6">
+                        Top Rated
+                      </Badge>
+                    )}
+                  </SheetTitle>
                   <div className="flex items-center space-x-3 mt-2 text-sm">
-                    <div className="flex items-center text-yellow-400">
-                      <Star className="w-4 h-4 fill-current mr-1" />
-                      <span className="font-medium text-white">{provider.rating.toFixed(1)}</span>
-                      <span className="text-gray-500 ml-1">({provider.reviewsCount})</span>
-                    </div>
-                    <span className="text-gray-600">•</span>
-                    <Badge variant="outline" className={getAvailabilityColor(provider.availability)}>
+                    {provider.reviewsCount === 0 ? (
+                      <div className="flex items-center text-muted-foreground" aria-label="New provider, no reviews yet">
+                        <Sparkles className="w-4 h-4 mr-1" aria-hidden="true" />
+                        <span>New</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-yellow-400" aria-label={`${provider.rating.toFixed(1)} stars out of 5 based on ${provider.reviewsCount} reviews`}>
+                        <Star className="w-4 h-4 fill-current mr-1" aria-hidden="true" />
+                        <span className="font-medium text-white" aria-hidden="true">{provider.rating.toFixed(1)}</span>
+                        <span className="text-gray-500 ml-1" aria-hidden="true">({provider.reviewsCount})</span>
+                      </div>
+                    )}
+                    <span className="text-gray-600" aria-hidden="true">•</span>
+                    <Badge variant="outline" className={getAvailabilityInfo(provider.availability).className}>
+                      {getAvailabilityInfo(provider.availability).icon}
                       {provider.availability || "Status unknown"}
                     </Badge>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={handleShare} className="text-gray-400 hover:text-white shrink-0">
-                  <Share2 className="w-5 h-5" />
-                </Button>
+                <div className="flex flex-col items-center gap-2">
+                  <Button variant="ghost" size="icon" onClick={handleToggleSave} aria-label={provider.isSaved ? "Remove from saved providers" : "Save provider"} className={`rounded-full min-h-[44px] min-w-[44px] ${provider.isSaved ? 'text-red-500 hover:text-red-600 hover:bg-red-500/10' : 'text-gray-400 hover:text-white'}`}>
+                    <Heart className={`w-6 h-6 ${provider.isSaved ? 'fill-current' : ''}`} aria-hidden="true" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={handleShare} aria-label="Share provider" className="text-gray-400 hover:text-white shrink-0 min-h-[44px] min-w-[44px]">
+                    <Share2 className="w-6 h-6" aria-hidden="true" />
+                  </Button>
+                </div>
               </div>
               <SheetDescription className="text-gray-300 text-base leading-relaxed">
                 {provider.description}
@@ -106,6 +206,69 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
                 </div>
               </div>
             )}
+
+            {/* Verification & Reputation Stats */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Verification & Reliability</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-gray-900/40 p-4 rounded-xl border border-gray-800/50">
+                  <div className="flex items-center gap-2 mb-2 text-gray-200 font-medium">
+                    <ShieldCheck className="w-4 h-4 text-green-400" /> Verification
+                  </div>
+                  <ul className="space-y-1.5 text-sm text-gray-400">
+                    <li className="flex items-center gap-2">
+                      {provider.verification?.isVerified || provider.verification?.businessRegistration ? (
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                      ) : (
+                        <div className="w-3.5 h-3.5 rounded-full border border-gray-600" />
+                      )}
+                      Business Details
+                    </li>
+                    <li className="flex items-center gap-2">
+                      {provider.verification?.isVerified || provider.verification?.phoneNumber ? (
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                      ) : (
+                        <div className="w-3.5 h-3.5 rounded-full border border-gray-600" />
+                      )}
+                      Phone Number
+                    </li>
+                    <li className="flex items-center gap-2">
+                      {provider.verification?.isVerified || provider.verification?.address ? (
+                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                      ) : (
+                        <div className="w-3.5 h-3.5 rounded-full border border-gray-600" />
+                      )}
+                      Location Address
+                    </li>
+                  </ul>
+                </div>
+                
+                <div className="bg-gray-900/40 p-4 rounded-xl border border-gray-800/50">
+                  <div className="flex items-center gap-2 mb-2 text-gray-200 font-medium">
+                    <Clock className="w-4 h-4 text-blue-400" /> Responsiveness
+                  </div>
+                  {provider.reputationStats?.responseRate ? (
+                    <>
+                      <div className="flex items-baseline gap-1 mt-3">
+                        <span className="text-2xl font-bold text-white">{provider.reputationStats.responseRate}%</span>
+                        <span className="text-sm text-gray-400">response rate</span>
+                      </div>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Usually responds within {provider.reputationStats.responseTimeHours} hours.
+                      </p>
+                      {provider.reputationStats.responseRate < 50 && (
+                        <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded flex gap-2 text-xs text-yellow-300">
+                          <AlertTriangle className="w-4 h-4 shrink-0" />
+                          <span>Provider has a low response rate recently. Bookings may take longer to confirm.</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-400 mt-2">Not enough data to calculate response rate yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
 
             {/* Quick Info Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-900/40 p-4 rounded-xl border border-gray-800/50">
@@ -174,9 +337,23 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
             </div>
 
             {/* Contact Action */}
-            <Button className="w-full h-12 text-md font-semibold mt-4 shadow-lg shadow-blue-500/20" size="lg">
-              Contact Provider <ExternalLink className="w-4 h-4 ml-2" />
-            </Button>
+            <div className="flex gap-3 mt-4 sticky bottom-0 bg-gray-950 pb-4 pt-2 z-10 border-t border-gray-900 mt-auto">
+              <Button 
+                variant="outline" 
+                className="w-1/3 h-12" 
+                size="lg"
+                onClick={() => window.location.href = `tel:${provider.contact?.phone}`}
+              >
+                Call
+              </Button>
+              <Button 
+                className="w-2/3 h-12 text-md font-semibold shadow-lg shadow-blue-500/20" 
+                size="lg"
+                onClick={() => setIsModalOpen(true)}
+              >
+                Book Now
+              </Button>
+            </div>
 
             <div className="border-t border-gray-800 pt-6">
               <ProviderReviews 
@@ -185,9 +362,26 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
                 totalReviews={provider.reviewsCount} 
               />
             </div>
+            
+            <div className="pt-8 flex justify-center">
+              <Button variant="ghost" className="text-muted-foreground hover:text-red-400 hover:bg-red-400/10 text-xs gap-1.5" onClick={handleReport}>
+                <Flag className="w-3 h-3" /> Report this provider
+              </Button>
+            </div>
           </div>
         )}
       </SheetContent>
+
+      {provider && (
+        <RequestServiceModal 
+          open={isModalOpen}
+          onOpenChange={setIsModalOpen}
+          provider={provider}
+          onSuccess={() => {
+            toast({ title: "Request Submitted", description: "Your service request has been sent to the provider." });
+          }}
+        />
+      )}
     </Sheet>
   );
 }

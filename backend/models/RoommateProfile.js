@@ -7,30 +7,36 @@ const RoommateProfileSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  cleanliness: {
-    type: String,
-    enum: ['Messy', 'Average', 'Clean', 'Neat Freak'],
-    required: true
+  preferredLocations: {
+    type: [String],
+    default: []
   },
-  sleepSchedule: {
-    type: String,
-    enum: ['Early Bird', 'Night Owl', 'Flexible'],
-    required: true
-  },
-  noiseTolerance: {
-    type: String,
-    enum: ['Low', 'Medium', 'High'],
-    required: true
-  },
-  smoking: {
-    type: String,
-    enum: ['No', 'Yes', 'Outside only'],
-    required: true
-  },
-  pets: {
-    type: String,
-    enum: ['No', 'Yes', 'Cats only', 'Dogs only'],
-    required: true
+  lifestyle_preferences: {
+    cleanliness: {
+      type: String,
+      enum: ['Messy', 'Average', 'Clean', 'Neat Freak'],
+      required: true
+    },
+    sleepSchedule: {
+      type: String,
+      enum: ['Early Bird', 'Night Owl', 'Flexible'],
+      required: true
+    },
+    noiseTolerance: {
+      type: String,
+      enum: ['Low', 'Medium', 'High'],
+      required: true
+    },
+    smoking: {
+      type: String,
+      enum: ['No', 'Yes', 'Outside only'],
+      required: true
+    },
+    pets: {
+      type: String,
+      enum: ['No', 'Yes', 'Cats only', 'Dogs only'],
+      required: true
+    }
   },
   budgetRange: {
     min: { type: Number, required: true },

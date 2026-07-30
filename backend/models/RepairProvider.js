@@ -64,6 +64,20 @@ const RepairProviderSchema = new mongoose.Schema({
   },
   operatingHours: [operatingHoursSchema],
   
+  verification: {
+    isVerified: { type: Boolean, default: false },
+    verifiedAt: { type: Date, default: null },
+    businessRegistration: { type: Boolean, default: false },
+    phoneNumber: { type: Boolean, default: false },
+    address: { type: Boolean, default: false },
+    idProof: { type: Boolean, default: false }
+  },
+  
+  reputationStats: {
+    responseRate: { type: Number, default: 0 }, // 0 to 100 percentage
+    responseTimeHours: { type: Number, default: 0 } // e.g. 2 for 2 hours
+  },
+  
   // Derived fields from RepairReviews (cached here for fast sorting/display)
   rating: {
     type: Number,
@@ -75,6 +89,13 @@ const RepairProviderSchema = new mongoose.Schema({
     default: 0
   },
   
+  // Computed badge statuses cached here to avoid heavy aggregation on reads
+  badges: {
+    isTopRated: { type: Boolean, default: false },
+    isPopular: { type: Boolean, default: false },
+    isNew: { type: Boolean, default: true }
+  },
+  
   createdAt: {
     type: Date,
     default: Date.now
@@ -83,5 +104,11 @@ const RepairProviderSchema = new mongoose.Schema({
 
 // Ensure a 2dsphere index is created for geospatial queries
 RepairProviderSchema.index({ "location.coordinates": "2dsphere" });
+
+// Add text index for fast search
+RepairProviderSchema.index(
+  { name: 'text', description: 'text', services: 'text' },
+  { weights: { name: 10, services: 5, description: 1 }, name: 'RepairSearchIndex' }
+);
 
 module.exports = mongoose.model('RepairProvider', RepairProviderSchema);

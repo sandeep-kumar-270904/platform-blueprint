@@ -59,6 +59,9 @@ const RepairReviewSchema = new mongoose.Schema({
 // Enforce one review per user per provider
 RepairReviewSchema.index({ providerId: 1, userId: 1 }, { unique: true });
 
+// Optimize querying recent reviews for a provider
+RepairReviewSchema.index({ providerId: 1, createdAt: -1 });
+
 // Static method to compute and update average rating on the provider
 RepairReviewSchema.statics.getAverageRating = async function(providerId) {
   const obj = await this.aggregate([
