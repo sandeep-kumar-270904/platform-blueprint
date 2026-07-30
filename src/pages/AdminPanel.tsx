@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  DollarSign, Briefcase, GraduationCap, FileText, Activity, MessageSquare, ShieldAlert, BarChart3, AlertTriangle, Users, Video, Building2
+  DollarSign, Briefcase, GraduationCap, FileText, Activity, MessageSquare, ShieldAlert, BarChart3, AlertTriangle, Users, Video, Building2, Wrench
 } from "lucide-react";
 import { AdminModerationQueue } from "@/components/admin/AdminModerationQueue";
 import { AdminFinancials } from "@/components/admin/AdminFinancials";
@@ -186,6 +186,9 @@ const AdminPanel = () => {
                   </Button>
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
                     <Link to="/admin/hostels"><Building2 className="mr-3 h-5 w-5 text-emerald-500" /> Student Hostels Moderation</Link>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/repair"><Wrench className="mr-3 h-5 w-5 text-gray-600" /> Repair & Maintenance</Link>
                   </Button>
                 </CardContent>
               </Card>

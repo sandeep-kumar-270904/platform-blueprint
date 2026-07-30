@@ -96,6 +96,13 @@ const RepairProviderSchema = new mongoose.Schema({
     isNew: { type: Boolean, default: true }
   },
   
+  // Soft deletion flag
+  isActive: {
+    type: Boolean,
+    default: true,
+    index: true
+  },
+  
   createdAt: {
     type: Date,
     default: Date.now

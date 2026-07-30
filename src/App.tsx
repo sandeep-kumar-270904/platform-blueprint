@@ -162,6 +162,7 @@ import { WorkshopSession } from "./pages/WorkshopSession";
 import { DeveloperSettings } from "./pages/DeveloperSettings";
 import { StaticPage } from "./pages/StaticPage";
 import { AdminHostelsPanel } from "./pages/admin/AdminHostelsPanel";
+import { AdminRepairPanel } from "./pages/admin/AdminRepairPanel";
 import { AnnouncementBanner } from "./components/layout/AnnouncementBanner";
 import { MaintenanceModeWrapper } from "./components/layout/MaintenanceMode";
 
@@ -328,6 +329,7 @@ const App = () => (
           <Route path="/admin/skill-swap" element={<ProtectedRoute><AdminSkillSwapPanel /></ProtectedRoute>} />
           <Route path="/admin/room-rentals" element={<ProtectedRoute><AdminRoomRentalsPanel /></ProtectedRoute>} />
           <Route path="/admin/hostels" element={<ProtectedRoute><AdminHostelsPanel /></ProtectedRoute>} />
+          <Route path="/admin/repair" element={<ProtectedRoute><AdminRepairPanel /></ProtectedRoute>} />
           <Route path="/recruiter/verify" element={<ProtectedRoute><RecruiterVerify /></ProtectedRoute>} />
           <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
           <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />
