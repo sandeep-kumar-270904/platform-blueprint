@@ -1,17 +1,82 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { ParallaxSection } from "@/components/animations/ParallaxSection";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Wrench, Star, Phone, MapPin, Clock } from "lucide-react";
+import { Wrench, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-const mockServices = [];
+import { ServiceCard } from "@/components/repair/ServiceCard";
+import { ServiceCardSkeleton } from "@/components/repair/ServiceCardSkeleton";
+import { EmptyState } from "@/components/repair/EmptyState";
+import { fetchMockServices, SortOption, RepairCategory } from "@/lib/mockRepairData";
+import { ServiceListing } from "@/types/repair";
 
 const Repair = () => {
-  const [selectedTab, setSelectedTab] = useState("all");
+  const [selectedTab, setSelectedTab] = useState<RepairCategory>("all");
+  const [sortBy, setSortBy] = useState<SortOption>("top_rated");
+  const [page, setPage] = useState(1);
+  const [services, setServices] = useState<ServiceListing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const loadServices = async (isLoadMore = false) => {
+    if (isLoadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const result = await fetchMockServices(selectedTab, sortBy, isLoadMore ? page : 1);
+      
+      if (isLoadMore) {
+        setServices(prev => [...prev, ...result.data]);
+      } else {
+        setServices(result.data);
+      }
+      setTotalPages(result.totalPages);
+    } catch (error) {
+      console.error("Failed to fetch services:", error);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  // Reset page and reload on tab or sort change
+  useEffect(() => {
+    setPage(1);
+    loadServices(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTab, sortBy]);
+
+  // Load more on page change
+  useEffect(() => {
+    if (page > 1) {
+      loadServices(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  const handleLoadMore = () => {
+    if (page < totalPages) {
+      setPage(prev => prev + 1);
+    }
+  };
+
+  const handleClearFilter = () => {
+    setSelectedTab("all");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -19,7 +84,6 @@ const Repair = () => {
 
       <ParallaxSection speed={0.3}>
         <section className="relative overflow-hidden py-20 md:py-32">
-          
           <div className="container mx-auto px-4 relative z-10">
             <ScrollReveal direction="down">
               <div className="mx-auto max-w-3xl text-center">
@@ -42,80 +106,77 @@ const Repair = () => {
         </section>
       </ParallaxSection>
 
-      <div className="container mx-auto px-4 py-12">
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-8">
-          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-4">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="electronics">Electronics</TabsTrigger>
-            <TabsTrigger value="plumbing">Plumbing</TabsTrigger>
-            <TabsTrigger value="electrical">Electrical</TabsTrigger>
-          </TabsList>
+      <div className="container mx-auto px-4 py-12 max-w-7xl">
+        <Tabs 
+          value={selectedTab} 
+          onValueChange={(val) => setSelectedTab(val as RepairCategory)} 
+          className="space-y-8"
+        >
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <TabsList className="grid w-full max-w-2xl grid-cols-4 lg:grid-cols-6 overflow-x-auto h-auto p-1">
+              <TabsTrigger value="all" className="py-2">All</TabsTrigger>
+              <TabsTrigger value="electronics" className="py-2">Electronics</TabsTrigger>
+              <TabsTrigger value="plumbing" className="py-2">Plumbing</TabsTrigger>
+              <TabsTrigger value="electrical" className="py-2">Electrical</TabsTrigger>
+              <TabsTrigger value="handyman" className="py-2 hidden lg:block">Handyman</TabsTrigger>
+              <TabsTrigger value="cleaning" className="py-2 hidden lg:block">Cleaning</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="all" className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
-              {mockServices.map((service, index) => (
-                <ScrollReveal key={service.id} delay={0.1 * (index + 1)}>
-                  <Card className="hover-lift">
-                    <CardHeader>
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h3 className="text-xl font-bold mb-1">{service.name}</h3>
-                          <Badge variant="secondary" className="mb-2">{service.category}</Badge>
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
-                              <Star className="h-4 w-4 fill-warning text-warning" />
-                              <span className="text-sm font-medium">{service.rating}</span>
-                              <span className="text-xs text-muted-foreground">({service.reviews})</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <MapPin className="h-4 w-4" />
-                            <span>{service.location}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Phone className="h-4 w-4" />
-                            <span>{service.phone}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Clock className="h-4 w-4" />
-                            <span>{service.hours}</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {service.services.map((s) => (
-                            <Badge key={s} variant="outline" className="text-xs">
-                              {s}
-                            </Badge>
-                          ))}
-                        </div>
-                        <Button className="w-full">
-                          <Phone className="mr-2 h-4 w-4" />
-                          Contact
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </ScrollReveal>
-              ))}
+            <div className="w-full md:w-auto min-w-[200px]">
+              <Select value={sortBy} onValueChange={(val) => setSortBy(val as SortOption)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="top_rated">Top Rated</SelectItem>
+                  <SelectItem value="nearest">Nearest</SelectItem>
+                  <SelectItem value="price_low">Price: Low to High</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="electronics">
-            <p className="text-center text-muted-foreground">Electronics repair services</p>
-          </TabsContent>
-
-          <TabsContent value="plumbing">
-            <p className="text-center text-muted-foreground">Plumbing services</p>
-          </TabsContent>
-
-          <TabsContent value="electrical">
-            <p className="text-center text-muted-foreground">Electrical services</p>
+          <TabsContent value={selectedTab} className="mt-6 border-none p-0 outline-none">
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <ServiceCardSkeleton key={i} />
+                ))}
+              </div>
+            ) : services.length > 0 ? (
+              <div className="space-y-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {services.map((service, index) => (
+                    <ScrollReveal key={service.id} delay={0.05 * (index % 6)}>
+                      <ServiceCard service={service} />
+                    </ScrollReveal>
+                  ))}
+                </div>
+                
+                {page < totalPages && (
+                  <div className="flex justify-center mt-8">
+                    <Button 
+                      variant="outline" 
+                      size="lg" 
+                      onClick={handleLoadMore}
+                      disabled={loadingMore}
+                      className="min-w-[200px]"
+                    >
+                      {loadingMore ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        "Load More Providers"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <EmptyState category={selectedTab} onClearFilter={handleClearFilter} />
+            )}
           </TabsContent>
         </Tabs>
       </div>
