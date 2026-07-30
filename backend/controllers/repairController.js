@@ -125,3 +125,116 @@ exports.getProviders = async (req, res) => {
     res.status(500).json({ success: false, error: 'Server Error' });
   }
 };
+
+const RepairReview = require('../models/RepairReview');
+
+// @desc    Get provider by ID
+// @route   GET /api/repair/:id
+// @access  Public
+exports.getProviderById = async (req, res) => {
+  try {
+    const provider = await RepairProvider.findById(req.params.id);
+    if (!provider) {
+      return res.status(404).json({ success: false, error: 'Provider not found' });
+    }
+    const pObj = provider.toObject();
+    pObj.availability = calculateAvailability(pObj);
+    pObj.id = pObj._id;
+    res.status(200).json({ success: true, data: pObj });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// @desc    Get reviews for a provider
+// @route   GET /api/repair/:id/reviews
+// @access  Public
+exports.getReviews = async (req, res) => {
+  try {
+    const reviews = await RepairReview.find({ providerId: req.params.id })
+      .populate('userId', 'username full_name profile_picture')
+      .sort({ createdAt: -1 });
+
+    const formatted = reviews.map(r => {
+      const robj = r.toObject();
+      robj.id = robj._id;
+      return robj;
+    });
+
+    res.status(200).json({ success: true, data: formatted });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// @desc    Add a review
+// @route   POST /api/repair/:id/reviews
+// @access  Private
+exports.addReview = async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    const providerId = req.params.id;
+    const userId = req.user.id;
+
+    // Check for existing review
+    let review = await RepairReview.findOne({ providerId, userId });
+
+    if (review) {
+      // Update
+      review.rating = rating;
+      review.comment = comment;
+      await review.save();
+    } else {
+      // Create
+      review = await RepairReview.create({
+        providerId,
+        userId,
+        rating,
+        comment
+      });
+    }
+
+    res.status(200).json({ success: true, data: review });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// @desc    Mark review as helpful
+// @route   PUT /api/repair/reviews/:id/helpful
+// @access  Private
+exports.markReviewHelpful = async (req, res) => {
+  try {
+    const review = await RepairReview.findById(req.params.id);
+    if (!review) return res.status(404).json({ success: false, error: 'Review not found' });
+
+    if (review.helpfulUsers.includes(req.user.id)) {
+      return res.status(400).json({ success: false, error: 'Already marked as helpful' });
+    }
+
+    review.helpfulUsers.push(req.user.id);
+    review.helpfulCount += 1;
+    await review.save();
+
+    res.status(200).json({ success: true, data: review });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// @desc    Flag a review
+// @route   PUT /api/repair/reviews/:id/flag
+// @access  Private
+exports.flagReview = async (req, res) => {
+  try {
+    const review = await RepairReview.findById(req.params.id);
+    if (!review) return res.status(404).json({ success: false, error: 'Review not found' });
+
+    review.flagsCount += 1;
+    await review.save();
+
+    res.status(200).json({ success: true, data: review });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
