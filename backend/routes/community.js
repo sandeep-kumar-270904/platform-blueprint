@@ -9,7 +9,6 @@ const CommunityReport = require('../models/CommunityReport');
 const UserFollow = require('../models/UserFollow');
 const UserInterest = require('../models/UserInterest');
 const User = require('../models/User');
-const User = require('../models/User');
 const RepairProvider = require('../models/RepairProvider');
 const CertificationRecord = require('../models/CertificationRecord');
 const Notification = require('../models/Notification');
