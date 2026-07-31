@@ -107,8 +107,21 @@ exports.deactivateProvider = async (req, res) => {
       });
     }
 
+    // Auto-withdraw pending quote responses
+    const QuoteResponse = require('../models/QuoteResponse');
+    const quoteResponses = await QuoteResponse.find({
+      providerId: provider._id,
+      status: 'Pending'
+    });
+
+    for (let qr of quoteResponses) {
+      qr.status = 'Declined';
+      qr.notes = 'System Auto-Decline: Provider is no longer active.';
+      await qr.save();
+    }
+
     analyticsCache.timestamp = 0;
-    res.status(200).json({ success: true, data: provider, cancelledRequestsCount: requests.length });
+    res.status(200).json({ success: true, data: provider, cancelledRequestsCount: requests.length, cancelledQuotesCount: quoteResponses.length });
   } catch (error) {
     console.error('Error deactivating provider:', error);
     res.status(500).json({ success: false, error: 'Server Error' });

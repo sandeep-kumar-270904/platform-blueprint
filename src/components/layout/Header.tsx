@@ -7,8 +7,8 @@ import {
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  NavigationMenuTrigger,
-import { NavigationMenuList, NavigationMenuTrigger } from "@/components/ui/navigation-menu";
+  NavigationMenuTrigger
+} from "@/components/ui/navigation-menu";
 import { GraduationCap, Menu, X, LayoutDashboard, Search, Loader2, MapPin, Calendar, Building2, Moon, Sun, BookOpen, MessageCircle, Wrench } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";

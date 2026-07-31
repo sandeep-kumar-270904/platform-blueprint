@@ -64,6 +64,11 @@ const RepairProviderSchema = new mongoose.Schema({
   },
   operatingHours: [operatingHoursSchema],
   
+  schedulingConfig: {
+    slotDurationMinutes: { type: Number, default: 0 }, // 0 means no slots, use basic date/time
+    maxAdvanceBookingDays: { type: Number, default: 30 }
+  },
+  
   verification: {
     isVerified: { type: Boolean, default: false },
     verifiedAt: { type: Date, default: null },
@@ -76,7 +81,9 @@ const RepairProviderSchema = new mongoose.Schema({
   reputationStats: {
     responseRate: { type: Number, default: 0 }, // 0 to 100 percentage
     responseTimeHours: { type: Number, default: 0 }, // e.g. 2 for 2 hours
-    urgentResponseTimeHours: { type: Number, default: 0 } // e.g. 0.5 for 30 minutes
+    standardResponseTimeHours: { type: Number, default: 0 },
+    urgentResponseTimeHours: { type: Number, default: 0 }, // e.g. 0.5 for 30 minutes
+    repeatCustomerRate: { type: Number, default: 0 } // e.g. percentage of returning users
   },
   
   handlesEmergencies: {
@@ -104,6 +111,10 @@ const RepairProviderSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  completedJobsCount: {
+    type: Number,
+    default: 0
+  },
   
   // Computed badge statuses cached here to avoid heavy aggregation on reads
   badges: {
@@ -122,6 +133,17 @@ const RepairProviderSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  
+  defaultLocale: {
+    type: String,
+    default: 'en'
+  },
+  
+  localizedContent: {
+    type: Map,
+    of: Object,
+    default: {}
   }
 });
 

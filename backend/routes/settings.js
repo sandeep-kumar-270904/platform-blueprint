@@ -5,6 +5,8 @@ const NotificationPreference = require('../models/NotificationPreference');
 const CommunityPost = require('../models/CommunityPost');
 const CommunityComment = require('../models/CommunityComment');
 const CommunityLike = require('../models/CommunityLike');
+const RepairRequest = require('../models/RepairRequest');
+const RepairProvider = require('../models/RepairProvider');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
@@ -121,6 +123,12 @@ router.post('/request-data-export', auth, async (req, res) => {
     const comments = await CommunityComment.find({ user_id: req.user.id });
     const likes = await CommunityLike.find({ user_id: req.user.id });
     
+    // Repair & Maintenance Data
+    const repairRequests = await RepairRequest.find({ userId: req.user.id }).lean();
+    const userDoc = await User.findById(req.user.id).lean();
+    const savedProviderIds = userDoc.savedRepairProviders || [];
+    const savedProviders = await RepairProvider.find({ _id: { $in: savedProviderIds } }, 'name category').lean();
+
     const exportData = {
       profile: {
         username: user.username,
@@ -131,6 +139,10 @@ router.post('/request-data-export', auth, async (req, res) => {
         posts,
         comments,
         likes
+      },
+      repairAndMaintenance: {
+        repairRequests,
+        savedProviders
       }
     };
     

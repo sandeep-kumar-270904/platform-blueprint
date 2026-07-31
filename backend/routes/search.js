@@ -124,7 +124,7 @@ router.get('/', async (req, res) => {
       CommunityPost.distinct('tags', { tags: regex, status: { $nin: ['hidden', 'deleted', 'pending_review'] } }),
       
       RepairProvider.find({
-        status: 'Active',
+        isActive: true,
         $or: [
           { name: regex },
           { category: regex },

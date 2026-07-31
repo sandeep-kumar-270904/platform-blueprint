@@ -80,6 +80,21 @@ export function ProviderReviews({ providerId, averageRating, totalReviews }: Pro
     } catch {}
   };
 
+  const deleteReview = async (reviewId: string) => {
+    setReviews(prev => prev.filter(r => r.id !== reviewId && (r as any)._id !== reviewId));
+    toast({ title: "Review deleted", description: "Your review has been successfully deleted." });
+    try {
+      const token = localStorage.getItem('token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      await fetch(`${API_URL}/api/repair/reviews/${reviewId}`, {
+        method: 'DELETE',
+        headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+      });
+    } catch {
+      toast({ title: "Error", description: "Failed to delete review", variant: "destructive" });
+    }
+  };
+
   // Calculate distribution
   const distribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
   reviews.forEach(r => {
@@ -162,19 +177,28 @@ export function ProviderReviews({ providerId, averageRating, totalReviews }: Pro
                 <p className="text-gray-300 text-sm mt-3 mb-4">{review.comment}</p>
                 <div className="flex items-center space-x-4 text-xs text-gray-500">
                   <button 
-                    onClick={() => markHelpful(review.id)} 
+                    onClick={() => markHelpful(review.id || (review as any)._id)} 
                     className="flex items-center space-x-1 hover:text-white transition-colors"
                   >
                     <ThumbsUp className="w-3 h-3" />
                     <span>Helpful ({review.helpfulCount || 0})</span>
                   </button>
-                  <button 
-                    onClick={() => flagReview(review.id)}
-                    className="flex items-center space-x-1 hover:text-red-400 transition-colors"
-                  >
-                    <Flag className="w-3 h-3" />
-                    <span>Report</span>
-                  </button>
+                  {user._id === currentUserId || user.id === currentUserId || user === currentUserId ? (
+                    <button 
+                      onClick={() => deleteReview(review.id || (review as any)._id)}
+                      className="flex items-center space-x-1 hover:text-red-400 transition-colors"
+                    >
+                      <span>Delete</span>
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => flagReview(review.id || (review as any)._id)}
+                      className="flex items-center space-x-1 hover:text-red-400 transition-colors"
+                    >
+                      <Flag className="w-3 h-3" />
+                      <span>Report</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );

@@ -9,6 +9,8 @@ const morgan = require('morgan');
 const logger = require('./utils/logger');
 const { startCron } = require('./jobs/classroomCron');
 const { startStudyGroupCron } = require('./jobs/studyGroupCron');
+const { startSlotExpirationWorker } = require('./workers/slotExpirationWorker');
+const { startQuoteExpirationWorker } = require('./workers/quoteExpirationWorker');
 const mongoose = require('mongoose');
 const StudyGroup = require('./models/StudyGroup');
 
@@ -20,6 +22,8 @@ dotenv.config({ path: envFile });
 // Start Cron Jobs
 startCron();
 startStudyGroupCron();
+startSlotExpirationWorker();
+startQuoteExpirationWorker();
 
 const http = require('http');
 const { Server } = require('socket.io');

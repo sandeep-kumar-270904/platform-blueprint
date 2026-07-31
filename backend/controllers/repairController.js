@@ -1,8 +1,11 @@
+const mongoose = require('mongoose');
 const RepairProvider = require('../models/RepairProvider');
 const ProviderReport = require('../models/ProviderReport');
 const SavedProvider = require('../models/SavedProvider');
 const RepairRequest = require('../models/RepairRequest');
 const RepairReview = require('../models/RepairReview');
+const QuoteRequest = require('../models/QuoteRequest');
+const QuoteResponse = require('../models/QuoteResponse');
 const ProviderStatsService = require('../services/ProviderStatsService');
 const notificationService = require('../services/notificationService');
 
@@ -172,11 +175,24 @@ exports.getProviders = async (req, res) => {
       savedProviders.forEach(sp => savedProviderIds.add(sp.providerId.toString()));
     }
 
+    const locale = req.query.locale || 'en';
+
     const mappedProviders = providers.map(p => {
       const pObj = p.toObject();
       pObj.availability = calculateAvailability(pObj);
       pObj.isSaved = savedProviderIds.has(pObj._id.toString());
       
+      // Phase 19: Apply Locale Fallback
+      if (locale !== pObj.defaultLocale && pObj.localizedContent && pObj.localizedContent[locale]) {
+        const locData = pObj.localizedContent[locale];
+        if (locData.name) pObj.name = locData.name;
+        if (locData.description) pObj.description = locData.description;
+        if (locData.services) pObj.services = locData.services;
+        pObj.isFallbackLocale = false;
+      } else {
+        pObj.isFallbackLocale = (locale !== pObj.defaultLocale);
+      }
+
       // Remove large fields not needed for the card view
       delete pObj.operatingHours;
       delete pObj.manualStatusOverride;
@@ -210,7 +226,192 @@ exports.getProviders = async (req, res) => {
   }
 };
 
-const RepairReview = require('../models/RepairReview');
+// ==========================================
+// EXPORT & GDPR ENDPOINTS
+// ==========================================
+
+// @desc    Export all user's repair data
+// @route   GET /api/repair/export
+// @access  Private
+exports.exportRepairData = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const requests = await RepairRequest.find({ userId });
+    const quotes = await QuoteRequest.find({ userId });
+    const reviews = await RepairReview.find({ userId });
+    const saved = await SavedProvider.find({ userId }).populate('providerId', 'name category');
+
+    const exportData = {
+      timestamp: new Date(),
+      user: userId,
+      requests,
+      quotes,
+      reviews,
+      savedProviders: saved
+    };
+
+    res.status(200).json({ success: true, data: exportData });
+  } catch (error) {
+    console.error('Error exporting data:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// ==========================================
+// REVIEW EDIT/DELETE ENDPOINTS
+// ==========================================
+
+// @desc    Update a review
+// @route   PUT /api/repair/reviews/:id
+// @access  Private
+exports.updateReview = async (req, res) => {
+  try {
+    const { rating, comment, images } = req.body;
+    let review = await RepairReview.findById(req.params.id);
+
+    if (!review) {
+      return res.status(404).json({ success: false, error: 'Review not found' });
+    }
+
+    if (review.userId.toString() !== req.user.id) {
+      return res.status(401).json({ success: false, error: 'Not authorized to update this review' });
+    }
+
+    review.rating = rating || review.rating;
+    review.comment = comment || review.comment;
+    if (images) review.images = images;
+    
+    await review.save();
+    
+    // Recalculate provider stats
+    await ProviderStatsService.recalculateStats(review.providerId);
+
+    res.status(200).json({ success: true, data: review });
+  } catch (error) {
+    console.error('Error updating review:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// @desc    Delete a review
+// @route   DELETE /api/repair/reviews/:id
+// @access  Private
+exports.deleteReview = async (req, res) => {
+  try {
+    const review = await RepairReview.findById(req.params.id);
+    if (!review) {
+      return res.status(404).json({ success: false, error: 'Review not found' });
+    }
+
+    if (review.userId.toString() !== req.user.id) {
+      return res.status(401).json({ success: false, error: 'Not authorized to delete this review' });
+    }
+
+    const providerId = review.providerId;
+    await RepairReview.deleteOne({ _id: req.params.id });
+    
+    // Recalculate provider stats
+    await ProviderStatsService.recalculateStats(providerId);
+
+    res.status(200).json({ success: true, data: {} });
+  } catch (error) {
+    console.error('Error deleting review:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// ==========================================
+// ADMIN ENDPOINTS
+// ==========================================
+
+// @desc    Get all providers for admin
+// @route   GET /api/repair/admin/providers
+// @access  Private/Admin
+exports.getAdminProviders = async (req, res) => {
+  try {
+    // Basic search and filtering for admin panel
+    const { search, status } = req.query;
+    let query = {};
+    if (search) query.name = { $regex: search, $options: 'i' };
+    if (status === 'pending') query['verification.isVerified'] = false;
+    
+    const providers = await RepairProvider.find(query).sort('-createdAt').limit(100);
+    res.status(200).json({ success: true, data: providers });
+  } catch (error) {
+    console.error('Error fetching admin providers:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// @desc    Verify a provider
+// @route   PUT /api/repair/admin/providers/:id/verify
+// @access  Private/Admin
+exports.verifyProvider = async (req, res) => {
+  try {
+    const provider = await RepairProvider.findById(req.params.id);
+    if (!provider) {
+      return res.status(404).json({ success: false, error: 'Provider not found' });
+    }
+
+    provider.verification.isVerified = true;
+    provider.verification.verifiedAt = new Date();
+    provider.verification.businessRegistration = true;
+    provider.verification.phoneNumber = true;
+    provider.verification.address = true;
+    provider.verification.idProof = true;
+    
+    await provider.save();
+    res.status(200).json({ success: true, data: provider });
+  } catch (error) {
+    console.error('Error verifying provider:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// @desc    Get all reports for admin
+// @route   GET /api/repair/admin/reports
+// @access  Private/Admin
+exports.getAdminReports = async (req, res) => {
+  try {
+    const ProviderReport = require('../models/ProviderReport');
+    const reports = await ProviderReport.find({ status: 'Open' })
+      .populate('providerId', 'name')
+      .populate('reportedBy', 'name email')
+      .sort('createdAt');
+      
+    res.status(200).json({ success: true, data: reports });
+  } catch (error) {
+    console.error('Error fetching admin reports:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// @desc    Resolve a report
+// @route   PUT /api/repair/admin/reports/:id/resolve
+// @access  Private/Admin
+exports.resolveReport = async (req, res) => {
+  try {
+    const ProviderReport = require('../models/ProviderReport');
+    const report = await ProviderReport.findById(req.params.id);
+    if (!report) {
+      return res.status(404).json({ success: false, error: 'Report not found' });
+    }
+
+    report.status = req.body.status || 'Resolved';
+    report.resolutionNote = req.body.resolutionNote;
+    await report.save();
+    
+    // Optionally suspend provider based on report (simplified logic)
+    if (req.body.suspendProvider) {
+      await RepairProvider.findByIdAndUpdate(report.providerId, { isActive: false });
+    }
+
+    res.status(200).json({ success: true, data: report });
+  } catch (error) {
+    console.error('Error resolving report:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
 
 // @desc    Get provider by ID
 // @route   GET /api/repair/:id
@@ -225,11 +426,33 @@ exports.getProviderById = async (req, res) => {
     pObj.availability = calculateAvailability(pObj);
     pObj.id = pObj._id;
 
+    // Phase 19: Apply Locale Fallback
+    const locale = req.query.locale || 'en';
+    if (locale !== pObj.defaultLocale && pObj.localizedContent && pObj.localizedContent[locale]) {
+      const locData = pObj.localizedContent[locale];
+      if (locData.name) pObj.name = locData.name;
+      if (locData.description) pObj.description = locData.description;
+      if (locData.services) pObj.services = locData.services;
+      pObj.isFallbackLocale = false;
+    } else {
+      pObj.isFallbackLocale = (locale !== pObj.defaultLocale);
+    }
+
     if (req.user) {
       const saved = await SavedProvider.findOne({ userId: req.user.id, providerId: pObj._id });
       pObj.isSaved = !!saved;
+      
+      // Phase 18: Regular Customer Check
+      const RepairRequest = require('../models/RepairRequest');
+      const userCompletedCount = await RepairRequest.countDocuments({
+        providerId: pObj._id,
+        userId: req.user.id,
+        status: 'Completed'
+      });
+      pObj.isRegularCustomer = userCompletedCount >= 2;
     } else {
       pObj.isSaved = false;
+      pObj.isRegularCustomer = false;
     }
 
     const RepairRequest = require('../models/RepairRequest');
@@ -292,6 +515,14 @@ exports.addReview = async (req, res) => {
     const { rating, comment } = req.body;
     const providerId = req.params.id;
     const userId = req.user.id;
+
+    // Boundary Validation
+    if (rating < 1 || rating > 5 || isNaN(rating)) {
+      return res.status(400).json({ success: false, error: 'Rating must be a number between 1 and 5' });
+    }
+    if (comment && comment.length > 2000) {
+      return res.status(400).json({ success: false, error: 'Review comment is too long (max 2000 chars)' });
+    }
 
     const providerExists = await RepairProvider.findById(providerId);
     if (!providerExists) {
@@ -413,6 +644,7 @@ exports.getCompareProviders = async (req, res) => {
 
 const RepairRequest = require('../models/RepairRequest');
 const ProviderApplication = require('../models/ProviderApplication');
+const RepairSlotHold = require('../models/RepairSlotHold');
 const crypto = require('crypto');
 
 // @desc    Submit a provider application (interest capture)
@@ -457,6 +689,77 @@ exports.submitProviderApplication = async (req, res) => {
   } catch (error) {
     console.error('Error submitting application:', error);
     res.status(500).json({ success: false, error: 'Server Error' });
+};
+
+// @desc    Get provider slots for a date range
+// @route   GET /api/repair/providers/:id/slots
+// @access  Public (or OptionalAuth)
+exports.getProviderSlots = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const providerId = req.params.id;
+    
+    const provider = await RepairProvider.findById(providerId);
+    if (!provider) return res.status(404).json({ success: false, error: 'Provider not found' });
+    
+    const slotDuration = provider.schedulingConfig?.slotDurationMinutes || 0;
+    if (slotDuration === 0) {
+      // Provider does not support strict slots, frontend should fallback to freeform
+      return res.status(200).json({ success: true, data: { slotsEnabled: false } });
+    }
+    
+    // Fetch active holds for this provider in the date range
+    const activeHolds = await RepairSlotHold.find({
+      providerId,
+      date: { $gte: startDate, $lte: endDate },
+      status: { $in: ['held', 'confirmed'] }
+    }).lean();
+    
+    const holdsMap = {};
+    activeHolds.forEach(h => {
+      const key = `${h.date}_${h.time}`;
+      holdsMap[key] = true;
+    });
+    
+    // We would dynamically generate slots here by intersecting operating hours with holdsMap.
+    // For prototype purposes, we return a mock list of generated slots for requested days.
+    // In a real app, you iterate from startDate to endDate, checking operatingHours per day.
+    
+    const generatedSlots = [];
+    let currentDate = new Date(startDate);
+    const end = new Date(endDate);
+    
+    while (currentDate <= end) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const dayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+      
+      const dayHours = provider.operatingHours.find(h => h.day === dayOfWeek);
+      if (dayHours && dayHours.isOpen) {
+        // Mock generating slots every slotDuration minutes between openTime and closeTime
+        let [openHr, openMin] = dayHours.openTime.split(':').map(Number);
+        const [closeHr, closeMin] = dayHours.closeTime.split(':').map(Number);
+        
+        let currentMins = openHr * 60 + openMin;
+        const closeMins = closeHr * 60 + closeMin;
+        
+        while (currentMins + slotDuration <= closeMins) {
+          const hr = Math.floor(currentMins / 60).toString().padStart(2, '0');
+          const min = (currentMins % 60).toString().padStart(2, '0');
+          const timeStr = `${hr}:${min}`;
+          
+          if (!holdsMap[`${dateStr}_${timeStr}`]) {
+            generatedSlots.push({ date: dateStr, time: timeStr });
+          }
+          currentMins += slotDuration;
+        }
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    res.status(200).json({ success: true, data: { slotsEnabled: true, slots: generatedSlots } });
+  } catch (error) {
+    console.error('Error fetching slots:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
   }
 };
 
@@ -465,8 +768,16 @@ exports.submitProviderApplication = async (req, res) => {
 // @access  Private
 exports.createRequest = async (req, res) => {
   try {
-    const { providerId, issueDescription, quickIssueCategory, preferredDate, preferredTime, isAsap, isUrgent, contactPhone } = req.body;
+    const { providerId, issueDescription, quickIssueCategory, preferredDate, preferredTime, isAsap, isUrgent, contactPhone, slotDate, slotTime } = req.body;
     
+    // Boundary validations
+    if (issueDescription && issueDescription.length > 3000) {
+      return res.status(400).json({ success: false, error: 'Issue description is too long (max 3000 chars)' });
+    }
+    if (contactPhone && contactPhone.length > 20) {
+      return res.status(400).json({ success: false, error: 'Phone number is too long' });
+    }
+
     // Check if provider exists and is active
     const provider = await RepairProvider.findById(providerId);
     if (!provider || provider.manualStatusOverride === 'Closed') { // Simplify active check for prototype
@@ -492,13 +803,37 @@ exports.createRequest = async (req, res) => {
       photoUrl = `/uploads/repair/${req.file.filename}`;
     }
 
+    // Atomic slot hold check
+    let slotHold = null;
+    if (slotDate && slotTime) {
+      try {
+        const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hour hold
+        slotHold = await RepairSlotHold.create({
+          providerId,
+          userId: req.user.id,
+          date: slotDate,
+          time: slotTime,
+          status: 'held',
+          expiresAt
+        });
+      } catch (err) {
+        if (err.code === 11000) {
+          return res.status(409).json({ success: false, error: 'This time slot is no longer available. Please select another.' });
+        }
+        throw err;
+      }
+    }
+
+    const finalDate = slotDate ? new Date(slotDate) : (preferredDate ? new Date(preferredDate) : null);
+    const finalTime = slotTime ? slotTime : (isAsap ? 'ASAP' : preferredTime);
+
     const newRequest = await RepairRequest.create({
       providerId,
       userId: req.user.id,
       issueDescription,
       quickIssueCategory,
-      preferredDate: preferredDate ? new Date(preferredDate) : null,
-      preferredTime: isAsap ? 'ASAP' : preferredTime,
+      preferredDate: finalDate,
+      preferredTime: finalTime,
       isAsap: isAsap === 'true' || isAsap === true,
       isUrgent: isUrgent === 'true' || isUrgent === true,
       contactSnapshot: {
@@ -512,6 +847,11 @@ exports.createRequest = async (req, res) => {
         changedBy: req.user.id
       }]
     });
+
+    if (slotHold) {
+      slotHold.requestId = newRequest._id;
+      await slotHold.save();
+    }
 
     recommendationsCache.delete(req.user.id);
 
@@ -558,6 +898,50 @@ exports.getMyRequests = async (req, res) => {
   }
 };
 
+// @desc    Get rebook data for a past request
+// @route   GET /api/repair/requests/:id/rebook
+// @access  Private
+exports.getRebookData = async (req, res) => {
+  try {
+    const request = await RepairRequest.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ success: false, error: 'Request not found' });
+    }
+    if (request.userId.toString() !== req.user.id) {
+      return res.status(401).json({ success: false, error: 'Not authorized' });
+    }
+    if (request.status !== 'Completed') {
+      return res.status(400).json({ success: false, error: 'Can only rebook completed requests' });
+    }
+
+    const provider = await RepairProvider.findById(request.providerId);
+    let providerStatus = { isActive: false };
+    if (provider) {
+      const pObj = provider.toObject();
+      pObj.availability = calculateAvailability(pObj);
+      providerStatus = {
+        isActive: pObj.isActive,
+        availability: pObj.availability,
+        responseRate: pObj.reputationStats?.responseRate,
+        name: pObj.name
+      };
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        category: request.quickIssueCategory,
+        issueDescription: request.issueDescription,
+        notes: request.notes,
+        providerStatus
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching rebook data:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
 // @desc    Cancel a pending request
 // @route   PUT /api/repair/requests/:id/cancel
 // @access  Private
@@ -591,6 +975,10 @@ exports.cancelRequest = async (req, res) => {
     });
 
     await request.save();
+
+    // Release any held slots immediately
+    const mongoose = require('mongoose');
+    await mongoose.model('ProviderSlotHold').deleteMany({ requestId: request._id });
 
     // 1. Emit real-time UI update
     const io = req.app.get('io');
@@ -755,13 +1143,22 @@ exports.getDashboardSummary = async (req, res) => {
         }
       }
     }
+    
+    const pastRequests = await RepairRequest.find({
+      userId: req.user.id,
+      status: 'Completed'
+    })
+    .sort('-updatedAt')
+    .limit(5)
+    .populate('providerId', 'name category');
 
     res.status(200).json({
       success: true,
       data: {
         activeRequests,
+        pastRequests,
         savedProvidersCount,
-        pendingReviews: pendingReviews.slice(0, 3) // Return up to 3 prompts
+        pendingReviews: pendingReviews.slice(0, 3)
       }
     });
   } catch (error) {
@@ -990,3 +1387,282 @@ exports.getUrgencyConfig = (req, res) => {
 
   res.status(200).json({ success: true, data: urgencyConfig });
 };
+
+// @desc    Submit a new broadcast quote request
+// @route   POST /api/repair/quotes
+// @access  Private
+exports.createQuoteRequest = async (req, res) => {
+  try {
+    const { category, issueDescription, budgetRange, isUrgent, lat, lng } = req.body;
+    let photoUrl = null;
+
+    if (issueDescription && issueDescription.length > 3000) {
+      return res.status(400).json({ success: false, error: 'Issue description is too long (max 3000 chars)' });
+    }
+
+
+    if (req.file) {
+      photoUrl = `/uploads/repair/${req.file.filename}`;
+    }
+
+    // Determine matching criteria
+    let query = { isActive: { $ne: false } };
+    
+    if (category && category !== 'all') {
+      query.category = category.toLowerCase();
+    }
+
+    // Example Budget Mapping (adjust based on UI predefined ranges)
+    if (budgetRange) {
+      if (budgetRange.includes('$0 - $50')) query.basePrice = { $lte: 50 };
+      else if (budgetRange.includes('$50 - $150')) query.basePrice = { $gte: 50, $lte: 150 };
+      else if (budgetRange.includes('$150 - $300')) query.basePrice = { $gte: 150, $lte: 300 };
+      else if (budgetRange.includes('$300+')) query.basePrice = { $gte: 300 };
+    }
+
+    // Location matching if provided
+    if (lat && lng) {
+      const latitude = parseFloat(lat);
+      const longitude = parseFloat(lng);
+      if (!isNaN(latitude) && !isNaN(longitude)) {
+        query["location.coordinates"] = {
+          $near: {
+            $geometry: {
+              type: "Point",
+              coordinates: [longitude, latitude]
+            },
+            $maxDistance: 50000 // 50km radius
+          }
+        };
+      }
+    }
+
+    // Find top 10 matching providers
+    const matchedProviders = await RepairProvider.find(query).limit(10).select('_id userId name');
+
+    if (matchedProviders.length === 0) {
+      // Create request but mark as having 0 matches immediately
+      const quoteRequest = await QuoteRequest.create({
+        userId: req.user._id,
+        category,
+        issueDescription,
+        budgetRange,
+        isUrgent,
+        photoUrl,
+        status: 'Open',
+        location: (lat && lng) ? { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] } : undefined
+      });
+
+      return res.status(201).json({ success: true, matches: 0, data: quoteRequest });
+    }
+
+    // Create the quote request
+    const quoteRequest = await QuoteRequest.create({
+      userId: req.user._id,
+      category,
+      issueDescription,
+      budgetRange,
+      isUrgent,
+      photoUrl,
+      status: 'Open',
+      location: (lat && lng) ? { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] } : undefined
+    });
+
+    // Notify matched providers
+    const notificationPromises = matchedProviders.map(provider => {
+      // Assuming provider has a linked userId. For mocked data without userId, this safely does nothing.
+      if (provider.userId) {
+        return notificationService.notifyUser(provider.userId, {
+          title: 'New Quote Request',
+          message: `A new ${category} quote request matches your profile.`,
+          type: 'repair_update',
+          link: `/repair-pro/quotes/${quoteRequest._id}` // Example provider dashboard link
+        });
+      }
+      return Promise.resolve();
+    });
+
+    await Promise.all(notificationPromises);
+
+    res.status(201).json({ success: true, matches: matchedProviders.length, data: quoteRequest });
+  } catch (error) {
+    console.error('Error creating quote request:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Get active quote requests and their nested responses for the user
+// @route   GET /api/repair/quotes
+// @access  Private
+exports.getMyQuoteRequests = async (req, res) => {
+  try {
+    const quoteRequests = await QuoteRequest.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const quoteIds = quoteRequests.map(qr => qr._id);
+    const responses = await QuoteResponse.find({ quoteRequestId: { $in: quoteIds } })
+      .populate('providerId', 'name rating reviewsCount category')
+      .lean();
+
+    // Attach responses to their respective quote requests
+    quoteRequests.forEach(qr => {
+      qr.responses = responses.filter(r => r.quoteRequestId.toString() === qr._id.toString());
+    });
+
+    res.status(200).json({ success: true, data: quoteRequests });
+  } catch (error) {
+    console.error('Error getting quote requests:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Cancel a quote request
+// @route   PUT /api/repair/quotes/:id/cancel
+// @access  Private
+exports.cancelQuoteRequest = async (req, res) => {
+  try {
+    const quoteRequest = await QuoteRequest.findById(req.params.id);
+    if (!quoteRequest) {
+      return res.status(404).json({ success: false, message: 'Quote request not found' });
+    }
+    if (quoteRequest.userId.toString() !== req.user._id.toString()) {
+      return res.status(401).json({ success: false, message: 'Not authorized' });
+    }
+
+    quoteRequest.status = 'Cancelled';
+    await quoteRequest.save();
+
+    // Mark all pending responses as Rejected
+    await QuoteResponse.updateMany(
+      { quoteRequestId: quoteRequest._id, status: 'Pending' },
+      { $set: { status: 'Rejected' } }
+    );
+
+    res.status(200).json({ success: true, data: quoteRequest });
+  } catch (error) {
+    console.error('Error cancelling quote request:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Close a quote request (stop accepting new quotes)
+// @route   PUT /api/repair/quotes/:id/close
+// @access  Private
+exports.closeQuoteRequest = async (req, res) => {
+  try {
+    const quoteRequest = await QuoteRequest.findById(req.params.id);
+    if (!quoteRequest) {
+      return res.status(404).json({ success: false, message: 'Quote request not found' });
+    }
+    if (quoteRequest.userId.toString() !== req.user._id.toString()) {
+      return res.status(401).json({ success: false, message: 'Not authorized' });
+    }
+
+    quoteRequest.status = 'Closed';
+    await quoteRequest.save();
+
+    res.status(200).json({ success: true, data: quoteRequest });
+  } catch (error) {
+    console.error('Error closing quote request:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc    Accept a specific quote
+// @route   POST /api/repair/quotes/:quoteId/accept
+// @access  Private
+exports.acceptQuoteResponse = async (req, res) => {
+  const session = await mongoose.startSession();
+  let repairRequest = null;
+
+  try {
+    await session.withTransaction(async () => {
+      const quoteResponse = await QuoteResponse.findById(req.params.quoteId).populate('providerId').session(session);
+      if (!quoteResponse) {
+        throw new Error('Quote response not found');
+      }
+
+      const quoteRequest = await QuoteRequest.findById(quoteResponse.quoteRequestId).session(session);
+      if (!quoteRequest) {
+        throw new Error('Quote request not found');
+      }
+      
+      if (quoteRequest.userId.toString() !== req.user._id.toString()) {
+        throw new Error('Not authorized');
+      }
+
+      if (!['Open', 'Closed-Awaiting-Decision'].includes(quoteRequest.status)) {
+        throw new Error('This quote request is no longer open or awaiting decision');
+      }
+
+      if (quoteResponse.status !== 'Pending') {
+        throw new Error('This quote is no longer pending');
+      }
+
+      // Mark this response as accepted
+      quoteResponse.status = 'Accepted';
+      await quoteResponse.save({ session });
+
+      // Decline all other pending responses for this request
+      const otherResponses = await QuoteResponse.find({ 
+        quoteRequestId: quoteRequest._id, 
+        _id: { $ne: quoteResponse._id },
+        status: 'Pending'
+      }).session(session);
+
+      for (const other of otherResponses) {
+        other.status = 'Declined-by-user';
+        await other.save({ session });
+
+        // Notify other providers
+        if (other.providerId.userId) { // Assuming provider has a userId ref, safely fail if mocked
+          await notificationService.notifyUser(other.providerId.userId, {
+            title: 'Quote Not Selected',
+            message: `Your quote for the ${quoteRequest.category} request was not selected by the user.`,
+            type: 'repair_update'
+          });
+        }
+      }
+
+      // Mark the request as Accepted
+      quoteRequest.status = 'Accepted';
+      await quoteRequest.save({ session });
+
+      // Create a normal RepairRequest
+      repairRequest = await RepairRequest.create([{
+        providerId: quoteResponse.providerId._id,
+        userId: req.user._id,
+        issueDescription: quoteRequest.issueDescription,
+        quickIssueCategory: quoteRequest.category,
+        preferredTime: 'ASAP', // Since they accepted a timeframe from the quote
+        isAsap: true,
+        isUrgent: quoteRequest.isUrgent,
+        photoUrl: quoteRequest.photoUrl,
+        contactSnapshot: { phone: req.user.phone || '000-000-0000', email: req.user.email },
+        status: 'Accepted', // Auto-accepted since provider already quoted
+        notes: `Accepted Quote: ${quoteResponse.priceEstimate}. Provider note: ${quoteResponse.note}`,
+        statusHistory: [{ status: 'Accepted', systemNote: 'Created from accepted quote' }]
+      }], { session });
+
+      // Notify the winning provider
+      if (quoteResponse.providerId.userId) {
+        await notificationService.notifyUser(quoteResponse.providerId.userId, {
+          title: 'Quote Accepted!',
+          message: `Your quote for the ${quoteRequest.category} request was accepted!`,
+          type: 'repair_update',
+          link: `/repair-pro/requests/${repairRequest[0]._id}`
+        });
+      }
+    });
+
+    session.endSession();
+    res.status(200).json({ success: true, data: repairRequest[0] });
+  } catch (error) {
+    session.endSession();
+    console.error('Error accepting quote:', error);
+    const status = (error.message === 'Not authorized') ? 401 : (error.message.includes('not found') ? 404 : 400);
+    res.status(status).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+

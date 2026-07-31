@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Header } from "@/components/layout/Header";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { ParallaxSection } from "@/components/animations/ParallaxSection";
@@ -23,10 +24,12 @@ import { ServiceCardSkeleton } from "@/components/repair/ServiceCardSkeleton";
 import { EmptyState } from "@/components/repair/EmptyState";
 import { ProviderDetailsSheet } from "@/components/repair/ProviderDetailsSheet";
 import { ListServiceModal } from "@/components/repair/ListServiceModal";
+import { RequestQuoteModal } from "@/components/repair/RequestQuoteModal";
 import { SortOption, RepairCategory } from "@/lib/mockRepairData";
 import { ServiceListing } from "@/types/repair";
 
 const Repair = () => {
+  const { t, i18n } = useTranslation();
   const [selectedTab, setSelectedTab] = useState<RepairCategory>("all");
   const [sortBy, setSortBy] = useState<SortOption>("top_rated");
   const [page, setPage] = useState(1);
@@ -39,6 +42,7 @@ const Repair = () => {
   // Recommendations State
   const [recommendations, setRecommendations] = useState<ServiceListing[]>([]);
   const [showRecommendations, setShowRecommendations] = useState(true);
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,7 +82,7 @@ const Repair = () => {
 
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        const res = await fetch(`${API_URL}/api/repair/recommendations`, {
+        const res = await fetch(`${API_URL}/api/repair/recommendations?locale=${i18n.language}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
@@ -114,7 +118,8 @@ const Repair = () => {
       let endpoint = `${API_URL}/api/repair`;
       const queryParams = new URLSearchParams({
         page: currentPage.toString(),
-        limit: '6'
+        limit: '6',
+        locale: i18n.language
       });
 
       if (selectedTab === 'saved') {
@@ -338,34 +343,48 @@ const Repair = () => {
             </div>
           )}
 
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <TabsList className="grid w-full max-w-3xl grid-cols-5 lg:grid-cols-7 overflow-x-auto h-auto p-1">
-              <TabsTrigger value="all" className="py-2">All</TabsTrigger>
-              <TabsTrigger value="saved" className="py-2 text-primary font-medium data-[state=active]:bg-primary/10">
-                <Heart className="w-3.5 h-3.5 mr-1.5 hidden sm:inline" /> Saved
-              </TabsTrigger>
-              <TabsTrigger value="electronics" className="py-2">Electronics</TabsTrigger>
-              <TabsTrigger value="plumbing" className="py-2">Plumbing</TabsTrigger>
-              <TabsTrigger value="electrical" className="py-2">Electrical</TabsTrigger>
-              <TabsTrigger value="handyman" className="py-2 hidden lg:block">Handyman</TabsTrigger>
-              <TabsTrigger value="cleaning" className="py-2 hidden lg:block">Cleaning</TabsTrigger>
-            </TabsList>
-
-            <div className="w-full md:w-auto min-w-[200px]">
-              <Select value={sortBy} onValueChange={(val) => setSortBy(val as SortOption)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="top_rated">Top Rated</SelectItem>
-                  <SelectItem value="nearest">Nearest</SelectItem>
-                  <SelectItem value="price_low">Price: Low to High</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Get Quotes Banner */}
+          <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-500/20 rounded-xl p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-blue-500/10 rounded-full shrink-0">
+                <Send className="w-6 h-6 text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Not sure who to hire? Get Multiple Quotes</h3>
+                <p className="text-sm text-blue-200/70 mt-1 max-w-xl">
+                  Describe your issue once and have it broadcast to multiple matching providers in your area. Compare price estimates and availability before making a decision.
+                </p>
+              </div>
             </div>
+            <Button 
+              size="lg" 
+              className="w-full sm:w-auto shrink-0 bg-blue-600 hover:bg-blue-500 text-white border-0 shadow-lg shadow-blue-900/20"
+              onClick={() => setIsQuoteModalOpen(true)}
+            >
+              Request Quotes
+            </Button>
           </div>
 
-          <TabsContent value={selectedTab} className="mt-6 border-none p-0 outline-none">
+              {t('Request Quotes', 'Request Quotes')}
+            </Button>
+          </div>
+
+          <div className="flex justify-end mb-6">
+            <Select value={sortBy} onValueChange={(val: SortOption) => setSortBy(val)}>
+              <SelectTrigger className="h-11 w-full md:w-[180px] bg-background">
+                <SelectValue placeholder={t('Sort by', 'Sort by')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="top_rated">{t('Top Rated', 'Top Rated')}</SelectItem>
+                <SelectItem value="most_reviewed">{t('Most Reviewed', 'Most Reviewed')}</SelectItem>
+                <SelectItem value="nearest">{t('Nearest to me', 'Nearest to me')}</SelectItem>
+                <SelectItem value="price_low">{t('Price: Low to High', 'Price: Low to High')}</SelectItem>
+                <SelectItem value="price_high">{t('Price: High to Low', 'Price: High to Low')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <TabsContent value={selectedTab} className="mt-0 border-none p-0 outline-none">
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -407,10 +426,10 @@ const Repair = () => {
                       {loadingMore ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Loading...
+                          {t('Loading...', 'Loading...')}
                         </>
                       ) : (
-                        "Load More Providers"
+                        t('Load More Providers', 'Load More Providers')
                       )}
                     </Button>
                   </div>
@@ -432,7 +451,7 @@ const Repair = () => {
             onClick={() => setIsCompareOpen(true)}
           >
             <Layers className="h-5 w-5" />
-            Compare ({compareIds.length})
+            {t('Compare', 'Compare')} ({compareIds.length})
           </Button>
         </div>
       )}
@@ -441,13 +460,13 @@ const Repair = () => {
       <div className="mt-16 mb-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 rounded-2xl p-8 border border-blue-500/20 flex flex-col md:flex-row items-center justify-between text-center md:text-left gap-6 shadow-xl">
           <div>
-            <h3 className="text-xl font-bold text-white mb-2">Are you a service provider?</h3>
+            <h3 className="text-xl font-bold text-white mb-2">{t('Are you a service provider?', 'Are you a service provider?')}</h3>
             <p className="text-blue-200/70 max-w-md">
-              Join our directory to connect with students and staff. We'll review your details and reach out to help you get listed.
+              {t("Join our directory to connect with students and staff. We'll review your details and reach out to help you get listed.", "Join our directory to connect with students and staff. We'll review your details and reach out to help you get listed.")}
             </p>
           </div>
           <Button size="lg" className="shrink-0 bg-blue-600 hover:bg-blue-700" onClick={() => setIsListModalOpen(true)}>
-            List Your Service
+            {t('List Your Service', 'List Your Service')}
           </Button>
         </div>
       </div>
@@ -474,6 +493,15 @@ const Repair = () => {
       <ListServiceModal 
         open={isListModalOpen}
         onOpenChange={setIsListModalOpen}
+      />
+
+      <RequestQuoteModal 
+        isOpen={isQuoteModalOpen}
+        onClose={() => setIsQuoteModalOpen(false)}
+        defaultCategory={selectedTab !== 'all' && selectedTab !== 'saved' ? selectedTab : 'handyman'}
+        onSuccess={() => {
+          setTimeout(() => setIsQuoteModalOpen(false), 2000);
+        }}
       />
       
       {/* Sheet for displaying Provider details */}

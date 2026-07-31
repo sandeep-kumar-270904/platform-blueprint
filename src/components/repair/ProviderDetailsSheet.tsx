@@ -8,6 +8,7 @@ import { toast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { ProviderReviews } from "./ProviderReviews";
 import { RequestServiceModal } from "./RequestServiceModal";
+import { useTranslation } from "react-i18next";
 
 interface ProviderDetailsSheetProps {
   providerId: string | null;
@@ -15,10 +16,12 @@ interface ProviderDetailsSheetProps {
 }
 
 export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsSheetProps) {
+  const { t, i18n } = useTranslation();
   const [provider, setProvider] = useState<ServiceListing | null>(null);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [nextSlot, setNextSlot] = useState<{date: string, time: string} | null>(null);
 
   const getPairedImage = (currentIdx: number) => {
     if (!provider?.gallery || lightboxIndex === null) return null;
@@ -39,7 +42,11 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
       setLoading(true);
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        const res = await fetch(`${API_URL}/api/repair/${providerId}`);
+        const token = localStorage.getItem('token');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        
+        const res = await fetch(`${API_URL}/api/repair/${providerId}?locale=${i18n.language}`, { headers });
         if (!res.ok) throw new Error("Failed to fetch provider");
         const data = await res.json();
         setProvider(data.data);
@@ -54,6 +61,35 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
 
     fetchProvider();
   }, [providerId, onClose]);
+
+  useEffect(() => {
+    if (!provider || !provider.schedulingConfig?.slotDurationMinutes) {
+      setNextSlot(null);
+      return;
+    }
+    const fetchNextSlot = async () => {
+      try {
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        const startStr = today.toISOString().split('T')[0];
+        const endStr = tomorrow.toISOString().split('T')[0];
+        
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/repair/providers/${provider.id}/slots?startDate=${startStr}&endDate=${endStr}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data.slotsEnabled && data.data.slots.length > 0) {
+            setNextSlot(data.data.slots[0]);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch next slot", err);
+      }
+    };
+    fetchNextSlot();
+  }, [provider]);
 
   const handleShare = () => {
     if (!provider) return;
@@ -173,6 +209,11 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
                         <Zap className="w-3 h-3 mr-1" /> Handles Emergencies
                       </Badge>
                     )}
+                    {provider.isRegularCustomer && (
+                      <Badge variant="outline" className="text-[10px] uppercase text-purple-400 border-purple-400/30 bg-purple-400/10 h-6">
+                        <Heart className="w-3 h-3 mr-1 fill-current" /> Regular Customer
+                      </Badge>
+                    )}
                   </SheetTitle>
                   <div className="flex items-center space-x-3 mt-2 text-sm">
                     {provider.reviewsCount === 0 ? (
@@ -184,7 +225,9 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
                       <div className="flex items-center text-yellow-400" aria-label={`${provider.rating.toFixed(1)} stars out of 5 based on ${provider.reviewsCount} reviews`}>
                         <Star className="w-4 h-4 fill-current mr-1" aria-hidden="true" />
                         <span className="font-medium text-white" aria-hidden="true">{provider.rating.toFixed(1)}</span>
-                        <span className="text-gray-500 ml-1" aria-hidden="true">({provider.reviewsCount})</span>
+                        <span className="text-gray-500 ml-1" aria-hidden="true">
+                          ({provider.reviewsCount}) • {provider.completedJobsCount || 0} Jobs
+                        </span>
                       </div>
                     )}
                     <span className="text-gray-600" aria-hidden="true">•</span>
@@ -205,6 +248,11 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
               </div>
               <SheetDescription className="text-gray-300 text-base leading-relaxed">
                 {provider.description}
+                {provider.isFallbackLocale && (
+                  <Badge variant="secondary" className="ml-2 text-[10px] opacity-70">
+                    Original
+                  </Badge>
+                )}
               </SheetDescription>
             </SheetHeader>
 
@@ -313,6 +361,26 @@ export function ProviderDetailsSheet({ providerId, onClose }: ProviderDetailsShe
                 </div>
               </div>
             </div>
+
+            {/* Next Available Slot Preview */}
+            {provider.schedulingConfig?.slotDurationMinutes ? (
+              <div className="bg-blue-900/20 p-4 rounded-xl border border-blue-800/40 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/20 text-blue-400 rounded-full">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-300">Next Available Slot</h4>
+                    <p className="text-sm text-gray-300">
+                      {nextSlot ? `${new Date(nextSlot.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${nextSlot.time}` : "Checking availability..."}
+                    </p>
+                  </div>
+                </div>
+                <Button size="sm" onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white shadow-sm border-0">
+                  Book Slot
+                </Button>
+              </div>
+            ) : null}
 
             {/* Quick Info Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-900/40 p-4 rounded-xl border border-gray-800/50">

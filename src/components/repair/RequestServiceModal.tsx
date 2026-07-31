@@ -39,6 +39,9 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
   const [phone, setPhone] = useState("123-456-7890"); // Mock prefill
   const [submitting, setSubmitting] = useState(false);
   const [urgencyConfig, setUrgencyConfig] = useState<any>(null);
+  const [slots, setSlots] = useState<{date: string, time: string}[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotsEnabled, setSlotsEnabled] = useState(false);
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -57,6 +60,38 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
     };
     fetchConfig();
   }, []);
+
+  useEffect(() => {
+    const fetchSlots = async () => {
+      if (!date || isAsap) return;
+      const slotDuration = provider.schedulingConfig?.slotDurationMinutes || 0;
+      if (slotDuration === 0) {
+        setSlotsEnabled(false);
+        return;
+      }
+
+      setLoadingSlots(true);
+      try {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/repair/providers/${provider.id}/slots?startDate=${dateStr}&endDate=${dateStr}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.data.slotsEnabled) {
+            setSlotsEnabled(true);
+            setSlots(data.data.slots);
+          } else {
+            setSlotsEnabled(false);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch slots", err);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+    fetchSlots();
+  }, [date, isAsap, provider.id, provider.schedulingConfig?.slotDurationMinutes]);
 
   const commonIssues = COMMON_ISSUES[provider.category] || COMMON_ISSUES.handyman;
   const isClosed = provider.availability === 'Closed' || provider.availability?.includes("Closed");
@@ -87,7 +122,14 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
       formData.append('providerId', provider.id);
       formData.append('issueDescription', issue);
       if (date) formData.append('preferredDate', date.toISOString());
-      formData.append('preferredTime', time);
+      
+      if (slotsEnabled && date && time) {
+        formData.append('slotDate', format(date, 'yyyy-MM-dd'));
+        formData.append('slotTime', time);
+      } else {
+        formData.append('preferredTime', time);
+      }
+
       formData.append('isAsap', isAsap.toString());
       formData.append('isUrgent', isUrgent.toString());
       formData.append('contactPhone', phone);
@@ -106,7 +148,13 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
       onSuccess();
       setStep(4); // Show success screen instead of closing immediately
     } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      if (error.message.includes('time slot is no longer available')) {
+        toast({ title: 'Slot Unavailable', description: error.message, variant: 'destructive' });
+        // Refresh slots
+        if (date) setDate(new Date(date.getTime())); 
+      } else {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -267,12 +315,41 @@ export const RequestServiceModal = ({ open, onOpenChange, provider, onSuccess }:
                 
                 <div className="space-y-2">
                   <Label>Preferred Time</Label>
-                  <Input 
-                    type="time" 
-                    value={time} 
-                    onChange={(e) => setTime(e.target.value)} 
-                    required={!isAsap}
-                  />
+                  {slotsEnabled ? (
+                    <div className="mt-2">
+                      {loadingSlots ? (
+                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Checking availability...</span>
+                        </div>
+                      ) : slots.length > 0 ? (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {slots.map((s, idx) => (
+                            <Button
+                              key={idx}
+                              type="button"
+                              variant={time === s.time ? "default" : "outline"}
+                              className={cn("text-xs py-1 h-8", time === s.time ? "border-primary" : "")}
+                              onClick={() => setTime(s.time)}
+                            >
+                              {s.time}
+                            </Button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded border border-amber-200">
+                          {date ? "No slots available for this date. Please pick another date." : "Please select a date first."}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <Input 
+                      type="time" 
+                      value={time} 
+                      onChange={(e) => setTime(e.target.value)} 
+                      required={!isAsap}
+                    />
+                  )}
                 </div>
               </div>
             </div>
