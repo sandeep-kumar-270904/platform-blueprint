@@ -59,15 +59,41 @@ class ProviderStatsService {
           const avgTimeMs = totalResponseTimeMs / respondedCount;
           const responseTimeHours = Math.round((avgTimeMs / (1000 * 60 * 60)) * 10) / 10;
           provider.reputationStats.responseRate = responseRate;
+          provider.reputationStats.standardResponseTimeHours = responseTimeHours;
+          // Keep old field for backward compatibility just in case
           provider.reputationStats.responseTimeHours = responseTimeHours;
         } else {
           provider.reputationStats.responseRate = 0;
+          provider.reputationStats.standardResponseTimeHours = 0;
           provider.reputationStats.responseTimeHours = 0;
         }
       } else {
         // Insufficient data for general stats
         provider.reputationStats.responseRate = 0;
         provider.reputationStats.responseTimeHours = 0;
+      }
+
+      // Calculate Repeat Customer Rate (Loyalty) & Completed Jobs Count
+      const completedRequests = requests.filter(r => r.status === 'Completed');
+      provider.completedJobsCount = completedRequests.length;
+      const userCounts = {};
+      completedRequests.forEach(req => {
+        const uid = req.userId.toString();
+        userCounts[uid] = (userCounts[uid] || 0) + 1;
+      });
+
+      let totalUniqueCustomers = 0;
+      let repeatCustomers = 0;
+      for (const count of Object.values(userCounts)) {
+        totalUniqueCustomers++;
+        if (count >= 2) repeatCustomers++;
+      }
+
+      // Only compute if they have at least a few unique customers (e.g., 3+)
+      if (totalUniqueCustomers >= 3) {
+        provider.reputationStats.repeatCustomerRate = Math.round((repeatCustomers / totalUniqueCustomers) * 100);
+      } else {
+        provider.reputationStats.repeatCustomerRate = null; // null or undefined implies not enough data to show
       }
 
       // Urgent Stats (min 3 urgent requests)

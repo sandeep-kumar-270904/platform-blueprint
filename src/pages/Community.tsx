@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Heart, MessageCircle, Send, Loader2, Sparkles, Image as ImageIcon, X, MoreHorizontal, AlertCircle, Edit, Trash2, Share2, ThumbsUp, PartyPopper, Lightbulb, HandHeart, Bookmark, ShieldAlert, Pin, BarChart2, Shield, VolumeX, Ban, CheckCircle2, Globe, Users, Award, Calendar, HelpCircle, BellOff, TrendingUp } from "lucide-react";
+import { Heart, MessageCircle, Send, Loader2, Sparkles, Image as ImageIcon, X, MoreHorizontal, AlertCircle, Edit, Trash2, Share2, ThumbsUp, PartyPopper, Lightbulb, HandHeart, Bookmark, ShieldAlert, Pin, BarChart2, Shield, VolumeX, Ban, CheckCircle2, Globe, Users, Award, Calendar, HelpCircle, BellOff, TrendingUp, Briefcase, Star } from "lucide-react";
 import { useCommunityFeed, createPost, togglePostLike, toggleSavePost, usePostComments, postComment, deletePost, reportPost, editPost, getPostReactions, pinPost, viewPost, type CommunityPost, toggleFollowUser, checkFollowStatus, getUserInterests, updateUserInterests, getSimilarPosts, votePoll, toggleMuteUser, toggleBlockUser, resolveQuestion, toggleMutePost } from "@/hooks/useCommunity";
 import { SyncStatusIndicator } from "@/components/dashboard/SyncStatusIndicator";
 import { useAuth } from "@/hooks/useAuth";
@@ -862,6 +862,40 @@ export const PostCard = ({ post, currentUserId, onLike, onSave, onVote, onDelete
             )}
 
             <LinkPreview preview={post.link_preview} />
+            
+            {post.providerReference && (
+              <div 
+                className={`my-3 p-3 rounded-lg border ${post.providerReference.inactive ? 'bg-gray-100 border-gray-200 dark:bg-gray-800 dark:border-gray-700 opacity-70' : 'bg-blue-50/50 border-blue-100 hover:border-blue-200 hover:bg-blue-50 cursor-pointer dark:bg-blue-900/10 dark:border-blue-800/30'} transition-colors flex items-center justify-between`}
+                onClick={() => {
+                  if (!post.providerReference?.inactive) {
+                    window.location.href = `/repair-and-maintenance?providerId=${post.providerReference._id}`;
+                  }
+                }}
+              >
+                <div className="flex gap-3 items-center overflow-hidden">
+                  <div className={`p-2 rounded-full flex-shrink-0 ${post.providerReference.inactive ? 'bg-gray-200 dark:bg-gray-700' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400'}`}>
+                    <Briefcase className="h-4 w-4" />
+                  </div>
+                  <div className="truncate">
+                    <p className="text-sm font-semibold truncate">{post.providerReference.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {post.providerReference.inactive ? 'Provider no longer available' : post.providerReference.category}
+                    </p>
+                  </div>
+                </div>
+                {!post.providerReference.inactive && post.providerReference.rating !== undefined && (
+                  <div className="flex flex-col items-end flex-shrink-0">
+                    <div className="flex items-center text-amber-500">
+                      <Star className="h-3 w-3 fill-current mr-1" />
+                      <span className="text-xs font-bold">{Number(post.providerReference.rating).toFixed(1)}</span>
+                    </div>
+                    {post.providerReference.reviewsCount !== undefined && (
+                      <span className="text-[10px] text-muted-foreground">{post.providerReference.reviewsCount} reviews</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             
             {post.tags && post.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">

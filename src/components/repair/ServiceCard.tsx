@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Heart, Star, MapPin, Phone, Clock, ShieldCheck, Zap, Droplet, Wrench, Sparkles } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface ServiceCardProps {
   service: ServiceListing;
@@ -15,6 +16,7 @@ interface ServiceCardProps {
 }
 
 export const ServiceCard = ({ service, onViewDetails, isCompared, onToggleCompare, onSaveToggle }: ServiceCardProps) => {
+  const { t } = useTranslation();
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case "electronics": return <Zap className="h-3 w-3 mr-1" />;
@@ -85,7 +87,7 @@ export const ServiceCard = ({ service, onViewDetails, isCompared, onToggleCompar
                 className="h-5 w-5"
               />
               <label htmlFor={`compare-${service.id}`} className="text-sm font-medium cursor-pointer text-muted-foreground hover:text-foreground">
-                Compare
+                {t('Compare', 'Compare')}
               </label>
             </div>
           )}
@@ -96,12 +98,17 @@ export const ServiceCard = ({ service, onViewDetails, isCompared, onToggleCompar
           <div className="flex flex-wrap gap-2 mt-2">
             {service.verification?.isVerified && (
               <Badge variant="outline" className="text-[10px] uppercase text-green-500 border-green-500/30 bg-green-500/10">
-                <ShieldCheck className="w-3 h-3 mr-1" /> Verified
+                <ShieldCheck className="w-3 h-3 mr-1" /> {t('Verified', 'Verified')}
               </Badge>
             )}
             {service.rating >= 4.5 && service.reviewsCount >= 10 && (
               <Badge variant="outline" className="text-[10px] uppercase text-orange-500 border-orange-500/30 bg-orange-500/10">
-                Top Rated
+                {t('Top Rated', 'Top Rated')}
+              </Badge>
+            )}
+            {service.isRegularCustomer && (
+              <Badge variant="outline" className="text-[10px] uppercase text-purple-400 border-purple-400/30 bg-purple-400/10">
+                <Heart className="w-3 h-3 mr-1 fill-current" /> {t('Regular Customer', 'Regular')}
               </Badge>
             )}
           </div>
@@ -113,7 +120,7 @@ export const ServiceCard = ({ service, onViewDetails, isCompared, onToggleCompar
             <div className="flex items-center justify-end text-sm mt-1">
               {service.reviewsCount === 0 ? (
                 <span className="text-muted-foreground flex items-center" aria-label="New provider, no reviews yet">
-                  <Sparkles className="w-3.5 h-3.5 mr-1" aria-hidden="true" /> New
+                  <Sparkles className="w-3.5 h-3.5 mr-1" aria-hidden="true" /> {t('New', 'New')}
                 </span>
               ) : (
                 <div aria-label={`${service.rating.toFixed(1)} stars out of 5 based on ${service.reviewsCount} reviews`}>
@@ -132,6 +139,11 @@ export const ServiceCard = ({ service, onViewDetails, isCompared, onToggleCompar
       <CardContent className="flex-1 flex flex-col pt-0">
         <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[40px]">
           {service.description}
+          {service.isFallbackLocale && (
+            <Badge variant="secondary" className="ml-1 text-[9px] px-1 py-0 h-4 opacity-70">
+              {t('Original', 'Original')}
+            </Badge>
+          )}
         </p>
 
         <div className="space-y-2.5 text-sm mb-4">
@@ -162,11 +174,11 @@ export const ServiceCard = ({ service, onViewDetails, isCompared, onToggleCompar
 
         <div className="mt-auto grid grid-cols-2 gap-3 pt-4">
           <Button variant="outline" className="w-full min-h-[44px]" onClick={() => onViewDetails?.(service.id)} aria-label={`View details for ${service.name}`}>
-            View Details
+            {t('View Details', 'View Details')}
           </Button>
           <Button className="w-full gap-2 min-h-[44px]" aria-label={`Contact ${service.name}`}>
             <Phone className="h-4 w-4" aria-hidden="true" />
-            Contact
+            {t('Contact', 'Contact')}
           </Button>
         </div>
       </CardContent>

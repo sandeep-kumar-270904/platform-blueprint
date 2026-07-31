@@ -70,6 +70,10 @@ export interface ServiceListing {
   gallery?: GalleryItem[];
   completedJobsCount?: number | null;
   isSaved?: boolean;
+  schedulingConfig?: {
+    slotDurationMinutes: number;
+    maxAdvanceBookingDays: number;
+  };
 }
 
 export type RequestStatus = "Pending" | "Accepted" | "In Progress" | "Completed" | "Cancelled";
@@ -88,5 +92,36 @@ export interface RepairRequest {
   isUrgent?: boolean;
   photoUrl?: string;
   notes?: string;
+  createdAt: string;
+}
+
+export interface QuoteResponse {
+  _id: string;
+  quoteRequestId: string;
+  providerId: {
+    _id: string;
+    name: string;
+    rating: number;
+    reviewsCount: number;
+    category: string;
+  };
+  priceEstimate: string;
+  estimatedTimeframe: string;
+  note: string;
+  status: 'Pending' | 'Accepted' | 'Rejected';
+  createdAt: string;
+}
+
+export interface QuoteRequest {
+  _id: string;
+  userId: string;
+  category: string;
+  issueDescription: string;
+  budgetRange?: string;
+  photoUrl?: string;
+  isUrgent: boolean;
+  status: 'Open' | 'Closed' | 'Completed' | 'Cancelled';
+  quotesReceivedCount: number;
+  responses?: QuoteResponse[];
   createdAt: string;
 }

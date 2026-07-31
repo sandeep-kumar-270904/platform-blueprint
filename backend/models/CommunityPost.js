@@ -18,8 +18,8 @@ const communityPostSchema = new mongoose.Schema({
   like_count: { type: Number, default: 0 },
   comment_count: { type: Number, default: 0 },
   edited_at: { type: Date, default: null },
-  report_count: { type: Number, default: 0 },
   mentions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  provider_reference: { type: mongoose.Schema.Types.ObjectId, ref: 'RepairProvider', default: null },
   link_preview: {
     title: String,
     description: String,

@@ -183,7 +183,7 @@ export default function AccountSettings() {
           <Card>
             <CardHeader>
               <CardTitle>Data Export</CardTitle>
-              <CardDescription>Download a copy of your community posts, comments, and likes.</CardDescription>
+              <CardDescription>Download a copy of your community activity and repair & maintenance requests.</CardDescription>
             </CardHeader>
             <CardContent>
               <Button onClick={handleExportData} disabled={exportLoading}>

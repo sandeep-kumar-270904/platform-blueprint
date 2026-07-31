@@ -40,8 +40,13 @@ export function ReviewForm({ providerId, onReviewSubmitted, existingReview }: Re
       const token = localStorage.getItem('token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       
-      const response = await fetch(`${API_URL}/api/repair/${providerId}/reviews`, {
-        method: 'POST',
+      const isEdit = !!existingReview;
+      const url = isEdit 
+        ? `${API_URL}/api/repair/reviews/${existingReview.id || existingReview._id}`
+        : `${API_URL}/api/repair/${providerId}/reviews`;
+        
+      const response = await fetch(url, {
+        method: isEdit ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
