@@ -642,7 +642,7 @@ exports.getCompareProviders = async (req, res) => {
   }
 };
 
-const RepairRequest = require('../models/RepairRequest');
+
 const ProviderApplication = require('../models/ProviderApplication');
 const RepairSlotHold = require('../models/RepairSlotHold');
 const crypto = require('crypto');
@@ -689,6 +689,7 @@ exports.submitProviderApplication = async (req, res) => {
   } catch (error) {
     console.error('Error submitting application:', error);
     res.status(500).json({ success: false, error: 'Server Error' });
+  }
 };
 
 // @desc    Get provider slots for a date range
