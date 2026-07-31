@@ -342,4 +342,9 @@
   @media (max-width: 767px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
   }
+
+  /* Make container fluid to remove large side gaps on wide screens */
+  .container {
+    max-width: 100% !important;
+  }
 }
