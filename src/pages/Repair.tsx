@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 
 import { Input } from "@/components/ui/input";
-import { Search, SlidersHorizontal, X, Layers, Heart } from "lucide-react";
+import { Search, SlidersHorizontal, X, Layers, Heart, Send } from "lucide-react";
 import { RepairFiltersSheet, RepairFilters } from "@/components/repair/RepairFiltersSheet";
 import { CompareDrawer } from "@/components/repair/CompareDrawer";
 import { ServiceCard } from "@/components/repair/ServiceCard";
@@ -362,10 +362,6 @@ const Repair = () => {
               onClick={() => setIsQuoteModalOpen(true)}
             >
               Request Quotes
-            </Button>
-          </div>
-
-              {t('Request Quotes', 'Request Quotes')}
             </Button>
           </div>
 
