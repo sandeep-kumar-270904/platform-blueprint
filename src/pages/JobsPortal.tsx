@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Header } from '@/components/layout/Header';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { JobCard } from '@/components/JobCard';
@@ -100,8 +101,10 @@ const JobsPortal: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      {/* Hero Section */}
+    <div className="min-h-screen bg-background">
+      <Header />
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Hero Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">Career Opportunities</h1>
@@ -379,6 +382,7 @@ const JobsPortal: React.FC = () => {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 };
