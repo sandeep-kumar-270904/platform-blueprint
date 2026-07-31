@@ -116,7 +116,7 @@ import AdminStudyGroupsPanel from "./pages/admin/AdminStudyGroupsPanel";
 import AdminRoomRentalsPanel from "./pages/admin/AdminRoomRentalsPanel";
 import RecruiterVerify from "./pages/RecruiterVerify";
 import { ThemeProvider } from "./components/theme-provider";
-import PostSkill from "./pages/PostSkill";
+
 import Hostels from "./pages/Hostels";
 import HostelInquiries from "./pages/HostelInquiries";
 import SavedHostels from "./pages/SavedHostels";
@@ -332,7 +332,7 @@ const App = () => (
           <Route path="/admin/repair" element={<ProtectedRoute><AdminRepairPanel /></ProtectedRoute>} />
           <Route path="/recruiter/verify" element={<ProtectedRoute><RecruiterVerify /></ProtectedRoute>} />
           <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
-          <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />
+
           <Route path="/hostels" element={<ProtectedRoute><Hostels /></ProtectedRoute>} />
           <Route path="/hostels/inquiries" element={<ProtectedRoute><HostelInquiries /></ProtectedRoute>} />
           <Route path="/hostels/saved" element={<ProtectedRoute><SavedHostels /></ProtectedRoute>} />
