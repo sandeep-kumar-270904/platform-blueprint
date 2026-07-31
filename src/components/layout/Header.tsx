@@ -32,6 +32,7 @@ const defaultNavigationGroups = [
       { title: "Community Forum", href: "/community", desc: "Ask and discuss" },
       { title: "Jobs Portal", href: "/jobs", desc: "Career opportunities" },
       { title: "Placement Cell", href: "/placement", desc: "Interview prep resources" },
+      { title: "Admin Panel", href: "/admin", desc: "Platform management" },
     ],
   },
   {
@@ -40,6 +41,7 @@ const defaultNavigationGroups = [
       { title: "Quiz & Tests", href: "/quizzes", desc: "Mock exams and practice" },
       { title: "Tech News", href: "/news", desc: "Latest AI and tech updates" },
       { title: "Virtual Classroom", href: "/virtual-classroom", desc: "Live learning sessions" },
+      { title: "Analytics", href: "/analytics", desc: "Your study stats" },
     ],
   },
   {
@@ -47,7 +49,6 @@ const defaultNavigationGroups = [
     items: [
       { title: "Study Groups", href: "/study-groups", desc: "Virtual study rooms" },
       { title: "Team Hunt", href: "/team-hunt", desc: "Find collaborators" },
-
       { title: "Skill Swap", href: "/skill-swap", desc: "Exchange knowledge" },
       { title: "Scholarship Community", href: "/scholarships/community", desc: "Coach, Buddies & Circles" },
       { title: "Creators Zone", href: "/creators", desc: "Content platform" },
@@ -70,15 +71,7 @@ const defaultNavigationGroups = [
       { title: "Room Rentals", href: "/room-rentals", desc: "Find accommodation" },
       { title: "Hostel Info", href: "/hostels", desc: "Campus housing" },
       { title: "Repair Services", href: "/repair", desc: "Maintenance help" },
-    ],
-  },
-  {
-    title: "More",
-    items: [
       { title: "Find Roommate", href: "/roommate-finder", desc: "Connect with peers" },
-      { title: "Dashboard", href: "/dashboard", desc: "Your personal hub" },
-      { title: "Analytics", href: "/analytics", desc: "Your study stats" },
-      { title: "Admin Panel", href: "/admin", desc: "Platform management" },
     ],
   },
 ];
@@ -90,7 +83,14 @@ export const Header = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: siteData } = useSiteContent();
-  const navigationGroups = siteData?.navigation?.groups?.length >= 2 ? siteData.navigation.groups : defaultNavigationGroups;
+  
+  const isUserAdmin = user?.role === 'admin' || user?.adminRole === 'super_admin' || user?.adminRole === 'moderator' || (user?.email && ['admin@studenthub.com'].includes(user.email));
+  
+  const rawGroups = siteData?.navigation?.groups?.length >= 2 ? siteData.navigation.groups : defaultNavigationGroups;
+  const navigationGroups = rawGroups.map((group: any) => ({
+    ...group,
+    items: group.items.filter((item: any) => item.title !== "Admin Panel" || isUserAdmin)
+  })).filter((group: any) => group.items.length > 0);
   
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return document.documentElement.classList.contains('dark');
@@ -452,12 +452,6 @@ export const Header = () => {
           {user ? (
             <>
               <NotificationBell />
-              <Link to="/dashboard">
-                <Button className="btn-secondary hidden md:inline-flex">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Button>
-              </Link>
             </>
           ) : (
             <Link to="/auth">
@@ -524,12 +518,6 @@ export const Header = () => {
                   {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                   {isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
                 </Button>
-                <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full justify-center gap-2">
-                    <LayoutDashboard className="h-4 w-4" />
-                    Dashboard
-                  </Button>
-                </Link>
               </div>
             )}
           </div>

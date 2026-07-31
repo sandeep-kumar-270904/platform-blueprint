@@ -19,6 +19,8 @@ const UserActivity = require('../models/UserActivity');
 const OAAttempt = require('../models/OAAttempt');
 const GDLiveSession = require('../models/GDLiveSession');
 const CreatorContent = require('../models/CreatorContent');
+const QuizAttempt = require('../models/QuizAttempt');
+const RoommateConnection = require('../models/RoommateConnection');
 
 
 
@@ -123,12 +125,54 @@ router.get('/host', authMiddleware, async (req, res) => {
 router.get('/analytics', authMiddleware, async (req, res) => {
   try {
     const userId = await getTargetUserId(req);
-    const notes = await Note.find({ user_id: userId })
-      .select('title views downloads rating')
-      .sort({ views: -1 });
     
-    res.json({ notes });
+    // Notes Analytics
+    const notes = await Note.find({ user_id: userId })
+      .select('title views downloads rating study_time_minutes last_viewed_at')
+      .sort({ views: -1 });
+
+    // Quizzes Analytics
+    const quizAttempts = await QuizAttempt.find({ user: userId, status: 'completed' });
+    const totalQuizzes = quizAttempts.length;
+    const averageQuizScore = totalQuizzes > 0 
+      ? Math.round(quizAttempts.reduce((acc, q) => acc + (q.percentageScore || 0), 0) / totalQuizzes) 
+      : 0;
+
+    // Collaboration Analytics (Study Groups)
+    const activeStudyGroups = await StudyGroup.countDocuments({
+      memberships: { $elemMatch: { user: userId, status: 'active' } }
+    });
+
+    // Connections Analytics (Roommates)
+    const roommateConnections = await RoommateConnection.countDocuments({
+      $or: [{ requester: userId }, { recipient: userId }],
+      status: 'Accepted'
+    });
+
+    // Engagement Analytics (Virtual Classrooms)
+    const sessionsHosted = await VirtualClassroom.countDocuments({ host_id: userId });
+    const sessionsAttended = await ClassroomParticipant.countDocuments({
+      user_id: userId,
+      status: { $in: ['attending', 'registered', 'waitlisted'] }
+    });
+
+    res.json({
+      notes,
+      learning: {
+        totalQuizzes,
+        averageQuizScore
+      },
+      collaboration: {
+        activeStudyGroups,
+        roommateConnections
+      },
+      engagement: {
+        sessionsHosted,
+        sessionsAttended
+      }
+    });
   } catch (error) {
+    console.error('Analytics Error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
