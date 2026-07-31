@@ -75,7 +75,6 @@ const defaultNavigationGroups = [
   {
     title: "More",
     items: [
-      { title: "Post Your Skill", href: "/post-skill", desc: "Freelance services" },
       { title: "Find Roommate", href: "/roommate-finder", desc: "Connect with peers" },
       { title: "Dashboard", href: "/dashboard", desc: "Your personal hub" },
       { title: "Analytics", href: "/analytics", desc: "Your study stats" },
