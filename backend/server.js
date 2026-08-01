@@ -9,6 +9,7 @@ const morgan = require('morgan');
 const logger = require('./utils/logger');
 const { startCron } = require('./jobs/classroomCron');
 const { startStudyGroupCron } = require('./jobs/studyGroupCron');
+const { startRoommateDigestCron } = require('./jobs/roommateDigestCron');
 const { startSlotExpirationWorker } = require('./workers/slotExpirationWorker');
 const { startQuoteExpirationWorker } = require('./workers/quoteExpirationWorker');
 const mongoose = require('mongoose');
@@ -43,6 +44,7 @@ connectDB().then(async () => {
   try {
     const cronService = require('./services/cronService');
     cronService.init(io);
+    startRoommateDigestCron(io);
     
     const notificationService = require('./services/notificationService');
     notificationService.init(io);
@@ -522,7 +524,8 @@ app.use(morgan('combined', { stream: { write: message => logger.info(message.tri
 const webhooksRoutes = require('./routes/webhooks');
 app.use('/api/webhooks', webhooksRoutes);
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 const cookieParser = require('cookie-parser');
 const sanitizeMiddleware = require('./middleware/sanitize');
 
@@ -778,7 +781,13 @@ app.use('/api/essays', require('./routes/essays'));
 app.use('/api/subscriptions', require('./routes/subscriptions'));
 app.use('/api/admin/mentors-overview', adminMentorsOverviewRoutes);
 app.use('/api/room-rentals', roomRentalsRoutes);
+app.use('/api/roommates/safety', require('./routes/roommateSafety'));
+app.use('/api/roommates/verification', require('./routes/roommateVerification'));
+app.use('/api/roommates/chat', require('./routes/roommateChat'));
+app.use('/api/roommates/groups', require('./routes/roommateGroups'));
+app.use('/api/roommates/suggestions', require('./routes/roommateSuggestions'));
 app.use('/api/roommates', roommatesRoutes);
+app.use('/api/admin/roommates', require('./routes/roommateAdmin'));
 app.use('/api/room-rental-reviews', roomRentalReviewsRoutes);
 app.use('/api/search-alerts', require('./routes/roomSearchAlerts'));
 app.use('/api/hostels', require('./routes/hostels'));
@@ -909,6 +918,24 @@ io.on('connection', (socket) => {
   socket.on('join_recruiter_room', (userId) => {
     socket.join(`recruiter:${userId}`);
     console.log(`Socket ${socket.id} joined recruiter:${userId}`);
+  });
+
+  socket.on('join_roommate_chat', (connectionId) => {
+    socket.join(`roommate_chat_${connectionId}`);
+    console.log(`Socket ${socket.id} joined roommate_chat_${connectionId}`);
+  });
+
+  socket.on('leave_roommate_chat', (connectionId) => {
+    socket.leave(`roommate_chat_${connectionId}`);
+  });
+
+  socket.on('join_roommate_group_chat', (groupId) => {
+    socket.join(`roommate_group_chat_${groupId}`);
+    console.log(`Socket ${socket.id} joined roommate_group_chat_${groupId}`);
+  });
+
+  socket.on('leave_roommate_group_chat', (groupId) => {
+    socket.leave(`roommate_group_chat_${groupId}`);
   });
 
   socket.on('join_brainstorm_session', (sessionId) => {

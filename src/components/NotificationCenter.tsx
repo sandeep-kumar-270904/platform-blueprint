@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Check, X, MessageSquare, Users, Calendar, Lightbulb, Trophy, Sparkles } from "lucide-react";
+import { Bell, Check, X, MessageSquare, Users, Calendar, Lightbulb, Trophy, Sparkles, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -28,6 +28,10 @@ interface Notification {
 }
 
 const getNotificationIcon = (type: string) => {
+  if (type.startsWith("roommate_")) {
+    return UserPlus;
+  }
+  
   switch (type) {
     case "message":
       return MessageSquare;

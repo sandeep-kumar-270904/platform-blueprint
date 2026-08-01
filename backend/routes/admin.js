@@ -1332,5 +1332,139 @@ router.post('/users/:id/quiz-ban', authMiddleware, isAdmin, async (req, res) => 
   }
 });
 
+
+// ----------------------------------------------------
+// Roommate Finder Moderation
+// ----------------------------------------------------
+const RoommateProfile = require('../models/RoommateProfile');
+const RoommateConnection = require('../models/RoommateConnection');
+
+// GET /api/admin/roommates/stats
+router.get('/roommates/stats', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const totalProfiles = await RoommateProfile.countDocuments();
+    const activeProfiles = await RoommateProfile.countDocuments({ status: 'active' });
+    const hiddenProfiles = await RoommateProfile.countDocuments({ $or: [{ status: 'paused' }, { visibility: 'hidden' }] });
+    
+    // New this week
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const newProfiles = await RoommateProfile.countDocuments({ createdAt: { $gte: oneWeekAgo } });
+
+    const totalConnections = await RoommateConnection.countDocuments();
+    const pendingConnections = await RoommateConnection.countDocuments({ status: 'Pending' });
+    const acceptedConnections = await RoommateConnection.countDocuments({ status: 'Accepted' });
+
+    res.json({
+      totalProfiles,
+      activeProfiles,
+      hiddenProfiles,
+      newProfiles,
+      totalConnections,
+      pendingConnections,
+      acceptedConnections
+    });
+  } catch (error) {
+    console.error('Error fetching roommate stats:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// GET /api/admin/roommates/profiles
+router.get('/roommates/profiles', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const profiles = await RoommateProfile.find()
+      .populate('user', 'name full_name email avatar_url profilePicture')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await RoommateProfile.countDocuments();
+
+    res.json({
+      profiles,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
+    });
+  } catch (error) {
+    console.error('Error fetching roommate profiles:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// PUT /api/admin/roommates/profiles/:id/deactivate
+router.put('/roommates/profiles/:id/deactivate', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ message: 'A reason for deactivation is required.' });
+
+    const profile = await RoommateProfile.findById(req.params.id);
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+
+    profile.status = 'paused';
+    profile.visibility = 'hidden';
+    await profile.save();
+
+    // Log the action
+    await AdminActionLog.create({
+      adminId: req.user.id,
+      actionType: 'DEACTIVATE_ROOMMATE_PROFILE',
+      targetId: profile._id,
+      modelName: 'RoommateProfile',
+      reason: reason,
+      changes: { status: 'paused', visibility: 'hidden' }
+    });
+
+    // Notify user
+    await notificationService.createNotification({
+      userId: profile.user,
+      type: 'moderation_alert',
+      message: `Your Roommate Finder profile was deactivated by moderation: ${reason}`,
+      relatedContentId: profile._id,
+      actionUrl: '/find-roommates?tab=profile',
+      actorId: req.user.id
+    });
+
+    res.json({ message: 'Profile deactivated successfully', profile });
+  } catch (error) {
+    console.error('Error deactivating profile:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// GET /api/admin/roommates/connections
+router.get('/roommates/connections', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const connections = await RoommateConnection.find()
+      .populate('requester', 'name full_name email')
+      .populate('recipient', 'name full_name email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await RoommateConnection.countDocuments();
+
+    res.json({
+      connections,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
+    });
+  } catch (error) {
+    console.error('Error fetching roommate connections:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
 module.exports = router;
+
 

@@ -111,6 +111,8 @@ const notificationSchema = new mongoose.Schema({
       'roommate_connection_request',
       'roommate_connection_accepted',
       'roommate_connection_declined',
+      'roommate_connection_disconnected',
+      'roommate_digest',
       'room_rental_alert_match',
       'room_rental_review_received',
       'hostel_verified',

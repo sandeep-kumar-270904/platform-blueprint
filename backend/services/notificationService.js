@@ -144,6 +144,57 @@ const sendNotification = async (data) => {
       }
     }
 
+    // Phase 8: Roommate Connection Preferences and Digest Rollup
+    if (type.startsWith('roommate_connection_')) {
+      const roommateMap = {
+        'roommate_connection_request': 'new_requests',
+        'roommate_connection_accepted': 'accepted',
+        'roommate_connection_declined': 'declined',
+        'roommate_connection_disconnected': 'disconnected'
+      };
+      const prefKey = roommateMap[type];
+      const roommatePref = user?.notificationPreferences?.roommateConnections?.[prefKey] || 'instant';
+
+      if (roommatePref === 'off') {
+        return null;
+      } else if (roommatePref === 'digest') {
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        
+        let existingDigest = await Notification.findOne({
+          userId,
+          type: 'roommate_digest',
+          isRead: false,
+          createdAt: { $gte: today }
+        });
+
+        if (existingDigest) {
+          const meta = existingDigest.metadata || { new_requests: 0, accepted: 0, declined: 0, disconnected: 0 };
+          meta[prefKey] = (meta[prefKey] || 0) + 1;
+          existingDigest.metadata = meta;
+          
+          let parts = [];
+          if (meta.new_requests > 0) parts.push(`${meta.new_requests} new request${meta.new_requests > 1 ? 's' : ''}`);
+          if (meta.accepted > 0) parts.push(`${meta.accepted} accepted connection${meta.accepted > 1 ? 's' : ''}`);
+          if (meta.declined > 0) parts.push(`${meta.declined} declined connection${meta.declined > 1 ? 's' : ''}`);
+          if (meta.disconnected > 0) parts.push(`${meta.disconnected} disconnected connection${meta.disconnected > 1 ? 's' : ''}`);
+          
+          existingDigest.message = `You have ${parts.join(', ')} today.`;
+          existingDigest.updatedAt = new Date();
+          await existingDigest.save();
+          
+          return existingDigest;
+        } else {
+          // Change data to be a digest notification
+          data.type = 'roommate_digest';
+          data.message = `You have 1 ${prefKey.replace('_', ' ')} today.`;
+          data.title = 'Roommate Activity Digest';
+          data.metadata = { new_requests: 0, accepted: 0, declined: 0, disconnected: 0 };
+          data.metadata[prefKey] = 1;
+        }
+      }
+    }
+
     data.message = data.message || data.body || 'New Notification';
 
     // --- Phase 7 & 5: Locale-Aware Team Hunt and Skill Swap Notification Templates ---

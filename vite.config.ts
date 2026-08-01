@@ -40,6 +40,15 @@ export default defineConfig(({ mode }) => ({
   build: {
     sourcemap: false,
     minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-toast', 'lucide-react', 'class-variance-authority', 'clsx', 'tailwind-merge'],
+          'vendor-charts': ['recharts']
+        }
+      }
+    }
   },
   esbuild: {
     drop: mode === 'production' ? ['console', 'debugger'] : [],
