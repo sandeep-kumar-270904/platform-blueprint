@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Shield, Unlock } from 'lucide-react';
+import { Shield, Unlock, Download, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { RoommateVerificationPanel } from '@/components/roommates/RoommateVerificationPanel';
@@ -11,6 +11,7 @@ import { VerificationStatus } from '@/components/roommates/RoommateVerificationB
 export const RoommateSafetySettings: React.FC = () => {
   const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>('none');
   const { toast } = useToast();
 
@@ -52,6 +53,32 @@ export const RoommateSafetySettings: React.FC = () => {
       }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/roommates/safety/export`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (!res.ok) throw new Error('Failed to generate export');
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `roommate_data_export_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({ title: "Success", description: "Your data has been exported." });
+    } catch (err: any) {
+      toast({ title: "Error", description: "Something went wrong generating your export - try again.", variant: "destructive" });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -98,6 +125,22 @@ export const RoommateSafetySettings: React.FC = () => {
               ))}
             </ul>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Data Portability</CardTitle>
+          <CardDescription>
+            Download a copy of your Roommate Finder data, including your profile, connections, groups, and agreements. 
+            Chat messages are not included in this export per our privacy policy.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={handleExportData} disabled={exporting}>
+            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            {exporting ? 'Generating Export...' : 'Download My Data'}
+          </Button>
         </CardContent>
       </Card>
     </div>

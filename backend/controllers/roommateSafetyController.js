@@ -2,6 +2,9 @@ const Report = require('../models/Report');
 const User = require('../models/User');
 const RoommateConnection = require('../models/RoommateConnection');
 const RoommateChat = require('../models/RoommateChat');
+const RoommateProfile = require('../models/RoommateProfile');
+const RoommateGroup = require('../models/RoommateGroup');
+const RoommateAgreement = require('../models/RoommateAgreement');
 
 exports.reportUser = async (req, res) => {
   try {
@@ -97,5 +100,72 @@ exports.getBlockedUsers = async (req, res) => {
   } catch (error) {
     console.error('Error fetching blocked users:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+exports.exportData = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const profile = await RoommateProfile.findOne({ user: userId }).lean();
+    
+    // Get connections
+    const sent = await RoommateConnection.find({ requester: userId })
+      .populate('recipient', 'name full_name').lean();
+    const received = await RoommateConnection.find({ recipient: userId })
+      .populate('requester', 'name full_name').lean();
+      
+    // Format connections
+    const formattedConnections = {
+      sent: sent.map(c => ({
+        id: c._id,
+        recipient: c.recipient?.name || c.recipient?.full_name || 'Unknown',
+        status: c.status,
+        date: c.created_at
+      })),
+      received: received.map(c => ({
+        id: c._id,
+        requester: c.requester?.name || c.requester?.full_name || 'Unknown',
+        status: c.status,
+        date: c.created_at
+      }))
+    };
+
+    // Get groups
+    const groups = await RoommateGroup.find({ 
+      $or: [{ admin: userId }, { members: userId }] 
+    }).lean();
+
+    const formattedGroups = groups.map(g => ({
+      id: g._id,
+      name: g.name,
+      description: g.description,
+      role: g.admin.toString() === userId ? 'admin' : 'member',
+      status: g.status,
+      dateJoinedOrCreated: g.created_at
+    }));
+
+    // Get agreements
+    const agreements = await RoommateAgreement.find({ participants: userId }).lean();
+    const formattedAgreements = agreements.map(a => ({
+      id: a._id,
+      rentAmount: a.rentAmount,
+      rentDueDate: a.rentDueDate,
+      status: a.status
+    }));
+
+    const exportObject = {
+      generatedAt: new Date().toISOString(),
+      disclaimer: "Chat messages are excluded from this export per platform privacy policy.",
+      profile,
+      connections: formattedConnections,
+      groups: formattedGroups,
+      agreements: formattedAgreements
+    };
+
+    res.json(exportObject);
+  } catch (err) {
+    console.error('Error generating data export:', err);
+    res.status(500).json({ message: 'Server error generating export' });
   }
 };

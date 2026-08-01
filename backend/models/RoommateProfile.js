@@ -104,8 +104,19 @@ const RoommateProfileSchema = new mongoose.Schema({
       type: [Number], // [longitude, latitude]
       default: [0, 0]
     }
+  },
+  calendarSync: {
+    enabled: { type: Boolean, default: false },
+    eventId: { type: String, default: null }
+  },
+  analytics: {
+    viewCount: { type: Number, default: 0 },
+    viewHistory: [{
+      date: { type: Date, default: Date.now }
+    }],
+    averageResponseTimeMs: { type: Number, default: null } // Time to accept/decline connection requests
   }
-}, { timestamps: true });
+}, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 RoommateProfileSchema.index({ location: '2dsphere' });
 

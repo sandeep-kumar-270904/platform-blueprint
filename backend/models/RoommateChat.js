@@ -10,6 +10,12 @@ const roommateChatSchema = new mongoose.Schema({
     content: { type: String, required: true },
     readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     sentAt: { type: Date, default: Date.now }
+  }],
+  meetups: [{
+    title: { type: String, required: true },
+    date: { type: Date, required: true },
+    location: { type: String },
+    calendarEventIds: { type: Map, of: String, default: {} } // map of userId -> eventId
   }]
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
