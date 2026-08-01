@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { RoommateVerificationBadge } from './RoommateVerificationBadge';
+import { Calendar, User, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface RoommateGroupManageProps {
   group: any;
@@ -15,8 +16,34 @@ interface RoommateGroupManageProps {
 
 export const RoommateGroupManage: React.FC<RoommateGroupManageProps> = ({ group, onUpdate, myUserId, onOpenChat }) => {
   const [loading, setLoading] = useState<string | null>(null);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRequests, setTotalRequests] = useState(0);
+
   const { toast } = useToast();
   const isAdmin = group.admin._id === myUserId;
+
+  const fetchRequests = async (pageNum: number) => {
+    if (!isAdmin) return;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/roommates/groups/${group._id}/requests?page=${pageNum}&limit=5`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRequests(data.requests.map((r: any) => r.user)); // Map profile back to user
+        setTotalPages(data.pages);
+        setTotalRequests(data.total);
+      }
+    } catch (err) {
+      console.error('Failed to fetch requests', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchRequests(page);
+  }, [group._id, page, isAdmin]);
 
   const handleAction = async (userId: string, action: 'accept' | 'reject' | 'remove') => {
     setLoading(userId);
@@ -37,9 +64,15 @@ export const RoommateGroupManage: React.FC<RoommateGroupManageProps> = ({ group,
       if (res.ok) {
         toast({ title: "Success", description: `User ${action}ed.` });
         onUpdate();
+        fetchRequests(page);
       } else {
         const err = await res.json();
-        throw new Error(err.message || 'Action failed');
+        if (res.status === 400 && err.message === 'This request has already been handled.') {
+          toast({ title: "Already Handled", description: err.message, variant: "destructive" });
+          fetchRequests(page); // refresh to remove the handled request
+        } else {
+          throw new Error(err.message || 'Action failed');
+        }
       }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -117,11 +150,11 @@ export const RoommateGroupManage: React.FC<RoommateGroupManageProps> = ({ group,
       </CardHeader>
       <CardContent className="pt-4 space-y-6">
         
-        {isAdmin && group.pendingRequests?.length > 0 && (
+        {isAdmin && totalRequests > 0 && (
           <div>
-            <h4 className="text-sm font-semibold mb-3 border-b pb-1">Pending Requests ({group.pendingRequests.length})</h4>
+            <h4 className="text-sm font-semibold mb-3 border-b pb-1">Pending Requests ({totalRequests})</h4>
             <div className="space-y-3">
-              {group.pendingRequests.map((reqUser: any) => (
+              {requests.map((reqUser: any) => (
                 <div key={reqUser._id} className="flex items-center justify-between bg-card border rounded-md p-3 shadow-sm">
                   <div className="flex items-center gap-3">
                     <Avatar className="w-10 h-10">
@@ -157,6 +190,18 @@ export const RoommateGroupManage: React.FC<RoommateGroupManageProps> = ({ group,
                 </div>
               ))}
             </div>
+            
+            {totalPages > 1 && (
+              <div className="flex justify-between items-center mt-4">
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+                  <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+                </Button>
+                <span className="text-xs text-muted-foreground">Page {page} of {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                  Next <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

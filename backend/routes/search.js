@@ -20,13 +20,14 @@ router.get('/', async (req, res) => {
     const Idea = require('../models/Idea');
     const BrainstormSession = require('../models/BrainstormSession');
     const IdeaCircle = require('../models/IdeaCircle');
+    const RoomRental = require('../models/RoomRental');
     const User = require('../models/User');
     const CommunityPost = require('../models/CommunityPost');
     const RepairProvider = require('../models/RepairProvider');
     const RoommateProfile = require('../models/RoommateProfile');
     const RoommateGroup = require('../models/RoommateGroup');
 
-    const [colleges, events, courses, paths, ideas, brainstorms, ideaCircles, users, posts, matchedTags, providers, roommateProfiles, roommateGroups] = await Promise.all([
+    const [colleges, events, courses, paths, ideas, brainstorms, ideaCircles, users, posts, matchedTags, providers, roommateProfiles, roommateGroups, roomRentals] = await Promise.all([
       College.find({
         $or: [
           { name: regex },
@@ -156,6 +157,18 @@ router.get('/', async (req, res) => {
         ]
       })
       .select('name description targetSize status')
+      .limit(5),
+
+      RoomRental.find({
+        status: 'Available',
+        $or: [
+          { title: regex },
+          { description: regex },
+          { location: regex }
+        ]
+      })
+      .populate('lister', 'name full_name avatar_url profilePicture')
+      .select('title rent location roomType')
       .limit(5)
     ]);
 
@@ -180,7 +193,8 @@ router.get('/', async (req, res) => {
       colleges, events, courses: combinedCourses, ideas, brainstorms, 
       ideaCircles, users, posts, tags: matchedTags.slice(0, 5), providers,
       roommateProfiles: filteredProfiles,
-      roommateGroups
+      roommateGroups,
+      roomRentals
     });
   } catch (err) {
     console.error('Search error:', err);

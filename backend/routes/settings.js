@@ -114,6 +114,10 @@ router.post('/change-password', auth, async (req, res) => {
   }
 });
 
+const RoomRental = require('../models/RoomRental');
+const RoomBooking = require('../models/RoomBooking');
+const RoomRentalAgreement = require('../models/RoomRentalAgreement');
+
 router.post('/request-data-export', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -143,6 +147,12 @@ router.post('/request-data-export', auth, async (req, res) => {
       repairAndMaintenance: {
         repairRequests,
         savedProviders
+      },
+      roomRentals: {
+        listings: await RoomRental.find({ lister: req.user.id }).lean(),
+        bookingsSent: await RoomBooking.find({ renter: req.user.id }).lean(),
+        bookingsReceived: await RoomBooking.find({ owner: req.user.id }).lean(),
+        agreements: await RoomRentalAgreement.find({ $or: [{ owner: req.user.id }, { renter: req.user.id }] }).lean()
       }
     };
     

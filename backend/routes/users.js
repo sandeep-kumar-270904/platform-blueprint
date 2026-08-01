@@ -274,6 +274,9 @@ router.get('/me/export', authMiddleware, async (req, res) => {
     const MentorProfile = require('../models/MentorProfile');
     const MentorBooking = require('../models/MentorBooking');
     const MentorReview = require('../models/MentorReview');
+    const RoomRental = require('../models/RoomRental');
+    const RoomBooking = require('../models/RoomBooking');
+    const RoomRentalAgreement = require('../models/RoomRentalAgreement');
     
     const user = await User.findById(userId).lean();
     const mentorProfile = await MentorProfile.findOne({ user_id: userId }).lean();
@@ -290,7 +293,13 @@ router.get('/me/export', authMiddleware, async (req, res) => {
       mentorProfile,
       bookingsAsMentee: myBookingsAsMentee,
       reviewsGiven: myReviewsAsMentee,
-      bookingsAsMentor: myBookingsAsMentor
+      bookingsAsMentor: myBookingsAsMentor,
+      roomRentals: {
+        listings: await RoomRental.find({ lister: userId }).lean(),
+        bookingsSent: await RoomBooking.find({ renter: userId }).lean(),
+        bookingsReceived: await RoomBooking.find({ owner: userId }).lean(),
+        agreements: await RoomRentalAgreement.find({ $or: [{ owner: userId }, { renter: userId }] }).lean()
+      }
     };
 
     res.setHeader('Content-disposition', 'attachment; filename=my-data-export.json');
