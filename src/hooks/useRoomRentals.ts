@@ -24,6 +24,16 @@ export interface RoomRental {
   createdAt: string;
   utilitiesIncluded?: boolean;
   utilitiesNote?: string;
+  amenities?: string[];
+  deposit?: number;
+  minLease?: number;
+  houseRules?: {
+    smokingAllowed?: boolean;
+    petsAllowed?: boolean;
+    guestPolicy?: string;
+    genderPreference?: string;
+    quietHours?: string;
+  };
   reviewStats?: {
     avgRating: number;
     count: number;

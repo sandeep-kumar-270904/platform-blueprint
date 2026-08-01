@@ -144,9 +144,10 @@ const UserSchema = new mongoose.Schema({
   is_verified_host: { type: Boolean, default: false },
   host_verification_status: { 
     type: String, 
-    enum: ['unverified', 'pending', 'verified'], 
+    enum: ['unverified', 'pending', 'verified', 'rejected'], 
     default: 'unverified' 
   },
+  host_verification_proof: { type: String, default: null },
   gamification_badges: [{
     badge_id: String,
     name: String,

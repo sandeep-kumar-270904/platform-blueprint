@@ -20,6 +20,8 @@ import { RoommateGroupCard } from "@/components/roommates/RoommateGroupCard";
 import { RoommateCard } from "@/components/roommates/RoommateCard";
 import { RoommateMapView } from "@/components/roommates/RoommateMapView";
 import { RoommateConnectionsView } from "@/components/roommates/RoommateConnectionsView";
+import { RoommateProfileForm } from "@/components/roommates/RoommateProfileForm";
+import { RoommateProfileCompleteness } from "@/components/roommates/RoommateProfileCompleteness";
 
 const RoommateFind = () => {
   const [matches, setMatches] = useState<any[]>([]);
@@ -34,6 +36,7 @@ const RoommateFind = () => {
   const [groups, setGroups] = useState<any[]>([]);
   const [myGroups, setMyGroups] = useState<any[]>([]);
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [discoverTab, setDiscoverTab] = useState<'individuals' | 'groups'>('individuals');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [requestLoading, setRequestLoading] = useState<string | null>(null);
@@ -175,11 +178,12 @@ const RoommateFind = () => {
 
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="discover" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 max-w-2xl mx-auto mb-8">
+          <TabsList className="grid w-full grid-cols-5 max-w-3xl mx-auto mb-8">
             <TabsTrigger value="discover">Discover</TabsTrigger>
             <TabsTrigger value="connections">Connections</TabsTrigger>
             <TabsTrigger value="saved">Saved</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="profile">My Profile</TabsTrigger>
           </TabsList>
 
           <TabsContent value="discover" className="mt-6 space-y-6">
@@ -284,10 +288,37 @@ const RoommateFind = () => {
           <TabsContent value="analytics" className="mt-6">
             <RoommateAnalytics />
           </TabsContent>
+
+          <TabsContent value="profile" className="mt-6">
+            <div className="max-w-3xl mx-auto space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">My Roommate Profile</h2>
+                <Button onClick={() => setShowProfileModal(true)}>Edit Profile</Button>
+              </div>
+              
+              {myProfile ? (
+                <RoommateProfileCompleteness profile={myProfile} onEdit={(field) => setShowProfileModal(true)} />
+              ) : (
+                <Card>
+                  <CardContent className="py-10 text-center">
+                    <p className="text-muted-foreground mb-4">You haven't set up a roommate profile yet.</p>
+                    <Button onClick={() => setShowProfileModal(true)}>Create Profile</Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
 
       <RoommateGroupCreateModal isOpen={showGroupModal} onClose={() => setShowGroupModal(false)} onGroupCreated={fetchProfileAndMatches} />
+      
+      <RoommateProfileForm 
+        open={showProfileModal} 
+        onOpenChange={setShowProfileModal} 
+        initialData={myProfile} 
+        onSuccess={fetchProfileAndMatches} 
+      />
     </div>
   );
 };

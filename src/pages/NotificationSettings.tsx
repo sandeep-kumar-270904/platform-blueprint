@@ -60,7 +60,11 @@ export default function NotificationSettings() {
       accepted: 'instant',
       declined: 'instant',
       disconnected: 'instant'
-    }
+    },
+    roomRentals_booking: 'instant',
+    roomRentals_inquiry: 'instant',
+    roomRentals_priceDrop: 'instant',
+    roomRentals_message: 'instant'
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -115,6 +119,12 @@ export default function NotificationSettings() {
               roommateConnections: { ...prev.roommateConnections, ...data.preferences.roommateConnections }
             }));
           }
+          const roomRentalKeys = ['roomRentals_booking', 'roomRentals_inquiry', 'roomRentals_priceDrop', 'roomRentals_message'] as const;
+          roomRentalKeys.forEach(key => {
+            if (data.preferences?.[key] !== undefined) {
+              setPreferences(prev => ({ ...prev, [key]: data.preferences[key] }));
+            }
+          });
         }
       } catch (err) {
         console.error("Error fetching notification settings", err);
@@ -233,6 +243,13 @@ export default function NotificationSettings() {
     }));
   };
 
+  const handleRoomRentalsToggle = (field: string, value: string) => {
+    setPreferences(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const saveSettings = async () => {
     setIsLoading(true);
     try {
@@ -302,6 +319,37 @@ export default function NotificationSettings() {
 
           <Card>
             <CardHeader>
+              <CardTitle>Room Rentals</CardTitle>
+              <CardDescription>Manage alerts for bookings, inquiries, and price drops</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[
+                { key: 'roomRentals_booking', label: 'Booking Confirmations' },
+                { key: 'roomRentals_inquiry', label: 'New Inquiries' },
+                { key: 'roomRentals_priceDrop', label: 'Price Drops (Saved listings)' },
+                { key: 'roomRentals_message', label: 'Direct Messages' }
+              ].map(cat => (
+                <div key={cat.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <Label htmlFor={`roomrentals-${cat.key}`} className="cursor-pointer">
+                    {cat.label}
+                  </Label>
+                  <select
+                    id={`roomrentals-${cat.key}`}
+                    className="p-2 bg-background border rounded-md text-sm"
+                    value={(preferences as any)[cat.key]}
+                    onChange={(e) => handleRoomRentalsToggle(cat.key, e.target.value)}
+                  >
+                    <option value="instant">Instant</option>
+                    <option value="digest">Daily Digest</option>
+                    <option value="off">Off</option>
+                  </select>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Scholarships</CardTitle>
               <CardDescription>Manage alerts for deadlines, reviews, and compliance</CardDescription>
             </CardHeader>
@@ -313,7 +361,7 @@ export default function NotificationSettings() {
                   </Label>
                   <Switch 
                     id={`schol-${key}`} 
-                    checked={value} 
+                    checked={value as boolean} 
                     onCheckedChange={() => handleScholarshipToggle(key as keyof typeof preferences.scholarships)} 
                   />
                 </div>
@@ -334,7 +382,7 @@ export default function NotificationSettings() {
                   </Label>
                   <Switch 
                     id={key} 
-                    checked={value} 
+                    checked={value as boolean} 
                     onCheckedChange={() => handleToggle(key)} 
                   />
                 </div>
