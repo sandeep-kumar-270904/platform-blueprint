@@ -192,6 +192,16 @@ const Index = () => {
     emblaApi.on('select', onSelect);
     emblaApi.on('reInit', onSelect);
     onSelect();
+
+    const autoplay = setInterval(() => {
+      if (emblaApi.canScrollNext()) {
+        emblaApi.scrollNext();
+      } else {
+        emblaApi.scrollTo(0);
+      }
+    }, 2500);
+
+    return () => clearInterval(autoplay);
   }, [emblaApi]);
 
   const features = [
@@ -232,6 +242,24 @@ const Index = () => {
       icon: Users,
       title: "Study Groups",
       description: "Join virtual study rooms and collaborate on projects",
+    },
+    {
+      id: "mentors",
+      icon: Users,
+      title: "Mentorship Hub",
+      description: "Book 1-on-1 sessions with industry experts and alumni",
+    },
+    {
+      id: "hostels",
+      icon: Globe,
+      title: "Campus Housing",
+      description: "Find local hostels, PGs, and roommates near your college",
+    },
+    {
+      id: "scholarships",
+      icon: GraduationCap,
+      title: "Scholarships",
+      description: "Discover and apply for financial aid and academic scholarships",
     },
   ];
 
@@ -466,17 +494,17 @@ const Index = () => {
       </section>
 
       {/* Feature Grid */}
-      <section className="py-32 relative bg-muted/20">
+      <section className="py-12 md:py-20 relative bg-muted/20">
         <div className="container">
           <motion.div 
-            className="mb-20 max-w-3xl mx-auto text-center"
+            className="mb-16 max-w-5xl mx-auto text-center"
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-50px" }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-4xl md:text-5xl font-extrabold mb-6 tracking-tight text-foreground">Everything you need, <br className="hidden md:block"/> in one workspace.</h2>
-            <p className="text-xl text-muted-foreground font-medium">Replace five different tools with a single, seamlessly integrated platform designed specifically for how students actually work.</p>
+            <h2 className="text-4xl md:text-5xl font-extrabold mb-4 tracking-tight text-foreground">Everything you need, in one workspace.</h2>
+            <p className="text-lg md:text-xl text-muted-foreground font-medium">Replace five different tools with a single, seamlessly integrated platform designed specifically for how students actually work.</p>
           </motion.div>
 
           <div className="relative">
