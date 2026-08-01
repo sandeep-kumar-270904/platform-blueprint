@@ -61,7 +61,7 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
         transition={premiumTransition}
         className="w-full flex flex-col items-center relative z-20"
       >
-        <div className="w-16 h-16 bg-card border-2 border-primary text-primary rounded-2xl flex items-center justify-center text-2xl font-black mx-auto mb-6 bg-clip-padding">
+        <div className="w-16 h-16 bg-card border-2 border-border/80 text-foreground/80 rounded-2xl flex items-center justify-center text-2xl font-black mx-auto mb-6 bg-clip-padding transition-colors duration-300 group-hover:border-primary/50 group-hover:text-foreground">
           {step}
         </div>
         <h3 className="text-2xl font-bold mb-4 text-foreground">{title}</h3>
@@ -578,7 +578,7 @@ const Index = () => {
             <p className="text-xl text-muted-foreground font-medium">Join thousands of students who are already advancing their careers and academics.</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8 relative max-w-5xl mx-auto items-start">
+          <div className="grid md:grid-cols-3 gap-8 relative max-w-5xl mx-auto items-start min-h-[460px]">
             {/* The progressive drawing line */}
             <div className="hidden md:block absolute top-12 left-[16.66%] right-[16.66%] h-0.5 bg-muted -z-10">
               <motion.div 
