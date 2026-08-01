@@ -165,6 +165,14 @@ router.post('/profile', auth, isNotBanned, sanitize, async (req, res) => {
     
     let profile = await RoommateProfile.findOne({ user: req.user.id });
     if (profile) {
+      // Determine if location changed before updating it
+      let locationChanged = false;
+      if (preferredLocations && preferredLocations.length > 0) {
+        if (!profile.preferredLocations || profile.preferredLocations.length === 0 || profile.preferredLocations[0] !== preferredLocations[0]) {
+          locationChanged = true;
+        }
+      }
+
       if (preferredLocations) profile.preferredLocations = preferredLocations;
       if (lifestyle_preferences) {
         if (lifestyle_preferences.cleanliness) profile.lifestyle_preferences.cleanliness = lifestyle_preferences.cleanliness;
@@ -184,8 +192,8 @@ router.post('/profile', auth, isNotBanned, sanitize, async (req, res) => {
       if (visibility) profile.visibility = visibility;
       if (status) profile.status = status;
       
-      // Update location if preferredLocations changed
-      if (preferredLocations && preferredLocations.length > 0) {
+      // Update location ONLY if preferredLocations changed
+      if (locationChanged) {
         const coords = await geocodeLocation(preferredLocations[0]);
         if (coords) {
           profile.location = { type: 'Point', coordinates: coords };
