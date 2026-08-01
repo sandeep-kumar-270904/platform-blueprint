@@ -393,7 +393,7 @@ router.post('/inquiries', isNotBanned, auth, sanitize, inquiryLimiter, async (re
     // Notify the listing owner
     try {
       const ownerUser = await User.findById(room.lister).select('notificationPreferences');
-      const pref = ownerUser?.notificationPreferences?.roomRentals?.inquiry_responses || 'instant';
+      const pref = ownerUser?.notificationPreferences?.roomRentals_inquiry || 'instant';
       
       if (pref !== 'off') {
         await Notification.create({
@@ -469,7 +469,7 @@ router.put('/inquiries/:id/status', auth, async (req, res) => {
     if (status === 'Responded') {
       try {
         const renterUser = await User.findById(inquiry.sender).select('notificationPreferences');
-        const pref = renterUser?.notificationPreferences?.roomRentals?.inquiry_responses || 'instant';
+        const pref = renterUser?.notificationPreferences?.roomRentals_inquiry || 'instant';
         
         if (pref !== 'off') {
           await Notification.create({
@@ -589,7 +589,7 @@ router.put('/:id', auth, isNotBanned, sanitize, async (req, res) => {
       const notificationsToCreate = [];
       
       for (const u of savedUsers) {
-        const pref = u.notificationPreferences?.roomRentals?.price_drops || 'instant';
+        const pref = u.notificationPreferences?.roomRentals_priceDrop || 'instant';
         if (pref !== 'off') {
           notificationsToCreate.push({
             userId: u._id,
@@ -730,7 +730,7 @@ router.put('/:id/verify/admin', auth, admin, async (req, res) => {
 
     if (status === 'Verified' || status === 'Rejected') {
       const ownerUser = await User.findById(room.lister).select('notificationPreferences');
-      const pref = ownerUser?.notificationPreferences?.roomRentals?.booking_updates || 'instant';
+      const pref = ownerUser?.notificationPreferences?.roomRentals_booking || 'instant';
       
       if (pref !== 'off') {
         const notification = new Notification({

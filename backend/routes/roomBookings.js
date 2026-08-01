@@ -31,7 +31,7 @@ router.post('/', auth, isNotBanned, async (req, res) => {
 
     // Notify owner
     const ownerUser = await User.findById(room.lister).select('notificationPreferences');
-    const pref = ownerUser?.notificationPreferences?.roomRentals?.booking_updates || 'instant';
+    const pref = ownerUser?.notificationPreferences?.roomRentals_booking || 'instant';
     
     if (pref !== 'off') {
       await Notification.create({
@@ -106,7 +106,7 @@ router.put('/:id/respond', auth, async (req, res) => {
 
     // Notify renter
     const renterUser = await User.findById(booking.renter).select('notificationPreferences');
-    const pref = renterUser?.notificationPreferences?.roomRentals?.booking_updates || 'instant';
+    const pref = renterUser?.notificationPreferences?.roomRentals_booking || 'instant';
 
     if (pref !== 'off') {
       await Notification.create({

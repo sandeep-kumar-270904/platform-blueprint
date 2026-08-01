@@ -76,7 +76,7 @@ router.post('/:roomId', auth, isNotBanned, sanitize, async (req, res) => {
     // Notify recipient
     try {
       const recipientUser = await User.findById(recipientId).select('notificationPreferences');
-      const pref = recipientUser?.notificationPreferences?.roomRentals?.new_messages || 'instant';
+      const pref = recipientUser?.notificationPreferences?.roomRentals_message || 'instant';
       
       if (pref !== 'off') {
         await Notification.create({

@@ -252,4 +252,3 @@ export const RoommateGroupManage: React.FC<RoommateGroupManageProps> = ({ group,
     </Card>
   );
 };
-import { User, Calendar } from 'lucide-react';

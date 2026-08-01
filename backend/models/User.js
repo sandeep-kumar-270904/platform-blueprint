@@ -255,12 +255,10 @@ const UserSchema = new mongoose.Schema({
     waitlist_promoted: { type: Boolean, default: true },
     course_reminder: { type: Boolean, default: true },
     course_streak_milestone: { type: Boolean, default: true },
-    roomRentals: {
-      booking_updates: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
-      inquiry_responses: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
-      price_drops: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
-      new_messages: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' }
-    },
+    roomRentals_booking: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
+    roomRentals_inquiry: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
+    roomRentals_priceDrop: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
+    roomRentals_message: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
     applicationUpdates: { 
       inApp: { type: Boolean, default: true }, 
       email: { type: Boolean, default: true },
