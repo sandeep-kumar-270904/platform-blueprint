@@ -40,8 +40,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchUser = async () => {
-    // TEMPORARY AUTH BYPASS: Commenting out real fetch
-    /*
     try {
       const token = localStorage.getItem('token');
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -57,14 +55,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           ...data.user,
           id: data.user._id || data.user.id
         });
+      } else {
+        setUser(null);
       }
     } catch (err) {
       console.error("Auth check failed", err);
+      setUser(null);
     } finally {
       setLoading(false);
     }
-    */
-    setLoading(false);
   };
 
   useEffect(() => {
