@@ -75,29 +75,27 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
         </motion.p>
       </motion.div>
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {isHovered && (
           <motion.div
-            layout
-            initial={{ height: 0, opacity: 0, y: shouldReduceMotion ? 0 : 10, scale: shouldReduceMotion ? 1 : 0.96 }}
-            animate={{ height: 220, opacity: 1, y: 0, scale: 1 }}
-            exit={{ height: 0, opacity: 0, y: shouldReduceMotion ? 0 : 10, scale: shouldReduceMotion ? 1 : 0.96 }}
-            transition={premiumTransition}
-            className="w-full mt-4 overflow-hidden flex justify-center items-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
+            className="absolute inset-0 z-0 overflow-hidden"
           >
             <motion.img
               src={image}
               alt={title}
-              className="w-full h-full object-contain object-bottom drop-shadow-md rounded-b-[24px]"
-              animate={{
-                y: shouldReduceMotion ? 0 : [0, -4, 0, 4, 0],
-              }}
-              transition={{
-                duration: 6,
-                ease: "easeInOut",
-                repeat: Infinity,
-              }}
+              className="w-full h-full object-cover"
+              initial={{ scale: 1.05 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 1.05 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
             />
+            {/* Gradient overlay to keep text readable if image is bright */}
+            <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px]" />
+            <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-background/10" />
           </motion.div>
         )}
       </AnimatePresence>
