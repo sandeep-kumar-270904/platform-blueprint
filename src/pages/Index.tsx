@@ -497,32 +497,34 @@ const Index = () => {
               <div className="flex -ml-4">
                 {features.map((feature) => (
                   <div key={feature.id} className="min-w-0 shrink-0 grow-0 basis-[85%] sm:basis-[60%] md:basis-[45%] lg:basis-[30%] pl-4 pb-10">
-                    <motion.div 
-                      whileHover={shouldReduceMotion ? {} : { y: -6 }}
-                      className="group p-8 h-full flex flex-col rounded-2xl bg-card border border-border shadow-sm hover:shadow-[0_12px_40px_rgba(var(--primary-rgb),0.08)] hover:border-primary/30 transition-all duration-300 relative overflow-hidden"
-                    >
-                      {/* Glow effect on border */}
-                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl ring-1 ring-inset ring-primary/20"></div>
-                      
-                      <div className="mb-6 flex items-center justify-start">
-                        <motion.div 
-                          className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center transition-colors duration-300 group-hover:bg-primary group-hover:text-primary-foreground"
-                          whileHover={shouldReduceMotion ? {} : { rotate: [0, -10, 10, 0], scale: 1.1 }}
-                          transition={{ duration: 0.4 }}
-                        >
-                          <feature.icon className="h-6 w-6" strokeWidth={2} />
-                        </motion.div>
-                      </div>
-                      <h3 className="text-xl font-bold mb-3 text-foreground transition-colors">{feature.title}</h3>
-                      <p className="text-sm mb-8 text-muted-foreground leading-relaxed">{feature.description}</p>
-                      
-                      <div className="mt-auto pt-5 border-t border-border group-hover:border-primary/10 transition-colors">
-                        <Link to={`/${feature.id === 'career' ? 'dashboard' : feature.id}`} className="inline-flex items-center text-sm font-bold text-muted-foreground group-hover:text-primary transition-colors">
-                          Explore {feature.title} 
-                          <ArrowRight className="ml-2 h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
-                        </Link>
-                      </div>
-                    </motion.div>
+                    <Link to={`/${feature.id === 'career' ? 'dashboard' : feature.id}`} className="block h-full outline-none">
+                      <motion.div 
+                        whileHover={shouldReduceMotion ? {} : { y: -6 }}
+                        className="group p-8 h-full flex flex-col rounded-2xl bg-card border border-border shadow-sm hover:shadow-[0_12px_40px_rgba(var(--primary-rgb),0.08)] hover:border-primary/30 transition-all duration-300 relative overflow-hidden cursor-pointer"
+                      >
+                        {/* Glow effect on border */}
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl ring-1 ring-inset ring-primary/20"></div>
+                        
+                        <div className="mb-6 flex items-center justify-start">
+                          <motion.div 
+                            className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center transition-colors duration-300 group-hover:bg-primary group-hover:text-primary-foreground"
+                            whileHover={shouldReduceMotion ? {} : { rotate: [0, -10, 10, 0], scale: 1.1 }}
+                            transition={{ duration: 0.4 }}
+                          >
+                            <feature.icon className="h-6 w-6" strokeWidth={2} />
+                          </motion.div>
+                        </div>
+                        <h3 className="text-xl font-bold mb-3 text-foreground transition-colors">{feature.title}</h3>
+                        <p className="text-sm mb-8 text-muted-foreground leading-relaxed">{feature.description}</p>
+                        
+                        <div className="mt-auto pt-5 border-t border-border group-hover:border-primary/10 transition-colors">
+                          <span className="inline-flex items-center text-sm font-bold text-muted-foreground group-hover:text-primary transition-colors">
+                            Explore {feature.title} 
+                            <ArrowRight className="ml-2 h-4 w-4 transform group-hover:translate-x-1 transition-transform" />
+                          </span>
+                        </div>
+                      </motion.div>
+                    </Link>
                   </div>
                 ))}
               </div>
