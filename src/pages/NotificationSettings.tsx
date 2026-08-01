@@ -54,6 +54,12 @@ export default function NotificationSettings() {
       enabled: false,
       start: "22:00",
       end: "08:00"
+    },
+    roommateConnections: {
+      new_requests: 'instant',
+      accepted: 'instant',
+      declined: 'instant',
+      disconnected: 'instant'
     }
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -101,6 +107,12 @@ export default function NotificationSettings() {
             setPreferences(prev => ({
               ...prev,
               quiet_hours: { ...prev.quiet_hours, ...data.preferences.quiet_hours }
+            }));
+          }
+          if (data.preferences?.roommateConnections) {
+            setPreferences(prev => ({
+              ...prev,
+              roommateConnections: { ...prev.roommateConnections, ...data.preferences.roommateConnections }
             }));
           }
         }
@@ -211,6 +223,16 @@ export default function NotificationSettings() {
     }));
   };
 
+  const handleRoommateToggle = (field: keyof typeof preferences.roommateConnections, value: string) => {
+    setPreferences(prev => ({
+      ...prev,
+      roommateConnections: {
+        ...prev.roommateConnections,
+        [field]: value
+      }
+    }));
+  };
+
   const saveSettings = async () => {
     setIsLoading(true);
     try {
@@ -247,6 +269,37 @@ export default function NotificationSettings() {
         <h1 className="text-3xl font-bold mb-6">Notification Settings</h1>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Roommate Finder</CardTitle>
+              <CardDescription>Manage alerts for roommate connection requests and activity</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[
+                { key: 'new_requests', label: 'New Connection Requests' },
+                { key: 'accepted', label: 'Accepted Requests' },
+                { key: 'declined', label: 'Declined Requests' },
+                { key: 'disconnected', label: 'Disconnections' }
+              ].map(cat => (
+                <div key={cat.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <Label htmlFor={`roommate-${cat.key}`} className="cursor-pointer">
+                    {cat.label}
+                  </Label>
+                  <select
+                    id={`roommate-${cat.key}`}
+                    className="p-2 bg-background border rounded-md text-sm"
+                    value={preferences.roommateConnections[cat.key as keyof typeof preferences.roommateConnections]}
+                    onChange={(e) => handleRoommateToggle(cat.key as keyof typeof preferences.roommateConnections, e.target.value)}
+                  >
+                    <option value="instant">Instant</option>
+                    <option value="digest">Daily Digest</option>
+                    <option value="off">Off</option>
+                  </select>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Scholarships</CardTitle>

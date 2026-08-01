@@ -1,5 +1,9 @@
 const mongoose = require('mongoose');
 
+function arrayLimit(val) {
+  return val.length <= 3;
+}
+
 const RoommateProfileSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -10,6 +14,15 @@ const RoommateProfileSchema = new mongoose.Schema({
   preferredLocations: {
     type: [String],
     default: []
+  },
+  profilePhoto: {
+    type: String,
+    default: null
+  },
+  galleryPhotos: {
+    type: [String],
+    default: [],
+    validate: [arrayLimit, '{PATH} exceeds the limit of 3']
   },
   lifestyle_preferences: {
     cleanliness: {
@@ -36,6 +49,18 @@ const RoommateProfileSchema = new mongoose.Schema({
       type: String,
       enum: ['No', 'Yes', 'Cats only', 'Dogs only'],
       required: true
+    },
+    guestPolicy: {
+      type: String,
+      enum: ['Strictly No Guests', 'Rarely', 'Occasionally', 'Frequently']
+    },
+    cookingHabits: {
+      type: String,
+      enum: ['Rarely Cooks', 'Cooks Often - Keeps Separate', 'Cooks Often - Shares Meals']
+    },
+    sharedSpaceExpectations: {
+      type: String,
+      enum: ['Strictly Separate', 'Happy to Share']
     }
   },
   budgetRange: {
@@ -50,7 +75,38 @@ const RoommateProfileSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: 1000
+  },
+  visibility: {
+    type: String,
+    enum: ['everyone', 'same_college', 'hidden'],
+    default: 'everyone'
+  },
+  status: {
+    type: String,
+    enum: ['active', 'paused'],
+    default: 'active'
+  },
+  verificationStatus: {
+    type: String,
+    enum: ['none', 'email_verified', 'id_verified'],
+    default: 'none'
+  },
+  dismissedSuggestions: [{
+    type: String
+  }],
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      default: [0, 0]
+    }
   }
 }, { timestamps: true });
+
+RoommateProfileSchema.index({ location: '2dsphere' });
 
 module.exports = mongoose.model('RoommateProfile', RoommateProfileSchema);

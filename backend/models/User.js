@@ -205,6 +205,10 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Hostel'
   }],
+  savedRoommates: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'RoommateProfile'
+  }],
   created_at: {
     type: Date,
     default: Date.now
@@ -363,6 +367,12 @@ const UserSchema = new mongoose.Schema({
       inApp: { type: Boolean, default: true },
       email: { type: Boolean, default: true },
       push: { type: Boolean, default: true }
+    },
+    roommateConnections: {
+      new_requests: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
+      accepted: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
+      declined: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
+      disconnected: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' }
     }
   },
   newsPreferences: {

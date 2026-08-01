@@ -21,6 +21,7 @@ const GDLiveSession = require('../models/GDLiveSession');
 const CreatorContent = require('../models/CreatorContent');
 const QuizAttempt = require('../models/QuizAttempt');
 const RoommateConnection = require('../models/RoommateConnection');
+const RoommateProfile = require('../models/RoommateProfile');
 
 
 
@@ -103,6 +104,68 @@ router.get('/creators-summary', authMiddleware, async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: 'Error fetching creators summary', error: err.message });
+  }
+});
+
+// GET /api/dashboard/roommate-summary
+router.get('/roommate-summary', authMiddleware, async (req, res) => {
+  try {
+    const userId = await getTargetUserId(req);
+    
+    const profile = await RoommateProfile.findOne({ user: userId });
+    
+    if (!profile) {
+      return res.json({ status: 'no_profile' });
+    }
+    
+    // Calculate completeness score (matches frontend logic)
+    let completenessScore = 0;
+    const baseFields = [
+      profile.bio,
+      profile.budgetRange?.min,
+      profile.moveInDate,
+      profile.lifestyle_preferences?.cleanliness,
+      profile.lifestyle_preferences?.sleepSchedule
+    ];
+    completenessScore += Math.round((baseFields.filter(Boolean).length / 5) * 50);
+
+    if (profile.profilePhoto) completenessScore += 15;
+    if (profile.galleryPhotos && profile.galleryPhotos.length > 0) completenessScore += 15;
+
+    const prefFields = [
+      profile.lifestyle_preferences?.smoking,
+      profile.lifestyle_preferences?.pets
+    ];
+    completenessScore += Math.round((prefFields.filter(Boolean).length / 2) * 10);
+
+    const advFields = [
+      profile.lifestyle_preferences?.guestPolicy,
+      profile.lifestyle_preferences?.cookingHabits,
+      profile.lifestyle_preferences?.sharedSpaceExpectations
+    ];
+    completenessScore += Math.round((advFields.filter(Boolean).length / 3) * 10);
+
+    // Count pending requests received by the user
+    const pendingRequests = await RoommateConnection.countDocuments({
+      recipient: userId,
+      status: 'Pending'
+    });
+    
+    // Count active connections
+    const activeConnections = await RoommateConnection.countDocuments({
+      $or: [{ requester: userId }, { recipient: userId }],
+      status: 'Accepted'
+    });
+    
+    res.json({
+      status: profile.status === 'paused' ? 'paused' : (profile.visibility === 'hidden' ? 'hidden' : 'active'),
+      completenessScore,
+      pendingRequests,
+      activeConnections
+    });
+  } catch (err) {
+    console.error('Error fetching roommate summary:', err);
+    res.status(500).json({ message: 'Error fetching roommate summary', error: err.message });
   }
 });
 

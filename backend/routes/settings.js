@@ -238,9 +238,13 @@ router.put('/notifications', auth, async (req, res) => {
       };
     }
     
-    // Merge new Phase 3 fields
-    const phase3Fields = ['liveSessionReminders', 'liveSessionResults', 'quizModeration', 'leaderboardActivity'];
-    for (const field of phase3Fields) {
+    // Merge other module fields dynamically
+    const additionalFields = [
+      'liveSessionReminders', 'liveSessionResults', 'quizModeration', 'leaderboardActivity',
+      'mentorUpdates', 'subscriptions', 'communityForums', 'cohorts', 'learningPaths',
+      'scholarships', 'roommateConnections', 'community'
+    ];
+    for (const field of additionalFields) {
       if (preferences && preferences[field]) {
         if (!user.notificationPreferences) user.notificationPreferences = {};
         if (!user.notificationPreferences[field]) user.notificationPreferences[field] = {};
