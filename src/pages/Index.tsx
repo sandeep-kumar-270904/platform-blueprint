@@ -52,7 +52,8 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
           : "hsl(var(--card))"
       }}
       style={{
-        background: "hsl(var(--card))"
+        background: "hsl(var(--card))",
+        flex: isHovered && !shouldReduceMotion ? 2.5 : 1
       }}
     >
       <motion.div
@@ -578,9 +579,9 @@ const Index = () => {
             <p className="text-xl text-muted-foreground font-medium">Join thousands of students who are already advancing their careers and academics.</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8 relative max-w-5xl mx-auto items-start min-h-[460px]">
+          <div className="flex flex-col md:flex-row gap-8 md:gap-12 relative max-w-[1400px] mx-auto items-stretch h-[800px] md:h-[480px]">
             {/* The progressive drawing line */}
-            <div className="hidden md:block absolute top-12 left-[16.66%] right-[16.66%] h-0.5 bg-muted -z-10">
+            <div className="hidden md:block absolute top-12 left-20 right-20 h-0.5 bg-muted -z-10">
               <motion.div 
                 className="h-full bg-primary origin-left"
                 style={{ scaleX: howItWorksProgress }}
@@ -588,9 +589,9 @@ const Index = () => {
             </div>
             
             {[
-              { step: 1, title: "Create Your Profile", desc: "Sign up and set your academic goals, interests, and career aspirations.", image: "/image1.jpg" },
-              { step: 2, title: "Connect & Learn", desc: "Join study groups, access notes, and participate in community forums.", image: "/image2.jpg" },
-              { step: 3, title: "Achieve Success", desc: "Find internships, ace interviews, and launch your career with confidence.", image: "/image3.jpg" },
+              { step: 1, title: "Create Your Profile", desc: "Sign up and set your academic goals, interests, and career aspirations.", image: "/image1.png" },
+              { step: 2, title: "Connect & Learn", desc: "Join study groups, access notes, and participate in community forums.", image: "/image2.png" },
+              { step: 3, title: "Achieve Success", desc: "Find internships, ace interviews, and launch your career with confidence.", image: "/image3.png" },
             ].map((item, i) => (
               <HowItWorksCard 
                 key={i} 
