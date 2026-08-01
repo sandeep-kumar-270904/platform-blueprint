@@ -23,6 +23,87 @@ import { useAuth } from "@/hooks/useAuth";
 import { motion, useScroll, useTransform, useReducedMotion, AnimatePresence } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
 
+const premiumTransition = { duration: 0.45, ease: [0.22, 1, 0.36, 1] };
+
+const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }: any) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <motion.div
+      layout
+      className="relative overflow-hidden rounded-[24px] border border-border/50 bg-card p-8 text-center flex flex-col items-center will-change-transform z-10 cursor-pointer"
+      initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-50px" }}
+      transition={{ delay: shouldReduceMotion ? 0 : index * 0.2 + 0.1, ...premiumTransition }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      tabIndex={0}
+      animate={{
+        y: isHovered && !shouldReduceMotion ? -8 : 0,
+        scale: isHovered && !shouldReduceMotion ? 1.02 : 1,
+        boxShadow: isHovered 
+          ? "0 20px 40px -10px rgba(0,0,0,0.08)" 
+          : "0 2px 10px -4px rgba(0,0,0,0.02)",
+        background: isHovered 
+          ? "linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--primary)/0.03) 100%)" 
+          : "hsl(var(--card))"
+      }}
+      style={{
+        background: "hsl(var(--card))"
+      }}
+    >
+      <motion.div
+        layout
+        animate={{ y: isHovered && !shouldReduceMotion ? -8 : 0 }}
+        transition={premiumTransition}
+        className="w-full flex flex-col items-center relative z-20"
+      >
+        <div className="w-16 h-16 bg-card border-2 border-primary text-primary rounded-2xl flex items-center justify-center text-2xl font-black mx-auto mb-6 bg-clip-padding">
+          {step}
+        </div>
+        <h3 className="text-2xl font-bold mb-4 text-foreground">{title}</h3>
+        <motion.p 
+          animate={{ opacity: isHovered ? 0.6 : 1 }}
+          transition={premiumTransition}
+          className="text-muted-foreground leading-relaxed font-medium"
+        >
+          {desc}
+        </motion.p>
+      </motion.div>
+
+      <AnimatePresence mode="wait">
+        {isHovered && (
+          <motion.div
+            layout
+            initial={{ height: 0, opacity: 0, y: shouldReduceMotion ? 0 : 10, scale: shouldReduceMotion ? 1 : 0.96 }}
+            animate={{ height: 220, opacity: 1, y: 0, scale: 1 }}
+            exit={{ height: 0, opacity: 0, y: shouldReduceMotion ? 0 : 10, scale: shouldReduceMotion ? 1 : 0.96 }}
+            transition={premiumTransition}
+            className="w-full mt-4 overflow-hidden flex justify-center items-end"
+          >
+            <motion.img
+              src={image}
+              alt={title}
+              className="w-full h-full object-contain object-bottom drop-shadow-md rounded-b-[24px]"
+              animate={{
+                y: shouldReduceMotion ? 0 : [0, -4, 0, 4, 0],
+              }}
+              transition={{
+                duration: 6,
+                ease: "easeInOut",
+                repeat: Infinity,
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
 const AnimatedNumber = ({ end, duration = 1200 }: { end: number, duration?: number }) => {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
@@ -497,7 +578,7 @@ const Index = () => {
             <p className="text-xl text-muted-foreground font-medium">Join thousands of students who are already advancing their careers and academics.</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8 relative max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-8 relative max-w-5xl mx-auto items-start">
             {/* The progressive drawing line */}
             <div className="hidden md:block absolute top-12 left-[16.66%] right-[16.66%] h-0.5 bg-muted -z-10">
               <motion.div 
@@ -507,27 +588,19 @@ const Index = () => {
             </div>
             
             {[
-              { step: 1, title: "Create Your Profile", desc: "Sign up and set your academic goals, interests, and career aspirations.", icon: Users },
-              { step: 2, title: "Connect & Learn", desc: "Join study groups, access notes, and participate in community forums.", icon: Zap },
-              { step: 3, title: "Achieve Success", desc: "Find internships, ace interviews, and launch your career with confidence.", icon: Globe },
+              { step: 1, title: "Create Your Profile", desc: "Sign up and set your academic goals, interests, and career aspirations.", image: "/image1.jpg" },
+              { step: 2, title: "Connect & Learn", desc: "Join study groups, access notes, and participate in community forums.", image: "/image2.jpg" },
+              { step: 3, title: "Achieve Success", desc: "Find internships, ace interviews, and launch your career with confidence.", image: "/image3.jpg" },
             ].map((item, i) => (
-              <motion.div 
+              <HowItWorksCard 
                 key={i} 
-                initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ delay: shouldReduceMotion ? 0 : i * 0.2 + 0.1, duration: 0.5 }}
-                className="bg-card p-8 rounded-2xl border border-border shadow-sm text-center relative z-10"
-              >
-                <motion.div 
-                  className="w-16 h-16 bg-card border-2 border-primary text-primary rounded-2xl flex items-center justify-center text-2xl font-black mx-auto mb-6 bg-clip-padding"
-                  animate={glowAnimation}
-                >
-                  {item.step}
-                </motion.div>
-                <h3 className="text-2xl font-bold mb-4 text-foreground">{item.title}</h3>
-                <p className="text-muted-foreground leading-relaxed font-medium">{item.desc}</p>
-              </motion.div>
+                index={i}
+                step={item.step}
+                title={item.title}
+                desc={item.desc}
+                image={item.image}
+                shouldReduceMotion={shouldReduceMotion}
+              />
             ))}
           </div>
         </div>
