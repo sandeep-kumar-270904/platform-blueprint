@@ -94,19 +94,35 @@ export const RoommateVerificationPanel: React.FC<RoommateVerificationPanelProps>
     }
   };
 
-  const handleUploadId = async () => {
-    // Mock upload flow
+  const handleUploadId = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
     setLoading(true);
     try {
-      // In reality, this would upload to S3/Cloudinary and get a URL back
-      const mockPhotoUrl = "https://example.com/mock-id-photo.jpg";
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const uploadRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/uploads/evidence`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+      
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadData.message || 'Upload failed');
+      
+      const photoUrl = uploadData.url;
+
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/roommates/verification/request-id-review`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token')}` 
         },
-        body: JSON.stringify({ idPhotoUrl: mockPhotoUrl })
+        body: JSON.stringify({ idPhotoUrl: photoUrl })
       });
       const data = await res.json();
       if (res.ok) {
@@ -202,13 +218,26 @@ export const RoommateVerificationPanel: React.FC<RoommateVerificationPanelProps>
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="p-8 border-2 border-dashed rounded-md flex flex-col items-center justify-center text-center text-muted-foreground bg-muted/20">
+                <label className="p-8 border-2 border-dashed rounded-md flex flex-col items-center justify-center text-center text-muted-foreground bg-muted/20 cursor-pointer hover:bg-muted/30 transition-colors">
                   <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
-                  <p className="text-sm">Click to upload photo (mock flow)</p>
-                </div>
-                <Button onClick={handleUploadId} disabled={loading} variant="secondary" className="w-full">
+                  <p className="text-sm">Click to upload photo of Student ID</p>
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    id="id-upload"
+                    accept="image/*,application/pdf" 
+                    onChange={handleUploadId} 
+                    disabled={loading} 
+                  />
+                </label>
+                <Button 
+                  onClick={() => document.getElementById('id-upload')?.click()} 
+                  disabled={loading} 
+                  variant="secondary" 
+                  className="w-full"
+                >
                   {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Submit ID for Review
+                  Select File
                 </Button>
               </div>
             )}

@@ -794,6 +794,8 @@ app.use('/api/roommates/suggestions', require('./routes/roommateSuggestions'));
 app.use('/api/roommates', roommatesRoutes);
 app.use('/api/admin/roommates', require('./routes/roommateAdmin'));
 app.use('/api/room-rental-reviews', roomRentalReviewsRoutes);
+app.use('/api/site-content', require('./routes/siteContent'));
+app.use('/api/admin/site-content', require('./routes/adminSiteContent'));
 app.use('/api/search-alerts', require('./routes/roomSearchAlerts'));
 app.use('/api/hostels', require('./routes/hostels'));
 

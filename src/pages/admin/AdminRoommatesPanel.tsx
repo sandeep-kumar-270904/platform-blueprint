@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,17 +11,19 @@ export default function AdminRoommatesPanel() {
   const [stats, setStats] = useState<any>(null);
   const [profiles, setProfiles] = useState<any[]>([]);
   const [connections, setConnections] = useState<any[]>([]);
+  const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchStats();
     fetchProfiles();
     fetchConnections();
+    fetchRequests();
   }, []);
 
   const fetchStats = async () => {
     try {
-      const res = await axios.get('/api/admin/roommates/stats');
+      const res = await api.get('/admin/roommates/stats');
       setStats(res.data);
     } catch (err) {
       console.error(err);
@@ -30,7 +32,7 @@ export default function AdminRoommatesPanel() {
 
   const fetchProfiles = async () => {
     try {
-      const res = await axios.get('/api/admin/roommates/profiles');
+      const res = await api.get('/admin/roommates/profiles');
       setProfiles(res.data.profiles);
     } catch (err) {
       console.error(err);
@@ -39,7 +41,7 @@ export default function AdminRoommatesPanel() {
 
   const fetchConnections = async () => {
     try {
-      const res = await axios.get('/api/admin/roommates/connections');
+      const res = await api.get('/admin/roommates/connections');
       setConnections(res.data.connections);
       setLoading(false);
     } catch (err) {
@@ -48,18 +50,51 @@ export default function AdminRoommatesPanel() {
     }
   };
 
+  const fetchRequests = async () => {
+    try {
+      const res = await api.get('/admin/roommates/requests');
+      setRequests(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleDeactivate = async (profileId: string) => {
     const reason = prompt("Enter a reason for deactivating this roommate profile (this will be sent to the user):");
     if (!reason) return;
 
     try {
-      await axios.put(`/api/admin/roommates/profiles/${profileId}/deactivate`, { reason });
+      await api.put(`/admin/roommates/profiles/${profileId}/deactivate`, { reason });
       alert("Profile deactivated successfully.");
       fetchProfiles();
       fetchStats();
     } catch (err) {
       console.error(err);
       alert("Failed to deactivate profile.");
+    }
+  };
+
+  const handleApproveId = async (reqId: string) => {
+    try {
+      await api.post(`/admin/roommates/requests/${reqId}/approve`);
+      alert("ID Approved.");
+      fetchRequests();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to approve ID.");
+    }
+  };
+
+  const handleRejectId = async (reqId: string) => {
+    const reason = prompt("Enter reason for rejection:");
+    if (!reason) return;
+    try {
+      await api.post(`/admin/roommates/requests/${reqId}/reject`, { reason });
+      alert("ID Rejected.");
+      fetchRequests();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to reject ID.");
     }
   };
 
@@ -77,6 +112,7 @@ export default function AdminRoommatesPanel() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="profiles">Profiles</TabsTrigger>
           <TabsTrigger value="connections">Connections</TabsTrigger>
+          <TabsTrigger value="verification">Verification Requests</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -227,6 +263,48 @@ export default function AdminRoommatesPanel() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="verification">
+          <Card>
+            <CardHeader>
+              <CardTitle>ID Verification Requests</CardTitle>
+              <CardDescription>Review student ID submissions from roommate seekers.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {requests.length === 0 ? (
+                  <div className="col-span-full p-8 text-center text-muted-foreground">
+                    No pending verification requests.
+                  </div>
+                ) : requests.map(req => (
+                  <Card key={req._id} className="overflow-hidden">
+                    <div className="p-4 border-b">
+                      <h3 className="font-semibold">{req.user?.name || req.user?.full_name || 'User'}</h3>
+                      <p className="text-xs text-muted-foreground">{req.user?.email}</p>
+                    </div>
+                    <div className="p-4 bg-muted/20 flex justify-center">
+                      {req.idPhotoUrl ? (
+                        <a href={req.idPhotoUrl} target="_blank" rel="noreferrer">
+                          <img src={req.idPhotoUrl} alt="ID Proof" className="max-h-48 object-contain rounded-md shadow-sm" />
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No photo provided</span>
+                      )}
+                    </div>
+                    <div className="p-4 flex gap-2">
+                      <Button variant="default" className="w-full bg-green-600 hover:bg-green-700" onClick={() => handleApproveId(req._id)}>
+                        Approve
+                      </Button>
+                      <Button variant="destructive" className="w-full" onClick={() => handleRejectId(req._id)}>
+                        Reject
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
               </div>
             </CardContent>
           </Card>
