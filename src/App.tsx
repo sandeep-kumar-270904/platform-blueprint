@@ -16,7 +16,6 @@ import StudyGroupDetail from "./pages/StudyGroupDetail";
 
 import Analytics from "./pages/Analytics";
 import QABoard from "./pages/QABoard";
-import Gamification from "./pages/Gamification";
 import VirtualClassroom from "./pages/VirtualClassroom";
 import { ClassPreview } from "./pages/ClassPreview";
 import MeetingRoom from "./pages/MeetingRoom";
@@ -98,7 +97,6 @@ import AdminCareerOpportunities from './pages/admin/AdminCareerOpportunities';
 import RoomRentals from "./pages/RoomRentals";
 import Roadmaps from "./pages/Roadmaps";
 import Forum from "./pages/Forum";
-import Sessions from "./pages/Sessions";
 
 import SkillSwap from "./pages/SkillSwap";
 import CreatorsZone from "./pages/CreatorsZone";
@@ -181,7 +179,7 @@ const App = () => (
           <MaintenanceModeWrapper>
             <Routes>
             {/* Public Routes */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
@@ -298,7 +296,6 @@ const App = () => (
           <Route path="/repair" element={<ProtectedRoute><Repair /></ProtectedRoute>} />
           <Route path="/dashboard/repair-requests" element={<ProtectedRoute><RepairRequests /></ProtectedRoute>} />
           <Route path="/qa-board" element={<ProtectedRoute><QABoard /></ProtectedRoute>} />
-          <Route path="/gamification" element={<ProtectedRoute><Gamification /></ProtectedRoute>} />
           {/* Virtual Classroom */}
           <Route path="/classrooms" element={<VirtualClassroom />} />
           <Route path="/class-preview/:id" element={<ClassPreview />} />
@@ -307,7 +304,6 @@ const App = () => (
           <Route path="/classroom/:id/recap" element={<ProtectedRoute><ClassroomRecap /></ProtectedRoute>} />
           <Route path="/roadmaps" element={<ProtectedRoute><Roadmaps /></ProtectedRoute>} />
           <Route path="/forum" element={<ProtectedRoute><Forum /></ProtectedRoute>} />
-          <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
 
           <Route path="/skill-swap" element={<ProtectedRoute><SkillSwap /></ProtectedRoute>} />
           <Route path="/creators" element={<CreatorsZone />} />

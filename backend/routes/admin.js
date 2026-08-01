@@ -283,7 +283,65 @@ router.patch('/users/:userId/unban', authMiddleware, isAdmin, async (req, res) =
   }
 });
 
+// GET /api/admin/host-verifications - Fetch pending host verifications
+router.get('/host-verifications', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const pendingHosts = await User.find({ host_verification_status: 'pending' })
+      .select('full_name username email host_verification_proof created_at')
+      .sort({ created_at: -1 });
+    res.json(pendingHosts);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching host verifications', error: err.message });
+  }
+});
 
+// POST /api/admin/host-verifications/:id/approve
+router.post('/host-verifications/:id/approve', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) return res.status(404).json({ message: 'User not found' });
+    
+    targetUser.is_verified_host = true;
+    targetUser.host_verification_status = 'verified';
+    await targetUser.save();
+    
+    await notificationService.createNotification({
+      userId: targetUser._id,
+      type: 'host_verification_approved',
+      relatedContentId: targetUser._id,
+      message: 'Your host verification request has been approved. You can now host virtual classrooms!'
+    });
+    
+    res.json({ message: 'Host approved successfully', user: targetUser });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/admin/host-verifications/:id/reject
+router.post('/host-verifications/:id/reject', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) return res.status(404).json({ message: 'User not found' });
+    
+    targetUser.is_verified_host = false;
+    targetUser.host_verification_status = 'rejected';
+    await targetUser.save();
+    
+    const reason = req.body.reason || 'No specific reason provided by the administrator.';
+
+    await notificationService.createNotification({
+      userId: targetUser._id,
+      type: 'host_verification_rejected',
+      relatedContentId: targetUser._id,
+      message: `Your host verification request was rejected. Reason: ${reason}`
+    });
+    
+    res.json({ message: 'Host rejected successfully', user: targetUser });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
 
 // GET /api/admin/flagged-reviews - Fetch flagged reviews
 router.get('/flagged-reviews', authMiddleware, async (req, res) => {

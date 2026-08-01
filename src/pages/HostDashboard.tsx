@@ -40,6 +40,8 @@ export default function HostDashboard() {
   const [actionLoading, setActionLoading] = useState(false);
   const [recordingDialog, setRecordingDialog] = useState<any>(null);
   const [feedbackDialog, setFeedbackDialog] = useState<any>(null);
+  const [verifyDialog, setVerifyDialog] = useState(false);
+  const [verifyProof, setVerifyProof] = useState("");
   
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [replyText, setReplyText] = useState<{ [key: string]: string }>({});
@@ -66,15 +68,24 @@ export default function HostDashboard() {
 
   
   const handleVerifyHost = async () => {
+    if (!verifyProof.trim()) {
+      toast({ title: "Proof required", description: "Please provide a LinkedIn URL or portfolio link.", variant: "destructive" });
+      return;
+    }
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/classrooms/verify-host`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proof: verifyProof })
       });
-      if (!res.ok) throw new Error("Verification failed");
-      toast({ title: "Host Verified", description: "You are now a verified host!" });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Verification failed");
+      }
+      toast({ title: "Request Submitted", description: "Your verification request is now pending admin approval." });
+      setVerifyDialog(false);
       window.location.reload();
     } catch (e: any) {
       toast({ title: "Verification failed", description: e.message, variant: "destructive" });
@@ -325,11 +336,46 @@ export default function HostDashboard() {
           <div className="bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 p-4 rounded-lg mb-6 flex items-start sm:items-center justify-between flex-col sm:flex-row gap-4">
             <div>
               <h3 className="font-semibold text-amber-900 dark:text-amber-200">Host Verification Required</h3>
-              <p className="text-sm text-amber-800 dark:text-amber-300">To maintain quality, hosts must be verified before creating classes and series. Please agree to the host guidelines.</p>
+              <p className="text-sm text-amber-800 dark:text-amber-300">
+                To maintain quality, hosts must be verified before creating classes and series.
+              </p>
             </div>
-            <Button onClick={handleVerifyHost} className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white">
-              Verify Account
-            </Button>
+            {user.host_verification_status === 'pending' ? (
+              <span className="shrink-0 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-4 py-2 rounded-md font-medium text-sm">
+                Verification Pending
+              </span>
+            ) : (
+              <Dialog open={verifyDialog} onOpenChange={setVerifyDialog}>
+                <DialogTrigger asChild>
+                  <Button className="shrink-0 bg-amber-600 hover:bg-amber-700 text-white">
+                    Request Verification
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Host Verification Request</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <p className="text-sm text-muted-foreground">
+                      Please provide a link to your LinkedIn profile or portfolio to verify your credentials.
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="proof">Verification Proof</Label>
+                      <Input
+                        id="proof"
+                        placeholder="https://linkedin.com/in/..."
+                        value={verifyProof}
+                        onChange={(e) => setVerifyProof(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setVerifyDialog(false)}>Cancel</Button>
+                    <Button onClick={handleVerifyHost}>Submit Request</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         )}
 

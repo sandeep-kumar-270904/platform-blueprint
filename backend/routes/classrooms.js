@@ -910,7 +910,7 @@ const { awardBadge } = require('../utils/gamification');
 });
 
 
-// POST /api/classrooms/verify-host - Request/Approve Host Verification
+// POST /api/classrooms/verify-host - Request Host Verification
 router.post('/verify-host', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -920,12 +920,21 @@ router.post('/verify-host', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Already verified' });
     }
     
-    // For MVP, we automatically approve verification when requested if guidelines are accepted
-    user.is_verified_host = true;
-    user.host_verification_status = 'verified';
+    if (user.host_verification_status === 'pending') {
+      return res.status(400).json({ message: 'Verification already pending' });
+    }
+    
+    const { proof } = req.body;
+    if (!proof) {
+      return res.status(400).json({ message: 'Proof is required' });
+    }
+
+    user.host_verification_proof = proof;
+    user.host_verification_status = 'pending';
+    user.is_verified_host = false;
     await user.save();
     
-    res.json({ message: 'Host verification successful', user });
+    res.json({ message: 'Host verification request submitted successfully', user });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

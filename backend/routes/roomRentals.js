@@ -206,7 +206,7 @@ async function geocodeLocation(locationString) {
 // Create new room rental
 router.post('/', auth, isNotBanned, sanitize, listingCreationLimiter, async (req, res) => {
   try {
-    const { title, description, rent, roomType, location, coordinates, availableBeds, moveInDate, photos, amenities, utilitiesIncluded, utilitiesNote } = req.body;
+    const { title, description, rent, roomType, location, coordinates, availableBeds, moveInDate, photos, amenities, utilitiesIncluded, utilitiesNote, deposit, minLease, houseRules } = req.body;
 
     let finalCoordinates = coordinates;
     if (!finalCoordinates && location) {
@@ -235,7 +235,10 @@ router.post('/', auth, isNotBanned, sanitize, listingCreationLimiter, async (req
       photos: Array.isArray(photos) ? photos : [],
       amenities: Array.isArray(amenities) ? amenities : [],
       utilitiesIncluded: Boolean(utilitiesIncluded),
-      utilitiesNote
+      utilitiesNote,
+      deposit: Number(deposit) || 0,
+      minLease: Number(minLease) || 0,
+      houseRules: houseRules || {}
     });
 
     await newRoom.save();
@@ -520,7 +523,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
 // Update room rental (Owner)
 router.put('/:id', auth, isNotBanned, sanitize, async (req, res) => {
   try {
-    const { title, description, rent, roomType, location, availableBeds, moveInDate, photos, amenities, status, coordinates, utilitiesIncluded, utilitiesNote } = req.body;
+    const { title, description, rent, roomType, location, availableBeds, moveInDate, photos, amenities, status, coordinates, utilitiesIncluded, utilitiesNote, deposit, minLease, houseRules } = req.body;
     
     const room = await RoomRental.findById(req.params.id);
     if (!room) return res.status(404).json({ message: 'Room not found' });
@@ -558,6 +561,9 @@ router.put('/:id', auth, isNotBanned, sanitize, async (req, res) => {
     if (status) room.status = status;
     if (utilitiesIncluded !== undefined) room.utilitiesIncluded = Boolean(utilitiesIncluded);
     if (utilitiesNote !== undefined) room.utilitiesNote = utilitiesNote;
+    if (deposit !== undefined) room.deposit = Number(deposit);
+    if (minLease !== undefined) room.minLease = Number(minLease);
+    if (houseRules !== undefined) room.houseRules = houseRules;
     
     // Geocode if location changed and coordinates not explicitly provided
     let finalCoordinates = coordinates;

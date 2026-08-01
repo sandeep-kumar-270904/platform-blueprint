@@ -40,7 +40,7 @@ const defaultNavigationGroups = [
     items: [
       { title: "Quiz & Tests", href: "/quizzes", desc: "Mock exams and practice" },
       { title: "Tech News", href: "/news", desc: "Latest AI and tech updates" },
-      { title: "Virtual Classroom", href: "/virtual-classroom", desc: "Live learning sessions" },
+      { title: "Virtual Classroom", href: "/classrooms", desc: "Live learning sessions" },
       { title: "Analytics", href: "/analytics", desc: "Your study stats" },
     ],
   },
@@ -60,9 +60,7 @@ const defaultNavigationGroups = [
     title: "Engagement",
     items: [
       { title: "Daily Hacks", href: "/daily-hacks", desc: "Tips and showcases" },
-      { title: "Gamification", href: "/gamification", desc: "Points and badges" },
       { title: "Wellness Tracker", href: "/wellness", desc: "Mental health support" },
-      { title: "Sessions", href: "/sessions", desc: "Study & mentoring sessions" },
     ],
   },
   {
@@ -235,7 +233,7 @@ export const Header = () => {
             <NavigationMenuList className="flex gap-6 lg:gap-8">
               {navigationGroups.map((group) => (
                 <NavigationMenuItem key={group.title}>
-                  <NavigationMenuTrigger className="text-sm font-medium h-8 bg-transparent">
+                  <NavigationMenuTrigger className="text-sm font-medium h-8 bg-transparent hover-underline">
                     {group.title}
                   </NavigationMenuTrigger>
                   <NavigationMenuContent>
@@ -246,7 +244,7 @@ export const Header = () => {
                             <Link
                               to={item.href}
                               className={cn(
-                                "flex items-start gap-3 select-none rounded-lg p-3 no-underline outline-none transition-all hover:bg-muted hover:text-primary active:scale-[0.98]",
+                                "flex items-start gap-3 select-none rounded-lg p-3 no-underline outline-none transition-all hover:bg-muted hover:text-primary active:scale-[0.98] group relative hover-underline",
                                 location.pathname === item.href && "bg-muted text-primary"
                               )}
                             >

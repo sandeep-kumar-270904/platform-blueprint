@@ -28,15 +28,7 @@ const API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/
 
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>({ 
-    id: "dummy-user-id", 
-    email: "test@example.com", 
-    full_name: "Test User", 
-    university: "Test University",
-    is_verified_host: false,
-    host_verification_status: "unverified",
-    gamification_badges: []
-  });
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchUser = async () => {
