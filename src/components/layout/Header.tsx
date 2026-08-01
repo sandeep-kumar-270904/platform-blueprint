@@ -9,7 +9,7 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger
 } from "@/components/ui/navigation-menu";
-import { GraduationCap, Menu, X, LayoutDashboard, Search, Loader2, MapPin, Calendar, Building2, Moon, Sun, BookOpen, MessageCircle, Wrench } from "lucide-react";
+import { Building2, Search, Sun, Moon, Calendar, MapPin, UserPlus, UsersRound, BookOpen, MessageCircle, Wrench, Star, GraduationCap, X, Menu, Loader2 } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -124,7 +124,6 @@ export const Header = () => {
     
     mediaQuery.addEventListener('change', handleChange);
     
-    // Initial sync just in case React mounted after OS theme change
     if (!localStorage.getItem('theme')) {
       const isSystemDark = mediaQuery.matches;
       if (isSystemDark !== isDarkMode) {
@@ -137,16 +136,14 @@ export const Header = () => {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  // Search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<{colleges: any[], events: any[], courses: any[], posts?: any[], tags?: any[], providers?: any[]}>({ colleges: [], events: [], courses: [] });
+  const [searchResults, setSearchResults] = useState<{colleges: any[], events: any[], courses: any[], posts?: any[], tags?: any[], providers?: any[], roommateProfiles?: any[], roommateGroups?: any[]}>({ colleges: [], events: [], courses: [] });
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  // Handle outside click for search
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -157,7 +154,6 @@ export const Header = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(searchQuery);
@@ -165,7 +161,6 @@ export const Header = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fetch search results
   useEffect(() => {
     if (!debouncedQuery) {
       setSearchResults({ colleges: [], events: [], courses: [] });
@@ -176,7 +171,16 @@ export const Header = () => {
     setIsSearching(true);
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/search?q=${encodeURIComponent(debouncedQuery)}`)
       .then(r => r.json())
-      .then(data => setSearchResults({ colleges: data.colleges || [], events: data.events || [], courses: data.courses || [], posts: data.posts, tags: data.tags, providers: data.providers }))
+      .then(data => setSearchResults({ 
+        colleges: data.colleges || [], 
+        events: data.events || [], 
+        courses: data.courses || [], 
+        posts: data.posts, 
+        tags: data.tags, 
+        providers: data.providers,
+        roommateProfiles: data.roommateProfiles || [],
+        roommateGroups: data.roommateGroups || []
+      }))
       .catch(console.error)
       .finally(() => setIsSearching(false));
   }, [debouncedQuery]);
@@ -215,7 +219,6 @@ export const Header = () => {
         isScrolled ? "py-0 shadow-sm" : "py-2"
       )}>
       <div className="container mx-auto flex h-16 items-center justify-between gap-8">
-        {/* Left Side (Logo) */}
         <div className="flex-1 flex justify-start min-w-max">
           <Link to="/" className="flex items-center gap-2 group">
             <div className="icon-box bg-[var(--ink)] text-white shadow-sm transition-all group-hover:scale-110">
@@ -227,7 +230,6 @@ export const Header = () => {
           </Link>
         </div>
 
-        {/* Desktop Navigation (Center) */}
         <nav className="hidden lg:flex justify-center">
           <NavigationMenu delayDuration={200}>
             <NavigationMenuList className="flex gap-6 lg:gap-8">
@@ -271,7 +273,6 @@ export const Header = () => {
           </NavigationMenu>
         </nav>
 
-        {/* Right Side Actions & Search */}
         <div className="flex-1 flex items-center justify-end gap-3 min-w-max">
           <div className="relative hidden md:block w-48 lg:w-64" ref={searchRef}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -292,6 +293,20 @@ export const Header = () => {
                   <div className="p-4 flex justify-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /></div>
                 ) : (
                   <>
+                    {(searchQuery.toLowerCase().includes('roommate') || searchQuery.toLowerCase().includes('flatmate') || searchQuery.toLowerCase().includes('connections')) && (
+                      <div className="space-y-1 mb-2">
+                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quick Links</div>
+                        <div onClick={() => { setShowSearchDropdown(false); navigate('/roommates'); }} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors">
+                          <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center"><UserPlus className="h-4 w-4 text-primary" /></div>
+                          <div className="text-sm font-medium">Find Roommates</div>
+                        </div>
+                        <div onClick={() => { setShowSearchDropdown(false); navigate('/roommates/connections'); }} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors">
+                          <div className="h-8 w-8 rounded bg-indigo-500/10 flex items-center justify-center"><UsersRound className="h-4 w-4 text-indigo-500" /></div>
+                          <div className="text-sm font-medium">My Connections</div>
+                        </div>
+                      </div>
+                    )}
+
                     {searchResults.colleges.length > 0 && (
                       <div className="space-y-1">
                         <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Colleges</div>
@@ -339,7 +354,7 @@ export const Header = () => {
                         ))}
                       </div>
                     )}
-                                        {searchResults.courses?.length > 0 && (
+                    {searchResults.courses?.length > 0 && (
                       <div className="space-y-1 mt-2">
                         <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Courses</div>
                         {searchResults.courses.slice(0, 3).map(course => (
@@ -361,7 +376,6 @@ export const Header = () => {
                         ))}
                       </div>
                     )}
-
                     {searchResults.posts?.length > 0 && (
                       <div className="space-y-1 mt-2">
                         <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Community Posts</div>
@@ -422,8 +436,50 @@ export const Header = () => {
                         ))}
                       </div>
                     )}
+
+                    {(searchResults.roommateProfiles?.length > 0 || searchResults.roommateGroups?.length > 0) && (
+                      <div className="space-y-1 mt-2">
+                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Roommate Finder</div>
+                        
+                        {searchResults.roommateProfiles?.slice(0, 3).map(profile => (
+                          <div 
+                            key={profile._id} 
+                            onClick={() => { setShowSearchDropdown(false); navigate(`/roommates?profile=${profile._id}`); }}
+                            className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                          >
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                              {profile.user?.avatar_url || profile.user?.profilePicture ? (
+                                <img src={profile.user.avatar_url || profile.user.profilePicture} alt="User" className="h-full w-full object-cover" />
+                              ) : (
+                                <UserPlus className="h-4 w-4 text-primary" />
+                              )}
+                            </div>
+                            <div className="overflow-hidden">
+                              <div className="text-sm font-medium truncate">{profile.user?.name || profile.user?.full_name || 'Roommate'}</div>
+                              <div className="text-xs text-muted-foreground truncate">{profile.bio || `Budget: $${profile.budgetRange?.max || 0}`}</div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {searchResults.roommateGroups?.slice(0, 2).map(group => (
+                          <div 
+                            key={group._id} 
+                            onClick={() => { setShowSearchDropdown(false); navigate(`/roommates?group=${group._id}`); }}
+                            className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                          >
+                            <div className="h-8 w-8 rounded-full bg-indigo-500/10 flex items-center justify-center">
+                              <UsersRound className="h-4 w-4 text-indigo-500" />
+                            </div>
+                            <div className="overflow-hidden">
+                              <div className="text-sm font-medium truncate">{group.name}</div>
+                              <div className="text-xs text-muted-foreground truncate">{group.status} • {group.targetSize} members</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     
-                    {searchResults.colleges.length === 0 && searchResults.events.length === 0 && (!searchResults.courses || searchResults.courses.length === 0) && (!searchResults.posts || searchResults.posts.length === 0) ? (
+                    {searchResults.colleges.length === 0 && searchResults.events.length === 0 && (!searchResults.courses || searchResults.courses.length === 0) && (!searchResults.posts || searchResults.posts.length === 0) && (!searchResults.roommateProfiles || searchResults.roommateProfiles.length === 0) && (!searchResults.roommateGroups || searchResults.roommateGroups.length === 0) ? (
                       <div className="p-4 text-center text-sm text-muted-foreground">No results for "{searchQuery}"</div>
                     ) : (
                       <div 

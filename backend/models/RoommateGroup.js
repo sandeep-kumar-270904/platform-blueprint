@@ -24,6 +24,10 @@ const roommateGroupSchema = new mongoose.Schema({
       type: [Number],
       default: [0, 0]
     }
+  },
+  calendarSync: {
+    enabled: { type: Boolean, default: false },
+    eventId: { type: String, default: null }
   }
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 

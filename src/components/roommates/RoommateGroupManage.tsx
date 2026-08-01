@@ -69,6 +69,27 @@ export const RoommateGroupManage: React.FC<RoommateGroupManageProps> = ({ group,
     }
   };
 
+  const handleSyncCalendar = async () => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/roommates/calendar/sync-group/${group._id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ enable: true })
+      });
+
+      if (res.ok) {
+        toast({ title: "Calendar Synced", description: "Group move-in date added to your calendar." });
+      } else {
+        throw new Error('Failed to sync');
+      }
+    } catch (err: any) {
+      toast({ title: "Sync Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
   return (
     <Card className="mb-4 overflow-hidden border-primary/20">
       <CardHeader className="bg-secondary/10 pb-4">
@@ -81,9 +102,16 @@ export const RoommateGroupManage: React.FC<RoommateGroupManageProps> = ({ group,
             <CardDescription className="mt-1">{group.members.length} of {group.targetSize} Members • {group.status}</CardDescription>
           </div>
           {onOpenChat && (
-            <Button variant="outline" size="sm" onClick={() => onOpenChat(group._id, group.name)}>
-              Open Chat
-            </Button>
+            <div className="flex items-center gap-2">
+              {group.moveInDate && (
+                <Button variant="outline" size="icon" title="Sync Move-in Date" onClick={handleSyncCalendar}>
+                  <Calendar className="h-4 w-4" />
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => onOpenChat(group._id, group.name)}>
+                Open Chat
+              </Button>
+            </div>
           )}
         </div>
       </CardHeader>
@@ -179,4 +207,4 @@ export const RoommateGroupManage: React.FC<RoommateGroupManageProps> = ({ group,
     </Card>
   );
 };
-import { User } from 'lucide-react';
+import { User, Calendar } from 'lucide-react';

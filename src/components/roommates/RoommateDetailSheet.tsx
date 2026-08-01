@@ -59,6 +59,24 @@ export const RoommateDetailSheet: React.FC<RoommateDetailSheetProps> = ({
   const { toast } = useToast();
   const [reportingUser, setReportingUser] = React.useState<{id: string, name: string} | null>(null);
 
+  React.useEffect(() => {
+    if (open && profile) {
+      const recordView = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+          await fetch(`${API_URL}/api/roommates/analytics/${profile.user._id}/view`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+        } catch (err) {
+          console.error('Failed to record profile view', err);
+        }
+      };
+      recordView();
+    }
+  }, [open, profile]);
+
   if (!profile) return null;
 
   const handleBlock = async (targetUserId: string, targetUserName: string) => {

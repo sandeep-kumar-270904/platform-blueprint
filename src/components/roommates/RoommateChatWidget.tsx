@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, MessageSquareOff, User, X, MoreVertical, Flag, ShieldBan } from 'lucide-react';
+import { Loader2, Send, MessageSquareOff, User, X, MoreVertical, Flag, ShieldBan, Calendar } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ReportUserModal } from "@/components/roommates/ReportUserModal";
 import { RoommateVerificationBadge, VerificationStatus } from "@/components/roommates/RoommateVerificationBadge";
+import { RoommateMeetupModal } from "@/components/roommates/RoommateMeetupModal";
 import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -40,6 +41,7 @@ export const RoommateChatWidget: React.FC<RoommateChatWidgetProps> = ({ connecti
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [showMeetupModal, setShowMeetupModal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const { toast } = useToast();
@@ -207,6 +209,10 @@ export const RoommateChatWidget: React.FC<RoommateChatWidgetProps> = ({ connecti
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowMeetupModal(true)}>
+                  <Calendar className="h-4 w-4 mr-2" /> Schedule Meetup
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setReportingUser({ id: otherUser?._id || '', name: displayName })}>
                   <Flag className="h-4 w-4 mr-2" /> Report User
                 </DropdownMenuItem>
@@ -297,6 +303,13 @@ export const RoommateChatWidget: React.FC<RoommateChatWidgetProps> = ({ connecti
             chatId: chat?._id,
             recentMessages: chat?.messages?.slice(-5) // Send last 5 messages for context
           }}
+        />
+      )}
+      {showMeetupModal && (
+        <RoommateMeetupModal
+          isOpen={showMeetupModal}
+          onClose={() => setShowMeetupModal(false)}
+          chatId={chat?._id}
         />
       )}
     </Card>

@@ -23,8 +23,10 @@ router.get('/', async (req, res) => {
     const User = require('../models/User');
     const CommunityPost = require('../models/CommunityPost');
     const RepairProvider = require('../models/RepairProvider');
+    const RoommateProfile = require('../models/RoommateProfile');
+    const RoommateGroup = require('../models/RoommateGroup');
 
-    const [colleges, events, courses, paths, ideas, brainstorms, ideaCircles, users, posts, matchedTags, providers] = await Promise.all([
+    const [colleges, events, courses, paths, ideas, brainstorms, ideaCircles, users, posts, matchedTags, providers, roommateProfiles, roommateGroups] = await Promise.all([
       College.find({
         $or: [
           { name: regex },
@@ -132,8 +134,41 @@ router.get('/', async (req, res) => {
         ]
       })
       .select('name category imageUrl location rating')
+      .limit(5),
+
+      RoommateProfile.find({
+        status: 'active',
+        isPaused: false,
+        isHidden: false
+      })
+      .populate({
+        path: 'user',
+        match: { $or: [{ name: regex }, { full_name: regex }] },
+        select: 'name full_name avatar_url profilePicture'
+      })
+      .limit(10), // Will filter out null users in JS
+
+      RoommateGroup.find({
+        status: 'active',
+        $or: [
+          { name: regex },
+          { description: regex }
+        ]
+      })
+      .select('name description targetSize status')
       .limit(5)
     ]);
+
+    // Clean up populated profiles
+    const filteredProfiles = roommateProfiles
+      .filter(p => p.user != null) // Keep only those where the user matched
+      .slice(0, 5) // Limit to 5
+      .map(p => ({
+        _id: p._id,
+        bio: p.bio,
+        budgetRange: p.budgetRange,
+        user: p.user
+      }));
 
     // Combine courses and paths into one results array for the frontend "Courses" section
     const combinedCourses = [
@@ -141,7 +176,12 @@ router.get('/', async (req, res) => {
       ...paths.map(p => ({ ...p.toObject(), searchType: 'path' }))
     ];
 
-    res.json({ colleges, events, courses: combinedCourses, ideas, brainstorms, ideaCircles, users, posts, tags: matchedTags.slice(0, 5), providers });
+    res.json({ 
+      colleges, events, courses: combinedCourses, ideas, brainstorms, 
+      ideaCircles, users, posts, tags: matchedTags.slice(0, 5), providers,
+      roommateProfiles: filteredProfiles,
+      roommateGroups
+    });
   } catch (err) {
     console.error('Search error:', err);
     res.status(500).json({ message: 'Server error during search' });

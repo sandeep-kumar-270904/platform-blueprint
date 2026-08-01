@@ -14,6 +14,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { RoommateFilters, FilterState } from "@/components/roommates/RoommateFilters";
 import { RoommateSuggestionsWidget } from "@/components/roommates/RoommateSuggestionsWidget";
 import { RoommateGroupCreateModal } from "@/components/roommates/RoommateGroupCreateModal";
+import { RoommateAnalytics } from "@/components/roommates/RoommateAnalytics";
 import { RoommateGroupManage } from "@/components/roommates/RoommateGroupManage";
 import { RoommateGroupCard } from "@/components/roommates/RoommateGroupCard";
 import { RoommateCard } from "@/components/roommates/RoommateCard";
@@ -136,10 +137,11 @@ const RoommateFind = () => {
 
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="discover" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-8">
+          <TabsList className="grid w-full grid-cols-4 max-w-2xl mx-auto mb-8">
             <TabsTrigger value="discover">Discover</TabsTrigger>
             <TabsTrigger value="connections">Connections</TabsTrigger>
             <TabsTrigger value="saved">Saved</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
           </TabsList>
 
           <TabsContent value="discover" className="mt-6 space-y-6">
@@ -230,6 +232,10 @@ const RoommateFind = () => {
                  <RoommateCard key={match._id} profile={match} onView={() => setSelectedProfile(match)} isSaved={true} onSave={() => {}} onConnect={() => {}} connectionStatus={null} />
                ))}
              </div>
+          </TabsContent>
+
+          <TabsContent value="analytics" className="mt-6">
+            <RoommateAnalytics />
           </TabsContent>
         </Tabs>
       </div>
