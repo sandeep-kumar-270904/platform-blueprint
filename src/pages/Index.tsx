@@ -302,7 +302,7 @@ const Index = () => {
       <Header />
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-16 md:pt-40 md:pb-32 overflow-hidden bg-background">
+      <section className="relative pt-12 pb-16 md:pt-20 md:pb-32 overflow-hidden bg-background">
         {/* Clean Hero Background Image */}
         <motion.div 
           className="absolute inset-0 z-0 pointer-events-none"
