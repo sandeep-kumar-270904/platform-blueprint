@@ -435,7 +435,7 @@ const Index = () => {
       </section>
 
       {/* Stats Section */}
-      <section className="py-16 bg-zinc-950 dark:bg-zinc-950 border-y border-white/10 relative overflow-hidden">
+      <section className="py-8 md:py-12 bg-zinc-950 dark:bg-zinc-950 border-y border-white/10 relative overflow-hidden">
         {/* Animated gradient sweep */}
         <motion.div 
           className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12 opacity-50"
