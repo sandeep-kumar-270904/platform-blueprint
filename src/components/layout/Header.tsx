@@ -272,7 +272,8 @@ export const Header = () => {
         </nav>
 
         <div className="flex-1 flex items-center justify-end gap-3 min-w-max">
-          <div className="relative hidden md:block w-48 lg:w-64" ref={searchRef}>
+          {location.pathname !== '/' && (
+            <div className="relative hidden md:block w-48 lg:w-64" ref={searchRef}>
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
               placeholder="Search colleges, events..." 
@@ -492,6 +493,7 @@ export const Header = () => {
               </div>
             )}
           </div>
+          )}
 
           <Button 
             variant="ghost" 
@@ -509,7 +511,7 @@ export const Header = () => {
             </>
           ) : (
             <Link to="/auth">
-              <Button className="hidden md:inline-flex">Sign In</Button>
+              <Button className="hidden sm:inline-flex whitespace-nowrap">Sign In</Button>
             </Link>
           )}
           
@@ -566,8 +568,18 @@ export const Header = () => {
                 </ul>
               </div>
             ))}
-            {user && (
+            {user ? (
               <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
+                <Button variant="outline" className="w-full justify-center gap-2" onClick={toggleTheme}>
+                  {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
+                <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
+                  <Button className="w-full justify-center">Sign In</Button>
+                </Link>
                 <Button variant="outline" className="w-full justify-center gap-2" onClick={toggleTheme}>
                   {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                   {isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
