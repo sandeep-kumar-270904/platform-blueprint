@@ -53,14 +53,14 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
       }}
       style={{
         background: "hsl(var(--card))",
-        flex: isHovered && !shouldReduceMotion ? 2.5 : 1
+        flex: isHovered ? 2.5 : 1
       }}
     >
       <motion.div
         layout
         animate={{ 
           y: isHovered && !shouldReduceMotion ? -8 : 0,
-          opacity: isHovered && !shouldReduceMotion ? 0 : 1
+          opacity: isHovered ? 0 : 1
         }}
         transition={premiumTransition}
         className="w-full flex flex-col items-center relative z-20"
@@ -69,13 +69,9 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
           {step}
         </div>
         <h3 className="text-2xl font-bold mb-4 text-foreground">{title}</h3>
-        <motion.p 
-          animate={{ opacity: isHovered ? 0.6 : 1 }}
-          transition={premiumTransition}
-          className="text-muted-foreground leading-relaxed font-medium"
-        >
+        <p className="text-muted-foreground leading-relaxed font-medium">
           {desc}
-        </motion.p>
+        </p>
       </motion.div>
 
       <AnimatePresence>
