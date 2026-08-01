@@ -58,9 +58,9 @@ router.get('/admin/all', auth, admin, async (req, res) => {
 });
 
 // Get all room rentals (with search & filters)
-router.get('/', async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
   try {
-    const { search, minRent, maxRent, roomType, minBeds, maxDate, includeRented, includeExpired } = req.query;
+    const { search, minRent, maxRent, roomType, minBeds, maxDate, includeRented, includeExpired, lat, lng, radius } = req.query;
     
     let query = {};
     
@@ -106,6 +106,31 @@ router.get('/', async (req, res) => {
       }
     }
 
+    if (lat && lng && radius) {
+      const radiusInMiles = Number(radius);
+      // Rough approximation: 1 degree latitude = ~69 miles
+      const latDelta = radiusInMiles / 69;
+      // Longitude delta depends on latitude
+      const lngDelta = radiusInMiles / (69 * Math.cos(Number(lat) * (Math.PI / 180)));
+      
+      query['coordinates.lat'] = { $gte: Number(lat) - latDelta, $lte: Number(lat) + latDelta };
+      query['coordinates.lng'] = { $gte: Number(lng) - lngDelta, $lte: Number(lng) + lngDelta };
+    }
+
+    // Blocking exclusion
+    if (req.user) {
+      const User = require('../models/User');
+      const currentUser = await User.findById(req.user.userId || req.user.id).select('blocked_users blocked_by');
+      if (currentUser) {
+        const blockedUsers = currentUser.blocked_users || [];
+        const blockedBy = currentUser.blocked_by || [];
+        const excludedListers = [...blockedUsers, ...blockedBy];
+        if (excludedListers.length > 0) {
+          query.lister = { $nin: excludedListers };
+        }
+      }
+    }
+
     const rentals = await RoomRental.find(query)
       .populate('lister', 'name email profilePicture')
       .sort({ createdAt: -1 })
@@ -131,14 +156,18 @@ router.get('/', async (req, res) => {
       return acc;
     }, {});
 
-    const rentalsWithStats = rentals.map(r => ({
-      ...r,
-      reviewStats: statsMap[r._id.toString()] || { avgRating: 0, count: 0 },
-      lister: {
-        ...r.lister,
-        roommateProfileId: profileMap[r.lister._id.toString()] || null
-      }
-    }));
+    const rentalsWithStats = rentals.map(r => {
+      return {
+        ...r,
+        // Return the permanently jittered coordinates stored in the DB, not the exact ones
+        coordinates: r.jitteredCoordinates || { lat: r.coordinates?.lat, lng: r.coordinates?.lng },
+        reviewStats: statsMap[r._id.toString()] || { avgRating: 0, count: 0 },
+        lister: {
+          ...r.lister,
+          roommateProfileId: profileMap[r.lister._id.toString()] || null
+        }
+      };
+    });
       
     res.json(rentalsWithStats);
   } catch (error) {
@@ -183,6 +212,14 @@ router.post('/', auth, isNotBanned, sanitize, listingCreationLimiter, async (req
     if (!finalCoordinates && location) {
       finalCoordinates = await geocodeLocation(location);
     }
+    
+    let jitteredCoordinates = undefined;
+    if (finalCoordinates && finalCoordinates.lat && finalCoordinates.lng) {
+      jitteredCoordinates = {
+        lat: finalCoordinates.lat + (Math.random() - 0.5) * 0.01,
+        lng: finalCoordinates.lng + (Math.random() - 0.5) * 0.01
+      };
+    }
 
     const newRoom = new RoomRental({
       lister: (req.user.id || req.user.userId),
@@ -192,6 +229,7 @@ router.post('/', auth, isNotBanned, sanitize, listingCreationLimiter, async (req
       roomType,
       location,
       coordinates: finalCoordinates,
+      jitteredCoordinates,
       availableBeds: Number(availableBeds),
       moveInDate: new Date(moveInDate),
       photos: Array.isArray(photos) ? photos : [],
@@ -250,6 +288,32 @@ router.post('/', auth, isNotBanned, sanitize, listingCreationLimiter, async (req
 });
 
 const User = require('../models/User');
+
+// Get current user's analytics (owner)
+router.get('/me/analytics', auth, async (req, res) => {
+  try {
+    const userId = req.user.id || req.user.userId;
+    const listings = await RoomRental.find({ lister: userId }).select('_id');
+    const listingIds = listings.map(l => l._id);
+
+    const RoomInquiry = require('../models/RoomInquiry');
+    const RoomBooking = require('../models/RoomBooking');
+
+    const totalViews = listings.reduce((acc, l) => acc + (l.views || 0), 0); // Assuming views field might exist later, or just 0
+    const totalInquiries = await RoomInquiry.countDocuments({ room: { $in: listingIds } });
+    const totalBookings = await RoomBooking.countDocuments({ room: { $in: listingIds }, status: 'Accepted' });
+
+    res.json({
+      activeListings: listings.length,
+      totalViews,
+      totalInquiries,
+      totalBookings
+    });
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
 
 // Get current user's listings
 router.get('/me/listings', auth, async (req, res) => {
@@ -328,13 +392,19 @@ router.post('/inquiries', isNotBanned, auth, sanitize, inquiryLimiter, async (re
 
     // Notify the listing owner
     try {
-      await Notification.create({
-        userId: room.lister,
-        type: 'room_rental_inquiry_received',
-        message: `You have received a new inquiry on your room rental: ${room.title}`,
-        relatedContentId: newInquiry._id,
-        actors: [{ userId: (req.user.id || req.user.userId) }]
-      });
+      const ownerUser = await User.findById(room.lister).select('notificationPreferences');
+      const pref = ownerUser?.notificationPreferences?.roomRentals?.inquiry_responses || 'instant';
+      
+      if (pref !== 'off') {
+        await Notification.create({
+          userId: room.lister,
+          type: 'room_rental_inquiry_received',
+          message: `You have received a new inquiry on your room rental: ${room.title}`,
+          relatedContentId: newInquiry._id,
+          actors: [{ userId: (req.user.id || req.user.userId) }],
+          isDigest: pref === 'digest'
+        });
+      }
     } catch (notifErr) {
       console.error('Error sending notification for room rental inquiry:', notifErr);
     }
@@ -398,13 +468,19 @@ router.put('/inquiries/:id/status', auth, async (req, res) => {
     // Notify the original sender if status is set to Responded
     if (status === 'Responded') {
       try {
-        await Notification.create({
-          userId: inquiry.sender,
-          type: 'room_rental_inquiry_responded',
-          message: `The owner has responded to your inquiry regarding: ${inquiry.room.title}`,
-          relatedContentId: inquiry._id,
-          actors: [{ userId: (req.user.id || req.user.userId) }]
-        });
+        const renterUser = await User.findById(inquiry.sender).select('notificationPreferences');
+        const pref = renterUser?.notificationPreferences?.roomRentals?.inquiry_responses || 'instant';
+        
+        if (pref !== 'off') {
+          await Notification.create({
+            userId: inquiry.sender,
+            type: 'room_rental_inquiry_responded',
+            message: `The owner has responded to your inquiry regarding: ${inquiry.room.title}`,
+            relatedContentId: inquiry._id,
+            actors: [{ userId: (req.user.id || req.user.userId) }],
+            isDigest: pref === 'digest'
+          });
+        }
       } catch (notifErr) {
         console.error('Error sending notification for room rental response:', notifErr);
       }
@@ -455,6 +531,7 @@ router.put('/:id', auth, isNotBanned, sanitize, async (req, res) => {
 
     // Check if core details changed to reset verification
     let resetVerification = false;
+    let priceDropped = false;
     if (
       (rent && room.rent !== Number(rent)) ||
       (location && room.location !== location) ||
@@ -463,6 +540,10 @@ router.put('/:id', auth, isNotBanned, sanitize, async (req, res) => {
       if (room.verificationStatus === 'Verified') {
         resetVerification = true;
       }
+    }
+    
+    if (rent && Number(rent) < room.rent) {
+      priceDropped = true;
     }
 
     if (title) room.title = title;
@@ -483,13 +564,49 @@ router.put('/:id', auth, isNotBanned, sanitize, async (req, res) => {
     if (!finalCoordinates && location && location !== room.location) {
       finalCoordinates = await geocodeLocation(location);
     }
-    if (finalCoordinates) room.coordinates = finalCoordinates;
+    
+    if (finalCoordinates) {
+      room.coordinates = finalCoordinates;
+      
+      // Also recalculate jittered coordinates since the location changed
+      if (finalCoordinates.lat && finalCoordinates.lng) {
+        room.jitteredCoordinates = {
+          lat: finalCoordinates.lat + (Math.random() - 0.5) * 0.01,
+          lng: finalCoordinates.lng + (Math.random() - 0.5) * 0.01
+        };
+      }
+    }
 
     if (resetVerification) {
       room.verificationStatus = 'Pending';
     }
 
     await room.save();
+    
+    if (priceDropped) {
+      // Find users who have this room saved
+      const savedUsers = await User.find({ savedRoomRentals: room._id }).select('_id notificationPreferences');
+      const notificationsToCreate = [];
+      
+      for (const u of savedUsers) {
+        const pref = u.notificationPreferences?.roomRentals?.price_drops || 'instant';
+        if (pref !== 'off') {
+          notificationsToCreate.push({
+            userId: u._id,
+            type: 'room_rental_price_drop',
+            message: `The price for the room you saved in ${room.location} has dropped to $${room.rent}!`,
+            actionUrl: `/room-rentals?room=${room._id}`,
+            channel: 'in_app',
+            isDigest: pref === 'digest'
+          });
+        }
+      }
+      
+      if (notificationsToCreate.length > 0) {
+        await Notification.insertMany(notificationsToCreate).catch(err => console.error('Error creating price drop notifs:', err));
+      }
+    }
+
     res.json(room);
   } catch (error) {
     console.error('Error updating room rental:', error);
@@ -572,6 +689,11 @@ router.delete('/:id/save', auth, async (req, res) => {
 // Request verification
 router.post('/:id/verify', auth, async (req, res) => {
   try {
+    const { proofUrl } = req.body;
+    if (!proofUrl) {
+      return res.status(400).json({ message: 'Verification proof document is required.' });
+    }
+
     const room = await RoomRental.findById(req.params.id);
     if (!room) return res.status(404).json({ message: 'Room not found' });
 
@@ -581,6 +703,7 @@ router.post('/:id/verify', auth, async (req, res) => {
 
     if (room.verificationStatus === 'None' || room.verificationStatus === 'Rejected') {
       room.verificationStatus = 'Pending';
+      room.verificationProof = proofUrl;
       await room.save();
     }
     
@@ -605,14 +728,22 @@ router.put('/:id/verify/admin', auth, admin, async (req, res) => {
     room.verificationStatus = status;
     await room.save();
 
-    if (status === 'Verified') {
-      const notification = new Notification({
-        recipient: room.lister,
-        sender: (req.user.id || req.user.userId),
-        type: 'verification_approved',
-        content: `Your room rental listing "${room.title}" has been verified by an administrator!`,
-      });
-      await notification.save();
+    if (status === 'Verified' || status === 'Rejected') {
+      const ownerUser = await User.findById(room.lister).select('notificationPreferences');
+      const pref = ownerUser?.notificationPreferences?.roomRentals?.booking_updates || 'instant';
+      
+      if (pref !== 'off') {
+        const notification = new Notification({
+          userId: room.lister, // Using userId instead of recipient for consistency
+          recipient: room.lister, 
+          sender: (req.user.id || req.user.userId),
+          type: status === 'Verified' ? 'verification_approved' : 'verification_rejected',
+          content: `Your room rental listing "${room.title}" has been ${status.toLowerCase()} by an administrator.`,
+          message: `Your room rental listing "${room.title}" has been ${status.toLowerCase()} by an administrator.`,
+          isDigest: pref === 'digest'
+        });
+        await notification.save();
+      }
     }
     
     res.json(room);

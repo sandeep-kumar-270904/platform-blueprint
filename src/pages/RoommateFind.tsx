@@ -19,6 +19,7 @@ import { RoommateGroupManage } from "@/components/roommates/RoommateGroupManage"
 import { RoommateGroupCard } from "@/components/roommates/RoommateGroupCard";
 import { RoommateCard } from "@/components/roommates/RoommateCard";
 import { RoommateMapView } from "@/components/roommates/RoommateMapView";
+import { RoommateConnectionsView } from "@/components/roommates/RoommateConnectionsView";
 
 const RoommateFind = () => {
   const [matches, setMatches] = useState<any[]>([]);
@@ -121,6 +122,43 @@ const RoommateFind = () => {
     }
   };
 
+  const handleRespond = async (connectionId: string, status: 'Accepted' | 'Declined') => {
+    try {
+      const token = localStorage.getItem('token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${API_URL}/api/roommates/connections/${connectionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) {
+        toast({ title: "Success", description: `Connection ${status.toLowerCase()}.` });
+        fetchProfileAndMatches();
+      } else {
+        const err = await res.json();
+        if (res.status === 400 && err.message === 'This request has already been handled.') {
+          toast({ title: "Already Handled", description: err.message, variant: "destructive" });
+          fetchProfileAndMatches(); // Refresh state to remove it
+        } else {
+          toast({ title: "Error", description: err.message, variant: "destructive" });
+        }
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to respond", variant: "destructive" });
+    }
+  };
+
+  const handleWithdraw = async (connectionId: string) => {
+    // API logic for withdrawing
+  };
+
+  const handleUnmatch = async (connectionId: string) => {
+    // API logic for unmatching
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <Header />
@@ -218,7 +256,16 @@ const RoommateFind = () => {
           </TabsContent>
 
           <TabsContent value="connections" className="mt-6">
-            <h2 className="text-xl font-bold mb-4">Your Groups</h2>
+            <RoommateConnectionsView 
+              connections={connections}
+              myProfile={myProfile}
+              onRespond={handleRespond}
+              onWithdraw={handleWithdraw}
+              onUnmatch={handleUnmatch}
+              onProfileSelect={setSelectedProfile}
+            />
+
+            <h2 className="text-xl font-bold mb-4 mt-8">Your Groups</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {myGroups.map(group => (
                 <RoommateGroupManage key={group._id} group={group} onUpdate={fetchProfileAndMatches} myUserId={myProfile?.user._id} />

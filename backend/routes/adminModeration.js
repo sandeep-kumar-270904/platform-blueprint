@@ -9,6 +9,7 @@ const QuizReport = require('../models/QuizReport');
 const NewsReport = require('../models/NewsReport');
 const Scholarship = require('../models/Scholarship');
 const ScholarshipReview = require('../models/ScholarshipReview');
+const RoomRental = require('../models/RoomRental');
 const notificationService = require('../services/notificationService');
 const AdminActionLog = require('../models/AdminActionLog');
 
@@ -28,14 +29,15 @@ const isAdmin = async (req, res, next) => {
 // GET /api/admin/moderation/unified
 router.get('/unified', authMiddleware, isAdmin, async (req, res) => {
   try {
-    const [general, ideas, jobs, quizzes, news, scholarships, scholarshipReviews] = await Promise.all([
+    const [general, ideas, jobs, quizzes, news, scholarships, scholarshipReviews, roomRentals] = await Promise.all([
       Report.find({ status: 'pending' }).populate('reported_by', 'full_name email').lean(),
       IdeaReport.find({ status: 'pending' }).populate('reporter', 'full_name email').populate('reportedBy', 'full_name email').lean(),
       JobReport.find({ status: 'pending' }).populate('reportedBy', 'full_name email').lean(),
       QuizReport.find({ status: 'pending' }).populate('reportedBy', 'full_name email').lean(),
       NewsReport.find({ status: 'pending' }).populate('reportedBy', 'full_name email').lean(),
       Scholarship.find({ $or: [{ 'reports.0': { $exists: true } }, { isScamFlagged: true }] }).populate('reports.userId', 'full_name email').lean(),
-      ScholarshipReview.find({ 'reports.0': { $exists: true } }).populate('reports.userId', 'full_name email').lean()
+      ScholarshipReview.find({ 'reports.0': { $exists: true } }).populate('reports.userId', 'full_name email').lean(),
+      RoomRental.find({ 'reports.0': { $exists: true } }).populate('reports.user', 'full_name email').lean()
     ]);
 
     const normalize = (reports, module) => reports.map(r => ({
@@ -104,6 +106,22 @@ router.get('/unified', authMiddleware, isAdmin, async (req, res) => {
       });
     });
 
+    roomRentals.forEach(room => {
+      (room.reports || []).forEach((rep, i) => {
+        unified.push({
+          _id: room._id + '_rep_' + i,
+          module: 'RoomRentals',
+          targetId: room._id,
+          targetType: 'RoomRental',
+          reporter: rep.user,
+          reason: rep.reason,
+          details: null,
+          createdAt: rep.createdAt,
+          status: 'pending'
+        });
+      });
+    });
+
     unified.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     res.json(unified);
@@ -118,8 +136,12 @@ router.post('/unified/:module/:id/action', authMiddleware, isAdmin, async (req, 
   const { action, adminNote } = req.body; // action: 'dismiss', 'confirm_hide', 'ban_author'
 
   try {
-    if (module === 'Scholarships' || module === 'ScholarshipReviews') {
-      const Model = module === 'Scholarships' ? Scholarship : ScholarshipReview;
+    if (module === 'Scholarships' || module === 'ScholarshipReviews' || module === 'RoomRentals') {
+      let Model;
+      if (module === 'Scholarships') Model = Scholarship;
+      else if (module === 'ScholarshipReviews') Model = ScholarshipReview;
+      else if (module === 'RoomRentals') Model = RoomRental;
+
       // Handle the custom composite IDs like id_scam or id_rep_0
       const realId = id.split('_')[0];
       const doc = await Model.findById(realId);
@@ -134,28 +156,21 @@ router.post('/unified/:module/:id/action', authMiddleware, isAdmin, async (req, 
           if (!isNaN(index) && doc.reports && doc.reports.length > index) {
             doc.reports.splice(index, 1);
           }
-        } else {
-          doc.reports = [];
         }
-      } else if (action === 'confirm_hide') {
-        if (module === 'Scholarships') {
-          doc.status = 'rejected';
-        } else {
-          doc.isHidden = true;
-        }
+        await doc.save();
       }
 
-      await doc.save();
-      await AdminActionLog.create({
-        adminId: req.adminUser._id,
-        actionType: `moderation_${action}`,
-        targetId: realId,
-        reason: adminNote
-      });
+      if (action === 'confirm_hide') {
+        if (module === 'RoomRentals') {
+          doc.status = 'Unavailable';
+        } else {
+          doc.status = 'hidden';
+        }
+        await doc.save();
+      }
 
-      // Handle ban_author for scholarships if applicable
       if (action === 'ban_author') {
-        const authorField = doc.author || doc.userId || doc.submittedBy;
+        const authorField = doc.author || doc.userId || doc.submittedBy || doc.lister;
         if (authorField) {
           await User.findByIdAndUpdate(authorField, { 
             banned: true, 

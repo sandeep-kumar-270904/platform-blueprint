@@ -163,6 +163,17 @@ router.post('/profile', auth, isNotBanned, sanitize, async (req, res) => {
   try {
     const { preferredLocations, lifestyle_preferences, budgetRange, moveInDate, bio, profilePhoto, galleryPhotos, visibility, status } = req.body;
     
+    // Phase 30: Budget Min/Max Validation
+    if (budgetRange) {
+      const min = Number(budgetRange.min);
+      const max = Number(budgetRange.max);
+      if (isNaN(min) || isNaN(max) || min < 0 || min > max) {
+        return res.status(400).json({ message: 'Invalid budget range. Minimum must be >= 0 and <= maximum.' });
+      }
+    }
+
+    let finalLocationFailed = false;
+
     let profile = await RoommateProfile.findOne({ user: req.user.id });
     if (profile) {
       // Determine if location changed before updating it
@@ -197,16 +208,22 @@ router.post('/profile', auth, isNotBanned, sanitize, async (req, res) => {
         const coords = await geocodeLocation(preferredLocations[0]);
         if (coords) {
           profile.location = { type: 'Point', coordinates: coords };
+        } else {
+          finalLocationFailed = true;
         }
       }
 
       await profile.save();
     } else {
       // Create new profile
-      let newLocation = { type: 'Point', coordinates: [0, 0] };
+      let newLocation = undefined;
       if (preferredLocations && preferredLocations.length > 0) {
         const coords = await geocodeLocation(preferredLocations[0]);
-        if (coords) newLocation.coordinates = coords;
+        if (coords) {
+          newLocation = { type: 'Point', coordinates: coords };
+        } else {
+          finalLocationFailed = true;
+        }
       }
 
       profile = new RoommateProfile({
@@ -220,12 +237,13 @@ router.post('/profile', auth, isNotBanned, sanitize, async (req, res) => {
         galleryPhotos,
         visibility,
         status,
-        location: newLocation
       });
+      if (newLocation) profile.location = newLocation;
+      
       await profile.save();
     }
     
-    res.json(profile);
+    res.json({ ...profile.toObject(), locationFailed: finalLocationFailed });
   } catch (error) {
     console.error('Error saving roommate profile:', error);
     res.status(500).json({ message: 'Server Error' });
@@ -288,9 +306,10 @@ router.get('/discover', auth, async (req, res) => {
     if (sharedSpaceExpectations) query['lifestyle_preferences.sharedSpaceExpectations'] = sharedSpaceExpectations;
     if (noiseTolerance) query['lifestyle_preferences.noiseTolerance'] = noiseTolerance;
 
-    // We only populate name/full_name, profilePicture/avatar_url, and university for searching/display
+    // Find potential matches, capped at 500 to allow reasonable pagination pool
     let otherProfiles = await RoommateProfile.find(query)
-      .populate('user', 'name full_name profilePicture avatar_url university');
+      .populate('user', 'name full_name profilePicture avatar_url university')
+      .limit(500);
 
     // Phase 10: Visibility & same college filtering
     otherProfiles = otherProfiles.filter(p => {
@@ -335,7 +354,14 @@ router.get('/discover', auth, async (req, res) => {
       matchedProfiles.sort((a, b) => b.compatibilityScore - a.compatibilityScore);
     }
 
-    res.json(matchedProfiles);
+    // Phase 31: Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const paginatedProfiles = matchedProfiles.slice(startIndex, endIndex);
+
+    res.json(paginatedProfiles);
   } catch (error) {
     console.error('Error discovering roommates:', error);
     res.status(500).json({ message: 'Server Error' });
@@ -446,15 +472,20 @@ router.put('/connections/:id', auth, isNotBanned, sanitize, async (req, res) => 
       return res.status(400).json({ message: 'Invalid status' });
     }
 
-    const connection = await RoommateConnection.findById(req.params.id);
-    if (!connection) return res.status(404).json({ message: 'Connection not found' });
+    // Phase 31: Optimistic locking for connection updates
+    const connection = await RoommateConnection.findOneAndUpdate(
+      { _id: req.params.id, recipient: req.user.id, status: 'Pending' },
+      { status },
+      { new: true }
+    );
 
-    if (connection.recipient.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized' });
+    if (!connection) {
+      // Find out if it was just unauthorized or already handled
+      const exists = await RoommateConnection.findById(req.params.id);
+      if (!exists) return res.status(404).json({ message: 'Connection not found' });
+      if (exists.recipient.toString() !== req.user.id) return res.status(403).json({ message: 'Unauthorized' });
+      return res.status(400).json({ message: 'This request has already been handled.' });
     }
-
-    connection.status = status;
-    await connection.save();
 
     const responder = await User.findById(req.user.id);
     const responderName = responder.name || 'Someone';

@@ -28,6 +28,10 @@ const RoomRentalSchema = new mongoose.Schema({
     lat: { type: Number },
     lng: { type: Number }
   },
+  jitteredCoordinates: {
+    lat: { type: Number },
+    lng: { type: Number }
+  },
   availableBeds: {
     type: Number,
     required: true,
@@ -57,6 +61,9 @@ const RoomRentalSchema = new mongoose.Schema({
     type: String,
     enum: ['None', 'Pending', 'Verified', 'Rejected'],
     default: 'None',
+  },
+  verificationProof: {
+    type: String
   },
   status: {
     type: String,

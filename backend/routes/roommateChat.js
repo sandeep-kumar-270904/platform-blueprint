@@ -3,6 +3,7 @@ const router = express.Router();
 const roommateChatController = require('../controllers/roommateChatController');
 const auth = require('../middleware/auth');
 const checkSuspended = require('../middleware/checkSuspended');
+const sanitize = require('../middleware/sanitize');
 
 // Map to: /api/roommates/chat
 
@@ -13,7 +14,7 @@ router.get('/:connectionId', auth, roommateChatController.getChatByConnectionId)
 router.get('/group/:groupId', auth, roommateChatController.getChatByGroupId);
 
 // Send message
-router.post('/:connectionId', auth, checkSuspended, roommateChatController.sendMessage);
+router.post('/:connectionId', auth, checkSuspended, sanitize, roommateChatController.sendMessage);
 
 // Mark as read
 router.post('/:connectionId/read', auth, checkSuspended, roommateChatController.markAsRead);

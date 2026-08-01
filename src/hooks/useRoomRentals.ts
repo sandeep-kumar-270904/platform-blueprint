@@ -60,6 +60,9 @@ export interface RoomRentalQuery {
   maxDate?: string;
   includeRented?: boolean;
   includeExpired?: boolean;
+  lat?: string;
+  lng?: string;
+  radius?: string;
 }
 
 export const useRoomRentals = (filters?: RoomRentalQuery) => {

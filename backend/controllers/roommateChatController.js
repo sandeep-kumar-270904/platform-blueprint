@@ -88,6 +88,14 @@ exports.sendMessage = async (req, res) => {
     const { connectionId } = req.params;
     const { content, isGroup } = req.body;
 
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ message: 'Message content is required' });
+    }
+    
+    if (content.length > 2000) {
+      return res.status(400).json({ message: 'Message exceeds maximum length of 2000 characters' });
+    }
+
     let chat;
     if (isGroup) {
       chat = await RoommateChat.findOne({ groupId: connectionId });

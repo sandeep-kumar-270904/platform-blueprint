@@ -143,7 +143,13 @@ export const RoommateProfileForm: React.FC<RoommateProfileFormProps> = ({ open, 
 
       if (!res.ok) throw new Error("Failed to save profile");
       
-      toast({ title: "Success", description: "Profile saved successfully." });
+      const jsonRes = await res.json();
+      if (jsonRes.locationFailed) {
+        toast({ title: "Profile Saved", description: "Profile saved, but we couldn't verify that location — please check the spelling or try again.", variant: "destructive" });
+      } else {
+        toast({ title: "Success", description: "Profile saved successfully." });
+      }
+      
       onSuccess();
       onOpenChange(false);
     } catch (err) {

@@ -19,6 +19,10 @@ import { RoommateProfileForm } from "@/components/room-rentals/RoommateProfileFo
 import { RoommateFinder } from "@/components/room-rentals/RoommateFinder";
 import { RoommateConnections } from "@/components/room-rentals/RoommateConnections";
 import { SearchAlertsPanel } from "@/components/room-rentals/SearchAlertsPanel";
+import { RoomBookingManagement } from "@/components/room-rentals/RoomBookingManagement";
+import { RoomBookingFlow } from "@/components/room-rentals/RoomBookingFlow";
+import { RoomRentalChatView } from "@/components/room-rentals/RoomRentalChatView";
+import { RoomRentalAnalytics } from "@/components/room-rentals/RoomRentalAnalytics";
 
 const RoomRentals = () => {
   // Phase 2: Filters and Search
@@ -31,6 +35,9 @@ const RoomRentals = () => {
   const [maxMoveInDate, setMaxMoveInDate] = useState('');
   const [includeRented, setIncludeRented] = useState(false);
   const [includeExpired, setIncludeExpired] = useState(false);
+  const [radius, setRadius] = useState('');
+  const [lat, setLat] = useState('');
+  const [lng, setLng] = useState('');
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -60,12 +67,14 @@ const RoomRentals = () => {
     minBeds: minBeds,
     maxDate: maxMoveInDate,
     includeRented: includeRented,
-    includeExpired: includeExpired
-
+    includeExpired: includeExpired,
+    lat,
+    lng,
+    radius
   });
   const { user } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<'listings' | 'saved' | 'mylistings' | 'sent' | 'inbox' | 'roommates' | 'myprofile' | 'connections' | 'alerts'>('listings');
+  const [activeTab, setActiveTab] = useState<'listings' | 'saved' | 'mylistings' | 'sent' | 'inbox' | 'roommates' | 'myprofile' | 'connections' | 'alerts' | 'bookingsSent' | 'bookingsReceived'>('listings');
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const { discoverRoommates } = useRoommates();
   
@@ -79,6 +88,7 @@ const RoomRentals = () => {
   const [inquiryMessage, setInquiryMessage] = useState('');
   const [inquiryDate, setInquiryDate] = useState('');
   const [inquirySuccess, setInquirySuccess] = useState(false);
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -114,6 +124,9 @@ const RoomRentals = () => {
     setFilterRoomType('All');
     setMinBeds('');
     setMaxMoveInDate('');
+    setRadius('');
+    setLat('');
+    setLng('');
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -556,6 +569,13 @@ const RoomRentals = () => {
                 <Inbox className="w-4 h-4 mr-2" /> Owner Inbox
               </Button>
               <div className="w-px h-6 bg-border mx-2 self-center"></div>
+              <Button variant={activeTab === 'bookingsSent' ? 'default' : 'ghost'} onClick={() => setActiveTab('bookingsSent')}>
+                <CheckCircle className="w-4 h-4 mr-2" /> My Bookings
+              </Button>
+              <Button variant={activeTab === 'bookingsReceived' ? 'default' : 'ghost'} onClick={() => setActiveTab('bookingsReceived')}>
+                <CheckCircle2 className="w-4 h-4 mr-2" /> Owner Bookings
+              </Button>
+              <div className="w-px h-6 bg-border mx-2 self-center"></div>
               <Button variant={activeTab === 'roommates' ? 'default' : 'ghost'} onClick={() => setActiveTab('roommates')}>
                 <Users className="w-4 h-4 mr-2" /> Find Roommates
               </Button>
@@ -623,7 +643,22 @@ const RoomRentals = () => {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div className="space-y-1">
+              <Label>Latitude</Label>
+              <Input type="number" step="any" placeholder="e.g. 40.7128" value={lat} onChange={e => setLat(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Longitude</Label>
+              <Input type="number" step="any" placeholder="e.g. -74.0060" value={lng} onChange={e => setLng(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Radius (Miles)</Label>
+              <Input type="number" placeholder="e.g. 5" value={radius} onChange={e => setRadius(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 mt-4">
             <Button variant="ghost" onClick={resetFilters} className="text-muted-foreground shrink-0">
               <X className="w-4 h-4 mr-2" /> Clear
             </Button>
@@ -688,8 +723,15 @@ const RoomRentals = () => {
           <div className="w-full h-[600px] bg-muted/30 rounded-xl border relative overflow-hidden flex items-center justify-center bg-[url('https://www.transparenttextures.com/patterns/grid-me.png')]">
             <div className="absolute inset-0 opacity-20 bg-[url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/World_Map_Blank.svg/2000px-World_Map_Blank.svg.png')] bg-cover bg-center"></div>
             {rooms.map((room, i) => {
-              const top = 20 + ((i * 17) % 60);
-              const left = 10 + ((i * 23) % 80);
+              let top = 20 + ((i * 17) % 60);
+              let left = 10 + ((i * 23) % 80);
+              
+              if (room.coordinates?.lat && room.coordinates?.lng) {
+                // Basic mercator-ish mapping to percentage for the placeholder map image
+                top = 50 - (room.coordinates.lat * (100 / 180));
+                left = 50 + (room.coordinates.lng * (100 / 360));
+              }
+
               return (
                 <div 
                   key={room._id} 
@@ -928,11 +970,12 @@ const RoomRentals = () => {
       )}
 
       {activeTab === 'mylistings' && (
-        <div className="container mx-auto px-4 py-12">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">My Listings</h2>
-            <Button onClick={() => setIsCreateOpen(true)}>Create Listing</Button>
-          </div>
+          <div className="container mx-auto px-4 py-12">
+            <RoomRentalAnalytics />
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">My Listings</h2>
+              <Button onClick={() => setIsCreateOpen(true)}>Create Listing</Button>
+            </div>
           {getMyListings.isLoading ? (
             <div className="text-muted-foreground">Loading my listings...</div>
           ) : getMyListings.data?.length === 0 ? (
@@ -1040,70 +1083,6 @@ const RoomRentals = () => {
                         <p className="text-sm font-medium text-primary mb-1">Owner's reply:</p>
                         <p className="text-sm bg-primary/10 border border-primary/20 p-3 rounded-md whitespace-pre-wrap">{inq.replyMessage}</p>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'inbox' && (
-        <div className="container mx-auto px-4 py-12">
-          <h2 className="text-2xl font-bold mb-6">Incoming Inquiries</h2>
-          {getReceivedInquiries.isLoading ? (
-            <div className="text-muted-foreground">Loading inquiries...</div>
-          ) : getReceivedInquiries.data?.length === 0 ? (
-            <div className="text-muted-foreground">No incoming inquiries on your listings yet.</div>
-          ) : (
-            <div className="space-y-4">
-              {getReceivedInquiries.data?.map(inq => (
-                <Card key={inq._id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-semibold text-lg">Inquiry for: {inq.room.title}</h3>
-                        <p className="text-sm text-muted-foreground">From: {inq.sender.name} ({inq.sender.email})</p>
-                        {inq.moveInDate && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            <Calendar className="inline w-3 h-3 mr-1" />
-                            Prefers to move in: {new Date(inq.moveInDate).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                      <Badge variant={inq.status === 'Responded' ? 'default' : 'secondary'}>{inq.status}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium mb-1">Their message:</p>
-                      <p className="text-sm bg-muted p-3 rounded-md whitespace-pre-wrap">{inq.message}</p>
-                    </div>
-                    
-                    {inq.status === 'Pending' ? (
-                      <form 
-                        onSubmit={(e: any) => {
-                          e.preventDefault();
-                          const msg = e.target.elements.replyMsg.value;
-                          if (!msg) return;
-                          updateInquiryStatus.mutate({ inquiryId: inq._id, status: 'Responded', replyMessage: msg });
-                        }}
-                        className="space-y-2 mt-4"
-                      >
-                        <Label>Reply</Label>
-                        <Textarea name="replyMsg" required placeholder="Type your response here..." />
-                        <Button type="submit" size="sm" disabled={updateInquiryStatus.isPending}>
-                          Send Reply
-                        </Button>
-                      </form>
-                    ) : (
-                      inq.replyMessage && (
-                        <div>
-                          <p className="text-sm font-medium text-primary mb-1">Your reply:</p>
-                          <p className="text-sm bg-primary/10 border border-primary/20 p-3 rounded-md whitespace-pre-wrap">{inq.replyMessage}</p>
-                        </div>
-                      )
                     )}
                   </CardContent>
                 </Card>
@@ -1277,10 +1256,16 @@ const RoomRentals = () => {
                           onChange={e => setInquiryDate(e.target.value)}
                         />
                       </div>
-                      <Button type="submit" disabled={sendInquiry.isPending} className="w-full">
-                        <Mail className="w-4 h-4 mr-2" />
-                        {sendInquiry.isPending ? 'Sending...' : 'Send Inquiry'}
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        <Button type="submit" disabled={sendInquiry.isPending} className="w-full">
+                          <Mail className="w-4 h-4 mr-2" />
+                          {sendInquiry.isPending ? 'Sending...' : 'Send Inquiry'}
+                        </Button>
+                        <div className="text-center text-xs text-muted-foreground my-2">OR</div>
+                        <Button type="button" variant="secondary" className="w-full" onClick={() => setIsBookingOpen(true)}>
+                          Request to Book
+                        </Button>
+                      </div>
                     </form>
                   )
                 ) : (
@@ -1314,6 +1299,17 @@ const RoomRentals = () => {
           )}
         </DialogContent>
       </Dialog>
+      
+      {/* Booking Flow Modal */}
+      {selectedRoom && (
+        <RoomBookingFlow 
+          roomId={selectedRoom._id}
+          roomTitle={selectedRoom.title}
+          monthlyRent={selectedRoom.rent}
+          isOpen={isBookingOpen}
+          onClose={() => setIsBookingOpen(false)}
+        />
+      )}
     </div>
   );
 };
