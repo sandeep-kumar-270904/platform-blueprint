@@ -58,7 +58,10 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
     >
       <motion.div
         layout
-        animate={{ y: isHovered && !shouldReduceMotion ? -8 : 0 }}
+        animate={{ 
+          y: isHovered && !shouldReduceMotion ? -8 : 0,
+          opacity: isHovered && !shouldReduceMotion ? 0 : 1
+        }}
         transition={premiumTransition}
         className="w-full flex flex-col items-center relative z-20"
       >
@@ -87,15 +90,12 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
             <motion.img
               src={image}
               alt={title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain p-4"
               initial={{ scale: 1.05 }}
               animate={{ scale: 1 }}
               exit={{ scale: 1.05 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
             />
-            {/* Gradient overlay to keep text readable if image is bright */}
-            <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px]" />
-            <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-background/10" />
           </motion.div>
         )}
       </AnimatePresence>
