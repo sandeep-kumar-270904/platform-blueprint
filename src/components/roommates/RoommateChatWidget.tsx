@@ -36,7 +36,7 @@ interface RoommateChatWidgetProps {
 
 export const RoommateChatWidget: React.FC<RoommateChatWidgetProps> = ({ connectionId, isGroup = false, onClose, otherUser }) => {
   const { user } = useAuth();
-  const { socket } = useSocket();
+  const socket = useSocket();
   const [chat, setChat] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
