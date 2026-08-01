@@ -474,7 +474,7 @@ const Index = () => {
       </section>
 
       {/* Feature Grid */}
-      <section className="py-12 md:py-20 relative bg-muted/20">
+      <section className="pt-12 pb-8 md:pt-20 md:pb-12 relative bg-muted/20">
         <div className="container">
           <motion.div 
             className="mb-16 max-w-5xl mx-auto text-center"
@@ -574,10 +574,10 @@ const Index = () => {
       </section>
 
       {/* How it Works */}
-      <section ref={howItWorksRef} className="py-32 bg-background border-t">
+      <section ref={howItWorksRef} className="pt-16 pb-12 md:pt-20 md:pb-16 bg-background border-t">
         <div className="container">
           <motion.div 
-            className="mb-20 max-w-2xl mx-auto text-center"
+            className="mb-12 max-w-2xl mx-auto text-center"
             initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
