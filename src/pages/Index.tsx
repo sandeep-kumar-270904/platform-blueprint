@@ -14,7 +14,6 @@ import {
   Play,
   CheckCircle2,
   Zap,
-  Zap,
   Globe,
   ChevronDown,
   ChevronLeft,
