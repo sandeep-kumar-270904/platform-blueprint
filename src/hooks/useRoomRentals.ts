@@ -182,8 +182,8 @@ export const useRoomRentals = (filters?: RoomRentalQuery) => {
   });
 
   const requestVerification = useMutation({
-    mutationFn: async (roomId: string) => {
-      const res = await api.post(`/room-rentals/${roomId}/verify`);
+    mutationFn: async ({ roomId, proofUrl }: { roomId: string, proofUrl: string }) => {
+      const res = await api.post(`/room-rentals/${roomId}/verify`, { proofUrl });
       return res.data;
     },
     onSuccess: () => {

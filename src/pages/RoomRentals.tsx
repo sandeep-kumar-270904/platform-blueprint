@@ -1013,12 +1013,40 @@ const RoomRentals = () => {
                       <div className="mt-4 pt-4 border-t">
                         <p className="text-sm font-medium mb-2">Verification Status: <span className="font-bold">{room.verificationStatus}</span></p>
                         {(room.verificationStatus === 'None' || room.verificationStatus === 'Rejected') && (
-                          <Button size="sm" variant="outline" className="w-full" onClick={(e) => {
-                            e.stopPropagation();
-                            requestVerification.mutate(room._id);
-                          }}>
-                            {requestVerification.isPending ? 'Requesting...' : 'Request Verification'}
-                          </Button>
+                          <div className="space-y-2">
+                            <Input 
+                              type="file" 
+                              id={`proof-${room._id}`} 
+                              className="text-xs" 
+                              accept="image/*,.pdf" 
+                              onClick={(e) => e.stopPropagation()} 
+                            />
+                            <Button size="sm" variant="outline" className="w-full" onClick={async (e) => {
+                              e.stopPropagation();
+                              const fileInput = document.getElementById(`proof-${room._id}`) as HTMLInputElement;
+                              if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                                alert("Please select a proof document first.");
+                                return;
+                              }
+                              
+                              try {
+                                // Re-use the existing file upload endpoint for photos
+                                const uploadData = new FormData();
+                                uploadData.append('files', fileInput.files[0]);
+                                const uploadRes = await api.post('/uploads/multiple', uploadData, {
+                                  headers: { 'Content-Type': 'multipart/form-data' }
+                                });
+                                const proofUrl = uploadRes.data.files[0].url;
+                                
+                                requestVerification.mutate({ roomId: room._id, proofUrl });
+                              } catch (err) {
+                                console.error(err);
+                                alert("Failed to upload proof document.");
+                              }
+                            }}>
+                              {requestVerification.isPending ? 'Uploading & Requesting...' : 'Upload Proof & Verify'}
+                            </Button>
+                          </div>
                         )}
                         {room.verificationStatus === 'Pending' && (
                           <Badge variant="secondary" className="w-full justify-center">Verification Pending</Badge>
