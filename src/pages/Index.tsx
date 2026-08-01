@@ -23,7 +23,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { motion, useScroll, useTransform, useReducedMotion, AnimatePresence } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
 
-const premiumTransition = { duration: 0.45, ease: [0.22, 1, 0.36, 1] };
+const premiumTransition = { duration: 0.85, ease: [0.22, 1, 0.36, 1] };
 
 const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }: any) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -53,7 +53,7 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
       }}
       style={{
         background: "hsl(var(--card))",
-        flex: isHovered ? 2.5 : 1
+        flex: isHovered ? 2.2 : 1
       }}
     >
       <motion.div
@@ -86,7 +86,7 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
             <motion.img
               src={image}
               alt={title}
-              className="w-full h-full object-contain p-4"
+              className="w-full h-full object-cover"
               initial={{ scale: 1.05 }}
               animate={{ scale: 1 }}
               exit={{ scale: 1.05 }}
