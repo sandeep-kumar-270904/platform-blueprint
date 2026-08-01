@@ -303,32 +303,14 @@ const Index = () => {
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-16 md:pt-40 md:pb-32 overflow-hidden bg-background">
-        {/* Generated Image Background Layer (Parallax) */}
+        {/* Clean Hero Background Image */}
         <motion.div 
-          className="absolute inset-0 z-0 opacity-15 dark:opacity-20 pointer-events-none mix-blend-luminosity"
+          className="absolute inset-0 z-0 pointer-events-none"
           style={shouldReduceMotion ? {} : { y: heroParallax }}
         >
-          <img src="/hero_bg_v2.jpg" alt="Students collaborating" className="w-full h-full object-cover origin-top scale-[1.15]" />
+          <img src="/hero_bg_v2.jpg" alt="Hero background" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-background/60" />
         </motion.div>
-        {/* Ambient background shapes - Cream/Beige/Blue */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-          <motion.div 
-            className="absolute -top-[10%] -right-[5%] w-[60%] h-[60%] rounded-full bg-[#fdf5e6]/40 dark:bg-orange-900/10 blur-[120px]"
-            animate={shouldReduceMotion ? {} : { 
-              x: [0, -30, 0],
-              y: [0, 20, 0] 
-            }}
-            transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-          />
-          <motion.div 
-            className="absolute top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-100/40 dark:bg-blue-900/10 blur-[120px]"
-            animate={shouldReduceMotion ? {} : { 
-              x: [0, 30, 0],
-              y: [0, -20, 0] 
-            }}
-            transition={{ duration: 20, repeat: Infinity, ease: "linear", delay: 2 }}
-          />
-        </div>
 
         <div className="container relative z-10">
           <div className="flex flex-col lg:grid lg:grid-cols-12 gap-12 items-center">
