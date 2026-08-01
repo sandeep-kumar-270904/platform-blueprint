@@ -612,7 +612,7 @@ const Index = () => {
       </section>
 
       {/* CTA Section */}
-      <section ref={ctaRef} className="py-32 relative overflow-hidden border-t">
+      <section ref={ctaRef} className="py-12 md:py-16 relative overflow-hidden border-t">
         {/* Image Background (Parallax) */}
         <motion.div 
           className="absolute inset-0 z-0"
@@ -624,63 +624,35 @@ const Index = () => {
         {/* Dark radial glow behind text to ensure contrast */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(0,0,0,0.6)_0%,_rgba(0,0,0,0.95)_100%)] z-0 pointer-events-none"></div>
         
-        {/* Slow drifting ambient orbs matching hero */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none opacity-40">
-          <motion.div 
-            className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] rounded-full bg-blue-600/20 blur-[120px]"
-            animate={shouldReduceMotion ? {} : { 
-              x: [0, 50, 0],
-              y: [0, -30, 0] 
-            }}
-            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          />
-          <motion.div 
-            className="absolute top-[10%] -right-[20%] w-[70%] h-[70%] rounded-full bg-primary/20 blur-[150px]"
-            animate={shouldReduceMotion ? {} : { 
-              x: [0, -60, 0],
-              y: [0, 40, 0] 
-            }}
-            transition={{ duration: 30, repeat: Infinity, ease: "linear", delay: 5 }}
-          />
-        </div>
-        
         <div className="container relative z-10">
           <motion.div 
-            className="max-w-4xl mx-auto text-center"
-            initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
+            className="w-full flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12"
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            <h2 className="text-5xl md:text-7xl font-black mb-8 tracking-tighter text-white drop-shadow-[0_2px_15px_rgba(0,0,0,0.5)]">
-              Ready to transform your <br className="hidden md:block"/> student experience?
-            </h2>
-            <p className="text-xl md:text-2xl text-zinc-300 mb-12 max-w-2xl mx-auto font-medium drop-shadow-md">
-              Join the fastest growing student platform and get access to all the resources you need to succeed.
-            </p>
-            <motion.div 
-              className="flex flex-col sm:flex-row gap-6 justify-center items-center"
-              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
-            >
+            <div className="flex-1 text-center lg:text-left">
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-4 tracking-tight text-white drop-shadow-md">
+                Ready to transform your student experience?
+              </h2>
+              <p className="text-lg text-zinc-300 font-medium drop-shadow-md max-w-2xl mx-auto lg:mx-0">
+                Join the fastest growing student platform and get access to all the resources you need to succeed.
+              </p>
+            </div>
+            
+            <div className="flex flex-col items-center lg:items-end gap-5">
               <Link to="/auth">
-                <Button size="lg" className="w-full sm:w-auto h-16 px-10 text-xl font-bold bg-white text-zinc-950 hover:bg-zinc-200 shadow-xl transition-all rounded-xl hover:-translate-y-1">
-                  Create Free Account
+                <Button className="bg-white text-zinc-950 hover:bg-zinc-200 font-bold px-8 shadow-xl transition-all hover:-translate-y-0.5">
+                  Create Your Account
                 </Button>
               </Link>
-            </motion.div>
-            <motion.div 
-              className="mt-10 flex flex-wrap items-center justify-center gap-8 text-sm font-medium text-zinc-400"
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.4 }}
-            >
-              <div className="flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-emerald-400 drop-shadow-sm" /> No credit card required</div>
-              <div className="flex items-center gap-2"><CheckCircle2 className="w-5 h-5 text-emerald-400 drop-shadow-sm" /> Cancel anytime</div>
-            </motion.div>
+              <div className="flex flex-col gap-2 text-sm font-medium text-zinc-400 text-center lg:text-right">
+                <div className="flex items-center gap-2 justify-center lg:justify-end"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Access 10,000+ Notes & Guides</div>
+                <div className="flex items-center gap-2 justify-center lg:justify-end"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Exclusive Job & Internship Board</div>
+                <div className="flex items-center gap-2 justify-center lg:justify-end"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Vibrant Student Community</div>
+              </div>
+            </div>
           </motion.div>
         </div>
       </section>
