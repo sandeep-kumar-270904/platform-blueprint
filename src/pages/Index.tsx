@@ -20,7 +20,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { motion, useScroll, useTransform, useReducedMotion, AnimatePresence } from "framer-motion";
+import { motion, useScroll, useTransform, useReducedMotion, AnimatePresence, animate, useInView, useMotionValue } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
 
 const premiumTransition = { duration: 0.85, ease: [0.22, 1, 0.36, 1] };
@@ -99,44 +99,25 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
   );
 };
 
-const AnimatedNumber = ({ end, duration = 1200 }: { end: number, duration?: number }) => {
-  const [count, setCount] = useState(0);
+const AnimatedNumber = ({ end, duration = 1.5 }: { end: number, duration?: number }) => {
   const ref = useRef<HTMLSpanElement>(null);
+  const isInView = useInView(ref, { once: true, amount: 0.1 });
+  const count = useMotionValue(0);
+  const rounded = useTransform(count, (latest) => Math.floor(latest));
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (shouldReduceMotion) {
-      setCount(end);
+      count.set(end);
       return;
     }
+    
+    if (isInView) {
+      animate(count, end, { duration: duration, ease: "easeOut" });
+    }
+  }, [isInView, end, duration, count, shouldReduceMotion]);
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          let startTimestamp: number | null = null;
-          // Use easeOutQuart easing for smoother counting
-          const easeOutQuart = (x: number): number => 1 - Math.pow(1 - x, 4);
-
-          const step = (timestamp: number) => {
-            if (!startTimestamp) startTimestamp = timestamp;
-            const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-            const easedProgress = easeOutQuart(progress);
-            setCount(Math.floor(easedProgress * end));
-            if (progress < 1) {
-              window.requestAnimationFrame(step);
-            }
-          };
-          window.requestAnimationFrame(step);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [end, duration, shouldReduceMotion]);
-
-  return <span ref={ref}>{count}</span>;
+  return <motion.span ref={ref}>{rounded}</motion.span>;
 };
 
 const Index = () => {
@@ -444,17 +425,14 @@ const Index = () => {
         />
         
         <div className="container relative z-10">
-          <motion.div 
-            className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center"
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-50px" }}
-            variants={containerVariants}
-          >
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {stats.map((stat, i) => (
               <motion.div 
                 key={i} 
-                variants={itemVariants}
+                initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.5, delay: i * 0.15 }}
                 className="flex flex-col items-center justify-center p-4" 
               >
                 <div className="stat-number text-4xl md:text-5xl mb-2 font-black tracking-tighter text-white drop-shadow-md">
@@ -465,7 +443,7 @@ const Index = () => {
                 </div>
               </motion.div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -500,19 +478,15 @@ const Index = () => {
                     <Link to={`/${feature.id === 'career' ? 'dashboard' : feature.id}`} className="block h-full outline-none">
                       <motion.div 
                         whileHover={shouldReduceMotion ? {} : { y: -6 }}
-                        className="group p-8 h-full flex flex-col rounded-2xl bg-card border border-border shadow-sm hover:shadow-[0_12px_40px_rgba(var(--primary-rgb),0.08)] hover:border-primary/30 transition-all duration-300 relative overflow-hidden cursor-pointer"
+                        className="group p-8 h-full flex flex-col rounded-2xl bg-card border border-border shadow-sm hover:shadow-xl hover:shadow-primary/5 hover:border-primary/50 transition-all duration-300 relative overflow-hidden cursor-pointer"
                       >
                         {/* Glow effect on border */}
                         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl ring-1 ring-inset ring-primary/20"></div>
                         
                         <div className="mb-6 flex items-center justify-start">
-                          <motion.div 
-                            className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center transition-colors duration-300 group-hover:bg-primary group-hover:text-primary-foreground"
-                            whileHover={shouldReduceMotion ? {} : { rotate: [0, -10, 10, 0], scale: 1.1 }}
-                            transition={{ duration: 0.4 }}
-                          >
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-110 group-hover:rotate-6">
                             <feature.icon className="h-6 w-6" strokeWidth={2} />
-                          </motion.div>
+                          </div>
                         </div>
                         <h3 className="text-xl font-bold mb-3 text-foreground transition-colors">{feature.title}</h3>
                         <p className="text-sm mb-8 text-muted-foreground leading-relaxed">{feature.description}</p>
@@ -586,11 +560,13 @@ const Index = () => {
           </motion.div>
 
           <div className="flex flex-col md:flex-row gap-8 md:gap-12 relative max-w-[1400px] mx-auto items-stretch h-[800px] md:h-[480px]">
-            {/* The progressive drawing line */}
             <div className="hidden md:block absolute top-12 left-20 right-20 h-0.5 bg-muted -z-10">
               <motion.div 
                 className="h-full bg-primary origin-left"
-                style={{ scaleX: howItWorksProgress }}
+                initial={{ scaleX: 0 }}
+                whileInView={{ scaleX: 1 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
               />
             </div>
             
