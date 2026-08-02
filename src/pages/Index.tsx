@@ -24,6 +24,7 @@ import { motion, useScroll, useTransform, useReducedMotion, AnimatePresence, ani
 import useEmblaCarousel from "embla-carousel-react";
 
 const premiumTransition = { duration: 0.85, ease: [0.22, 1, 0.36, 1] };
+const masterEasing = [0.16, 1, 0.3, 1];
 
 const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }: any) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -65,9 +66,19 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
         transition={premiumTransition}
         className="w-full flex flex-col items-center relative z-20"
       >
-        <div className="w-16 h-16 bg-card border-2 border-border/80 text-foreground/80 rounded-2xl flex items-center justify-center text-2xl font-black mx-auto mb-6 bg-clip-padding transition-colors duration-300 group-hover:border-primary/50 group-hover:text-foreground">
+        <motion.div 
+          className="w-16 h-16 bg-card border-2 border-border/80 text-foreground/80 rounded-2xl flex items-center justify-center text-2xl font-black mx-auto mb-6 bg-clip-padding transition-colors duration-300 group-hover:border-primary/50 group-hover:text-foreground relative"
+          animate={shouldReduceMotion ? {} : { 
+            boxShadow: [
+              "0px 0px 0px 0px rgba(200, 200, 200, 0)",
+              "0px 0px 20px 0px rgba(200, 200, 200, 0.15)",
+              "0px 0px 0px 0px rgba(200, 200, 200, 0)"
+            ]
+          }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+        >
           {step}
-        </div>
+        </motion.div>
         <h3 className="text-2xl font-bold mb-4 text-foreground">{title}</h3>
         <p className="text-muted-foreground leading-relaxed font-medium">
           {desc}
@@ -127,7 +138,7 @@ const Index = () => {
   const y1 = useTransform(scrollY, [0, 1000], [0, 200]);
   const opacity1 = useTransform(scrollY, [0, 500], [1, 0]);
   
-  const heroParallax = useTransform(scrollY, [0, 1000], [0, 300]);
+  const heroParallax = useTransform(scrollY, [0, 1000], [0, 500]);
 
   const howItWorksRef = useRef<HTMLElement>(null);
   const { scrollYProgress: howItWorksProgress } = useScroll({
@@ -140,7 +151,7 @@ const Index = () => {
     target: ctaRef,
     offset: ["start end", "end start"]
   });
-  const ctaParallax = useTransform(ctaProgress, [0, 1], [-150, 150]);
+  const ctaParallax = useTransform(ctaProgress, [0, 1], [-250, 250]);
 
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: 'start',
@@ -256,6 +267,17 @@ const Index = () => {
     }
   };
 
+  const dashboardContainerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.15,
+        delayChildren: 0.9
+      }
+    }
+  };
+
   const itemVariants = {
     hidden: { y: shouldReduceMotion ? 0 : 20, opacity: 0 },
     visible: {
@@ -295,9 +317,9 @@ const Index = () => {
             {/* Visual */}
             <motion.div 
               className="lg:col-span-5 lg:order-2 w-full perspective-[1200px] relative z-10"
-              initial={{ opacity: 0, x: shouldReduceMotion ? 0 : 40, rotateY: shouldReduceMotion ? 0 : 15 }}
-              animate={{ opacity: 1, x: 0, rotateY: 0 }}
-              transition={{ duration: 1, ease: "easeOut", delay: 0.1 }}
+              initial={{ opacity: 0, x: shouldReduceMotion ? 0 : 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, ease: masterEasing, delay: 0.7 }}
             >
               {/* CSS Glow behind card */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] z-0 pointer-events-none opacity-40 dark:opacity-60 bg-gradient-to-tr from-primary/40 to-blue-500/40 blur-[80px] rounded-full"></div>
@@ -324,7 +346,7 @@ const Index = () => {
                   {/* Faux UI Rows - Staggered entrance */}
                   <motion.div 
                     className="space-y-4"
-                    variants={containerVariants}
+                    variants={dashboardContainerVariants}
                     initial="hidden"
                     animate="visible"
                   >
@@ -368,27 +390,44 @@ const Index = () => {
             {/* Left Column (Text & CTAs) */}
             <motion.div 
               className="lg:col-span-7 lg:order-1 text-left w-full"
-              initial="hidden"
-              animate="visible"
-              variants={containerVariants}
               style={shouldReduceMotion ? {} : { y: y1, opacity: opacity1 }}
             >
-              <motion.div variants={itemVariants} className="mb-4 inline-flex items-center bg-primary/10 text-primary px-4 py-1.5 rounded-full text-sm font-semibold border border-primary/20 shadow-sm backdrop-blur-sm">
+              <motion.div 
+                initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
+                animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+                transition={{ duration: 0.2, delay: 0.15, ease: masterEasing }}
+                className="mb-4 inline-flex items-center bg-primary/10 text-primary px-4 py-1.5 rounded-full text-sm font-semibold border border-primary/20 shadow-sm backdrop-blur-sm"
+              >
                 <Zap className="w-4 h-4 mr-2" /> Your All-in-One Student Platform
               </motion.div>
               
-              <motion.h1 variants={itemVariants} className="mb-6 text-5xl md:text-7xl lg:text-[5rem] font-bold tracking-tighter leading-[1.1] md:leading-[1.05] text-foreground">
+              <motion.h1 
+                initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, filter: "blur(10px)", y: 20 }}
+                animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, filter: "blur(0px)", y: 0 }}
+                transition={{ duration: 0.4, delay: 0.3, ease: masterEasing }}
+                className="mb-6 text-5xl md:text-7xl lg:text-[5rem] font-bold tracking-tighter leading-[1.1] md:leading-[1.05] text-foreground"
+              >
                 Where Students <br className="hidden md:block" />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-600 font-black text-6xl md:text-8xl lg:text-[6rem] inline-block pb-2 drop-shadow-sm">Succeed</span> Together
               </motion.h1>
               
-              <motion.p variants={itemVariants} className="mb-8 max-w-xl text-lg md:text-xl text-muted-foreground leading-relaxed font-medium">
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.25, delay: 0.5, ease: masterEasing }}
+                className="mb-8 max-w-xl text-lg md:text-xl text-muted-foreground leading-relaxed font-medium"
+              >
                 Connect, learn, and grow with a comprehensive platform designed for student success. Access notes, join events, find mentors, and build your career - all in one place.
               </motion.p>
               
-              <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 justify-start">
+              <motion.div 
+                initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9, y: 20 }}
+                animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.65 }}
+                className="flex flex-col sm:flex-row gap-4 justify-start"
+              >
                 <Link to={user ? "/dashboard" : "/auth"}>
-                  <Button size="lg" className="w-full sm:w-auto h-14 px-8 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:scale-105 hover:bg-primary/90">
+                  <Button size="lg" className="w-full sm:w-auto h-14 px-8 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:scale-105 active:scale-95 hover:bg-primary/90">
                     Get Started
                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
@@ -419,7 +458,7 @@ const Index = () => {
       <section className="py-8 md:py-12 bg-zinc-950 dark:bg-zinc-950 border-y border-white/10 relative overflow-hidden">
         {/* Animated gradient sweep */}
         <motion.div 
-          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12 opacity-50"
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12 opacity-20"
           animate={shouldReduceMotion ? {} : { x: ['-100%', '200%'] }}
           transition={{ duration: 6, repeat: Infinity, ease: "linear", repeatDelay: 2 }}
         />
@@ -473,8 +512,15 @@ const Index = () => {
               aria-label="Features carousel"
             >
               <div className="flex -ml-4">
-                {features.map((feature) => (
-                  <div key={feature.id} className="min-w-0 shrink-0 grow-0 basis-[85%] sm:basis-[60%] md:basis-[45%] lg:basis-[30%] pl-4 pb-10">
+                {features.map((feature, index) => (
+                  <motion.div 
+                    initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
+                    whileInView={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    transition={{ duration: 0.5, delay: index * 0.1, ease: masterEasing }}
+                    key={feature.id} 
+                    className="min-w-0 shrink-0 grow-0 basis-[85%] sm:basis-[60%] md:basis-[45%] lg:basis-[30%] pl-4 pb-10"
+                  >
                     <Link to={`/${feature.id === 'career' ? 'dashboard' : feature.id}`} className="block h-full outline-none">
                       <motion.div 
                         whileHover={shouldReduceMotion ? {} : { y: -6 }}
@@ -499,7 +545,7 @@ const Index = () => {
                         </div>
                       </motion.div>
                     </Link>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -509,7 +555,7 @@ const Index = () => {
               <Button 
                 variant="outline" 
                 size="icon" 
-                className="rounded-full w-10 h-10 bg-background shadow-md disabled:opacity-50 hover:bg-muted"
+                className="rounded-full w-10 h-10 bg-background shadow-md disabled:opacity-50 hover:bg-muted hover:scale-105 active:scale-95 transition-all duration-200"
                 onClick={scrollPrev}
                 disabled={!prevBtnEnabled}
                 aria-label="Previous slide"
@@ -521,7 +567,7 @@ const Index = () => {
               <Button 
                 variant="outline" 
                 size="icon" 
-                className="rounded-full w-10 h-10 bg-background shadow-md disabled:opacity-50 hover:bg-muted"
+                className="rounded-full w-10 h-10 bg-background shadow-md disabled:opacity-50 hover:bg-muted hover:scale-105 active:scale-95 transition-all duration-200"
                 onClick={scrollNext}
                 disabled={!nextBtnEnabled}
                 aria-label="Next slide"
@@ -535,7 +581,7 @@ const Index = () => {
               {scrollSnaps.map((_, index) => (
                 <button
                   key={index}
-                  className={`w-2 h-2 rounded-full transition-all duration-300 ${index === selectedIndex ? 'bg-primary w-6' : 'bg-primary/20'}`}
+                  className={`w-2 h-2 rounded-full transition-all duration-300 ease-out ${index === selectedIndex ? 'bg-primary w-6' : 'bg-primary/20'}`}
                   onClick={() => scrollTo(index)}
                   aria-label={`Go to slide ${index + 1}`}
                 />
@@ -605,30 +651,35 @@ const Index = () => {
         <div className="container relative z-10">
           <motion.div 
             className="w-full flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12"
-            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            variants={shouldReduceMotion ? {} : {
+              hidden: { opacity: 0 },
+              visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+            }}
           >
             <div className="flex-1 text-center lg:text-left">
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-4 tracking-tight text-white drop-shadow-md">
+              <motion.h2 variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { ease: masterEasing, duration: 0.5 } } }} className="text-3xl md:text-4xl lg:text-5xl font-black mb-4 tracking-tight text-white drop-shadow-md">
                 Ready to transform your student experience?
-              </h2>
-              <p className="text-lg text-zinc-300 font-medium drop-shadow-md max-w-2xl mx-auto lg:mx-0">
+              </motion.h2>
+              <motion.p variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { ease: masterEasing, duration: 0.5 } } }} className="text-lg text-zinc-300 font-medium drop-shadow-md max-w-2xl mx-auto lg:mx-0">
                 Join the fastest growing student platform and get access to all the resources you need to succeed.
-              </p>
+              </motion.p>
             </div>
             
             <div className="flex flex-col items-center lg:items-end gap-5">
               <Link to="/auth">
-                <Button className="bg-white text-zinc-950 hover:bg-zinc-200 font-bold px-8 shadow-xl transition-all hover:-translate-y-0.5">
-                  Create Your Account
-                </Button>
+                <motion.div variants={{ hidden: { opacity: 0, scale: 0.9 }, visible: { opacity: 1, scale: 1, transition: { ease: masterEasing, duration: 0.5 } } }}>
+                  <Button className="bg-white text-zinc-950 hover:bg-zinc-200 font-bold px-8 shadow-xl transition-all duration-200 hover:scale-105 active:scale-95">
+                    Create Your Account
+                  </Button>
+                </motion.div>
               </Link>
               <div className="flex flex-col gap-2 text-sm font-medium text-zinc-400 text-center lg:text-right">
-                <div className="flex items-center gap-2 justify-center lg:justify-end"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Access 10,000+ Notes & Guides</div>
-                <div className="flex items-center gap-2 justify-center lg:justify-end"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Exclusive Job & Internship Board</div>
-                <div className="flex items-center gap-2 justify-center lg:justify-end"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Vibrant Student Community</div>
+                <motion.div variants={{ hidden: { opacity: 0, x: 20 }, visible: { opacity: 1, x: 0, transition: { ease: masterEasing, duration: 0.5 } } }} className="flex items-center gap-2 justify-center lg:justify-end"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Access 10,000+ Notes & Guides</motion.div>
+                <motion.div variants={{ hidden: { opacity: 0, x: 20 }, visible: { opacity: 1, x: 0, transition: { ease: masterEasing, duration: 0.5 } } }} className="flex items-center gap-2 justify-center lg:justify-end"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Exclusive Job & Internship Board</motion.div>
+                <motion.div variants={{ hidden: { opacity: 0, x: 20 }, visible: { opacity: 1, x: 0, transition: { ease: masterEasing, duration: 0.5 } } }} className="flex items-center gap-2 justify-center lg:justify-end"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Vibrant Student Community</motion.div>
               </div>
             </div>
           </motion.div>

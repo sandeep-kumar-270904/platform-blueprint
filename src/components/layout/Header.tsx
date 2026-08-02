@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { useSiteContent } from "@/hooks/useSiteContent";
+import { motion, useReducedMotion } from "framer-motion";
 
 const defaultNavigationGroups = [
   {
@@ -141,6 +142,8 @@ export const Header = () => {
   const searchRef = useRef<HTMLDivElement>(null);
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
+  const masterEasing = [0.16, 1, 0.3, 1];
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -212,10 +215,15 @@ export const Header = () => {
           </button>
         </div>
       )}
-      <header className={cn(
-        "navbar transition-all duration-300",
-        isScrolled ? "py-0 shadow-sm" : "py-2"
-      )}>
+      <motion.header 
+        initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: masterEasing }}
+        className={cn(
+          "navbar transition-all duration-300",
+          isScrolled ? "py-0 shadow-sm" : "py-2"
+        )}
+      >
       <div className="container mx-auto flex h-16 items-center justify-between gap-8">
         <div className="flex-1 flex justify-start min-w-max">
           <Link to="/" className="flex items-center gap-2 group">
@@ -589,7 +597,7 @@ export const Header = () => {
           </div>
         </div>
       )}
-    </header>
+      </motion.header>
     </>
   );
 };
