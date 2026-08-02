@@ -69,7 +69,8 @@
     --ring: 42 27% 96%;
   }
 
-  body {
+  html, body {
+    scroll-behavior: smooth;
     background-color: var(--canvas);
     color: var(--ink-soft);
     font-family: 'Inter', sans-serif;
