@@ -254,14 +254,14 @@ export const Header = () => {
         </div>
 
         {/* Center: Navigation */}
-        <div className="hidden lg:flex flex-1 justify-center px-2 xl:px-4">
+        <div className="hidden lg:flex flex-1 justify-center px-4">
           <nav className="flex items-center">
             {user && (
-              <Link to="/dashboard" className="text-sm font-medium mr-4 xl:mr-6 hover-underline text-foreground/80 hover:text-foreground transition-colors">
+              <Link to="/dashboard" className="text-sm font-medium mr-8 xl:mr-10 hover-underline text-foreground/80 hover:text-foreground transition-colors">
                 Dashboard
               </Link>
             )}
-            <div className="flex gap-3 xl:gap-6">
+            <div className="flex gap-6 xl:gap-10">
               {navigationGroups.map((group) => (
                 <NavigationMenu key={group.title} delayDuration={100}>
                   <NavigationMenuList>
