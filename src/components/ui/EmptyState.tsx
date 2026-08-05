@@ -19,12 +19,12 @@ export function EmptyState({
   actionIcon: ActionIcon,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-[64px] text-center border-2 border-dashed border-[var(--color-border)] rounded-[var(--radius-lg)] bg-[var(--color-surface)] shadow-sm">
-      <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-[var(--color-bg)] border border-[var(--color-border)]">
-        <Icon className="h-8 w-8 text-[var(--color-text-secondary)]" aria-hidden="true" />
+    <div className="flex flex-col items-center justify-center py-10 px-4 text-center border border-dashed border-[var(--color-border)] rounded-xl bg-[var(--color-surface)] shadow-sm">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/5 border border-primary/10">
+        <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
       </div>
-      <h3 className="mb-2 page-heading text-[var(--color-text-primary)]">{title}</h3>
-      <p className="mb-8 text-[var(--color-text-secondary)] max-w-[65ch] text-sm body-text mx-auto">
+      <h3 className="mb-2 text-lg font-semibold text-[var(--color-text-primary)]">{title}</h3>
+      <p className="mb-6 text-[var(--color-text-secondary)] max-w-[500px] text-sm mx-auto">
         {description}
       </p>
       {actionLabel && onAction && (
