@@ -6,9 +6,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { SettingsLayout } from "./SettingsLayout";
 
 export default function NotificationSettings() {
   const { user } = useAuth();
@@ -84,7 +84,6 @@ export default function NotificationSettings() {
               job_board: { ...prev.job_board, ...data.preferences.job_board }
             }));
           }
-          // Merge phase 3-9 fields
           const p3 = ['liveSessionReminders', 'liveSessionResults', 'quizModeration', 'leaderboardActivity', 'mentorUpdates', 'subscriptions', 'communityForums', 'cohorts', 'learningPaths'];
           p3.forEach(field => {
             if (data.preferences?.[field]) {
@@ -182,7 +181,6 @@ export default function NotificationSettings() {
 
   const handleQuizToggle = async (category: string, channel: 'inApp' | 'email' | 'push') => {
     if (channel === 'push' && !(preferences as any)[category].push) {
-      // User is enabling push
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         await subscribeToPush();
@@ -206,29 +204,6 @@ export default function NotificationSettings() {
       scholarships: {
         ...prev.scholarships,
         [field]: !prev.scholarships[field]
-      }
-    }));
-  };
-
-  const handleCommunityToggle = (field: keyof typeof preferences.community, channel: 'inApp' | 'email' | 'push') => {
-    setPreferences(prev => ({
-      ...prev,
-      community: {
-        ...prev.community,
-        [field]: {
-          ...prev.community[field],
-          [channel]: !prev.community[field][channel]
-        }
-      }
-    }));
-  };
-
-  const handleQuietHoursChange = (field: keyof typeof preferences.quiet_hours, value: any) => {
-    setPreferences(prev => ({
-      ...prev,
-      quiet_hours: {
-        ...prev.quiet_hours,
-        [field]: value
       }
     }));
   };
@@ -278,12 +253,14 @@ export default function NotificationSettings() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-3xl">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back
-        </Button>
-        <h1 className="text-3xl font-bold mb-6">Notification Settings</h1>
+    <SettingsLayout>
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-medium">Notification Settings</h3>
+          <p className="text-sm text-muted-foreground">
+            Manage how you receive alerts and updates.
+          </p>
+        </div>
 
         <div className="space-y-6">
           <Card>
@@ -486,6 +463,6 @@ export default function NotificationSettings() {
           </Button>
         </div>
       </div>
-    </div>
+    </SettingsLayout>
   );
 }

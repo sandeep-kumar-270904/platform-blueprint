@@ -11,6 +11,8 @@ import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import VerifyEmail from "./pages/auth/VerifyEmail";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import StudyGroups from "./pages/StudyGroups";
 import StudyGroupDetail from "./pages/StudyGroupDetail";
 
@@ -134,6 +136,8 @@ import AMASessionsPage from "./pages/AMASessionsPage";
 import AMADetailPage from "./pages/AMADetailPage";
 import NotificationSettings from "./pages/NotificationSettings";
 import AccountSettings from "./pages/AccountSettings";
+import ProfileSettings from "./pages/ProfileSettings";
+import UserProfile from "./pages/UserProfile";
 import LiveQuizHost from "./pages/LiveQuizHost";
 import LiveQuizJoin from "./pages/LiveQuizJoin";
 import LiveQuizPlay from "./pages/LiveQuizPlay";
@@ -164,6 +168,10 @@ import { AdminHostelsPanel } from "./pages/admin/AdminHostelsPanel";
 import { AdminRepairPanel } from "./pages/admin/AdminRepairPanel";
 import { AnnouncementBanner } from "./components/layout/AnnouncementBanner";
 import { MaintenanceModeWrapper } from "./components/layout/MaintenanceMode";
+import { ErrorBoundary } from "./components/layout/ErrorBoundary";
+import { CookieConsent } from "./components/layout/CookieConsent";
+import { CustomCursor } from "./components/ui/CustomCursor";
+import OnboardingFlow from "./pages/OnboardingFlow";
 
 const queryClient = new QueryClient();
 
@@ -171,19 +179,26 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
+        <CustomCursor />
+        <CookieConsent />
         <Toaster />
         <Sonner />
         <GlobalSocketListener />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <a href="#main-content" className="skip-to-content">Skip to main content</a>
           <AnnouncementBanner />
           <MaintenanceModeWrapper>
-            <Routes>
+            <ErrorBoundary>
+              <Routes>
             {/* Public Routes */}
           <Route path="/" element={<Index />} />
+          <Route path="/onboarding" element={<ProtectedRoute><OnboardingFlow /></ProtectedRoute>} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/video/:id" element={<VideoRoomPage />} />
@@ -336,6 +351,9 @@ const App = () => (
           <Route path="/hostels/saved" element={<ProtectedRoute><SavedHostels /></ProtectedRoute>} />
           <Route path="/repair" element={<ProtectedRoute><Repair /></ProtectedRoute>} />
           <Route path="/founders-passport" element={<ProtectedRoute><FoundersPassport /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
+          <Route path="/profile/:id" element={<UserProfile />} />
+          <Route path="/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
           <Route path="/settings/notifications" element={<ProtectedRoute><NotificationSettings /></ProtectedRoute>} />
           <Route path="/settings/account" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
           
@@ -348,7 +366,8 @@ const App = () => (
         <Route path="/resume/workshops/:id" element={<WorkshopSession />} />
         <Route path="/resume/developer" element={<DeveloperSettings />} />
       </Routes>
-      </MaintenanceModeWrapper>
+            </ErrorBoundary>
+          </MaintenanceModeWrapper>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

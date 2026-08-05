@@ -54,12 +54,12 @@ export const useEvents = (typeFilter: string = "all", timeFilter: string = "upco
       ]);
       
       let data = await res.json();
-      const eventsArray = data.events || data;
+      const eventsArray = Array.isArray(data.events) ? data.events : (Array.isArray(data) ? data : []);
       const mappedEvents = eventsArray.map((e: any) => ({ ...e, id: e._id }));
       setEvents(mappedEvents);
 
       let twData = await twRes.json();
-      const twEventsArray = twData.events || twData;
+      const twEventsArray = Array.isArray(twData.events) ? twData.events : (Array.isArray(twData) ? twData : []);
       const mappedTwEvents = twEventsArray.map((e: any) => ({ ...e, id: e._id }));
       setThisWeekEvents(mappedTwEvents);
 

@@ -11,6 +11,8 @@ interface User {
   is_verified_host?: boolean;
   host_verification_status?: string;
   gamification_badges?: any[];
+  hasCompletedOnboarding?: boolean;
+  onboardingPreferences?: any;
 }
 
 interface AuthContextType {
