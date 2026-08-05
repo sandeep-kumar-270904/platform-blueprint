@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,13 +17,24 @@ import {
   Globe,
   ChevronDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Lock,
+  PlayCircle,
+  Mail,
+  ShieldCheck,
+  Check,
+  X,
+  ArrowUp
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { motion, useScroll, useTransform, useReducedMotion, AnimatePresence, animate, useInView, useMotionValue } from "framer-motion";
+import { motion, useScroll, useTransform, useReducedMotion, AnimatePresence, animate, useInView, useMotionValue, useSpring } from "framer-motion";
 import useEmblaCarousel from "embla-carousel-react";
+import { toast } from "sonner";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const premiumTransition = { duration: 0.85, ease: [0.22, 1, 0.36, 1] };
+const premiumTransition = { duration: 0.85, ease: [0.16, 1, 0.3, 1] };
 const masterEasing = [0.16, 1, 0.3, 1];
 
 const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }: any) => {
@@ -97,7 +108,10 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
             <motion.img
               src={image}
               alt={title}
-              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
+              className="w-full h-full object-cover blur-up"
+              onLoad={(e) => (e.target as HTMLImageElement).classList.add("loaded")}
               initial={{ scale: 1.05 }}
               animate={{ scale: 1 }}
               exit={{ scale: 1.05 }}
@@ -114,7 +128,7 @@ const AnimatedNumber = ({ end, duration = 1.5 }: { end: number, duration?: numbe
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true, amount: 0.1 });
   const count = useMotionValue(0);
-  const rounded = useTransform(count, (latest) => Math.floor(latest));
+  const formatted = useTransform(count, (latest) => Math.floor(latest).toLocaleString());
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -128,17 +142,86 @@ const AnimatedNumber = ({ end, duration = 1.5 }: { end: number, duration?: numbe
     }
   }, [isInView, end, duration, count, shouldReduceMotion]);
 
-  return <motion.span ref={ref}>{rounded}</motion.span>;
+  return <motion.span ref={ref}>{formatted}</motion.span>;
 };
 
 const Index = () => {
   const { user } = useAuth();
-  const shouldReduceMotion = useReducedMotion();
+  const navigate = useNavigate();
+  const [isExiting, setIsExiting] = useState(false);
+  const [showDemoModal, setShowDemoModal] = useState(false);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
+  const [statsLoaded, setStatsLoaded] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setStatsLoaded(true), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const { scrollY } = useScroll();
+  
+  useEffect(() => {
+    return scrollY.on("change", (latest) => {
+      setShowBackToTop(latest > 600);
+    });
+  }, [scrollY]);
+  
+  // Custom Analytics Track Simulator
+  const trackEvent = (eventName: string, data?: any) => {
+    console.log(`[Analytics] ${eventName}`, data || {});
+  };
+
+  const handleNavigate = (path: string, eventName?: string) => {
+    if (eventName) trackEvent(eventName, { path });
+    setIsExiting(true);
+    setTimeout(() => {
+      navigate(path);
+      window.scrollTo(0, 0);
+    }, 300);
+  };
+
+  const handleNewsletterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newsletterEmail) {
+      trackEvent('newsletter_subscribe');
+      toast.success("Subscribed! We'll send you the best tips weekly.");
+      setNewsletterEmail("");
+    }
+  };
+
+  const shouldReduceMotion = useReducedMotion();
   const y1 = useTransform(scrollY, [0, 1000], [0, 200]);
   const opacity1 = useTransform(scrollY, [0, 500], [1, 0]);
   
   const heroParallax = useTransform(scrollY, [0, 1000], [0, 500]);
+
+  // Hero Card 3D Tilt
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const rotateX = useSpring(useTransform(mouseY, [-400, 400], [5, -5]), { damping: 30, stiffness: 200 });
+  const rotateY = useSpring(useTransform(mouseX, [-400, 400], [-5, 5]), { damping: 30, stiffness: 200 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!shouldReduceMotion && window.matchMedia("(pointer: fine)").matches) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      mouseX.set(e.clientX - rect.left - rect.width / 2);
+      mouseY.set(e.clientY - rect.top - rect.height / 2);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
 
   const howItWorksRef = useRef<HTMLElement>(null);
   const { scrollYProgress: howItWorksProgress } = useScroll({
@@ -250,10 +333,10 @@ const Index = () => {
   ];
 
   const stats = [
-    { label: "Active Students", value: 10, suffix: "K+", icon: Users },
-    { label: "Study Resources", value: 5, suffix: "K+", icon: BookOpen },
-    { label: "Events Listed", value: 500, suffix: "+", icon: Calendar },
-    { label: "Success Stories", value: 2, suffix: "K+", icon: GraduationCap },
+    { label: "Active Students", value: 12432, suffix: "+", icon: Users },
+    { label: "Study Resources", value: 5891, suffix: "+", icon: BookOpen },
+    { label: "Events Listed", value: 542, suffix: "+", icon: Calendar },
+    { label: "Success Stories", value: 1893, suffix: "+", icon: GraduationCap },
   ];
 
   const containerVariants = {
@@ -297,17 +380,28 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen overflow-hidden">
+    <AnimatePresence mode="wait">
+      <motion.div 
+        key="index-page"
+        id="main-content"
+        animate={{ opacity: isExiting ? 0 : 1 }}
+        transition={{ duration: 0.3 }}
+        className="min-h-screen overflow-hidden"
+      >
       <Header />
 
       {/* Hero Section */}
-      <section className="relative pt-12 pb-16 md:pt-20 md:pb-32 overflow-hidden bg-background">
+      <section 
+        className="relative pt-12 pb-16 md:pt-20 md:pb-32 overflow-hidden bg-background"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
         {/* Clean Hero Background Image */}
         <motion.div 
           className="absolute inset-0 z-0 pointer-events-none"
-          style={shouldReduceMotion ? {} : { y: heroParallax }}
+          style={(shouldReduceMotion || isMobile) ? {} : { y: heroParallax }}
         >
-          <img src="/hero_bg_v2.jpg" alt="Hero background" className="w-full h-full object-cover" />
+          <img src="/hero_bg_v2.jpg" alt="Hero background" className="w-full h-full object-cover scale-[1.1]" />
           <div className="absolute inset-0 bg-background/60" />
         </motion.div>
 
@@ -320,6 +414,7 @@ const Index = () => {
               initial={{ opacity: 0, x: shouldReduceMotion ? 0 : 100 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, ease: masterEasing, delay: 0.7 }}
+              style={shouldReduceMotion ? {} : { rotateX, rotateY }}
             >
               {/* CSS Glow behind card */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] z-0 pointer-events-none opacity-40 dark:opacity-60 bg-gradient-to-tr from-primary/40 to-blue-500/40 blur-[80px] rounded-full"></div>
@@ -352,24 +447,60 @@ const Index = () => {
                   >
                     <motion.div variants={itemVariants} className="bg-background/60 backdrop-blur-md rounded-[var(--radius-sm)] border border-border/50 p-3 flex justify-between items-center shadow-sm">
                       <span className="text-sm font-medium text-muted-foreground">DSA Progress</span>
-                      <span className="text-sm font-bold text-primary">47/150</span>
+                      <AnimatePresence mode="wait">
+                        {!statsLoaded ? (
+                          <motion.div key="skel1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><Skeleton className="h-5 w-12 rounded-sm" /></motion.div>
+                        ) : (
+                          <motion.div key="data1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                            <Tooltip>
+                              <TooltipTrigger className="text-sm font-bold text-primary cursor-help">47/150</TooltipTrigger>
+                              <TooltipContent>47 out of 150 problems completed</TooltipContent>
+                            </Tooltip>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
                     
                     <motion.div variants={itemVariants} className="w-full bg-muted/50 rounded-full h-2 mb-2 overflow-hidden shadow-inner">
                       <motion.div 
                         className="bg-primary h-full rounded-full" 
                         initial={{ width: 0 }}
-                        animate={{ width: "31%" }}
-                        transition={{ duration: 1.5, delay: 0.5, ease: "easeOut" }}
+                        animate={{ width: statsLoaded ? "31%" : "0%" }}
+                        transition={{ duration: 1.5, ease: "easeOut" }}
                       />
                     </motion.div>
                     
                     <motion.div variants={itemVariants} className="bg-background/60 backdrop-blur-md rounded-[var(--radius-sm)] border border-border/50 p-4 mt-6 shadow-sm">
                       <div className="text-xs font-semibold uppercase tracking-wider text-primary mb-1">Next Event</div>
-                      <div className="text-base font-bold text-foreground mb-1">Campus Coding Hackathon</div>
-                      <div className="text-sm text-muted-foreground flex items-center gap-2">
-                        <Calendar className="w-4 h-4" /> Tomorrow, 10:00 AM
+                      <AnimatePresence mode="wait">
+                        {!statsLoaded ? (
+                          <motion.div key="skel2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-2">
+                            <Skeleton className="h-6 w-3/4 rounded-sm" />
+                            <Skeleton className="h-4 w-1/2 rounded-sm" />
+                          </motion.div>
+                        ) : (
+                          <motion.div key="data2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                            <div className="text-base font-bold text-foreground mb-1">Campus Coding Hackathon</div>
+                            <div className="text-sm text-muted-foreground flex items-center gap-2">
+                              <Calendar className="w-4 h-4" /> Tomorrow, 10:00 AM
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+
+                    <motion.div variants={itemVariants} className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border/30 relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-shimmer" />
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
+                          <BookOpen className="w-5 h-5 text-primary/50" />
+                        </div>
+                        <div>
+                          <div className="h-4 w-24 bg-foreground/10 rounded-full mb-1 animate-pulse"></div>
+                          <div className="h-3 w-32 bg-muted-foreground/10 rounded-full animate-pulse"></div>
+                        </div>
                       </div>
+                      <div className="w-8 h-8 rounded-full bg-foreground/5 animate-pulse"></div>
                     </motion.div>
 
                     <div className="grid grid-cols-2 gap-[var(--space-2)]">
@@ -426,17 +557,25 @@ const Index = () => {
                 transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.65 }}
                 className="flex flex-col sm:flex-row gap-4 justify-start"
               >
-                <Link to={user ? "/dashboard" : "/auth"}>
-                  <Button size="lg" className="w-full sm:w-auto h-14 px-8 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:scale-105 active:scale-95 hover:bg-primary/90">
+                <motion.button 
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleNavigate(user ? "/dashboard" : "/auth", "click_get_started_hero")}
+                  className="w-full sm:w-auto"
+                >
+                  <Button size="lg" className="w-full h-14 px-8 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:bg-primary/90">
                     Get Started
                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
-                </Link>
-                <Link to="/about">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 hover:bg-muted transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:scale-105 hover:text-primary">
+                </motion.button>
+                <motion.button 
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => { trackEvent('click_watch_demo'); setShowDemoModal(true); }}
+                  className="w-full sm:w-auto"
+                >
+                  <Button size="lg" variant="outline" className="w-full h-14 px-8 hover:bg-muted transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:text-primary">
                     <Play className="mr-2 h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" /> Watch Demo
                   </Button>
-                </Link>
+                </motion.button>
               </motion.div>
             </motion.div>
 
@@ -454,8 +593,36 @@ const Index = () => {
         </motion.div>
       </section>
 
+      {/* Social Proof Marquee */}
+      <section className="py-8 bg-background border-y border-border overflow-hidden">
+        <div className="container px-4">
+          <p className="text-center text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-6">Trusted by students from</p>
+          <div className="relative flex overflow-x-hidden group">
+            <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-background to-transparent z-10" />
+            <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-background to-transparent z-10" />
+            <motion.div 
+              className="flex items-center gap-16 whitespace-nowrap px-8"
+              animate={shouldReduceMotion ? {} : { x: ["0%", "-50%"] }}
+              transition={{ repeat: Infinity, ease: "linear", duration: 20 }}
+            >
+              {[
+                "Stanford University", "MIT", "Harvard University", "UC Berkeley", 
+                "Oxford University", "IIT Bombay", "University of Toronto", "ETH Zurich", 
+                "National University of Singapore",
+                // Duplicate for seamless infinite scroll
+                "Stanford University", "MIT", "Harvard University", "UC Berkeley", 
+                "Oxford University", "IIT Bombay", "University of Toronto", "ETH Zurich", 
+                "National University of Singapore"
+              ].map((uni, i) => (
+                <div key={i} className="text-2xl font-black text-muted-foreground/30 select-none shrink-0">{uni}</div>
+              ))}
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* Stats Section */}
-      <section className="py-8 md:py-12 bg-zinc-950 dark:bg-zinc-950 border-y border-white/10 relative overflow-hidden">
+      <section className="py-6 md:py-8 bg-zinc-950 dark:bg-zinc-950 border-y border-white/10 relative overflow-hidden">
         {/* Animated gradient sweep */}
         <motion.div 
           className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent skew-x-12 opacity-20"
@@ -472,10 +639,10 @@ const Index = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ duration: 0.5, delay: i * 0.15 }}
-                className="flex flex-col items-center justify-center p-4" 
+                className="flex flex-col items-center justify-center p-2" 
               >
-                <div className="stat-number text-4xl md:text-5xl mb-2 font-black tracking-tighter text-white drop-shadow-md">
-                  <AnimatedNumber end={stat.value} />{stat.suffix}
+                <div className="stat-number text-3xl md:text-4xl mb-1.5 font-black tracking-tighter text-white drop-shadow-md">
+                  <AnimatedNumber end={stat.value} duration={2} />{stat.suffix}
                 </div>
                 <div className="text-xs font-bold text-white/60 flex items-center gap-1.5 uppercase tracking-widest">
                   {stat.label}
@@ -635,14 +802,62 @@ const Index = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section ref={ctaRef} className="py-12 md:py-16 relative overflow-hidden border-t">
+      {/* Comparison Section */}
+      <section className="py-12 md:py-16 bg-background border-t border-border">
+        <div className="container">
+          <div className="text-center mb-16">
+            <h2 className="section-headline mb-4">Why StudentHub?</h2>
+            <p className="text-lg text-muted-foreground">The only platform built specifically for your academic journey.</p>
+          </div>
+          <div className="max-w-4xl mx-auto border border-border rounded-2xl overflow-hidden shadow-sm">
+            <div className="grid grid-cols-3 bg-muted/30 border-b border-border p-4 font-bold">
+              <div>Features</div>
+              <div className="text-primary text-center">StudentHub</div>
+              <div className="text-muted-foreground text-center">Others</div>
+            </div>
+            {['Verified Study Materials', 'Campus Specific Events', 'Student-only Community', 'Academic Mentorship', '100% Free for Students'].map((feat, i) => (
+              <div key={i} className="grid grid-cols-3 p-4 border-b border-border/50 hover:bg-muted/10 transition-colors">
+                <div className="font-medium text-foreground">{feat}</div>
+                <div className="flex justify-center"><Check className="text-primary w-5 h-5" /></div>
+                <div className="flex justify-center"><X className="text-muted-foreground/30 w-5 h-5" /></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-12 md:py-16 bg-muted/30 border-t border-border">
+        <div className="container max-w-3xl">
+          <div className="text-center mb-12">
+            <h2 className="section-headline mb-4">Frequently Asked Questions</h2>
+            <p className="text-muted-foreground text-lg">Everything you need to know about the platform.</p>
+          </div>
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="item-1">
+              <AccordionTrigger className="text-lg font-semibold">Is it really free?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground text-base">Yes, StudentHub is completely free for all verified students.</AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-2">
+              <AccordionTrigger className="text-lg font-semibold">Do I need a university email?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground text-base">While not strictly required for browsing, a .edu or institutional email verifies your student status to access exclusive resources and jobs.</AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-3">
+              <AccordionTrigger className="text-lg font-semibold">How is this different from LinkedIn or Discord?</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground text-base">We combine the professional networking of LinkedIn with the real-time community feel of Discord, but filtered entirely for academics, notes, and campus life.</AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+      </section>
+
+      {/* Footer CTA */}
+      <section ref={ctaRef} className="py-24 bg-zinc-950 relative overflow-hidden border-t">
         {/* Image Background (Parallax) */}
         <motion.div 
           className="absolute inset-0 z-0"
-          style={shouldReduceMotion ? {} : { y: ctaParallax }}
+          style={(shouldReduceMotion || isMobile) ? {} : { y: ctaParallax }}
         >
-          <img src="/cta_bg_v2.jpg" alt="Students celebrating" className="w-full h-full object-cover opacity-60 mix-blend-luminosity scale-[1.2]" />
+          <img src="/cta_bg_v2.jpg" alt="Students celebrating" loading="lazy" decoding="async" className="w-full h-full object-cover opacity-60 mix-blend-luminosity scale-[1.2] blur-up" onLoad={(e) => (e.target as HTMLImageElement).classList.add("loaded")} />
         </motion.div>
         <div className="absolute inset-0 bg-zinc-950/70 dark:bg-black/70 z-0"></div>
         {/* Dark radial glow behind text to ensure contrast */}
@@ -671,11 +886,18 @@ const Index = () => {
             <div className="flex flex-col items-center lg:items-end gap-5">
               <Link to="/auth">
                 <motion.div variants={{ hidden: { opacity: 0, scale: 0.9 }, visible: { opacity: 1, scale: 1, transition: { ease: masterEasing, duration: 0.5 } } }}>
-                  <Button className="bg-white text-zinc-950 hover:bg-zinc-200 font-bold px-8 shadow-xl transition-all duration-200 hover:scale-105 active:scale-95">
-                    Create Your Account
-                  </Button>
+                  <motion.button whileTap={{ scale: 0.95 }} className="w-full">
+                    <Button className="bg-white text-zinc-950 hover:bg-zinc-200 font-bold px-8 shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 w-full md:w-auto h-14 text-lg">
+                      Create Your Account
+                    </Button>
+                  </motion.button>
                 </motion.div>
               </Link>
+              <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="flex items-center gap-3 text-sm text-zinc-400 mt-2">
+                <span className="flex items-center gap-1"><Lock className="w-3.5 h-3.5" /> Secure</span>
+                <span>•</span>
+                <span className="flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Trusted by 10K+ Students</span>
+              </motion.div>
               <div className="flex flex-col gap-2 text-sm font-medium text-zinc-400 text-center lg:text-right">
                 <motion.div variants={{ hidden: { opacity: 0, x: 20 }, visible: { opacity: 1, x: 0, transition: { ease: masterEasing, duration: 0.5 } } }} className="flex items-center gap-2 justify-center lg:justify-end"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Access 10,000+ Notes & Guides</motion.div>
                 <motion.div variants={{ hidden: { opacity: 0, x: 20 }, visible: { opacity: 1, x: 0, transition: { ease: masterEasing, duration: 0.5 } } }} className="flex items-center gap-2 justify-center lg:justify-end"><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Exclusive Job & Internship Board</motion.div>
@@ -707,8 +929,8 @@ const Index = () => {
                 <li><Link to="/notes" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Notes Hub</Link></li>
                 <li><Link to="/events" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Events & Hackathons</Link></li>
                 <li><Link to="/community" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Community Forum</Link></li>
-                <li><Link to="/innovation" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Innovation Hub</Link></li>
-                <li><Link to="/study" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Study Groups</Link></li>
+                <li><Link to="/innovation-hub" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Innovation Hub</Link></li>
+                <li><Link to="/study-groups" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Study Groups</Link></li>
                 <li><Link to="/dashboard" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Career Resources</Link></li>
               </ul>
             </div>
@@ -726,21 +948,90 @@ const Index = () => {
               <ul className="flex flex-col gap-3 text-sm text-muted-foreground font-medium">
                 <li><a href="#" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> About</a></li>
                 <li><a href="#" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Careers</a></li>
-                <li><a href="#" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Privacy</a></li>
-                <li><a href="#" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Terms</a></li>
+                <li><Link to="/privacy" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Privacy</Link></li>
+                <li><Link to="/terms" className="hover-underline hover:text-primary transition-colors flex items-center gap-2 group w-fit"><ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform"/> Terms</Link></li>
               </ul>
+              
+              <div className="mt-8">
+                <h4 className="mb-3 font-bold text-sm text-foreground">Subscribe to our Newsletter</h4>
+                <form onSubmit={handleNewsletterSubmit} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input 
+                      type="email" 
+                      placeholder="Enter your email" 
+                      value={newsletterEmail}
+                      onChange={(e) => setNewsletterEmail(e.target.value)}
+                      required
+                      className="w-full bg-background border border-border rounded-md pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <Button type="submit" size="sm" variant="secondary">Subscribe</Button>
+                </form>
+              </div>
             </div>
           </div>
           <div className="mt-16 border-t border-border pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground font-medium">
             <div>© 2026 StudentHub. All rights reserved.</div>
             <div className="flex gap-4">
-              <a href="#" className="hover-underline hover:text-primary transition-colors w-fit">Privacy Policy</a>
-              <a href="#" className="hover-underline hover:text-primary transition-colors w-fit">Terms of Service</a>
+              <Link to="/privacy" className="hover-underline hover:text-primary transition-colors w-fit">Privacy Policy</Link>
+              <Link to="/terms" className="hover-underline hover:text-primary transition-colors w-fit">Terms of Service</Link>
             </div>
           </div>
         </div>
       </footer>
-    </div>
+
+      {/* Demo Modal */}
+      <AnimatePresence>
+        {showDemoModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={() => setShowDemoModal(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              className="relative w-full max-w-4xl aspect-video bg-zinc-950 rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex flex-col items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button 
+                onClick={() => setShowDemoModal(false)}
+                className="absolute top-4 right-4 z-10 w-10 h-10 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors backdrop-blur-md"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <Play className="w-16 h-16 opacity-20 text-white mb-4" />
+              <p className="text-white/50 font-medium">Demo Video Placeholder</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      </motion.div>
+
+      {/* Back to Top Button */}
+      <AnimatePresence>
+        {showBackToTop && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="fixed bottom-6 right-6 z-50 p-3 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all border border-primary/20 backdrop-blur-md"
+            aria-label="Back to top"
+          >
+            <ArrowUp className="w-5 h-5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </AnimatePresence>
   );
 };
 

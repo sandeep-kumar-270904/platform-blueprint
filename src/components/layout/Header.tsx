@@ -9,7 +9,11 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger
 } from "@/components/ui/navigation-menu";
-import { Building2, Search, Sun, Moon, Calendar, MapPin, UserPlus, UsersRound, BookOpen, MessageCircle, Wrench, Star, GraduationCap, X, Menu, Loader2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Building2, Search, Sun, Moon, Calendar, MapPin, UserPlus, UsersRound, BookOpen, MessageCircle, Wrench, Star, GraduationCap, X, Menu, Loader2, LogOut, Settings, User } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -80,7 +84,7 @@ export const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { data: siteData } = useSiteContent();
   
   const isUserAdmin = user?.role === 'admin' || user?.adminRole === 'super_admin' || user?.adminRole === 'moderator' || (user?.email && ['admin@studenthub.com'].includes(user.email));
@@ -141,7 +145,24 @@ export const Header = () => {
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    return sessionStorage.getItem('email_banner_dismissed') === 'true';
+  });
+
+  useEffect(() => {
+    if (user && user.isEmailVerified === false && !bannerDismissed) {
+      const timer = setTimeout(() => {
+        setBannerDismissed(true);
+        sessionStorage.setItem('email_banner_dismissed', 'true');
+      }, 30000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, bannerDismissed]);
+
+  const dismissBanner = () => {
+    setBannerDismissed(true);
+    sessionStorage.setItem('email_banner_dismissed', 'true');
+  };
   const shouldReduceMotion = useReducedMotion();
   const masterEasing = [0.16, 1, 0.3, 1];
 
@@ -205,9 +226,9 @@ export const Header = () => {
     <>
       {user && user.isEmailVerified === false && !bannerDismissed && (
         <div className="bg-[var(--gold-light)] border-b border-[var(--gold)] py-2 px-4 text-center text-sm font-medium text-[var(--ink-deep)] flex items-center justify-center relative">
-          <span>Please verify your email address to unlock all platform features. A link was sent during registration.</span>
+          <span>Please verify your email address to unlock all platform features. A link was sent during registration (Please check your Spam/Junk folder if you can't find it).</span>
           <button 
-            onClick={() => setBannerDismissed(true)} 
+            onClick={dismissBanner} 
             className="absolute right-4 p-1 hover:bg-black/5 rounded-full transition-colors"
             title="Dismiss for this session"
           >
@@ -224,20 +245,19 @@ export const Header = () => {
           isScrolled ? "py-0 shadow-sm" : "py-2"
         )}
       >
-      <div className="container mx-auto flex h-16 items-center justify-between gap-8">
-        <div className="flex-1 flex justify-start min-w-max">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="icon-box bg-[var(--ink)] text-white shadow-sm transition-all group-hover:scale-110">
-              <GraduationCap className="h-4 w-4" />
-            </div>
-            <span className="text-xl font-bold text-foreground display-font tracking-tight">
-              StudentHub
-            </span>
+      <div className="container mx-auto px-4 flex h-16 items-center justify-between gap-4">
+        <div className="flex items-center gap-6">
+          <Link to={user ? "/dashboard" : "/"} className="flex items-center group mr-2 lg:mr-4">
+            <img src="/logo.png" alt="StudentHub Logo" className="h-9 w-auto object-contain transition-transform group-hover:scale-105 dark:bg-white dark:p-1 dark:rounded-md" />
           </Link>
-        </div>
 
-        <nav className="hidden lg:flex justify-center">
-          <NavigationMenu delayDuration={200}>
+          <nav className="hidden lg:flex items-center">
+            {user && (
+              <Link to="/dashboard" className="text-sm font-medium mr-6 lg:mr-8 hover-underline text-foreground/80 hover:text-foreground transition-colors">
+                Dashboard
+              </Link>
+            )}
+            <NavigationMenu delayDuration={200}>
             <NavigationMenuList className="flex gap-6 lg:gap-8">
               {navigationGroups.map((group) => (
                 <NavigationMenuItem key={group.title}>
@@ -277,28 +297,37 @@ export const Header = () => {
               ))}
             </NavigationMenuList>
           </NavigationMenu>
-        </nav>
+          </nav>
+        </div>
 
-        <div className="flex-1 flex items-center justify-end gap-3 min-w-max">
+        <div className="flex items-center justify-end gap-2 shrink-0">
           {location.pathname !== '/' && (
-            <div className="relative hidden md:block w-48 lg:w-64" ref={searchRef}>
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search colleges, events..." 
-              className="pl-9 h-9 bg-muted/50 border-transparent focus-visible:bg-background"
-              value={searchQuery}
-              onChange={e => {
-                setSearchQuery(e.target.value);
-                setShowSearchDropdown(true);
-              }}
-              onFocus={() => setShowSearchDropdown(true)}
-              onKeyDown={handleSearchSubmit}
-            />
-            {showSearchDropdown && searchQuery && (
-              <div className="absolute top-full mt-2 w-80 lg:w-96 right-0 bg-popover text-popover-foreground rounded-lg shadow-lg border p-2 z-50 flex flex-col gap-2">
-                {isSearching ? (
-                  <div className="p-4 flex justify-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /></div>
-                ) : (
+            <div className="hidden md:block shrink-0">
+              <Dialog open={showSearchDropdown} onOpenChange={setShowSearchDropdown}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-10 lg:w-48 h-9 justify-center lg:justify-start text-muted-foreground px-0 lg:px-3">
+                    <Search className="h-4 w-4 lg:mr-2" />
+                    <span className="hidden lg:inline">Search...</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden top-[20%] translate-y-0">
+                  <DialogTitle className="sr-only">Search</DialogTitle>
+                  <div className="flex items-center border-b px-3">
+                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                    <Input 
+                      placeholder="Search colleges, events, users..." 
+                      className="flex h-12 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground border-none shadow-none focus-visible:ring-0 focus-visible:outline-none focus-visible:border-none focus-visible:ring-offset-0"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      onKeyDown={handleSearchSubmit}
+                      autoFocus
+                    />
+                  </div>
+                  {searchQuery && (
+                    <div className="max-h-[50vh] overflow-y-auto p-2 flex flex-col gap-2">
+                      {isSearching ? (
+                        <div className="p-4 flex justify-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /></div>
+                      ) : (
                   <>
                     {(searchQuery.toLowerCase().includes('roommate') || searchQuery.toLowerCase().includes('flatmate') || searchQuery.toLowerCase().includes('connections')) && (
                       <div className="space-y-1 mb-2">
@@ -495,28 +524,94 @@ export const Header = () => {
                       >
                         See all results for "{searchQuery}"
                       </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-          )}
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
 
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={toggleTheme} 
-            className="hidden sm:inline-flex mr-1"
-            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          >
-            {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={toggleTheme} 
+                className="hidden sm:inline-flex mr-1"
+                aria-label={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>{isDarkMode ? "Light Mode" : "Dark Mode"}</p>
+            </TooltipContent>
+          </Tooltip>
 
           {user ? (
-            <>
-              <NotificationBell />
-            </>
+            <div className="flex items-center gap-3">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <NotificationBell />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Notifications</p>
+                </TooltipContent>
+              </Tooltip>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full border border-border/50 hover:bg-accent/50 overflow-hidden">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={user?.avatar_url || user?.profilePicture} alt={user?.name || user?.full_name || "User"} className="object-cover" />
+                      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                        {(user?.name || user?.full_name || "U").charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal p-3">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user?.name || user?.full_name || "User"}</p>
+                      <p className="text-xs leading-none text-muted-foreground mt-1">{user?.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="p-2.5">
+                    <Link to="/profile" className="cursor-pointer flex items-center w-full">
+                      <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <span>My Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="p-2.5">
+                    <Link to="/dashboard" className="cursor-pointer flex items-center w-full">
+                      <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <span>Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="p-2.5">
+                    <Link to="/settings" className="cursor-pointer flex items-center w-full">
+                      <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <span>Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={async () => { await signOut(); navigate('/'); }} 
+                    className="cursor-pointer p-2.5 text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           ) : (
             <Link to="/auth">
               <Button className="hidden sm:inline-flex whitespace-nowrap">Sign In</Button>
@@ -552,6 +647,21 @@ export const Header = () => {
       {mobileMenuOpen && (
         <div className="border-t border-border/40 bg-background/95 backdrop-blur-xl lg:hidden max-h-[80vh] overflow-y-auto">
           <div className="container mx-auto px-4 py-6">
+            {user && (
+              <div className="mb-6">
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    "block rounded-lg p-3 transition-all hover:bg-accent/50",
+                    location.pathname === "/dashboard" && "bg-accent/30"
+                  )}
+                >
+                  <div className="font-medium text-primary">Dashboard</div>
+                  <p className="text-sm text-muted-foreground">Go to your personal dashboard</p>
+                </Link>
+              </div>
+            )}
             {navigationGroups.map((group) => (
               <div key={group.title} className="mb-6">
                 <h3 className="mb-3 text-sm font-semibold text-muted-foreground">

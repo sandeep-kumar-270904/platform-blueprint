@@ -89,13 +89,36 @@ passport.use(new GitHubStrategy({
 ));
 
 // LinkedIn Strategy
-passport.use(new LinkedInStrategy({
+const linkedInStrategy = new LinkedInStrategy({
     clientID: process.env.LINKEDIN_CLIENT_ID || 'MOCK_CLIENT_ID',
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET || 'MOCK_CLIENT_SECRET',
     callbackURL: "/api/auth/linkedin/callback",
-    scope: ['r_emailaddress', 'r_liteprofile']
+    scope: ['openid', 'profile', 'email'],
+    state: true
   },
   (accessToken, refreshToken, profile, done) => handleOAuth('linkedin', profile, done)
-));
+);
+
+linkedInStrategy.userProfile = function(accessToken, done) {
+  this._oauth2.get('https://api.linkedin.com/v2/userinfo', accessToken, function (err, body, res) {
+    if (err) { return done(new Error('failed to fetch user profile')); }
+    try {
+      const json = JSON.parse(body);
+      const profile = {
+        provider: 'linkedin',
+        id: json.sub,
+        displayName: json.name,
+        emails: [{ value: json.email }],
+        _raw: body,
+        _json: json
+      };
+      done(null, profile);
+    } catch(e) {
+      done(e);
+    }
+  });
+};
+
+passport.use(linkedInStrategy);
 
 module.exports = passport;

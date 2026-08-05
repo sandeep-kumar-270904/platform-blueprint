@@ -93,10 +93,9 @@ router.post('/register', async (req, res) => {
 
     await user.save();
     
-    // TODO: Configure email service
-    console.log('\n[TODO: EMAIL SERVICE NOT CONFIGURED]');
-    console.log(`[EMAIL SIMULATION] Verification Email sent to: ${email}`);
-    console.log(`[EMAIL SIMULATION] Verification Link: ${process.env.FRONTEND_URL || 'http://localhost:8080'}/verify-email?token=${verificationToken}\n`);
+    // Send Verification Email
+    emailService.sendVerifyEmail(email, verificationToken).catch(console.error);
+    console.log(`[EMAIL] Verification Email triggered to: ${email}`);
 
     const { accessToken, refreshToken } = generateTokens(user);
     user.refreshToken = refreshToken;
@@ -182,7 +181,7 @@ router.post('/login', async (req, res) => {
     res.json({ 
       message: 'Logged in successfully', 
       token: accessToken,
-      user: { id: user._id, email: user.email, username: user.username, full_name: user.full_name, isEmailVerified: user.isEmailVerified },
+      user: { id: user._id, email: user.email, username: user.username, full_name: user.full_name, isEmailVerified: user.isEmailVerified, hasCompletedOnboarding: user.hasCompletedOnboarding },
       linkedProvider,
       newDeviceDetails: isNewDevice ? { browser: fp.browser, os: fp.os, region: fp.region } : null
     });
@@ -251,10 +250,9 @@ router.post('/forgot-password', async (req, res) => {
       user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
       await user.save();
 
-      // TODO: Configure email service
-      console.log('\n[TODO: EMAIL SERVICE NOT CONFIGURED]');
-      console.log(`[EMAIL SIMULATION] Password Reset Email sent to: ${email}`);
-      console.log(`[EMAIL SIMULATION] Reset Link: ${process.env.FRONTEND_URL || 'http://localhost:8080'}/reset-password?token=${resetToken}\n`);
+      // Send Password Reset Email
+      emailService.sendResetPasswordEmail(email, resetToken).catch(console.error);
+      console.log(`[EMAIL] Password Reset Email triggered to: ${email}`);
     }
 
     res.json({ message: 'If that email exists, a reset link has been sent.' });
@@ -316,7 +314,8 @@ router.post('/verify-email', async (req, res) => {
 // OAuth Routes
 const handleOAuthCallback = (req, res, next) => {
   passport.authenticate(req.params.provider, { session: false }, async (err, user, info) => {
-    if (err) return res.redirect('/auth?error=oauth_failed');
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+    if (err) return res.redirect(`${frontendUrl}/auth?error=oauth_failed`);
     
     if (!user && info && info.message === 'linking_required') {
       const existingUser = await User.findOne({ email: info.email });
@@ -329,10 +328,10 @@ const handleOAuthCallback = (req, res, next) => {
       return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:8080'}/auth?error=linking_required&method=${info.existingMethod}`);
     }
     
-    if (!user) return res.redirect('/auth?error=oauth_failed');
+    if (!user) return res.redirect(`${frontendUrl}/auth?error=oauth_failed`);
 
     if (user.deletedAt) {
-      return res.redirect('/auth?error=account_deleted');
+      return res.redirect(`${frontendUrl}/auth?error=account_deleted`);
     }
 
     // Check fingerprint for OAuth login

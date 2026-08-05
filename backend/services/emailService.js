@@ -34,7 +34,7 @@ const sendEmailBase = async (to, subject, htmlContent, retries = 1) => {
 
   const transporter = createTransporter();
   const mailOptions = {
-    from: `"NotesHub" <${process.env.EMAIL_USER}>`,
+    from: `"StudentHub" <${process.env.EMAIL_USER}>`,
     to,
     subject,
     html: htmlContent,

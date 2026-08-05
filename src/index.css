@@ -78,6 +78,40 @@
     line-height: 1.65;
   }
   
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  
+  *, *::before, *::after {
+    transition: background-color 0.3s ease-in-out, border-color 0.3s ease-in-out;
+  }
+  
+  .blur-up {
+    filter: blur(10px);
+    transition: filter 0.5s ease-out;
+  }
+  .blur-up.loaded {
+    filter: blur(0);
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--canvas);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--accent-soft);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+  }
+  
   /* Typography Roles */
   h1, .hero-headline {
     font-family: 'Fraunces', serif;
@@ -160,12 +194,23 @@
   }
 
   /* Focus and Accessibility */
-  button:focus-visible, 
-  a:focus-visible,
-  .card:focus-visible,
-  input:focus-visible {
+  *:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+
+  .skip-to-content {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    padding: 8px;
+    z-index: 10000;
+    transition: top 0.2s;
+  }
+  .skip-to-content:focus {
+    top: 0;
   }
 }
 

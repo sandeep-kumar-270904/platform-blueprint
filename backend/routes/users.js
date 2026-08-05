@@ -42,7 +42,7 @@ router.get('/me/skill-gaps/trending', authMiddleware, getTrendingSkillGaps);
 // PUT /api/users/me
 router.put('/me', authMiddleware, async (req, res) => {
   try {
-    const { full_name, username, avatar_url, bio, skills, locale } = req.body;
+    const { full_name, username, avatar_url, bio, skills, locale, university, graduation_year, degree, location } = req.body;
     
     // Check if username is taken (if it's changing)
     if (username) {
@@ -52,7 +52,7 @@ router.put('/me', authMiddleware, async (req, res) => {
       }
     }
 
-    const updateFields = { full_name, username, avatar_url, bio };
+    const updateFields = { full_name, username, avatar_url, bio, university, graduation_year, degree, location };
     if (locale) updateFields.locale = locale;
     if (skills) {
       updateFields.skills = skills.map(skill => (typeof skill === 'string' ? { skillName: skill } : skill));
@@ -69,6 +69,22 @@ router.put('/me', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Server error updating profile', error: error.message });
   }
 });
+
+// PUT /api/users/me/onboarding
+router.put('/me/onboarding', authMiddleware, async (req, res) => {
+  try {
+    const { hasCompletedOnboarding, onboardingPreferences } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { hasCompletedOnboarding, onboardingPreferences } },
+      { new: true }
+    ).select('-password');
+    res.json({ message: 'Onboarding completed', user });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error saving onboarding preferences', error: error.message });
+  }
+});
+
 // POST /api/users/me/video-intro
 router.post('/me/video-intro', authMiddleware, async (req, res) => {
   try {
@@ -472,7 +488,7 @@ router.get('/me/events/registered', authMiddleware, async (req, res) => {
 // GET /api/users/:id/profile
 router.get('/:id/profile', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('username full_name avatar_url university degree graduation_year');
+    const user = await User.findById(req.params.id).select('username full_name avatar_url university degree graduation_year bio location learningStreak badges totalQuizPoints skills skillsProfilePublic role interestTags institutionVerified');
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json(user);
   } catch (error) {

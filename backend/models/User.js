@@ -75,6 +75,9 @@ const UserSchema = new mongoose.Schema({
   bio: {
     type: String
   },
+  location: {
+    type: String
+  },
   university: {
     type: String
   },
@@ -105,6 +108,14 @@ const UserSchema = new mongoose.Schema({
   hasCompletedNewsOnboarding: {
     type: Boolean,
     default: false
+  },
+  hasCompletedOnboarding: {
+    type: Boolean,
+    default: false
+  },
+  onboardingPreferences: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
   badges: [{
     badgeId: String,
