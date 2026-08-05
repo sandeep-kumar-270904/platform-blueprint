@@ -43,3 +43,41 @@ module.exports = async function (req, res, next) {
 };
 
 module.exports.protect = module.exports;
+
+module.exports.optionalAuth = async function (req, res, next) {
+  let token = req.cookies?.accessToken;
+  if (!token && req.header('Authorization')) {
+    const authHeader = req.header('Authorization');
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
+  }
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, "supersecret_antigravity_jwt_key_2026" || 'your-secret-key');
+    const user = await User.findById(decoded.id || decoded._id);
+    if (user) {
+      req.user = { 
+        id: user._id.toString(), 
+        role: user.role,
+        banned: user.banned
+      };
+    }
+    next();
+  } catch (err) {
+    // If token is invalid, just proceed as unauthenticated
+    next();
+  }
+};
+
+module.exports.admin = function(req, res, next) {
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ message: 'Not authorized as an admin' });
+  }
+};

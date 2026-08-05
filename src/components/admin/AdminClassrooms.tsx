@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 export const AdminClassrooms = () => {
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [reportData, setReportData] = useState<any>(null);
+  const [hostVerifications, setHostVerifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchClassrooms = async () => {
@@ -25,6 +26,11 @@ export const AdminClassrooms = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (repRes.ok) setReportData(await repRes.json());
+      
+      const hostRes = await fetch(`${API_URL}/api/admin/host-verifications`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (hostRes.ok) setHostVerifications(await hostRes.json());
       
     } catch (err) {
       console.error(err);
@@ -77,6 +83,31 @@ export const AdminClassrooms = () => {
     }
   };
 
+  const handleModerateHost = async (id: string, action: 'approve' | 'reject') => {
+    let reason = '';
+    if (action === 'reject') {
+      const input = prompt("Enter reason for rejection:");
+      if (input === null) return;
+      reason = input;
+    }
+    
+    try {
+      const token = localStorage.getItem('token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const res = await fetch(`${API_URL}/api/admin/host-verifications/${id}/${action}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      if (res.ok) {
+        toast.success(`Host verification ${action}d`);
+        fetchClassrooms(); // Refresh the list
+      } else throw new Error('Action failed');
+    } catch (err: any) {
+      toast.error(err.message || 'Action failed');
+    }
+  };
+
   if (loading) return <div className="p-12 text-center"><Loader2 className="animate-spin h-8 w-8 mx-auto text-primary" /></div>;
 
   return (
@@ -85,6 +116,12 @@ export const AdminClassrooms = () => {
         <TabsList className="mb-4">
           <TabsTrigger value="management">Management</TabsTrigger>
           <TabsTrigger value="reporting">Platform Reporting</TabsTrigger>
+          <TabsTrigger value="verifications">
+            Verifications
+            {hostVerifications.length > 0 && (
+              <Badge variant="destructive" className="ml-2">{hostVerifications.length}</Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="moderation">
             Moderation Queue 
             {reportData?.moderation?.pendingReports > 0 && (
@@ -185,6 +222,61 @@ export const AdminClassrooms = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* VERIFICATIONS TAB */}
+        <TabsContent value="verifications">
+          <Card>
+            <CardHeader>
+              <CardTitle>Host Verifications</CardTitle>
+              <CardDescription>Review and approve pending host verification requests.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left border rounded-md bg-card">
+                  <thead className="bg-muted/50 border-b">
+                    <tr>
+                      <th className="px-4 py-3">User</th>
+                      <th className="px-4 py-3">Requested At</th>
+                      <th className="px-4 py-3">Proof Link</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {hostVerifications.map((hv) => (
+                      <tr key={hv._id} className="hover:bg-muted/50">
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{hv.full_name}</div>
+                          <div className="text-xs text-muted-foreground">{hv.email}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {new Date(hv.created_at).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3">
+                          <a href={hv.host_verification_proof} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                            View Proof
+                          </a>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleModerateHost(hv._id, 'approve')} className="text-green-600 hover:bg-green-50 border-green-200">
+                              Approve
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleModerateHost(hv._id, 'reject')} className="text-red-600 hover:bg-red-50 border-red-200">
+                              Reject
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {hostVerifications.length === 0 && (
+                      <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">No pending verifications</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* MODERATION TAB */}

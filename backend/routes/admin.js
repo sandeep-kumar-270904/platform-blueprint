@@ -283,7 +283,65 @@ router.patch('/users/:userId/unban', authMiddleware, isAdmin, async (req, res) =
   }
 });
 
+// GET /api/admin/host-verifications - Fetch pending host verifications
+router.get('/host-verifications', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const pendingHosts = await User.find({ host_verification_status: 'pending' })
+      .select('full_name username email host_verification_proof created_at')
+      .sort({ created_at: -1 });
+    res.json(pendingHosts);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching host verifications', error: err.message });
+  }
+});
 
+// POST /api/admin/host-verifications/:id/approve
+router.post('/host-verifications/:id/approve', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) return res.status(404).json({ message: 'User not found' });
+    
+    targetUser.is_verified_host = true;
+    targetUser.host_verification_status = 'verified';
+    await targetUser.save();
+    
+    await notificationService.createNotification({
+      userId: targetUser._id,
+      type: 'host_verification_approved',
+      relatedContentId: targetUser._id,
+      message: 'Your host verification request has been approved. You can now host virtual classrooms!'
+    });
+    
+    res.json({ message: 'Host approved successfully', user: targetUser });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/admin/host-verifications/:id/reject
+router.post('/host-verifications/:id/reject', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) return res.status(404).json({ message: 'User not found' });
+    
+    targetUser.is_verified_host = false;
+    targetUser.host_verification_status = 'rejected';
+    await targetUser.save();
+    
+    const reason = req.body.reason || 'No specific reason provided by the administrator.';
+
+    await notificationService.createNotification({
+      userId: targetUser._id,
+      type: 'host_verification_rejected',
+      relatedContentId: targetUser._id,
+      message: `Your host verification request was rejected. Reason: ${reason}`
+    });
+    
+    res.json({ message: 'Host rejected successfully', user: targetUser });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
 
 // GET /api/admin/flagged-reviews - Fetch flagged reviews
 router.get('/flagged-reviews', authMiddleware, async (req, res) => {
@@ -1332,5 +1390,139 @@ router.post('/users/:id/quiz-ban', authMiddleware, isAdmin, async (req, res) => 
   }
 });
 
+
+// ----------------------------------------------------
+// Roommate Finder Moderation
+// ----------------------------------------------------
+const RoommateProfile = require('../models/RoommateProfile');
+const RoommateConnection = require('../models/RoommateConnection');
+
+// GET /api/admin/roommates/stats
+router.get('/roommates/stats', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const totalProfiles = await RoommateProfile.countDocuments();
+    const activeProfiles = await RoommateProfile.countDocuments({ status: 'active' });
+    const hiddenProfiles = await RoommateProfile.countDocuments({ $or: [{ status: 'paused' }, { visibility: 'hidden' }] });
+    
+    // New this week
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const newProfiles = await RoommateProfile.countDocuments({ createdAt: { $gte: oneWeekAgo } });
+
+    const totalConnections = await RoommateConnection.countDocuments();
+    const pendingConnections = await RoommateConnection.countDocuments({ status: 'Pending' });
+    const acceptedConnections = await RoommateConnection.countDocuments({ status: 'Accepted' });
+
+    res.json({
+      totalProfiles,
+      activeProfiles,
+      hiddenProfiles,
+      newProfiles,
+      totalConnections,
+      pendingConnections,
+      acceptedConnections
+    });
+  } catch (error) {
+    console.error('Error fetching roommate stats:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// GET /api/admin/roommates/profiles
+router.get('/roommates/profiles', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const profiles = await RoommateProfile.find()
+      .populate('user', 'name full_name email avatar_url profilePicture')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await RoommateProfile.countDocuments();
+
+    res.json({
+      profiles,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
+    });
+  } catch (error) {
+    console.error('Error fetching roommate profiles:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// PUT /api/admin/roommates/profiles/:id/deactivate
+router.put('/roommates/profiles/:id/deactivate', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    if (!reason) return res.status(400).json({ message: 'A reason for deactivation is required.' });
+
+    const profile = await RoommateProfile.findById(req.params.id);
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+
+    profile.status = 'paused';
+    profile.visibility = 'hidden';
+    await profile.save();
+
+    // Log the action
+    await AdminActionLog.create({
+      adminId: req.user.id,
+      actionType: 'DEACTIVATE_ROOMMATE_PROFILE',
+      targetId: profile._id,
+      modelName: 'RoommateProfile',
+      reason: reason,
+      changes: { status: 'paused', visibility: 'hidden' }
+    });
+
+    // Notify user
+    await notificationService.createNotification({
+      userId: profile.user,
+      type: 'moderation_alert',
+      message: `Your Roommate Finder profile was deactivated by moderation: ${reason}`,
+      relatedContentId: profile._id,
+      actionUrl: '/find-roommates?tab=profile',
+      actorId: req.user.id
+    });
+
+    res.json({ message: 'Profile deactivated successfully', profile });
+  } catch (error) {
+    console.error('Error deactivating profile:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
+// GET /api/admin/roommates/connections
+router.get('/roommates/connections', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const connections = await RoommateConnection.find()
+      .populate('requester', 'name full_name email')
+      .populate('recipient', 'name full_name email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await RoommateConnection.countDocuments();
+
+    res.json({
+      connections,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
+    });
+  } catch (error) {
+    console.error('Error fetching roommate connections:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+});
+
 module.exports = router;
+
 

@@ -28,6 +28,10 @@ const RoomRentalSchema = new mongoose.Schema({
     lat: { type: Number },
     lng: { type: Number }
   },
+  jitteredCoordinates: {
+    lat: { type: Number },
+    lng: { type: Number }
+  },
   availableBeds: {
     type: Number,
     required: true,
@@ -48,6 +52,26 @@ const RoomRentalSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  amenities: [{
+    type: String
+  }],
+  houseRules: {
+    smokingAllowed: { type: Boolean, default: false },
+    petsAllowed: { type: Boolean, default: false },
+    guestPolicy: { type: String, default: 'Flexible' },
+    genderPreference: { type: String, enum: ['Any', 'Male Only', 'Female Only'], default: 'Any' },
+    quietHours: { type: String }
+  },
+  deposit: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
+  minLease: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
   lister: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -57,6 +81,9 @@ const RoomRentalSchema = new mongoose.Schema({
     type: String,
     enum: ['None', 'Pending', 'Verified', 'Rejected'],
     default: 'None',
+  },
+  verificationProof: {
+    type: String
   },
   status: {
     type: String,

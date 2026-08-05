@@ -6,9 +6,9 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { SettingsLayout } from "./SettingsLayout";
 
 export default function NotificationSettings() {
   const { user } = useAuth();
@@ -54,7 +54,17 @@ export default function NotificationSettings() {
       enabled: false,
       start: "22:00",
       end: "08:00"
-    }
+    },
+    roommateConnections: {
+      new_requests: 'instant',
+      accepted: 'instant',
+      declined: 'instant',
+      disconnected: 'instant'
+    },
+    roomRentals_booking: 'instant',
+    roomRentals_inquiry: 'instant',
+    roomRentals_priceDrop: 'instant',
+    roomRentals_message: 'instant'
   });
   const [isLoading, setIsLoading] = useState(false);
 
@@ -74,7 +84,6 @@ export default function NotificationSettings() {
               job_board: { ...prev.job_board, ...data.preferences.job_board }
             }));
           }
-          // Merge phase 3-9 fields
           const p3 = ['liveSessionReminders', 'liveSessionResults', 'quizModeration', 'leaderboardActivity', 'mentorUpdates', 'subscriptions', 'communityForums', 'cohorts', 'learningPaths'];
           p3.forEach(field => {
             if (data.preferences?.[field]) {
@@ -103,6 +112,18 @@ export default function NotificationSettings() {
               quiet_hours: { ...prev.quiet_hours, ...data.preferences.quiet_hours }
             }));
           }
+          if (data.preferences?.roommateConnections) {
+            setPreferences(prev => ({
+              ...prev,
+              roommateConnections: { ...prev.roommateConnections, ...data.preferences.roommateConnections }
+            }));
+          }
+          const roomRentalKeys = ['roomRentals_booking', 'roomRentals_inquiry', 'roomRentals_priceDrop', 'roomRentals_message'] as const;
+          roomRentalKeys.forEach(key => {
+            if (data.preferences?.[key] !== undefined) {
+              setPreferences(prev => ({ ...prev, [key]: data.preferences[key] }));
+            }
+          });
         }
       } catch (err) {
         console.error("Error fetching notification settings", err);
@@ -160,7 +181,6 @@ export default function NotificationSettings() {
 
   const handleQuizToggle = async (category: string, channel: 'inApp' | 'email' | 'push') => {
     if (channel === 'push' && !(preferences as any)[category].push) {
-      // User is enabling push
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         await subscribeToPush();
@@ -188,26 +208,20 @@ export default function NotificationSettings() {
     }));
   };
 
-  const handleCommunityToggle = (field: keyof typeof preferences.community, channel: 'inApp' | 'email' | 'push') => {
+  const handleRoommateToggle = (field: keyof typeof preferences.roommateConnections, value: string) => {
     setPreferences(prev => ({
       ...prev,
-      community: {
-        ...prev.community,
-        [field]: {
-          ...prev.community[field],
-          [channel]: !prev.community[field][channel]
-        }
+      roommateConnections: {
+        ...prev.roommateConnections,
+        [field]: value
       }
     }));
   };
 
-  const handleQuietHoursChange = (field: keyof typeof preferences.quiet_hours, value: any) => {
+  const handleRoomRentalsToggle = (field: string, value: string) => {
     setPreferences(prev => ({
       ...prev,
-      quiet_hours: {
-        ...prev.quiet_hours,
-        [field]: value
-      }
+      [field]: value
     }));
   };
 
@@ -239,14 +253,78 @@ export default function NotificationSettings() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-3xl">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back
-        </Button>
-        <h1 className="text-3xl font-bold mb-6">Notification Settings</h1>
+    <SettingsLayout>
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-medium">Notification Settings</h3>
+          <p className="text-sm text-muted-foreground">
+            Manage how you receive alerts and updates.
+          </p>
+        </div>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Roommate Finder</CardTitle>
+              <CardDescription>Manage alerts for roommate connection requests and activity</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[
+                { key: 'new_requests', label: 'New Connection Requests' },
+                { key: 'accepted', label: 'Accepted Requests' },
+                { key: 'declined', label: 'Declined Requests' },
+                { key: 'disconnected', label: 'Disconnections' }
+              ].map(cat => (
+                <div key={cat.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <Label htmlFor={`roommate-${cat.key}`} className="cursor-pointer">
+                    {cat.label}
+                  </Label>
+                  <select
+                    id={`roommate-${cat.key}`}
+                    className="p-2 bg-background border rounded-md text-sm"
+                    value={preferences.roommateConnections[cat.key as keyof typeof preferences.roommateConnections]}
+                    onChange={(e) => handleRoommateToggle(cat.key as keyof typeof preferences.roommateConnections, e.target.value)}
+                  >
+                    <option value="instant">Instant</option>
+                    <option value="digest">Daily Digest</option>
+                    <option value="off">Off</option>
+                  </select>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Room Rentals</CardTitle>
+              <CardDescription>Manage alerts for bookings, inquiries, and price drops</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[
+                { key: 'roomRentals_booking', label: 'Booking Confirmations' },
+                { key: 'roomRentals_inquiry', label: 'New Inquiries' },
+                { key: 'roomRentals_priceDrop', label: 'Price Drops (Saved listings)' },
+                { key: 'roomRentals_message', label: 'Direct Messages' }
+              ].map(cat => (
+                <div key={cat.key} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <Label htmlFor={`roomrentals-${cat.key}`} className="cursor-pointer">
+                    {cat.label}
+                  </Label>
+                  <select
+                    id={`roomrentals-${cat.key}`}
+                    className="p-2 bg-background border rounded-md text-sm"
+                    value={(preferences as any)[cat.key]}
+                    onChange={(e) => handleRoomRentalsToggle(cat.key, e.target.value)}
+                  >
+                    <option value="instant">Instant</option>
+                    <option value="digest">Daily Digest</option>
+                    <option value="off">Off</option>
+                  </select>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Scholarships</CardTitle>
@@ -260,7 +338,7 @@ export default function NotificationSettings() {
                   </Label>
                   <Switch 
                     id={`schol-${key}`} 
-                    checked={value} 
+                    checked={value as boolean} 
                     onCheckedChange={() => handleScholarshipToggle(key as keyof typeof preferences.scholarships)} 
                   />
                 </div>
@@ -281,7 +359,7 @@ export default function NotificationSettings() {
                   </Label>
                   <Switch 
                     id={key} 
-                    checked={value} 
+                    checked={value as boolean} 
                     onCheckedChange={() => handleToggle(key)} 
                   />
                 </div>
@@ -385,6 +463,6 @@ export default function NotificationSettings() {
           </Button>
         </div>
       </div>
-    </div>
+    </SettingsLayout>
   );
 }

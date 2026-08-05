@@ -75,6 +75,9 @@ const UserSchema = new mongoose.Schema({
   bio: {
     type: String
   },
+  location: {
+    type: String
+  },
   university: {
     type: String
   },
@@ -105,6 +108,14 @@ const UserSchema = new mongoose.Schema({
   hasCompletedNewsOnboarding: {
     type: Boolean,
     default: false
+  },
+  hasCompletedOnboarding: {
+    type: Boolean,
+    default: false
+  },
+  onboardingPreferences: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {}
   },
   badges: [{
     badgeId: String,
@@ -144,9 +155,10 @@ const UserSchema = new mongoose.Schema({
   is_verified_host: { type: Boolean, default: false },
   host_verification_status: { 
     type: String, 
-    enum: ['unverified', 'pending', 'verified'], 
+    enum: ['unverified', 'pending', 'verified', 'rejected'], 
     default: 'unverified' 
   },
+  host_verification_proof: { type: String, default: null },
   gamification_badges: [{
     badge_id: String,
     name: String,
@@ -205,6 +217,10 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Hostel'
   }],
+  savedRoommates: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'RoommateProfile'
+  }],
   created_at: {
     type: Date,
     default: Date.now
@@ -251,6 +267,10 @@ const UserSchema = new mongoose.Schema({
     waitlist_promoted: { type: Boolean, default: true },
     course_reminder: { type: Boolean, default: true },
     course_streak_milestone: { type: Boolean, default: true },
+    roomRentals_booking: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
+    roomRentals_inquiry: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
+    roomRentals_priceDrop: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
+    roomRentals_message: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
     applicationUpdates: { 
       inApp: { type: Boolean, default: true }, 
       email: { type: Boolean, default: true },
@@ -363,6 +383,12 @@ const UserSchema = new mongoose.Schema({
       inApp: { type: Boolean, default: true },
       email: { type: Boolean, default: true },
       push: { type: Boolean, default: true }
+    },
+    roommateConnections: {
+      new_requests: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
+      accepted: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
+      declined: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' },
+      disconnected: { type: String, enum: ['instant', 'digest', 'off'], default: 'instant' }
     }
   },
   newsPreferences: {

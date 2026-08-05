@@ -9,6 +9,7 @@ const CommunityReport = require('../models/CommunityReport');
 const UserFollow = require('../models/UserFollow');
 const UserInterest = require('../models/UserInterest');
 const User = require('../models/User');
+const RepairProvider = require('../models/RepairProvider');
 const CertificationRecord = require('../models/CertificationRecord');
 const Notification = require('../models/Notification');
 const authMiddleware = require('../middleware/auth');
@@ -273,6 +274,13 @@ router.get('/posts', optionalAuth, async (req, res) => {
     const users = await User.find({ _id: { $in: userIds } }, 'full_name username avatar_url adminRole communityTitle institutionVerified role').lean();
     const userMap = users.reduce((acc, u) => ({ ...acc, [u._id.toString()]: u }), {});
 
+    const providerIds = [...new Set(posts.filter(p => p.provider_reference).map(p => p.provider_reference.toString()))];
+    let providerMap = {};
+    if (providerIds.length > 0) {
+      const providers = await RepairProvider.find({ _id: { $in: providerIds } }, 'name category rating reviewsCount isActive').lean();
+      providerMap = providers.reduce((acc, p) => ({ ...acc, [p._id.toString()]: p }), {});
+    }
+
     const postIds = posts.map(p => p._id);
     const likes = await CommunityLike.find({ post_id: { $in: postIds } }).lean();
     
@@ -308,6 +316,15 @@ router.get('/posts', optionalAuth, async (req, res) => {
 
     const postsWithAuthor = posts.map(p => {
       const pid = p._id.toString();
+      let providerReference = null;
+      if (p.provider_reference) {
+        const prov = providerMap[p.provider_reference.toString()];
+        if (prov) {
+          providerReference = { _id: prov._id, name: prov.name, category: prov.category, rating: prov.rating, reviewsCount: prov.reviewsCount };
+        } else {
+          providerReference = { _id: p.provider_reference, name: "Provider no longer available", inactive: true };
+        }
+      }
       return { 
         ...p, 
         author: userMap[p.user_id.toString()] || null,
@@ -315,7 +332,8 @@ router.get('/posts', optionalAuth, async (req, res) => {
         reactions: reactionsMap[pid] || { like: 0, celebrate: 0, insightful: 0, support: 0 },
         user_reaction: userReactionMap[pid] || null,
         is_saved: savedPostIds.has(pid),
-        user_voted_option_index: userVotes[pid] !== undefined ? userVotes[pid] : null
+        user_voted_option_index: userVotes[pid] !== undefined ? userVotes[pid] : null,
+        providerReference
       };
     });
 
@@ -572,6 +590,7 @@ router.post('/posts', authMiddleware, async (req, res) => {
       club_id: req.body.clubId || undefined,
       template: req.body.template || 'standard',
       template_data: req.body.templateData || {},
+      provider_reference: req.body.provider_reference || null,
       status: status,
       auto_flag_reason: auto_flag_reason
     });

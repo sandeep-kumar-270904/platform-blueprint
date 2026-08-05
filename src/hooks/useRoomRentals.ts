@@ -24,6 +24,16 @@ export interface RoomRental {
   createdAt: string;
   utilitiesIncluded?: boolean;
   utilitiesNote?: string;
+  amenities?: string[];
+  deposit?: number;
+  minLease?: number;
+  houseRules?: {
+    smokingAllowed?: boolean;
+    petsAllowed?: boolean;
+    guestPolicy?: string;
+    genderPreference?: string;
+    quietHours?: string;
+  };
   reviewStats?: {
     avgRating: number;
     count: number;
@@ -60,6 +70,9 @@ export interface RoomRentalQuery {
   maxDate?: string;
   includeRented?: boolean;
   includeExpired?: boolean;
+  lat?: string;
+  lng?: string;
+  radius?: string;
 }
 
 export const useRoomRentals = (filters?: RoomRentalQuery) => {
@@ -179,8 +192,8 @@ export const useRoomRentals = (filters?: RoomRentalQuery) => {
   });
 
   const requestVerification = useMutation({
-    mutationFn: async (roomId: string) => {
-      const res = await api.post(`/room-rentals/${roomId}/verify`);
+    mutationFn: async ({ roomId, proofUrl }: { roomId: string, proofUrl: string }) => {
+      const res = await api.post(`/room-rentals/${roomId}/verify`, { proofUrl });
       return res.data;
     },
     onSuccess: () => {

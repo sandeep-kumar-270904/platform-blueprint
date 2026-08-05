@@ -19,6 +19,11 @@ import { RoommateProfileForm } from "@/components/room-rentals/RoommateProfileFo
 import { RoommateFinder } from "@/components/room-rentals/RoommateFinder";
 import { RoommateConnections } from "@/components/room-rentals/RoommateConnections";
 import { SearchAlertsPanel } from "@/components/room-rentals/SearchAlertsPanel";
+import { RoomBookingManagement } from "@/components/room-rentals/RoomBookingManagement";
+import { RoomBookingFlow } from "@/components/room-rentals/RoomBookingFlow";
+import { RoomRentalChatView } from "@/components/room-rentals/RoomRentalChatView";
+import { RoomRentalAnalytics } from "@/components/room-rentals/RoomRentalAnalytics";
+import { RoomRentalFormModal } from "@/components/room-rentals/RoomRentalFormModal";
 
 const RoomRentals = () => {
   // Phase 2: Filters and Search
@@ -31,6 +36,9 @@ const RoomRentals = () => {
   const [maxMoveInDate, setMaxMoveInDate] = useState('');
   const [includeRented, setIncludeRented] = useState(false);
   const [includeExpired, setIncludeExpired] = useState(false);
+  const [radius, setRadius] = useState('');
+  const [lat, setLat] = useState('');
+  const [lng, setLng] = useState('');
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
@@ -60,12 +68,14 @@ const RoomRentals = () => {
     minBeds: minBeds,
     maxDate: maxMoveInDate,
     includeRented: includeRented,
-    includeExpired: includeExpired
-
+    includeExpired: includeExpired,
+    lat,
+    lng,
+    radius
   });
   const { user } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<'listings' | 'saved' | 'mylistings' | 'sent' | 'inbox' | 'roommates' | 'myprofile' | 'connections' | 'alerts'>('listings');
+  const [activeTab, setActiveTab] = useState<'listings' | 'saved' | 'mylistings' | 'sent' | 'inbox' | 'roommates' | 'myprofile' | 'connections' | 'alerts' | 'bookingsSent' | 'bookingsReceived'>('listings');
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const { discoverRoommates } = useRoommates();
   
@@ -79,21 +89,7 @@ const RoomRentals = () => {
   const [inquiryMessage, setInquiryMessage] = useState('');
   const [inquiryDate, setInquiryDate] = useState('');
   const [inquirySuccess, setInquirySuccess] = useState(false);
-
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    rent: '',
-    roomType: 'Single',
-    location: '',
-    availableBeds: '1',
-    moveInDate: '',
-    utilitiesIncluded: false,
-    utilitiesNote: ''
-  });
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [coverPhotoIndex, setCoverPhotoIndex] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
 
   const hasFilters = Boolean(
     debouncedQuery || 
@@ -114,132 +110,14 @@ const RoomRentals = () => {
     setFilterRoomType('All');
     setMinBeds('');
     setMaxMoveInDate('');
-  };
-
-  const handleCreateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-      alert("You must be logged in to post a listing.");
-      return;
-    }
-    
-    setIsUploading(true);
-    let uploadedUrls: string[] = [];
-
-    try {
-      if (selectedFiles.length > 0) {
-        const uploadData = new FormData();
-        selectedFiles.forEach(file => uploadData.append('files', file));
-        
-        const uploadRes = await api.post('/uploads/multiple', uploadData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        uploadedUrls = uploadRes.data.files.map((f: any) => f.url);
-        
-        // Swap cover photo to index 0
-        if (coverPhotoIndex > 0 && coverPhotoIndex < uploadedUrls.length) {
-          const cover = uploadedUrls.splice(coverPhotoIndex, 1)[0];
-          uploadedUrls.unshift(cover);
-        }
-      }
-
-      await createRental.mutateAsync({
-        title: formData.title,
-        description: formData.description,
-        rent: Number(formData.rent),
-        roomType: formData.roomType as 'Single' | 'Shared' | 'Entire Unit',
-        location: formData.location,
-        availableBeds: Number(formData.availableBeds),
-        moveInDate: formData.moveInDate,
-        photos: uploadedUrls,
-        utilitiesIncluded: formData.utilitiesIncluded,
-        utilitiesNote: formData.utilitiesNote
-      });
-      setIsCreateOpen(false);
-      setFormData({
-        title: '', description: '', rent: '', roomType: 'Single',
-        location: '', availableBeds: '1', moveInDate: '',
-        utilitiesIncluded: false, utilitiesNote: ''
-      });
-      setSelectedFiles([]);
-    } catch (err) {
-      console.error(err);
-      alert("Error creating listing.");
-    } finally {
-      setIsUploading(false);
-    }
+    setRadius('');
+    setLat('');
+    setLng('');
   };
 
   const handleEditClick = (room: RoomRental) => {
     setEditingListing(room);
-    setFormData({
-      title: room.title,
-      description: room.description,
-      rent: room.rent.toString(),
-      roomType: room.roomType,
-      location: room.location,
-      availableBeds: room.availableBeds.toString(),
-      moveInDate: new Date(room.moveInDate).toISOString().split('T')[0],
-      utilitiesIncluded: room.utilitiesIncluded || false,
-      utilitiesNote: room.utilitiesNote || ''
-    });
     setIsEditOpen(true);
-  };
-
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingListing) return;
-    
-    setIsUploading(true);
-    try {
-      // NOTE: Photo uploads for edits can be complex, currently reusing old photos if no new ones are selected
-      let uploadedUrls = editingListing.photos;
-      if (selectedFiles.length > 0) {
-        const uploadData = new FormData();
-        selectedFiles.forEach(file => uploadData.append('files', file));
-        const uploadRes = await api.post('/uploads/multiple', uploadData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        uploadedUrls = uploadRes.data.files.map((f: any) => f.url);
-        
-        if (coverPhotoIndex > 0 && coverPhotoIndex < uploadedUrls.length) {
-          const cover = uploadedUrls.splice(coverPhotoIndex, 1)[0];
-          uploadedUrls.unshift(cover);
-        }
-      } else {
-        // If they didn't upload new photos but just reordered existing ones
-        if (coverPhotoIndex > 0 && coverPhotoIndex < uploadedUrls.length) {
-          const newUrls = [...uploadedUrls];
-          const cover = newUrls.splice(coverPhotoIndex, 1)[0];
-          newUrls.unshift(cover);
-          uploadedUrls = newUrls;
-        }
-      }
-
-      await editListing.mutateAsync({
-        id: editingListing._id,
-        data: {
-          title: formData.title,
-          description: formData.description,
-          rent: Number(formData.rent),
-          roomType: formData.roomType as 'Single' | 'Shared' | 'Entire Unit',
-          location: formData.location,
-          availableBeds: Number(formData.availableBeds),
-          moveInDate: formData.moveInDate,
-          photos: uploadedUrls,
-          utilitiesIncluded: formData.utilitiesIncluded,
-          utilitiesNote: formData.utilitiesNote
-        }
-      });
-      setIsEditOpen(false);
-      setEditingListing(null);
-      setSelectedFiles([]);
-    } catch (err) {
-      console.error(err);
-      alert("Error updating listing.");
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   const handleDeleteListing = async (id: string) => {
@@ -306,229 +184,20 @@ const RoomRentals = () => {
                   Browse verified room listings near your campus. Safe, affordable, and convenient.
                 </p>
                 
-                <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="lg" className="gap-2">
-                      <Plus className="w-4 h-4" /> Post a Room Listing
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>Post a Room Listing</DialogTitle>
-                      <DialogDescription>Fill out the details below to list your room.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleCreateSubmit} className="space-y-4 mt-4">
-                      <div className="space-y-2">
-                        <Label>Title</Label>
-                        <Input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="e.g. Spacious room near campus" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Rent ($/month)</Label>
-                          <Input required type="number" min="0" value={formData.rent} onChange={e => setFormData({...formData, rent: e.target.value})} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Room Type</Label>
-                          <select 
-                            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            value={formData.roomType} 
-                            onChange={e => setFormData({...formData, roomType: e.target.value})}
-                          >
-                            <option value="Single">Single</option>
-                            <option value="Shared">Shared</option>
-                            <option value="Entire Unit">Entire Unit</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Location / Area</Label>
-                          <Input required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} placeholder="e.g. Northside" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Available Beds</Label>
-                          <Input required type="number" min="1" value={formData.availableBeds} onChange={e => setFormData({...formData, availableBeds: e.target.value})} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Move-in Date</Label>
-                          <Input required type="date" value={formData.moveInDate} onChange={e => setFormData({...formData, moveInDate: e.target.value})} />
-                        </div>
-                        <div className="space-y-2 flex flex-col justify-end">
-                          <label className="flex items-center space-x-2 text-sm font-medium cursor-pointer mb-2">
-                            <input 
-                              type="checkbox" 
-                              checked={formData.utilitiesIncluded} 
-                              onChange={e => setFormData({...formData, utilitiesIncluded: e.target.checked})} 
-                              className="rounded border-input text-primary focus:ring-primary"
-                            />
-                            <span>Utilities Included</span>
-                          </label>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label>Utilities Note (Optional)</Label>
-                        <Input 
-                          placeholder="e.g. +$50 for wifi/electric" 
-                          value={formData.utilitiesNote} 
-                          onChange={e => setFormData({...formData, utilitiesNote: e.target.value})} 
-                        />
-                      </div>
+                <Button size="lg" className="gap-2" onClick={() => setIsCreateOpen(true)}>
+                  <Plus className="w-4 h-4" /> Post a Room Listing
+                </Button>
 
-                      <div className="space-y-2">
-                        <Label>Photos (Upload up to 4)</Label>
-                        <Input 
-                          type="file" 
-                          multiple 
-                          accept="image/*"
-                          onChange={e => {
-                            if (e.target.files) {
-                              const files = Array.from(e.target.files).slice(0, 4);
-                              setSelectedFiles(files);
-                              setCoverPhotoIndex(0);
-                            }
-                          }} 
-                        />
-                        {selectedFiles.length > 0 && (
-                          <div className="mt-2 text-sm">
-                            <span className="font-medium">Select Cover Photo:</span>
-                            <div className="flex gap-2 mt-1">
-                              {selectedFiles.map((file, idx) => (
-                                <button
-                                  type="button"
-                                  key={idx}
-                                  onClick={() => setCoverPhotoIndex(idx)}
-                                  className={`px-2 py-1 border rounded text-xs ${coverPhotoIndex === idx ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'}`}
-                                >
-                                  {file.name.substring(0, 10)}...
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Description</Label>
-                        <Textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} />
-                      </div>
-                      <Button type="submit" className="w-full" disabled={createRental.isPending || isUploading}>
-                        {createRental.isPending || isUploading ? 'Posting...' : 'Post Listing'}
-                      </Button>
-                    </form>
-                  </DialogContent>
-                </Dialog>
+                <RoomRentalFormModal 
+                  open={isCreateOpen} 
+                  onOpenChange={setIsCreateOpen} 
+                />
 
-                {/* Edit Modal */}
-                <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>Edit Listing</DialogTitle>
-                      <DialogDescription>Update the details of your room listing.</DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleEditSubmit} className="space-y-4 mt-4">
-                      <div className="space-y-2">
-                        <Label>Title</Label>
-                        <Input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} placeholder="e.g. Spacious room near campus" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Rent ($/month)</Label>
-                          <Input required type="number" min="0" value={formData.rent} onChange={e => setFormData({...formData, rent: e.target.value})} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Room Type</Label>
-                          <select 
-                            className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                            value={formData.roomType} 
-                            onChange={e => setFormData({...formData, roomType: e.target.value})}
-                          >
-                            <option value="Single">Single</option>
-                            <option value="Shared">Shared</option>
-                            <option value="Entire Unit">Entire Unit</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Location / Area</Label>
-                          <Input required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} placeholder="e.g. Northside" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Available Beds</Label>
-                          <Input required type="number" min="1" value={formData.availableBeds} onChange={e => setFormData({...formData, availableBeds: e.target.value})} />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Move-in Date</Label>
-                          <Input required type="date" value={formData.moveInDate} onChange={e => setFormData({...formData, moveInDate: e.target.value})} />
-                        </div>
-                        <div className="space-y-2 flex flex-col justify-end">
-                          <label className="flex items-center space-x-2 text-sm font-medium cursor-pointer mb-2">
-                            <input 
-                              type="checkbox" 
-                              checked={formData.utilitiesIncluded} 
-                              onChange={e => setFormData({...formData, utilitiesIncluded: e.target.checked})} 
-                              className="rounded border-input text-primary focus:ring-primary"
-                            />
-                            <span>Utilities Included</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Utilities Note (Optional)</Label>
-                        <Input 
-                          placeholder="e.g. +$50 for wifi/electric" 
-                          value={formData.utilitiesNote} 
-                          onChange={e => setFormData({...formData, utilitiesNote: e.target.value})} 
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Photos (Upload up to 4 - overrides existing)</Label>
-                        <Input 
-                          type="file" 
-                          multiple 
-                          accept="image/*"
-                          onChange={e => {
-                            if (e.target.files) {
-                              const files = Array.from(e.target.files).slice(0, 4);
-                              setSelectedFiles(files);
-                              setCoverPhotoIndex(0);
-                            }
-                          }} 
-                        />
-                        {selectedFiles.length > 0 && (
-                          <div className="mt-2 text-sm">
-                            <span className="font-medium">Select Cover Photo:</span>
-                            <div className="flex gap-2 mt-1">
-                              {selectedFiles.map((file, idx) => (
-                                <button
-                                  type="button"
-                                  key={idx}
-                                  onClick={() => setCoverPhotoIndex(idx)}
-                                  className={`px-2 py-1 border rounded text-xs ${coverPhotoIndex === idx ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'}`}
-                                >
-                                  {file.name.substring(0, 10)}...
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Description</Label>
-                        <Textarea required value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} />
-                      </div>
-                      <Button type="submit" className="w-full" disabled={editListing.isPending || isUploading}>
-                        {editListing.isPending || isUploading ? 'Saving...' : 'Save Changes'}
-                      </Button>
-                    </form>
-                  </DialogContent>
-                </Dialog>
+                <RoomRentalFormModal 
+                  open={isEditOpen} 
+                  onOpenChange={setIsEditOpen} 
+                  roomToEdit={editingListing}
+                />
 
               </div>
             </ScrollReveal>
@@ -554,6 +223,13 @@ const RoomRentals = () => {
               </Button>
               <Button variant={activeTab === 'inbox' ? 'default' : 'ghost'} onClick={() => setActiveTab('inbox')}>
                 <Inbox className="w-4 h-4 mr-2" /> Owner Inbox
+              </Button>
+              <div className="w-px h-6 bg-border mx-2 self-center"></div>
+              <Button variant={activeTab === 'bookingsSent' ? 'default' : 'ghost'} onClick={() => setActiveTab('bookingsSent')}>
+                <CheckCircle className="w-4 h-4 mr-2" /> My Bookings
+              </Button>
+              <Button variant={activeTab === 'bookingsReceived' ? 'default' : 'ghost'} onClick={() => setActiveTab('bookingsReceived')}>
+                <CheckCircle2 className="w-4 h-4 mr-2" /> Owner Bookings
               </Button>
               <div className="w-px h-6 bg-border mx-2 self-center"></div>
               <Button variant={activeTab === 'roommates' ? 'default' : 'ghost'} onClick={() => setActiveTab('roommates')}>
@@ -623,7 +299,22 @@ const RoomRentals = () => {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div className="space-y-1">
+              <Label>Latitude</Label>
+              <Input type="number" step="any" placeholder="e.g. 40.7128" value={lat} onChange={e => setLat(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Longitude</Label>
+              <Input type="number" step="any" placeholder="e.g. -74.0060" value={lng} onChange={e => setLng(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label>Radius (Miles)</Label>
+              <Input type="number" placeholder="e.g. 5" value={radius} onChange={e => setRadius(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 mt-4">
             <Button variant="ghost" onClick={resetFilters} className="text-muted-foreground shrink-0">
               <X className="w-4 h-4 mr-2" /> Clear
             </Button>
@@ -688,8 +379,15 @@ const RoomRentals = () => {
           <div className="w-full h-[600px] bg-muted/30 rounded-xl border relative overflow-hidden flex items-center justify-center bg-[url('https://www.transparenttextures.com/patterns/grid-me.png')]">
             <div className="absolute inset-0 opacity-20 bg-[url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/World_Map_Blank.svg/2000px-World_Map_Blank.svg.png')] bg-cover bg-center"></div>
             {rooms.map((room, i) => {
-              const top = 20 + ((i * 17) % 60);
-              const left = 10 + ((i * 23) % 80);
+              let top = 20 + ((i * 17) % 60);
+              let left = 10 + ((i * 23) % 80);
+              
+              if (room.coordinates?.lat && room.coordinates?.lng) {
+                // Basic mercator-ish mapping to percentage for the placeholder map image
+                top = 50 - (room.coordinates.lat * (100 / 180));
+                left = 50 + (room.coordinates.lng * (100 / 360));
+              }
+
               return (
                 <div 
                   key={room._id} 
@@ -928,11 +626,12 @@ const RoomRentals = () => {
       )}
 
       {activeTab === 'mylistings' && (
-        <div className="container mx-auto px-4 py-12">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">My Listings</h2>
-            <Button onClick={() => setIsCreateOpen(true)}>Create Listing</Button>
-          </div>
+          <div className="container mx-auto px-4 py-12">
+            <RoomRentalAnalytics />
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">My Listings</h2>
+              <Button onClick={() => setIsCreateOpen(true)}>Create Listing</Button>
+            </div>
           {getMyListings.isLoading ? (
             <div className="text-muted-foreground">Loading my listings...</div>
           ) : getMyListings.data?.length === 0 ? (
@@ -970,12 +669,40 @@ const RoomRentals = () => {
                       <div className="mt-4 pt-4 border-t">
                         <p className="text-sm font-medium mb-2">Verification Status: <span className="font-bold">{room.verificationStatus}</span></p>
                         {(room.verificationStatus === 'None' || room.verificationStatus === 'Rejected') && (
-                          <Button size="sm" variant="outline" className="w-full" onClick={(e) => {
-                            e.stopPropagation();
-                            requestVerification.mutate(room._id);
-                          }}>
-                            {requestVerification.isPending ? 'Requesting...' : 'Request Verification'}
-                          </Button>
+                          <div className="space-y-2">
+                            <Input 
+                              type="file" 
+                              id={`proof-${room._id}`} 
+                              className="text-xs" 
+                              accept="image/*,.pdf" 
+                              onClick={(e) => e.stopPropagation()} 
+                            />
+                            <Button size="sm" variant="outline" className="w-full" onClick={async (e) => {
+                              e.stopPropagation();
+                              const fileInput = document.getElementById(`proof-${room._id}`) as HTMLInputElement;
+                              if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                                alert("Please select a proof document first.");
+                                return;
+                              }
+                              
+                              try {
+                                // Re-use the existing file upload endpoint for photos
+                                const uploadData = new FormData();
+                                uploadData.append('files', fileInput.files[0]);
+                                const uploadRes = await api.post('/uploads/multiple', uploadData, {
+                                  headers: { 'Content-Type': 'multipart/form-data' }
+                                });
+                                const proofUrl = uploadRes.data.files[0].url;
+                                
+                                requestVerification.mutate({ roomId: room._id, proofUrl });
+                              } catch (err) {
+                                console.error(err);
+                                alert("Failed to upload proof document.");
+                              }
+                            }}>
+                              {requestVerification.isPending ? 'Uploading & Requesting...' : 'Upload Proof & Verify'}
+                            </Button>
+                          </div>
                         )}
                         {room.verificationStatus === 'Pending' && (
                           <Badge variant="secondary" className="w-full justify-center">Verification Pending</Badge>
@@ -1040,70 +767,6 @@ const RoomRentals = () => {
                         <p className="text-sm font-medium text-primary mb-1">Owner's reply:</p>
                         <p className="text-sm bg-primary/10 border border-primary/20 p-3 rounded-md whitespace-pre-wrap">{inq.replyMessage}</p>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'inbox' && (
-        <div className="container mx-auto px-4 py-12">
-          <h2 className="text-2xl font-bold mb-6">Incoming Inquiries</h2>
-          {getReceivedInquiries.isLoading ? (
-            <div className="text-muted-foreground">Loading inquiries...</div>
-          ) : getReceivedInquiries.data?.length === 0 ? (
-            <div className="text-muted-foreground">No incoming inquiries on your listings yet.</div>
-          ) : (
-            <div className="space-y-4">
-              {getReceivedInquiries.data?.map(inq => (
-                <Card key={inq._id}>
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-semibold text-lg">Inquiry for: {inq.room.title}</h3>
-                        <p className="text-sm text-muted-foreground">From: {inq.sender.name} ({inq.sender.email})</p>
-                        {inq.moveInDate && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            <Calendar className="inline w-3 h-3 mr-1" />
-                            Prefers to move in: {new Date(inq.moveInDate).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                      <Badge variant={inq.status === 'Responded' ? 'default' : 'secondary'}>{inq.status}</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium mb-1">Their message:</p>
-                      <p className="text-sm bg-muted p-3 rounded-md whitespace-pre-wrap">{inq.message}</p>
-                    </div>
-                    
-                    {inq.status === 'Pending' ? (
-                      <form 
-                        onSubmit={(e: any) => {
-                          e.preventDefault();
-                          const msg = e.target.elements.replyMsg.value;
-                          if (!msg) return;
-                          updateInquiryStatus.mutate({ inquiryId: inq._id, status: 'Responded', replyMessage: msg });
-                        }}
-                        className="space-y-2 mt-4"
-                      >
-                        <Label>Reply</Label>
-                        <Textarea name="replyMsg" required placeholder="Type your response here..." />
-                        <Button type="submit" size="sm" disabled={updateInquiryStatus.isPending}>
-                          Send Reply
-                        </Button>
-                      </form>
-                    ) : (
-                      inq.replyMessage && (
-                        <div>
-                          <p className="text-sm font-medium text-primary mb-1">Your reply:</p>
-                          <p className="text-sm bg-primary/10 border border-primary/20 p-3 rounded-md whitespace-pre-wrap">{inq.replyMessage}</p>
-                        </div>
-                      )
                     )}
                   </CardContent>
                 </Card>
@@ -1192,6 +855,9 @@ const RoomRentals = () => {
                       {selectedRoom.utilitiesNote && <span className="text-muted-foreground ml-1 font-normal">- {selectedRoom.utilitiesNote}</span>}
                     </p>
                   )}
+                  {selectedRoom.deposit > 0 && (
+                    <p className="text-sm text-muted-foreground mt-1">Deposit: ${selectedRoom.deposit}</p>
+                  )}
                 </div>
               </DialogHeader>
               
@@ -1226,6 +892,46 @@ const RoomRentals = () => {
                 <div className="absolute inset-0 opacity-10 bg-[url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/World_Map_Blank.svg/2000px-World_Map_Blank.svg.png')] bg-cover bg-center"></div>
                 <MapPin className="w-8 h-8 text-primary drop-shadow-md z-10" />
               </div>
+
+              {selectedRoom.amenities && selectedRoom.amenities.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="font-semibold mb-3">Amenities</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedRoom.amenities.map((amenity, i) => (
+                      <Badge key={i} variant="outline" className="px-3 py-1 bg-muted/50">{amenity}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedRoom.houseRules && (
+                <div className="mt-6 p-4 bg-muted/20 border rounded-lg">
+                  <h4 className="font-semibold mb-3">House Rules</h4>
+                  <div className="grid grid-cols-2 gap-y-2 text-sm">
+                    <div className="flex justify-between border-b pb-1">
+                      <span className="text-muted-foreground">Smoking</span>
+                      <span>{selectedRoom.houseRules.smokingAllowed ? "Allowed" : "No"}</span>
+                    </div>
+                    <div className="flex justify-between border-b pb-1">
+                      <span className="text-muted-foreground">Pets</span>
+                      <span>{selectedRoom.houseRules.petsAllowed ? "Allowed" : "No"}</span>
+                    </div>
+                    <div className="flex justify-between border-b pb-1">
+                      <span className="text-muted-foreground">Gender</span>
+                      <span>{selectedRoom.houseRules.genderPreference || "Any"}</span>
+                    </div>
+                    <div className="flex justify-between border-b pb-1">
+                      <span className="text-muted-foreground">Min Lease</span>
+                      <span>{selectedRoom.minLease ? `${selectedRoom.minLease} months` : "Flexible"}</span>
+                    </div>
+                    {selectedRoom.houseRules.guestPolicy && (
+                      <div className="col-span-2 pt-1 text-muted-foreground">
+                        <span className="font-medium text-foreground">Guests:</span> {selectedRoom.houseRules.guestPolicy}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="mt-6">
                 <h4 className="font-semibold mb-2">Description</h4>
@@ -1277,10 +983,16 @@ const RoomRentals = () => {
                           onChange={e => setInquiryDate(e.target.value)}
                         />
                       </div>
-                      <Button type="submit" disabled={sendInquiry.isPending} className="w-full">
-                        <Mail className="w-4 h-4 mr-2" />
-                        {sendInquiry.isPending ? 'Sending...' : 'Send Inquiry'}
-                      </Button>
+                      <div className="flex flex-col gap-2">
+                        <Button type="submit" disabled={sendInquiry.isPending} className="w-full">
+                          <Mail className="w-4 h-4 mr-2" />
+                          {sendInquiry.isPending ? 'Sending...' : 'Send Inquiry'}
+                        </Button>
+                        <div className="text-center text-xs text-muted-foreground my-2">OR</div>
+                        <Button type="button" variant="secondary" className="w-full" onClick={() => setIsBookingOpen(true)}>
+                          Request to Book
+                        </Button>
+                      </div>
                     </form>
                   )
                 ) : (
@@ -1314,6 +1026,17 @@ const RoomRentals = () => {
           )}
         </DialogContent>
       </Dialog>
+      
+      {/* Booking Flow Modal */}
+      {selectedRoom && (
+        <RoomBookingFlow 
+          roomId={selectedRoom._id}
+          roomTitle={selectedRoom.title}
+          monthlyRent={selectedRoom.rent}
+          isOpen={isBookingOpen}
+          onClose={() => setIsBookingOpen(false)}
+        />
+      )}
     </div>
   );
 };

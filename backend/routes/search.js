@@ -20,10 +20,14 @@ router.get('/', async (req, res) => {
     const Idea = require('../models/Idea');
     const BrainstormSession = require('../models/BrainstormSession');
     const IdeaCircle = require('../models/IdeaCircle');
+    const RoomRental = require('../models/RoomRental');
     const User = require('../models/User');
     const CommunityPost = require('../models/CommunityPost');
+    const RepairProvider = require('../models/RepairProvider');
+    const RoommateProfile = require('../models/RoommateProfile');
+    const RoommateGroup = require('../models/RoommateGroup');
 
-    const [colleges, events, courses, paths, ideas, brainstorms, ideaCircles, users, posts, matchedTags] = await Promise.all([
+    const [colleges, events, courses, paths, ideas, brainstorms, ideaCircles, users, posts, matchedTags, providers, roommateProfiles, roommateGroups, roomRentals] = await Promise.all([
       College.find({
         $or: [
           { name: regex },
@@ -120,8 +124,64 @@ router.get('/', async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(5),
       
-      CommunityPost.distinct('tags', { tags: regex, status: { $nin: ['hidden', 'deleted', 'pending_review'] } })
+      CommunityPost.distinct('tags', { tags: regex, status: { $nin: ['hidden', 'deleted', 'pending_review'] } }),
+      
+      RepairProvider.find({
+        isActive: true,
+        $or: [
+          { name: regex },
+          { category: regex },
+          { 'services.name': regex }
+        ]
+      })
+      .select('name category imageUrl location rating')
+      .limit(5),
+
+      RoommateProfile.find({
+        status: 'active',
+        isPaused: false,
+        isHidden: false
+      })
+      .populate({
+        path: 'user',
+        match: { $or: [{ name: regex }, { full_name: regex }] },
+        select: 'name full_name avatar_url profilePicture'
+      })
+      .limit(10), // Will filter out null users in JS
+
+      RoommateGroup.find({
+        status: 'active',
+        $or: [
+          { name: regex },
+          { description: regex }
+        ]
+      })
+      .select('name description targetSize status')
+      .limit(5),
+
+      RoomRental.find({
+        status: 'Available',
+        $or: [
+          { title: regex },
+          { description: regex },
+          { location: regex }
+        ]
+      })
+      .populate('lister', 'name full_name avatar_url profilePicture')
+      .select('title rent location roomType')
+      .limit(5)
     ]);
+
+    // Clean up populated profiles
+    const filteredProfiles = roommateProfiles
+      .filter(p => p.user != null) // Keep only those where the user matched
+      .slice(0, 5) // Limit to 5
+      .map(p => ({
+        _id: p._id,
+        bio: p.bio,
+        budgetRange: p.budgetRange,
+        user: p.user
+      }));
 
     // Combine courses and paths into one results array for the frontend "Courses" section
     const combinedCourses = [
@@ -129,7 +189,13 @@ router.get('/', async (req, res) => {
       ...paths.map(p => ({ ...p.toObject(), searchType: 'path' }))
     ];
 
-    res.json({ colleges, events, courses: combinedCourses, ideas, brainstorms, ideaCircles, users, posts, tags: matchedTags.slice(0, 5) });
+    res.json({ 
+      colleges, events, courses: combinedCourses, ideas, brainstorms, 
+      ideaCircles, users, posts, tags: matchedTags.slice(0, 5), providers,
+      roommateProfiles: filteredProfiles,
+      roommateGroups,
+      roomRentals
+    });
   } catch (err) {
     console.error('Search error:', err);
     res.status(500).json({ message: 'Server error during search' });

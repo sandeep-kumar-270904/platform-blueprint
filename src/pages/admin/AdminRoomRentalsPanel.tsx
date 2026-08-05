@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, Trash2, Home, MapPin, Flag } from "lucide-react";
+import { CheckCircle, XCircle, Trash2, Home, MapPin, Flag, FileText } from "lucide-react";
 import { useRoomRentals } from "@/hooks/useRoomRentals";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -80,6 +80,24 @@ export default function AdminRoomRentalsPanel() {
                     <h4 className="text-sm font-semibold mb-1">Lister Information</h4>
                     <p className="text-sm text-muted-foreground">{listing.lister.name} ({listing.lister.email})</p>
                     <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{listing.description}</p>
+                    
+                    {listing.verificationStatus === 'Pending' && listing.verificationProof && (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-semibold mb-2 text-yellow-600">Submitted Proof</h4>
+                        <div className="w-32 h-32 border rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                          {listing.verificationProof.toLowerCase().endsWith('.pdf') ? (
+                            <a href={listing.verificationProof} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline flex flex-col items-center">
+                              <FileText className="w-8 h-8 mb-2 text-muted-foreground" />
+                              <span className="text-xs">View PDF</span>
+                            </a>
+                          ) : (
+                            <a href={listing.verificationProof} target="_blank" rel="noreferrer" className="block w-full h-full">
+                              <img src={listing.verificationProof} alt="Proof" className="w-full h-full object-cover" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   {listing.reports && listing.reports.length > 0 && (
                     <div className="bg-red-50 border border-red-100 rounded-md p-3">

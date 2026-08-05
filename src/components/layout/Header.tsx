@@ -7,14 +7,19 @@ import {
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  NavigationMenuTrigger,
+  NavigationMenuTrigger
 } from "@/components/ui/navigation-menu";
-import { GraduationCap, Menu, X, LayoutDashboard, Search, Loader2, MapPin, Calendar, Building2, Moon, Sun, BookOpen } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Building2, Search, Sun, Moon, Calendar, MapPin, UserPlus, UsersRound, BookOpen, MessageCircle, Wrench, Star, GraduationCap, X, Menu, Loader2, LogOut, Settings, User } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { useSiteContent } from "@/hooks/useSiteContent";
+import { motion, useReducedMotion } from "framer-motion";
 
 const defaultNavigationGroups = [
   {
@@ -32,6 +37,7 @@ const defaultNavigationGroups = [
       { title: "Community Forum", href: "/community", desc: "Ask and discuss" },
       { title: "Jobs Portal", href: "/jobs", desc: "Career opportunities" },
       { title: "Placement Cell", href: "/placement", desc: "Interview prep resources" },
+      { title: "Admin Panel", href: "/admin", desc: "Platform management" },
     ],
   },
   {
@@ -39,7 +45,8 @@ const defaultNavigationGroups = [
     items: [
       { title: "Quiz & Tests", href: "/quizzes", desc: "Mock exams and practice" },
       { title: "Tech News", href: "/news", desc: "Latest AI and tech updates" },
-      { title: "Virtual Classroom", href: "/virtual-classroom", desc: "Live learning sessions" },
+      { title: "Virtual Classroom", href: "/classrooms", desc: "Live learning sessions" },
+      { title: "Analytics", href: "/analytics", desc: "Your study stats" },
     ],
   },
   {
@@ -47,7 +54,6 @@ const defaultNavigationGroups = [
     items: [
       { title: "Study Groups", href: "/study-groups", desc: "Virtual study rooms" },
       { title: "Team Hunt", href: "/team-hunt", desc: "Find collaborators" },
-
       { title: "Skill Swap", href: "/skill-swap", desc: "Exchange knowledge" },
       { title: "Scholarship Community", href: "/scholarships/community", desc: "Coach, Buddies & Circles" },
       { title: "Creators Zone", href: "/creators", desc: "Content platform" },
@@ -59,9 +65,7 @@ const defaultNavigationGroups = [
     title: "Engagement",
     items: [
       { title: "Daily Hacks", href: "/daily-hacks", desc: "Tips and showcases" },
-      { title: "Gamification", href: "/gamification", desc: "Points and badges" },
       { title: "Wellness Tracker", href: "/wellness", desc: "Mental health support" },
-      { title: "Sessions", href: "/sessions", desc: "Study & mentoring sessions" },
     ],
   },
   {
@@ -70,16 +74,7 @@ const defaultNavigationGroups = [
       { title: "Room Rentals", href: "/room-rentals", desc: "Find accommodation" },
       { title: "Hostel Info", href: "/hostels", desc: "Campus housing" },
       { title: "Repair Services", href: "/repair", desc: "Maintenance help" },
-    ],
-  },
-  {
-    title: "More",
-    items: [
-      { title: "Post Your Skill", href: "/post-skill", desc: "Freelance services" },
       { title: "Find Roommate", href: "/roommate-finder", desc: "Connect with peers" },
-      { title: "Dashboard", href: "/dashboard", desc: "Your personal hub" },
-      { title: "Analytics", href: "/analytics", desc: "Your study stats" },
-      { title: "Admin Panel", href: "/admin", desc: "Platform management" },
     ],
   },
 ];
@@ -89,9 +84,16 @@ export const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { data: siteData } = useSiteContent();
-  const navigationGroups = siteData?.navigation?.groups?.length >= 2 ? siteData.navigation.groups : defaultNavigationGroups;
+  
+  const isUserAdmin = user?.role === 'admin' || user?.adminRole === 'super_admin' || user?.adminRole === 'moderator' || (user?.email && ['admin@studenthub.com'].includes(user.email));
+  
+  const rawGroups = siteData?.navigation?.groups?.length >= 2 ? siteData.navigation.groups : defaultNavigationGroups;
+  const navigationGroups = rawGroups.map((group: any) => ({
+    ...group,
+    items: group.items.filter((item: any) => item.title !== "Admin Panel" || isUserAdmin)
+  })).filter((group: any) => group.items.length > 0);
   
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return document.documentElement.classList.contains('dark');
@@ -125,7 +127,6 @@ export const Header = () => {
     
     mediaQuery.addEventListener('change', handleChange);
     
-    // Initial sync just in case React mounted after OS theme change
     if (!localStorage.getItem('theme')) {
       const isSystemDark = mediaQuery.matches;
       if (isSystemDark !== isDarkMode) {
@@ -138,16 +139,33 @@ export const Header = () => {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  // Search state
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<{colleges: any[], events: any[], courses: any[], posts?: any[], tags?: any[]}>({ colleges: [], events: [], courses: [] });
+  const [searchResults, setSearchResults] = useState<{colleges: any[], events: any[], courses: any[], posts?: any[], tags?: any[], providers?: any[], roommateProfiles?: any[], roommateGroups?: any[]}>({ colleges: [], events: [], courses: [] });
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(() => {
+    return sessionStorage.getItem('email_banner_dismissed') === 'true';
+  });
 
-  // Handle outside click for search
+  useEffect(() => {
+    if (user && user.isEmailVerified === false && !bannerDismissed) {
+      const timer = setTimeout(() => {
+        setBannerDismissed(true);
+        sessionStorage.setItem('email_banner_dismissed', 'true');
+      }, 30000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, bannerDismissed]);
+
+  const dismissBanner = () => {
+    setBannerDismissed(true);
+    sessionStorage.setItem('email_banner_dismissed', 'true');
+  };
+  const shouldReduceMotion = useReducedMotion();
+  const masterEasing = [0.16, 1, 0.3, 1];
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -158,7 +176,6 @@ export const Header = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(searchQuery);
@@ -166,7 +183,6 @@ export const Header = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fetch search results
   useEffect(() => {
     if (!debouncedQuery) {
       setSearchResults({ colleges: [], events: [], courses: [] });
@@ -177,7 +193,16 @@ export const Header = () => {
     setIsSearching(true);
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/search?q=${encodeURIComponent(debouncedQuery)}`)
       .then(r => r.json())
-      .then(data => setSearchResults({ colleges: data.colleges || [], events: data.events || [], courses: data.courses || [] }))
+      .then(data => setSearchResults({ 
+        colleges: data.colleges || [], 
+        events: data.events || [], 
+        courses: data.courses || [], 
+        posts: data.posts, 
+        tags: data.tags, 
+        providers: data.providers,
+        roommateProfiles: data.roommateProfiles || [],
+        roommateGroups: data.roommateGroups || []
+      }))
       .catch(console.error)
       .finally(() => setIsSearching(false));
   }, [debouncedQuery]);
@@ -201,9 +226,9 @@ export const Header = () => {
     <>
       {user && user.isEmailVerified === false && !bannerDismissed && (
         <div className="bg-[var(--gold-light)] border-b border-[var(--gold)] py-2 px-4 text-center text-sm font-medium text-[var(--ink-deep)] flex items-center justify-center relative">
-          <span>Please verify your email address to unlock all platform features. A link was sent during registration.</span>
+          <span>Please verify your email address to unlock all platform features. A link was sent during registration (Please check your Spam/Junk folder if you can't find it).</span>
           <button 
-            onClick={() => setBannerDismissed(true)} 
+            onClick={dismissBanner} 
             className="absolute right-4 p-1 hover:bg-black/5 rounded-full transition-colors"
             title="Dismiss for this session"
           >
@@ -211,88 +236,115 @@ export const Header = () => {
           </button>
         </div>
       )}
-      <header className={cn(
-        "navbar transition-all duration-300",
-        isScrolled ? "py-0 shadow-sm" : "py-2"
-      )}>
-      <div className="container mx-auto flex h-16 items-center justify-between gap-8">
-        {/* Left Side (Logo) */}
-        <div className="flex-1 flex justify-start min-w-max">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="icon-box bg-[var(--ink)] text-white shadow-sm transition-all group-hover:scale-110">
-              <GraduationCap className="h-4 w-4" />
-            </div>
-            <span className="text-xl font-bold text-foreground display-font tracking-tight">
-              StudentHub
-            </span>
+      <motion.header 
+        initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: masterEasing }}
+        className={cn(
+          "navbar transition-all duration-300",
+          isScrolled ? "py-0 shadow-sm" : "py-2"
+        )}
+      >
+      <div className="container mx-auto px-4 flex h-16 items-center justify-between gap-4">
+        <div className="flex items-center gap-6">
+          <Link to={user ? "/dashboard" : "/"} className="flex items-center group mr-2 lg:mr-4">
+            <img src="/logo.png" alt="StudentHub Logo" className="h-9 w-auto object-contain transition-transform group-hover:scale-105 dark:bg-white dark:p-1 dark:rounded-md" />
           </Link>
+
+          <nav className="hidden lg:flex items-center">
+            {user && (
+              <Link to="/dashboard" className="text-sm font-medium mr-6 lg:mr-8 hover-underline text-foreground/80 hover:text-foreground transition-colors">
+                Dashboard
+              </Link>
+            )}
+            <div className="flex gap-6 lg:gap-8">
+              {navigationGroups.map((group) => (
+                <NavigationMenu key={group.title} delayDuration={100}>
+                  <NavigationMenuList>
+                    <NavigationMenuItem>
+                      <NavigationMenuTrigger className="text-sm font-medium h-8 bg-transparent hover-underline px-0">
+                        {group.title}
+                      </NavigationMenuTrigger>
+                      <NavigationMenuContent>
+                        <ul className="grid w-[600px] gap-3 p-6 md:grid-cols-2">
+                          {group.items.map((item) => (
+                            <li key={item.href}>
+                              <NavigationMenuLink asChild>
+                                <Link
+                                  to={item.href}
+                                  className={cn(
+                                    "flex items-start gap-3 select-none rounded-lg p-3 no-underline outline-none transition-all hover:bg-muted hover:text-primary active:scale-[0.98] group relative hover-underline",
+                                    location.pathname === item.href && "bg-muted text-primary"
+                                  )}
+                                >
+                                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background shadow-sm border border-border">
+                                    <div className="h-2 w-2 rounded-full bg-primary" />
+                                  </div>
+                                  <div className="flex-1 space-y-1">
+                                    <p className="text-sm font-semibold leading-none display-font">
+                                      {item.title}
+                                    </p>
+                                    <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
+                                      {item.desc}
+                                    </p>
+                                  </div>
+                                </Link>
+                              </NavigationMenuLink>
+                            </li>
+                          ))}
+                        </ul>
+                      </NavigationMenuContent>
+                    </NavigationMenuItem>
+                  </NavigationMenuList>
+                </NavigationMenu>
+              ))}
+            </div>
+          </nav>
         </div>
 
-        {/* Desktop Navigation (Center) */}
-        <nav className="hidden lg:flex justify-center">
-          <NavigationMenu delayDuration={200}>
-            <NavigationMenuList className="flex gap-6 lg:gap-8">
-              {navigationGroups.map((group) => (
-                <NavigationMenuItem key={group.title}>
-                  <NavigationMenuTrigger className="text-sm font-medium h-8 bg-transparent">
-                    {group.title}
-                  </NavigationMenuTrigger>
-                  <NavigationMenuContent>
-                    <ul className="grid w-[600px] gap-3 p-6 md:grid-cols-2">
-                      {group.items.map((item) => (
-                        <li key={item.href}>
-                          <NavigationMenuLink asChild>
-                            <Link
-                              to={item.href}
-                              className={cn(
-                                "flex items-start gap-3 select-none rounded-lg p-3 no-underline outline-none transition-all hover:bg-muted hover:text-primary active:scale-[0.98]",
-                                location.pathname === item.href && "bg-muted text-primary"
-                              )}
-                            >
-                              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background shadow-sm border border-border">
-                                <div className="h-2 w-2 rounded-full bg-primary" />
-                              </div>
-                              <div className="flex-1 space-y-1">
-                                <p className="text-sm font-semibold leading-none display-font">
-                                  {item.title}
-                                </p>
-                                <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
-                                  {item.desc}
-                                </p>
-                              </div>
-                            </Link>
-                          </NavigationMenuLink>
-                        </li>
-                      ))}
-                    </ul>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
-              ))}
-            </NavigationMenuList>
-          </NavigationMenu>
-        </nav>
-
-        {/* Right Side Actions & Search */}
-        <div className="flex-1 flex items-center justify-end gap-3 min-w-max">
-          <div className="relative hidden md:block w-48 lg:w-64" ref={searchRef}>
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search colleges, events..." 
-              className="pl-9 h-9 bg-muted/50 border-transparent focus-visible:bg-background"
-              value={searchQuery}
-              onChange={e => {
-                setSearchQuery(e.target.value);
-                setShowSearchDropdown(true);
-              }}
-              onFocus={() => setShowSearchDropdown(true)}
-              onKeyDown={handleSearchSubmit}
-            />
-            {showSearchDropdown && searchQuery && (
-              <div className="absolute top-full mt-2 w-80 lg:w-96 right-0 bg-popover text-popover-foreground rounded-lg shadow-lg border p-2 z-50 flex flex-col gap-2">
-                {isSearching ? (
-                  <div className="p-4 flex justify-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /></div>
-                ) : (
+        <div className="flex items-center justify-end gap-2 shrink-0">
+          {location.pathname !== '/' && (
+            <div className="hidden md:block shrink-0">
+              <Dialog open={showSearchDropdown} onOpenChange={setShowSearchDropdown}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-10 lg:w-48 h-9 justify-center lg:justify-start text-muted-foreground px-0 lg:px-3">
+                    <Search className="h-4 w-4 lg:mr-2" />
+                    <span className="hidden lg:inline">Search...</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden top-[20%] translate-y-0">
+                  <DialogTitle className="sr-only">Search</DialogTitle>
+                  <div className="flex items-center border-b px-3">
+                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                    <Input 
+                      placeholder="Search colleges, events, users..." 
+                      className="flex h-12 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground border-none shadow-none focus-visible:ring-0 focus-visible:outline-none focus-visible:border-none focus-visible:ring-offset-0"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      onKeyDown={handleSearchSubmit}
+                      autoFocus
+                    />
+                  </div>
+                  {searchQuery && (
+                    <div className="max-h-[50vh] overflow-y-auto p-2 flex flex-col gap-2">
+                      {isSearching ? (
+                        <div className="p-4 flex justify-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /></div>
+                      ) : (
                   <>
+                    {(searchQuery.toLowerCase().includes('roommate') || searchQuery.toLowerCase().includes('flatmate') || searchQuery.toLowerCase().includes('connections')) && (
+                      <div className="space-y-1 mb-2">
+                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quick Links</div>
+                        <div onClick={() => { setShowSearchDropdown(false); navigate('/roommates'); }} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors">
+                          <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center"><UserPlus className="h-4 w-4 text-primary" /></div>
+                          <div className="text-sm font-medium">Find Roommates</div>
+                        </div>
+                        <div onClick={() => { setShowSearchDropdown(false); navigate('/roommates/connections'); }} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors">
+                          <div className="h-8 w-8 rounded bg-indigo-500/10 flex items-center justify-center"><UsersRound className="h-4 w-4 text-indigo-500" /></div>
+                          <div className="text-sm font-medium">My Connections</div>
+                        </div>
+                      </div>
+                    )}
+
                     {searchResults.colleges.length > 0 && (
                       <div className="space-y-1">
                         <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Colleges</div>
@@ -340,7 +392,7 @@ export const Header = () => {
                         ))}
                       </div>
                     )}
-                                        {searchResults.courses?.length > 0 && (
+                    {searchResults.courses?.length > 0 && (
                       <div className="space-y-1 mt-2">
                         <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Courses</div>
                         {searchResults.courses.slice(0, 3).map(course => (
@@ -362,7 +414,6 @@ export const Header = () => {
                         ))}
                       </div>
                     )}
-
                     {searchResults.posts?.length > 0 && (
                       <div className="space-y-1 mt-2">
                         <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Community Posts</div>
@@ -386,6 +437,29 @@ export const Header = () => {
                       </div>
                     )}
                     
+                    {searchResults.providers?.length > 0 && (
+                      <div className="space-y-1 mt-2 flex flex-col gap-1 px-2 pb-2">
+                        <div className="w-full py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Local Services</div>
+                        {searchResults.providers.slice(0, 3).map(provider => (
+                          <div 
+                            key={provider._id} 
+                            onClick={() => { setShowSearchDropdown(false); navigate(`/repair?provider=${provider._id}`); }}
+                            className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                          >
+                            <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center">
+                              <Wrench className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="overflow-hidden">
+                              <div className="text-sm font-medium truncate">{provider.name}</div>
+                              <div className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                                {provider.category} • <Star className="h-3 w-3 fill-amber-400 text-amber-400 inline"/> {provider.rating}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
                     {searchResults.tags?.length > 0 && (
                       <div className="space-y-1 mt-2 flex flex-wrap gap-1 px-2 pb-2">
                         <div className="w-full py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tags</div>
@@ -400,8 +474,50 @@ export const Header = () => {
                         ))}
                       </div>
                     )}
+
+                    {(searchResults.roommateProfiles?.length > 0 || searchResults.roommateGroups?.length > 0) && (
+                      <div className="space-y-1 mt-2">
+                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Roommate Finder</div>
+                        
+                        {searchResults.roommateProfiles?.slice(0, 3).map(profile => (
+                          <div 
+                            key={profile._id} 
+                            onClick={() => { setShowSearchDropdown(false); navigate(`/roommates?profile=${profile._id}`); }}
+                            className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                          >
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                              {profile.user?.avatar_url || profile.user?.profilePicture ? (
+                                <img src={profile.user.avatar_url || profile.user.profilePicture} alt="User" className="h-full w-full object-cover" />
+                              ) : (
+                                <UserPlus className="h-4 w-4 text-primary" />
+                              )}
+                            </div>
+                            <div className="overflow-hidden">
+                              <div className="text-sm font-medium truncate">{profile.user?.name || profile.user?.full_name || 'Roommate'}</div>
+                              <div className="text-xs text-muted-foreground truncate">{profile.bio || `Budget: $${profile.budgetRange?.max || 0}`}</div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {searchResults.roommateGroups?.slice(0, 2).map(group => (
+                          <div 
+                            key={group._id} 
+                            onClick={() => { setShowSearchDropdown(false); navigate(`/roommates?group=${group._id}`); }}
+                            className="flex items-center gap-3 p-2 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                          >
+                            <div className="h-8 w-8 rounded-full bg-indigo-500/10 flex items-center justify-center">
+                              <UsersRound className="h-4 w-4 text-indigo-500" />
+                            </div>
+                            <div className="overflow-hidden">
+                              <div className="text-sm font-medium truncate">{group.name}</div>
+                              <div className="text-xs text-muted-foreground truncate">{group.status} • {group.targetSize} members</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     
-                    {searchResults.colleges.length === 0 && searchResults.events.length === 0 && (!searchResults.courses || searchResults.courses.length === 0) && (!searchResults.posts || searchResults.posts.length === 0) ? (
+                    {searchResults.colleges.length === 0 && searchResults.events.length === 0 && (!searchResults.courses || searchResults.courses.length === 0) && (!searchResults.posts || searchResults.posts.length === 0) && (!searchResults.roommateProfiles || searchResults.roommateProfiles.length === 0) && (!searchResults.roommateGroups || searchResults.roommateGroups.length === 0) ? (
                       <div className="p-4 text-center text-sm text-muted-foreground">No results for "{searchQuery}"</div>
                     ) : (
                       <div 
@@ -410,36 +526,97 @@ export const Header = () => {
                       >
                         See all results for "{searchQuery}"
                       </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
 
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={toggleTheme} 
-            className="hidden sm:inline-flex mr-1"
-            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          >
-            {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={toggleTheme} 
+                className="hidden sm:inline-flex mr-1"
+                aria-label={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>{isDarkMode ? "Light Mode" : "Dark Mode"}</p>
+            </TooltipContent>
+          </Tooltip>
 
           {user ? (
-            <>
-              <NotificationBell />
-              <Link to="/dashboard">
-                <Button className="btn-secondary hidden md:inline-flex">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Button>
-              </Link>
-            </>
+            <div className="flex items-center gap-3">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <NotificationBell />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Notifications</p>
+                </TooltipContent>
+              </Tooltip>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full border border-border/50 hover:bg-accent/50 overflow-hidden">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={user?.avatar_url || user?.profilePicture} alt={user?.name || user?.full_name || "User"} className="object-cover" />
+                      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                        {(user?.name || user?.full_name || "U").charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal p-3">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user?.name || user?.full_name || "User"}</p>
+                      <p className="text-xs leading-none text-muted-foreground mt-1">{user?.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="p-2.5">
+                    <Link to="/profile" className="cursor-pointer flex items-center w-full">
+                      <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <span>My Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="p-2.5">
+                    <Link to="/dashboard" className="cursor-pointer flex items-center w-full">
+                      <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <span>Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="p-2.5">
+                    <Link to="/settings" className="cursor-pointer flex items-center w-full">
+                      <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                      <span>Settings</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={async () => { await signOut(); navigate('/'); }} 
+                    className="cursor-pointer p-2.5 text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/30"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           ) : (
             <Link to="/auth">
-              <Button className="hidden md:inline-flex">Sign In</Button>
+              <Button className="hidden sm:inline-flex whitespace-nowrap">Sign In</Button>
             </Link>
           )}
           
@@ -472,6 +649,21 @@ export const Header = () => {
       {mobileMenuOpen && (
         <div className="border-t border-border/40 bg-background/95 backdrop-blur-xl lg:hidden max-h-[80vh] overflow-y-auto">
           <div className="container mx-auto px-4 py-6">
+            {user && (
+              <div className="mb-6">
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    "block rounded-lg p-3 transition-all hover:bg-accent/50",
+                    location.pathname === "/dashboard" && "bg-accent/30"
+                  )}
+                >
+                  <div className="font-medium text-primary">Dashboard</div>
+                  <p className="text-sm text-muted-foreground">Go to your personal dashboard</p>
+                </Link>
+              </div>
+            )}
             {navigationGroups.map((group) => (
               <div key={group.title} className="mb-6">
                 <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
@@ -496,24 +688,28 @@ export const Header = () => {
                 </ul>
               </div>
             ))}
-            {user && (
+            {user ? (
               <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
                 <Button variant="outline" className="w-full justify-center gap-2" onClick={toggleTheme}>
                   {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                   {isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
                 </Button>
-                <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full justify-center gap-2">
-                    <LayoutDashboard className="h-4 w-4" />
-                    Dashboard
-                  </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 pt-4 border-t border-border/40">
+                <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>
+                  <Button className="w-full justify-center">Sign In</Button>
                 </Link>
+                <Button variant="outline" className="w-full justify-center gap-2" onClick={toggleTheme}>
+                  {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                </Button>
               </div>
             )}
           </div>
         </div>
       )}
-    </header>
+      </motion.header>
     </>
   );
 };

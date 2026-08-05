@@ -43,6 +43,8 @@ import { MentorSessionManagement } from "@/components/dashboard/MentorSessionMan
 import { CareerVisibilityManager } from "@/components/dashboard/CareerVisibilityManager";
 import { MenteeSubscription } from "@/components/dashboard/MenteeSubscription";
 import { PlacementPrepWidget } from "@/components/dashboard/PlacementPrepWidget";
+import { RepairDashboardWidget } from "@/components/dashboard/RepairDashboardWidget";
+import { RoommatesDashboardWidget } from "@/components/dashboard/RoommatesDashboardWidget";
 
 type Section = "overview" | "courses" | "ideas" | "collaborations" | "requests" | "teams" | "skill-swap" | "creators" | "progress" | "notifications" | "notification-settings" | "live" | "analytics" | "profile" | "referrals" | "subscription" | "career-visibility" | "security" | "links" | "saved-colleges" | "activity" | "mentor-bookings" | "mentor-management";
 
@@ -148,8 +150,10 @@ const Dashboard = () => {
             <DashboardOverview stats={stats} setActiveSection={setActiveSection} />
             
             <ScrollReveal delay={0.05}>
-              <div className="mb-6">
+              <div className="mb-6 grid gap-6 lg:grid-cols-3">
                 <PlacementPrepWidget />
+                <RepairDashboardWidget />
+                <RoommatesDashboardWidget />
               </div>
             </ScrollReveal>
 

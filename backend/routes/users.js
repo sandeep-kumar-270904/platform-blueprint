@@ -42,7 +42,7 @@ router.get('/me/skill-gaps/trending', authMiddleware, getTrendingSkillGaps);
 // PUT /api/users/me
 router.put('/me', authMiddleware, async (req, res) => {
   try {
-    const { full_name, username, avatar_url, bio, skills, locale } = req.body;
+    const { full_name, username, avatar_url, bio, skills, locale, university, graduation_year, degree, location } = req.body;
     
     // Check if username is taken (if it's changing)
     if (username) {
@@ -52,7 +52,7 @@ router.put('/me', authMiddleware, async (req, res) => {
       }
     }
 
-    const updateFields = { full_name, username, avatar_url, bio };
+    const updateFields = { full_name, username, avatar_url, bio, university, graduation_year, degree, location };
     if (locale) updateFields.locale = locale;
     if (skills) {
       updateFields.skills = skills.map(skill => (typeof skill === 'string' ? { skillName: skill } : skill));
@@ -69,6 +69,22 @@ router.put('/me', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Server error updating profile', error: error.message });
   }
 });
+
+// PUT /api/users/me/onboarding
+router.put('/me/onboarding', authMiddleware, async (req, res) => {
+  try {
+    const { hasCompletedOnboarding, onboardingPreferences } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { hasCompletedOnboarding, onboardingPreferences } },
+      { new: true }
+    ).select('-password');
+    res.json({ message: 'Onboarding completed', user });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error saving onboarding preferences', error: error.message });
+  }
+});
+
 // POST /api/users/me/video-intro
 router.post('/me/video-intro', authMiddleware, async (req, res) => {
   try {
@@ -274,6 +290,9 @@ router.get('/me/export', authMiddleware, async (req, res) => {
     const MentorProfile = require('../models/MentorProfile');
     const MentorBooking = require('../models/MentorBooking');
     const MentorReview = require('../models/MentorReview');
+    const RoomRental = require('../models/RoomRental');
+    const RoomBooking = require('../models/RoomBooking');
+    const RoomRentalAgreement = require('../models/RoomRentalAgreement');
     
     const user = await User.findById(userId).lean();
     const mentorProfile = await MentorProfile.findOne({ user_id: userId }).lean();
@@ -290,7 +309,13 @@ router.get('/me/export', authMiddleware, async (req, res) => {
       mentorProfile,
       bookingsAsMentee: myBookingsAsMentee,
       reviewsGiven: myReviewsAsMentee,
-      bookingsAsMentor: myBookingsAsMentor
+      bookingsAsMentor: myBookingsAsMentor,
+      roomRentals: {
+        listings: await RoomRental.find({ lister: userId }).lean(),
+        bookingsSent: await RoomBooking.find({ renter: userId }).lean(),
+        bookingsReceived: await RoomBooking.find({ owner: userId }).lean(),
+        agreements: await RoomRentalAgreement.find({ $or: [{ owner: userId }, { renter: userId }] }).lean()
+      }
     };
 
     res.setHeader('Content-disposition', 'attachment; filename=my-data-export.json');
@@ -463,7 +488,7 @@ router.get('/me/events/registered', authMiddleware, async (req, res) => {
 // GET /api/users/:id/profile
 router.get('/:id/profile', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('username full_name avatar_url university degree graduation_year');
+    const user = await User.findById(req.params.id).select('username full_name avatar_url university degree graduation_year bio location learningStreak badges totalQuizPoints skills skillsProfilePublic role interestTags institutionVerified');
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json(user);
   } catch (error) {

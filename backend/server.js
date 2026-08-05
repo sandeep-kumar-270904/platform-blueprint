@@ -9,6 +9,9 @@ const morgan = require('morgan');
 const logger = require('./utils/logger');
 const { startCron } = require('./jobs/classroomCron');
 const { startStudyGroupCron } = require('./jobs/studyGroupCron');
+const { startRoommateDigestCron } = require('./jobs/roommateDigestCron');
+const { startSlotExpirationWorker } = require('./workers/slotExpirationWorker');
+const { startQuoteExpirationWorker } = require('./workers/quoteExpirationWorker');
 const mongoose = require('mongoose');
 const StudyGroup = require('./models/StudyGroup');
 
@@ -20,6 +23,8 @@ dotenv.config({ path: envFile });
 // Start Cron Jobs
 startCron();
 startStudyGroupCron();
+startSlotExpirationWorker();
+startQuoteExpirationWorker();
 
 const http = require('http');
 const { Server } = require('socket.io');
@@ -39,6 +44,7 @@ connectDB().then(async () => {
   try {
     const cronService = require('./services/cronService');
     cronService.init(io);
+    startRoommateDigestCron(io);
     
     const notificationService = require('./services/notificationService');
     notificationService.init(io);
@@ -518,7 +524,8 @@ app.use(morgan('combined', { stream: { write: message => logger.info(message.tri
 const webhooksRoutes = require('./routes/webhooks');
 app.use('/api/webhooks', webhooksRoutes);
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 const cookieParser = require('cookie-parser');
 const sanitizeMiddleware = require('./middleware/sanitize');
 
@@ -586,6 +593,9 @@ const placementReferrals = require('./routes/placementReferrals');
 const placementOnboarding = require('./routes/placementOnboarding');
 const aptitudeRoutes = require('./routes/aptitude');
 const roomRentalsRoutes = require('./routes/roomRentals');
+const roomBookingsRoutes = require('./routes/roomBookings');
+const roomAgreementsRoutes = require('./routes/roomAgreements');
+const roomRentalChatsRoutes = require('./routes/roomRentalChats');
 const roommatesRoutes = require('./routes/roommates');
 const roomRentalReviewsRoutes = require('./routes/roomRentalReviews');
 
@@ -611,6 +621,8 @@ app.use('/api/classrooms', require('./routes/classrooms'));
 app.use('/api/integration', require('./routes/integration'));
 app.use('/api/forum', require('./routes/forum'));
 app.use('/api/qa', require('./routes/qa'));
+app.use('/api/repair', require('./routes/repairRoutes'));
+app.use('/api/admin/repair', require('./routes/adminRepairRoutes'));
 app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/room-rentals', require('./routes/roomRentals'));
 app.use('/api/coach', require('./routes/coach'));
@@ -622,6 +634,10 @@ const resumesRoutes = require('./routes/resumes');
 const mentorsRoutes = require('./routes/mentors');
 const scholarshipRoutes = require('./routes/scholarships');
 const scholarshipTrustRoutes = require('./routes/scholarshipTrust');
+const roommateAdminRoutes = require('./routes/roommateAdmin');
+const roommateSuggestionsRoutes = require('./routes/roommateSuggestions');
+const roommateCalendarRoutes = require('./routes/roommateCalendar');
+const roommateAnalyticsRoutes = require('./routes/roommateAnalytics');
 const jobRoutes = require('./routes/jobs');
 const quizzesRoutes = require('./routes/quizzes');
 
@@ -632,11 +648,6 @@ app.use('/api/study-groups', studyGroups);
 app.use('/api/placement-referrals', placementReferrals);
 app.use('/api/placement-onboarding', placementOnboarding);
 app.use('/api/aptitude', aptitudeRoutes);
-app.use('/api/applications', applicationsRoutes);
-app.use('/api/resumes', resumesRoutes);
-app.use('/api/mentors', mentorsRoutes);
-app.use('/api/scholarships', scholarshipRoutes);
-app.use('/api/scholarships', scholarshipTrustRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/quizzes', quizzesRoutes);
 app.use('/api/gd', gdRoutes);
@@ -770,10 +781,21 @@ app.use('/api/essays', require('./routes/essays'));
   app.use('/api/admin/alt-funding-resources', require('./routes/adminAltFunding'));
   app.use('/api/scholarships', require('./routes/providerFeedback'));
 app.use('/api/subscriptions', require('./routes/subscriptions'));
-app.use('/api/admin/mentors-overview', adminMentorsOverviewRoutes);
-app.use('/api/room-rentals', roomRentalsRoutes);
+  app.use('/api/admin/mentors-overview', adminMentorsOverviewRoutes);
+  app.use('/api/room-rentals', roomRentalsRoutes);
+  app.use('/api/room-bookings', roomBookingsRoutes);
+  app.use('/api/room-agreements', roomAgreementsRoutes);
+  app.use('/api/room-rental-chats', roomRentalChatsRoutes);
+  app.use('/api/roommates/safety', require('./routes/roommateSafety'));
+app.use('/api/roommates/verification', require('./routes/roommateVerification'));
+app.use('/api/roommates/chat', require('./routes/roommateChat'));
+app.use('/api/roommates/groups', require('./routes/roommateGroups'));
+app.use('/api/roommates/suggestions', require('./routes/roommateSuggestions'));
 app.use('/api/roommates', roommatesRoutes);
+app.use('/api/admin/roommates', require('./routes/roommateAdmin'));
 app.use('/api/room-rental-reviews', roomRentalReviewsRoutes);
+app.use('/api/site-content', require('./routes/siteContent'));
+app.use('/api/admin/site-content', require('./routes/adminSiteContent'));
 app.use('/api/search-alerts', require('./routes/roomSearchAlerts'));
 app.use('/api/hostels', require('./routes/hostels'));
 
@@ -903,6 +925,24 @@ io.on('connection', (socket) => {
   socket.on('join_recruiter_room', (userId) => {
     socket.join(`recruiter:${userId}`);
     console.log(`Socket ${socket.id} joined recruiter:${userId}`);
+  });
+
+  socket.on('join_roommate_chat', (connectionId) => {
+    socket.join(`roommate_chat_${connectionId}`);
+    console.log(`Socket ${socket.id} joined roommate_chat_${connectionId}`);
+  });
+
+  socket.on('leave_roommate_chat', (connectionId) => {
+    socket.leave(`roommate_chat_${connectionId}`);
+  });
+
+  socket.on('join_roommate_group_chat', (groupId) => {
+    socket.join(`roommate_group_chat_${groupId}`);
+    console.log(`Socket ${socket.id} joined roommate_group_chat_${groupId}`);
+  });
+
+  socket.on('leave_roommate_group_chat', (groupId) => {
+    socket.leave(`roommate_group_chat_${groupId}`);
   });
 
   socket.on('join_brainstorm_session', (sessionId) => {

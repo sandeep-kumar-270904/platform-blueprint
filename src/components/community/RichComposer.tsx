@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Send, Loader2, Image as ImageIcon, X, Bold, Italic, Code, BarChart2, Plus, Trash2, Globe, Users, Shield, Award, Calendar, HelpCircle, Smile, MapPin, Clock, AlertCircle, AlertTriangle } from "lucide-react";
+import { Send, Loader2, Image as ImageIcon, X, Bold, Italic, Code, BarChart2, Plus, Trash2, Globe, Users, Shield, Award, Calendar, HelpCircle, Smile, MapPin, Clock, AlertCircle, AlertTriangle, Briefcase, Search } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -53,7 +53,7 @@ interface RichComposerProps {
     tags: string[], 
     files: File[], 
     poll?: any, 
-    options?: { privacy: string, clubId?: string, template: string, templateData?: any },
+    options?: { privacy: string, clubId?: string, template: string, templateData?: any, provider_reference?: string | null },
     onProgress?: (progress: number) => void
   ) => Promise<boolean | void>;
   user: any;
@@ -82,6 +82,11 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
   const [clubId, setClubId] = useState<string>("");
   const [template, setTemplate] = useState<string>("standard");
   const [templateData, setTemplateData] = useState<any>({});
+  
+  const [providerReference, setProviderReference] = useState<{ id: string, name: string } | null>(null);
+  const [providerSearch, setProviderSearch] = useState("");
+  const [providerResults, setProviderResults] = useState<any[]>([]);
+  const [isProviderSearchOpen, setIsProviderSearchOpen] = useState(false);
   
   const [draftRestored, setDraftRestored] = useState(false);
   const [showDraftPrompt, setShowDraftPrompt] = useState(false);
@@ -140,6 +145,25 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
       setTagSuggestions([]);
     }
   };
+
+  useEffect(() => {
+    if (!isProviderSearchOpen || !providerSearch.trim()) {
+      setProviderResults([]);
+      return;
+    }
+    const fetchProviders = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/repair/providers?search=${providerSearch}&limit=5`);
+        if (res.ok) {
+          const data = await res.json();
+          setProviderResults(data.data || []);
+        }
+      } catch (err) {}
+    };
+    const timer = setTimeout(fetchProviders, 300);
+    return () => clearTimeout(timer);
+  }, [providerSearch, isProviderSearchOpen]);
 
   const addTag = (tag: string) => {
     if (!selectedTags.includes(tag) && selectedTags.length < 5) setSelectedTags([...selectedTags, tag]);
@@ -226,7 +250,7 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
     const timer = setTimeout(() => {
       if (content || selectedTags.length > 0) {
         localStorage.setItem('composer_draft', JSON.stringify({
-          content, selectedTags, showPoll, pollOptions, privacy, clubId, template, templateData
+          content, selectedTags, showPoll, pollOptions, privacy, clubId, template, templateData, providerReference
         }));
       } else {
         localStorage.removeItem('composer_draft');
@@ -245,6 +269,7 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
       setClubId(savedDraft.clubId || "");
       setTemplate(savedDraft.template || "standard");
       setTemplateData(savedDraft.templateData || {});
+      setProviderReference(savedDraft.providerReference || null);
     }
     setShowDraftPrompt(false);
     setDraftRestored(true);
@@ -317,15 +342,14 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
     }
     
     setPosting(true);
-    const validPollOptions = pollOptions.map(o => o.trim()).filter(o => o);
-    const poll = showPoll && validPollOptions.length >= 2 ? { options: validPollOptions } : undefined;
-    
+    setUploadProgress(0);
+
     const success = await onSubmit(
       content, 
       selectedTags, 
       images.map(i => i.file), 
-      poll, 
-      { privacy, clubId: clubId || undefined, template, templateData },
+      showPoll && pollOptions.filter(o => o.trim()).length >= 2 ? { options: pollOptions.filter(o => o.trim()).map(text => ({ text })) } : undefined,
+      { privacy, clubId: clubId || undefined, template, templateData, provider_reference: providerReference?.id || null },
       (progress) => setUploadProgress(progress)
     );
     
@@ -346,7 +370,7 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
     setPollOptions(["", ""]);
     setTemplate("standard");
     setTemplateData({});
-    setTemplateData({});
+    setProviderReference(null);
     setSpamWarning(false);
     setDuplicateWarning(false);
     setForcePost(false);
@@ -489,6 +513,16 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
           </div>
         )}
 
+        {providerReference && (
+          <div className="mt-2 p-2 bg-blue-500/10 rounded-md border border-blue-500/20 flex justify-between items-center text-sm">
+            <div className="flex items-center gap-2 text-blue-500">
+              <Briefcase className="h-4 w-4" />
+              <span>Referencing provider: <strong>{providerReference.name}</strong></span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-destructive" onClick={() => setProviderReference(null)}><X className="h-4 w-4" /></Button>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-2 border-t gap-2 sm:gap-0">
           <div className="flex flex-wrap items-center gap-1 sm:gap-2">
             
@@ -521,6 +555,47 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
             </DropdownMenu>
 
             <div className="h-4 w-px bg-border mx-1 hidden sm:block" />
+            
+            {/* Provider Attach Popover */}
+            <Popover open={isProviderSearchOpen} onOpenChange={setIsProviderSearchOpen}>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className={`h-8 px-2 ${providerReference ? 'text-blue-400 bg-blue-500/10' : 'text-muted-foreground hover:text-primary'}`}>
+                  <Briefcase className="h-4 w-4" /> <span className="hidden sm:inline ml-1">Provider</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-72 p-3">
+                <div className="text-sm font-semibold mb-2">Attach a Service Provider</div>
+                <div className="relative mb-2">
+                  <Search className="absolute left-2 top-1.5 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search providers..." 
+                    className="pl-8 h-8 text-sm" 
+                    value={providerSearch} 
+                    onChange={e => setProviderSearch(e.target.value)} 
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {providerResults.length > 0 ? providerResults.map(provider => (
+                    <div 
+                      key={provider._id || provider.id} 
+                      className="p-2 hover:bg-secondary rounded cursor-pointer flex flex-col"
+                      onClick={() => {
+                        setProviderReference({ id: provider._id || provider.id, name: provider.name });
+                        setIsProviderSearchOpen(false);
+                      }}
+                    >
+                      <span className="font-medium text-sm text-foreground">{provider.name}</span>
+                      <span className="text-xs text-muted-foreground">{provider.category}</span>
+                    </div>
+                  )) : providerSearch ? (
+                    <div className="text-xs text-muted-foreground p-2 text-center">No providers found</div>
+                  ) : (
+                    <div className="text-xs text-muted-foreground p-2 text-center">Search for a provider to attach</div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
             
             {/* Template Selector */}
             <DropdownMenu>

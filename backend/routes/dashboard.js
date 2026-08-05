@@ -19,6 +19,9 @@ const UserActivity = require('../models/UserActivity');
 const OAAttempt = require('../models/OAAttempt');
 const GDLiveSession = require('../models/GDLiveSession');
 const CreatorContent = require('../models/CreatorContent');
+const QuizAttempt = require('../models/QuizAttempt');
+const RoommateConnection = require('../models/RoommateConnection');
+const RoommateProfile = require('../models/RoommateProfile');
 
 
 
@@ -104,6 +107,68 @@ router.get('/creators-summary', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/dashboard/roommate-summary
+router.get('/roommate-summary', authMiddleware, async (req, res) => {
+  try {
+    const userId = await getTargetUserId(req);
+    
+    const profile = await RoommateProfile.findOne({ user: userId });
+    
+    if (!profile) {
+      return res.json({ status: 'no_profile' });
+    }
+    
+    // Calculate completeness score (matches frontend logic)
+    let completenessScore = 0;
+    const baseFields = [
+      profile.bio,
+      profile.budgetRange?.min,
+      profile.moveInDate,
+      profile.lifestyle_preferences?.cleanliness,
+      profile.lifestyle_preferences?.sleepSchedule
+    ];
+    completenessScore += Math.round((baseFields.filter(Boolean).length / 5) * 50);
+
+    if (profile.profilePhoto) completenessScore += 15;
+    if (profile.galleryPhotos && profile.galleryPhotos.length > 0) completenessScore += 15;
+
+    const prefFields = [
+      profile.lifestyle_preferences?.smoking,
+      profile.lifestyle_preferences?.pets
+    ];
+    completenessScore += Math.round((prefFields.filter(Boolean).length / 2) * 10);
+
+    const advFields = [
+      profile.lifestyle_preferences?.guestPolicy,
+      profile.lifestyle_preferences?.cookingHabits,
+      profile.lifestyle_preferences?.sharedSpaceExpectations
+    ];
+    completenessScore += Math.round((advFields.filter(Boolean).length / 3) * 10);
+
+    // Count pending requests received by the user
+    const pendingRequests = await RoommateConnection.countDocuments({
+      recipient: userId,
+      status: 'Pending'
+    });
+    
+    // Count active connections
+    const activeConnections = await RoommateConnection.countDocuments({
+      $or: [{ requester: userId }, { recipient: userId }],
+      status: 'Accepted'
+    });
+    
+    res.json({
+      status: profile.status === 'paused' ? 'paused' : (profile.visibility === 'hidden' ? 'hidden' : 'active'),
+      completenessScore,
+      pendingRequests,
+      activeConnections
+    });
+  } catch (err) {
+    console.error('Error fetching roommate summary:', err);
+    res.status(500).json({ message: 'Error fetching roommate summary', error: err.message });
+  }
+});
+
 // GET /api/dashboard/host
 router.get('/host', authMiddleware, async (req, res) => {
   try {
@@ -123,12 +188,54 @@ router.get('/host', authMiddleware, async (req, res) => {
 router.get('/analytics', authMiddleware, async (req, res) => {
   try {
     const userId = await getTargetUserId(req);
-    const notes = await Note.find({ user_id: userId })
-      .select('title views downloads rating')
-      .sort({ views: -1 });
     
-    res.json({ notes });
+    // Notes Analytics
+    const notes = await Note.find({ user_id: userId })
+      .select('title views downloads rating study_time_minutes last_viewed_at')
+      .sort({ views: -1 });
+
+    // Quizzes Analytics
+    const quizAttempts = await QuizAttempt.find({ user: userId, status: 'completed' });
+    const totalQuizzes = quizAttempts.length;
+    const averageQuizScore = totalQuizzes > 0 
+      ? Math.round(quizAttempts.reduce((acc, q) => acc + (q.percentageScore || 0), 0) / totalQuizzes) 
+      : 0;
+
+    // Collaboration Analytics (Study Groups)
+    const activeStudyGroups = await StudyGroup.countDocuments({
+      memberships: { $elemMatch: { user: userId, status: 'active' } }
+    });
+
+    // Connections Analytics (Roommates)
+    const roommateConnections = await RoommateConnection.countDocuments({
+      $or: [{ requester: userId }, { recipient: userId }],
+      status: 'Accepted'
+    });
+
+    // Engagement Analytics (Virtual Classrooms)
+    const sessionsHosted = await VirtualClassroom.countDocuments({ host_id: userId });
+    const sessionsAttended = await ClassroomParticipant.countDocuments({
+      user_id: userId,
+      status: { $in: ['attending', 'registered', 'waitlisted'] }
+    });
+
+    res.json({
+      notes,
+      learning: {
+        totalQuizzes,
+        averageQuizScore
+      },
+      collaboration: {
+        activeStudyGroups,
+        roommateConnections
+      },
+      engagement: {
+        sessionsHosted,
+        sessionsAttended
+      }
+    });
   } catch (error) {
+    console.error('Analytics Error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

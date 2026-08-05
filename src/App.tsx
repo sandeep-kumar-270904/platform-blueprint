@@ -11,12 +11,13 @@ import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import VerifyEmail from "./pages/auth/VerifyEmail";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import StudyGroups from "./pages/StudyGroups";
 import StudyGroupDetail from "./pages/StudyGroupDetail";
 
 import Analytics from "./pages/Analytics";
 import QABoard from "./pages/QABoard";
-import Gamification from "./pages/Gamification";
 import VirtualClassroom from "./pages/VirtualClassroom";
 import { ClassPreview } from "./pages/ClassPreview";
 import MeetingRoom from "./pages/MeetingRoom";
@@ -98,7 +99,6 @@ import AdminCareerOpportunities from './pages/admin/AdminCareerOpportunities';
 import RoomRentals from "./pages/RoomRentals";
 import Roadmaps from "./pages/Roadmaps";
 import Forum from "./pages/Forum";
-import Sessions from "./pages/Sessions";
 
 import SkillSwap from "./pages/SkillSwap";
 import CreatorsZone from "./pages/CreatorsZone";
@@ -114,13 +114,15 @@ import VideoRoomPage from "./pages/VideoRoomPage";
 import AdminJobsPanel from "./pages/admin/AdminJobsPanel";
 import AdminStudyGroupsPanel from "./pages/admin/AdminStudyGroupsPanel";
 import AdminRoomRentalsPanel from "./pages/admin/AdminRoomRentalsPanel";
+import AdminRoommatesPanel from "./pages/admin/AdminRoommatesPanel";
 import RecruiterVerify from "./pages/RecruiterVerify";
 import { ThemeProvider } from "./components/theme-provider";
-import PostSkill from "./pages/PostSkill";
+
 import Hostels from "./pages/Hostels";
 import HostelInquiries from "./pages/HostelInquiries";
 import SavedHostels from "./pages/SavedHostels";
 import Repair from "./pages/Repair";
+import RepairRequests from "./pages/dashboard/RepairRequests";
 import FoundersPassport from "./pages/FoundersPassport";
 import InviteAccept from "./pages/InviteAccept";
 import Search from "./pages/Search";
@@ -134,6 +136,8 @@ import AMASessionsPage from "./pages/AMASessionsPage";
 import AMADetailPage from "./pages/AMADetailPage";
 import NotificationSettings from "./pages/NotificationSettings";
 import AccountSettings from "./pages/AccountSettings";
+import ProfileSettings from "./pages/ProfileSettings";
+import UserProfile from "./pages/UserProfile";
 import LiveQuizHost from "./pages/LiveQuizHost";
 import LiveQuizJoin from "./pages/LiveQuizJoin";
 import LiveQuizPlay from "./pages/LiveQuizPlay";
@@ -161,8 +165,13 @@ import { WorkshopSession } from "./pages/WorkshopSession";
 import { DeveloperSettings } from "./pages/DeveloperSettings";
 import { StaticPage } from "./pages/StaticPage";
 import { AdminHostelsPanel } from "./pages/admin/AdminHostelsPanel";
+import { AdminRepairPanel } from "./pages/admin/AdminRepairPanel";
 import { AnnouncementBanner } from "./components/layout/AnnouncementBanner";
 import { MaintenanceModeWrapper } from "./components/layout/MaintenanceMode";
+import { ErrorBoundary } from "./components/layout/ErrorBoundary";
+import { CookieConsent } from "./components/layout/CookieConsent";
+import { CustomCursor } from "./components/ui/CustomCursor";
+import OnboardingFlow from "./pages/OnboardingFlow";
 
 const queryClient = new QueryClient();
 
@@ -170,19 +179,26 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
+        <CustomCursor />
+        <CookieConsent />
         <Toaster />
         <Sonner />
         <GlobalSocketListener />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <a href="#main-content" className="skip-to-content">Skip to main content</a>
           <AnnouncementBanner />
           <MaintenanceModeWrapper>
-            <Routes>
+            <ErrorBoundary>
+              <Routes>
             {/* Public Routes */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Index />} />
+          <Route path="/onboarding" element={<ProtectedRoute><OnboardingFlow /></ProtectedRoute>} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
           <Route path="/events" element={<Events />} />
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/video/:id" element={<VideoRoomPage />} />
@@ -292,8 +308,9 @@ const App = () => (
           <Route path="/roommate-finder" element={<ProtectedRoute><RoommateFind /></ProtectedRoute>} />
           <Route path="/wellness" element={<ProtectedRoute><Wellness /></ProtectedRoute>} />
           <Route path="/room-rentals" element={<ProtectedRoute><RoomRentals /></ProtectedRoute>} />
+          <Route path="/repair" element={<ProtectedRoute><Repair /></ProtectedRoute>} />
+          <Route path="/dashboard/repair-requests" element={<ProtectedRoute><RepairRequests /></ProtectedRoute>} />
           <Route path="/qa-board" element={<ProtectedRoute><QABoard /></ProtectedRoute>} />
-          <Route path="/gamification" element={<ProtectedRoute><Gamification /></ProtectedRoute>} />
           {/* Virtual Classroom */}
           <Route path="/classrooms" element={<VirtualClassroom />} />
           <Route path="/class-preview/:id" element={<ClassPreview />} />
@@ -302,7 +319,6 @@ const App = () => (
           <Route path="/classroom/:id/recap" element={<ProtectedRoute><ClassroomRecap /></ProtectedRoute>} />
           <Route path="/roadmaps" element={<ProtectedRoute><Roadmaps /></ProtectedRoute>} />
           <Route path="/forum" element={<ProtectedRoute><Forum /></ProtectedRoute>} />
-          <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
 
           <Route path="/skill-swap" element={<ProtectedRoute><SkillSwap /></ProtectedRoute>} />
           <Route path="/creators" element={<CreatorsZone />} />
@@ -324,15 +340,20 @@ const App = () => (
           <Route path="/admin/classrooms" element={<ProtectedRoute><AdminClassroomsPanel /></ProtectedRoute>} />
           <Route path="/admin/skill-swap" element={<ProtectedRoute><AdminSkillSwapPanel /></ProtectedRoute>} />
           <Route path="/admin/room-rentals" element={<ProtectedRoute><AdminRoomRentalsPanel /></ProtectedRoute>} />
+          <Route path="/admin/roommates" element={<ProtectedRoute><AdminRoommatesPanel /></ProtectedRoute>} />
           <Route path="/admin/hostels" element={<ProtectedRoute><AdminHostelsPanel /></ProtectedRoute>} />
+          <Route path="/admin/repair" element={<ProtectedRoute><AdminRepairPanel /></ProtectedRoute>} />
           <Route path="/recruiter/verify" element={<ProtectedRoute><RecruiterVerify /></ProtectedRoute>} />
           <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
-          <Route path="/post-skill" element={<ProtectedRoute><PostSkill /></ProtectedRoute>} />
+
           <Route path="/hostels" element={<ProtectedRoute><Hostels /></ProtectedRoute>} />
           <Route path="/hostels/inquiries" element={<ProtectedRoute><HostelInquiries /></ProtectedRoute>} />
           <Route path="/hostels/saved" element={<ProtectedRoute><SavedHostels /></ProtectedRoute>} />
           <Route path="/repair" element={<ProtectedRoute><Repair /></ProtectedRoute>} />
           <Route path="/founders-passport" element={<ProtectedRoute><FoundersPassport /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
+          <Route path="/profile/:id" element={<UserProfile />} />
+          <Route path="/settings" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
           <Route path="/settings/notifications" element={<ProtectedRoute><NotificationSettings /></ProtectedRoute>} />
           <Route path="/settings/account" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
           
@@ -345,7 +366,8 @@ const App = () => (
         <Route path="/resume/workshops/:id" element={<WorkshopSession />} />
         <Route path="/resume/developer" element={<DeveloperSettings />} />
       </Routes>
-      </MaintenanceModeWrapper>
+            </ErrorBoundary>
+          </MaintenanceModeWrapper>
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>

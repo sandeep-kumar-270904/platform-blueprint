@@ -5,6 +5,28 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .hover-underline {
+    position: relative;
+  }
+  .hover-underline::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    transform: scaleX(0);
+    height: 2px;
+    bottom: -2px;
+    left: 0;
+    background-color: currentColor;
+    transform-origin: bottom right;
+    transition: transform 0.25s ease-out;
+  }
+  .hover-underline:hover::after {
+    transform: scaleX(1);
+    transform-origin: bottom left;
+  }
+}
+
 @layer base {
   :root {
     --background: 42 27% 96%;
@@ -47,12 +69,47 @@
     --ring: 42 27% 96%;
   }
 
-  body {
+  html, body {
+    scroll-behavior: smooth;
     background-color: var(--canvas);
     color: var(--ink-soft);
     font-family: 'Inter', sans-serif;
     font-size: 17px;
     line-height: 1.65;
+  }
+  
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  
+  *, *::before, *::after {
+    transition: background-color 0.3s ease-in-out, border-color 0.3s ease-in-out;
+  }
+  
+  .blur-up {
+    filter: blur(10px);
+    transition: filter 0.5s ease-out;
+  }
+  .blur-up.loaded {
+    filter: blur(0);
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--canvas);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--accent-soft);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
   }
   
   /* Typography Roles */
@@ -137,12 +194,23 @@
   }
 
   /* Focus and Accessibility */
-  button:focus-visible, 
-  a:focus-visible,
-  .card:focus-visible,
-  input:focus-visible {
+  *:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+
+  .skip-to-content {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--primary);
+    color: var(--primary-foreground);
+    padding: 8px;
+    z-index: 10000;
+    transition: top 0.2s;
+  }
+  .skip-to-content:focus {
+    top: 0;
   }
 }
 
@@ -341,5 +409,10 @@
   }
   @media (max-width: 767px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* Make container fluid to remove large side gaps on wide screens */
+  .container {
+    max-width: 100% !important;
   }
 }

@@ -5,6 +5,8 @@ const NotificationPreference = require('../models/NotificationPreference');
 const CommunityPost = require('../models/CommunityPost');
 const CommunityComment = require('../models/CommunityComment');
 const CommunityLike = require('../models/CommunityLike');
+const RepairRequest = require('../models/RepairRequest');
+const RepairProvider = require('../models/RepairProvider');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
@@ -112,6 +114,10 @@ router.post('/change-password', auth, async (req, res) => {
   }
 });
 
+const RoomRental = require('../models/RoomRental');
+const RoomBooking = require('../models/RoomBooking');
+const RoomRentalAgreement = require('../models/RoomRentalAgreement');
+
 router.post('/request-data-export', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
@@ -121,6 +127,12 @@ router.post('/request-data-export', auth, async (req, res) => {
     const comments = await CommunityComment.find({ user_id: req.user.id });
     const likes = await CommunityLike.find({ user_id: req.user.id });
     
+    // Repair & Maintenance Data
+    const repairRequests = await RepairRequest.find({ userId: req.user.id }).lean();
+    const userDoc = await User.findById(req.user.id).lean();
+    const savedProviderIds = userDoc.savedRepairProviders || [];
+    const savedProviders = await RepairProvider.find({ _id: { $in: savedProviderIds } }, 'name category').lean();
+
     const exportData = {
       profile: {
         username: user.username,
@@ -131,6 +143,16 @@ router.post('/request-data-export', auth, async (req, res) => {
         posts,
         comments,
         likes
+      },
+      repairAndMaintenance: {
+        repairRequests,
+        savedProviders
+      },
+      roomRentals: {
+        listings: await RoomRental.find({ lister: req.user.id }).lean(),
+        bookingsSent: await RoomBooking.find({ renter: req.user.id }).lean(),
+        bookingsReceived: await RoomBooking.find({ owner: req.user.id }).lean(),
+        agreements: await RoomRentalAgreement.find({ $or: [{ owner: req.user.id }, { renter: req.user.id }] }).lean()
       }
     };
     
@@ -226,9 +248,13 @@ router.put('/notifications', auth, async (req, res) => {
       };
     }
     
-    // Merge new Phase 3 fields
-    const phase3Fields = ['liveSessionReminders', 'liveSessionResults', 'quizModeration', 'leaderboardActivity'];
-    for (const field of phase3Fields) {
+    // Merge other module fields dynamically
+    const additionalFields = [
+      'liveSessionReminders', 'liveSessionResults', 'quizModeration', 'leaderboardActivity',
+      'mentorUpdates', 'subscriptions', 'communityForums', 'cohorts', 'learningPaths',
+      'scholarships', 'roommateConnections', 'community'
+    ];
+    for (const field of additionalFields) {
       if (preferences && preferences[field]) {
         if (!user.notificationPreferences) user.notificationPreferences = {};
         if (!user.notificationPreferences[field]) user.notificationPreferences[field] = {};
