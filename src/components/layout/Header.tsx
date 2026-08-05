@@ -246,18 +246,22 @@ export const Header = () => {
         )}
       >
       <div className="container mx-auto px-4 flex h-16 items-center justify-between gap-4">
-        <div className="flex items-center gap-6">
-          <Link to={user ? "/dashboard" : "/"} className="flex items-center group mr-2 lg:mr-4">
-            <img src="/logo.png" alt="StudentHub Logo" className="h-9 w-auto object-contain transition-transform group-hover:scale-105 dark:bg-white dark:p-1 dark:rounded-md" />
+        {/* Left: Logo */}
+        <div className="flex items-center shrink-0">
+          <Link to={user ? "/dashboard" : "/"} className="flex items-center group">
+            <img src="/logo.png" alt="StudentHub Logo" className="h-10 w-auto object-contain transition-transform group-hover:scale-105" />
           </Link>
+        </div>
 
-          <nav className="hidden lg:flex items-center">
+        {/* Center: Navigation */}
+        <div className="hidden lg:flex flex-1 justify-center px-2 xl:px-4">
+          <nav className="flex items-center">
             {user && (
-              <Link to="/dashboard" className="text-sm font-medium mr-6 lg:mr-8 hover-underline text-foreground/80 hover:text-foreground transition-colors">
+              <Link to="/dashboard" className="text-sm font-medium mr-4 xl:mr-6 hover-underline text-foreground/80 hover:text-foreground transition-colors">
                 Dashboard
               </Link>
             )}
-            <div className="flex gap-6 lg:gap-8">
+            <div className="flex gap-3 xl:gap-6">
               {navigationGroups.map((group) => (
                 <NavigationMenu key={group.title} delayDuration={100}>
                   <NavigationMenuList>
@@ -302,6 +306,7 @@ export const Header = () => {
           </nav>
         </div>
 
+        {/* Right: Search & Actions */}
         <div className="flex items-center justify-end gap-2 shrink-0">
           {location.pathname !== '/' && (
             <div className="hidden md:block shrink-0">
