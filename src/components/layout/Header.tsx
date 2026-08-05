@@ -257,46 +257,48 @@ export const Header = () => {
                 Dashboard
               </Link>
             )}
-            <NavigationMenu delayDuration={200}>
-            <NavigationMenuList className="flex gap-6 lg:gap-8">
+            <div className="flex gap-6 lg:gap-8">
               {navigationGroups.map((group) => (
-                <NavigationMenuItem key={group.title}>
-                  <NavigationMenuTrigger className="text-sm font-medium h-8 bg-transparent hover-underline">
-                    {group.title}
-                  </NavigationMenuTrigger>
-                  <NavigationMenuContent>
-                    <ul className="grid w-[600px] gap-3 p-6 md:grid-cols-2">
-                      {group.items.map((item) => (
-                        <li key={item.href}>
-                          <NavigationMenuLink asChild>
-                            <Link
-                              to={item.href}
-                              className={cn(
-                                "flex items-start gap-3 select-none rounded-lg p-3 no-underline outline-none transition-all hover:bg-muted hover:text-primary active:scale-[0.98] group relative hover-underline",
-                                location.pathname === item.href && "bg-muted text-primary"
-                              )}
-                            >
-                              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background shadow-sm border border-border">
-                                <div className="h-2 w-2 rounded-full bg-primary" />
-                              </div>
-                              <div className="flex-1 space-y-1">
-                                <p className="text-sm font-semibold leading-none display-font">
-                                  {item.title}
-                                </p>
-                                <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
-                                  {item.desc}
-                                </p>
-                              </div>
-                            </Link>
-                          </NavigationMenuLink>
-                        </li>
-                      ))}
-                    </ul>
-                  </NavigationMenuContent>
-                </NavigationMenuItem>
+                <NavigationMenu key={group.title} delayDuration={100}>
+                  <NavigationMenuList>
+                    <NavigationMenuItem>
+                      <NavigationMenuTrigger className="text-sm font-medium h-8 bg-transparent hover-underline px-0">
+                        {group.title}
+                      </NavigationMenuTrigger>
+                      <NavigationMenuContent>
+                        <ul className="grid w-[600px] gap-3 p-6 md:grid-cols-2">
+                          {group.items.map((item) => (
+                            <li key={item.href}>
+                              <NavigationMenuLink asChild>
+                                <Link
+                                  to={item.href}
+                                  className={cn(
+                                    "flex items-start gap-3 select-none rounded-lg p-3 no-underline outline-none transition-all hover:bg-muted hover:text-primary active:scale-[0.98] group relative hover-underline",
+                                    location.pathname === item.href && "bg-muted text-primary"
+                                  )}
+                                >
+                                  <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background shadow-sm border border-border">
+                                    <div className="h-2 w-2 rounded-full bg-primary" />
+                                  </div>
+                                  <div className="flex-1 space-y-1">
+                                    <p className="text-sm font-semibold leading-none display-font">
+                                      {item.title}
+                                    </p>
+                                    <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
+                                      {item.desc}
+                                    </p>
+                                  </div>
+                                </Link>
+                              </NavigationMenuLink>
+                            </li>
+                          ))}
+                        </ul>
+                      </NavigationMenuContent>
+                    </NavigationMenuItem>
+                  </NavigationMenuList>
+                </NavigationMenu>
               ))}
-            </NavigationMenuList>
-          </NavigationMenu>
+            </div>
           </nav>
         </div>
 
