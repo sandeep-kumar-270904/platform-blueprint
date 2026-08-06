@@ -585,11 +585,11 @@ const NewsDigestLog = require('../models/NewsDigestLog');
 const NewsDigestLog = require('../models/NewsDigestLog');
       const notificationService = require('./notificationService');
       
-      const lastLog = await NewsIngestionLog.findOne().sort({ createdAt: -1 });
+      const lastLog = await NewsIngestionLog.findOne().sort({ runAt: -1 });
       const now = new Date();
       
       // If no logs, or the last log is older than 60 minutes
-      if (!lastLog || (now.getTime() - lastLog.createdAt.getTime()) > 60 * 60 * 1000) {
+      if (!lastLog || (now.getTime() - lastLog.runAt.getTime()) > 60 * 60 * 1000) {
         const adminUsers = await User.find({ role: 'admin' });
         for (const admin of adminUsers) {
           await notificationService.createNotification({
