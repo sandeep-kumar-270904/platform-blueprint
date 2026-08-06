@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { NoteBookmarkButton } from "./NoteBookmarkButton";
-import { Star, Eye, Download, Pencil, Trash2 } from "lucide-react";
+import { Star, Eye, Download, Pencil, Trash2, MessageSquare } from "lucide-react";
 import { formatStat } from "@/lib/utils";
 
 interface NoteCardProps {
