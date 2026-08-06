@@ -122,10 +122,12 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
 
       const token = localStorage.getItem("token");
       
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const newNote = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", "http://localhost:5000/api/notes");
-        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        xhr.open("POST", `${API_URL}/api/notes`);
+        if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        xhr.withCredentials = true;
         
         xhr.upload.onprogress = (event) => {
           if (event.lengthComputable) {
