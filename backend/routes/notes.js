@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const Note = require('../models/Note');
 const multer = require('multer');
 const path = require('path');
+const { notifyDashboardUpdate } = require('../services/dashboardCache');
 
 // Configure Multer for local storage
 const storage = multer.diskStorage({
@@ -59,7 +60,38 @@ router.post('/', [auth, upload.single('file')], async (req, res) => {
     });
 
     const note = await newNote.save();
+    notifyDashboardUpdate(req, req.user.id);
     res.json(note);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET api/notes/summary
+// @desc    Get global notes statistics
+router.get('/summary', async (req, res) => {
+  try {
+    const totalNotes = await Note.countDocuments();
+    
+    const stats = await Note.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalViews: { $sum: "$views" },
+          totalDownloads: { $sum: "$downloads" }
+        }
+      }
+    ]);
+    
+    const uniqueSubjects = await Note.distinct("subject");
+
+    res.json({
+      totalNotes,
+      totalViews: stats[0]?.totalViews || 0,
+      totalDownloads: stats[0]?.totalDownloads || 0,
+      totalSubjects: uniqueSubjects.length
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

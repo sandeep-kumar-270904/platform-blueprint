@@ -1,5 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const { parse } = require('csv-parse/sync');
+const { notifyDashboardUpdate } = require('../services/dashboardCache');
 const VirtualClassroom = require('../models/VirtualClassroom');
 const ClassroomParticipant = require('../models/ClassroomParticipant');
 const ClassroomCollection = require('../models/ClassroomCollection');
@@ -331,6 +334,7 @@ router.post('/:id/join', authMiddleware, async (req, res) => {
       await classroom.save();
     }
 
+    notifyDashboardUpdate(req, req.user.id);
     res.json({ message: status === 'waitlisted' ? 'Added to waitlist' : 'Joined successfully', status });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
@@ -366,6 +370,7 @@ router.post('/:id/leave', authMiddleware, async (req, res) => {
       }
     }
 
+    notifyDashboardUpdate(req, req.user.id);
     res.json({ message: 'Left successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });

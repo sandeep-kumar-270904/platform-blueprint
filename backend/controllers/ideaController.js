@@ -4,6 +4,7 @@ const IdeaUpvote = require('../models/IdeaUpvote');
 const IdeaSave = require('../models/IdeaSave');
 const User = require('../models/User');
 const notificationService = require('../services/notificationService');
+const { notifyDashboardUpdate } = require('../services/dashboardCache');
 
 exports.getIdeas = async (req, res) => {
   try {
@@ -47,6 +48,7 @@ exports.createIdea = async (req, res) => {
     });
     if (collaborators) newIdea.collaborators = collaborators;
     await newIdea.save();
+    notifyDashboardUpdate(req, req.user.id);
     res.status(201).json(newIdea);
   } catch (error) {
     res.status(400).json({ message: 'Validation error', error: error.message });

@@ -22,6 +22,8 @@ const CreatorContent = require('../models/CreatorContent');
 const QuizAttempt = require('../models/QuizAttempt');
 const RoommateConnection = require('../models/RoommateConnection');
 const RoommateProfile = require('../models/RoommateProfile');
+const EventRSVP = require('../models/EventRegistration');
+const { dashboardCache, notifyDashboardUpdate } = require('../services/dashboardCache');
 
 
 
@@ -46,36 +48,117 @@ const PROGRESS_WEIGHTS = {
   mockTarget: 2, mockWeight: 0.30
 };
 
-// GET /api/dashboard/stats
-
-router.get('/stats', authMiddleware, async (req, res) => {
+// GET /api/dashboard/summary
+router.get('/summary', authMiddleware, async (req, res) => {
   try {
     const userId = await getTargetUserId(req);
-    
-    // Aggregate notes stats
-    const notes = await Note.find({ user_id: userId });
-    const views = notes.reduce((sum, n) => sum + (n.views || 0), 0);
-    const downloads = notes.reduce((sum, n) => sum + (n.downloads || 0), 0);
-    
-    const ideasCount = await Idea.countDocuments({ user_id: userId });
-    
-    // Check if user is part of a study group
-    const teamsCount = await StudyGroup.countDocuments({
-      memberships: { $elemMatch: { user: userId, status: 'active' } }
-    });
-    
-    const notificationsCount = await Notification.countDocuments({ userId: userId, isRead: false });
-    
-    res.json({
-      notes: { total: notes.length, views, downloads },
-      ideas: ideasCount,
-      teams: teamsCount,
-      notifications: notificationsCount,
-      gamification: { points: 1250, level: 5, rank: 'Scholar', next_level_points: 2000 }
-    });
+    const cacheKey = `dashboard_summary_${userId}`;
+    const cachedData = dashboardCache.get(cacheKey);
+
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+
+    // Parallel fetch with graceful degradation
+    const results = await Promise.allSettled([
+      Note.find({ user_id: userId }), // 0: Notes
+      Idea.countDocuments({ user_id: userId }), // 1: Ideas
+      StudyGroup.countDocuments({ memberships: { $elemMatch: { user: userId, status: 'active' } } }), // 2: Teams
+      Notification.countDocuments({ userId: userId, isRead: false }), // 3: Notifications
+      QuizAttempt.find({ user: userId, status: 'completed' }), // 4: Quizzes
+      ClassroomParticipant.countDocuments({ user_id: userId, status: { $in: ['attending', 'registered', 'waitlisted'] } }), // 5: Classrooms
+      EventRSVP.countDocuments({ userId: userId }), // 6: Events
+      UserActivity.find({ user_id: userId }).sort({ date: 1 }).lean() // 7: Streak/Activity
+    ]);
+
+    // Extract results safely
+    const notesData = results[0].status === 'fulfilled' ? results[0].value : null;
+    const ideasCount = results[1].status === 'fulfilled' ? results[1].value : null;
+    const teamsCount = results[2].status === 'fulfilled' ? results[2].value : null;
+    const notificationsCount = results[3].status === 'fulfilled' ? results[3].value : null;
+    const quizAttempts = results[4].status === 'fulfilled' ? results[4].value : null;
+    const classroomsCount = results[5].status === 'fulfilled' ? results[5].value : null;
+    const eventsCount = results[6].status === 'fulfilled' ? results[6].value : null;
+    const activities = results[7].status === 'fulfilled' ? results[7].value : null;
+
+    // Derived Stats
+    let notesViews = 0;
+    let notesDownloads = 0;
+    let notesCount = null;
+    if (notesData) {
+      notesCount = notesData.length;
+      notesViews = notesData.reduce((sum, n) => sum + (n.views || 0), 0);
+      notesDownloads = notesData.reduce((sum, n) => sum + (n.downloads || 0), 0);
+    }
+
+    let avgQuizScore = null;
+    let totalQuizzes = null;
+    if (quizAttempts) {
+      totalQuizzes = quizAttempts.length;
+      avgQuizScore = totalQuizzes > 0 
+        ? Math.round(quizAttempts.reduce((acc, q) => acc + (q.percentageScore || 0), 0) / totalQuizzes) 
+        : 0;
+    }
+
+    // Compute Streak
+    let currentStreak = 0;
+    if (activities && activities.length > 0) {
+      // Simplistic streak logic (ignoring timezone complexity for dashboard summary)
+      const uniqueDays = Array.from(new Set(activities.map(a => new Date(a.date).toDateString()))).map(d => new Date(d));
+      uniqueDays.sort((a, b) => a - b);
+      if (uniqueDays.length > 0) {
+        let tempStreak = 1;
+        for (let i = 1; i < uniqueDays.length; i++) {
+          const diffDays = Math.round((uniqueDays[i] - uniqueDays[i - 1]) / (1000 * 60 * 60 * 24));
+          if (diffDays === 1) tempStreak++;
+          else tempStreak = 1;
+        }
+        const lastDay = uniqueDays[uniqueDays.length - 1];
+        const today = new Date(new Date().toDateString());
+        const diffToday = Math.round((today - lastDay) / (1000 * 60 * 60 * 24));
+        if (diffToday <= 1) currentStreak = tempStreak;
+      }
+    }
+
+    // Compute Dynamic Achievements
+    const earnedAchievements = [];
+    if (ideasCount !== null && ideasCount >= 3) earnedAchievements.push({ id: 'innovator', title: 'Innovator', progress: `${ideasCount}/3 ideas` });
+    else if (ideasCount !== null) earnedAchievements.push({ id: 'innovator', title: 'Innovator', progress: `${ideasCount}/3 ideas`, locked: true });
+
+    if (teamsCount !== null && teamsCount >= 2) earnedAchievements.push({ id: 'team_player', title: 'Team Player', progress: `${teamsCount}/2 teams` });
+    else if (teamsCount !== null) earnedAchievements.push({ id: 'team_player', title: 'Team Player', progress: `${teamsCount}/2 teams`, locked: true });
+
+    if (notesCount !== null && notesCount >= 5) earnedAchievements.push({ id: 'knowledge_sharer', title: 'Knowledge Sharer', progress: `${notesCount}/5 notes` });
+    else if (notesCount !== null) earnedAchievements.push({ id: 'knowledge_sharer', title: 'Knowledge Sharer', progress: `${notesCount}/5 notes`, locked: true });
+
+    const payload = {
+      stats: {
+        notesCount,
+        notesViews,
+        notesDownloads,
+        ideasCount,
+        teamsCount,
+        notificationsCount,
+        totalQuizzes,
+        avgQuizScore,
+        classroomsCount,
+        eventsCount,
+        currentStreak
+      },
+      achievements: earnedAchievements
+    };
+
+    dashboardCache.set(cacheKey, payload);
+    res.json(payload);
   } catch (error) {
+    console.error('Dashboard Summary Error:', error);
     res.status(500).json({ message: 'Server error' });
   }
+});
+
+// GET /api/dashboard/stats (Legacy fallback)
+router.get('/stats', authMiddleware, (req, res) => {
+  res.redirect(301, '/api/dashboard/summary');
 });
 
 // GET /api/dashboard/creators-summary

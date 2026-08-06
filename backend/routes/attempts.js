@@ -3,6 +3,7 @@ const router = express.Router();
 const QuizAttempt = require('../models/QuizAttempt');
 const { submitQuizAttempt } = require('../services/quizScoringService');
 const authMiddleware = require('../middleware/auth');
+const { notifyDashboardUpdate } = require('../services/dashboardCache');
 
 const rateLimit = require('express-rate-limit');
 const attemptSubmissionLimiter = rateLimit({
@@ -72,6 +73,7 @@ router.post('/:attemptId/submit', authMiddleware, attemptSubmissionLimiter, asyn
     const result = await submitQuizAttempt({ attemptId, submittedAnswers: answers || [], io: req.io, timezone });
 
     // result now contains { attempt, gamificationResult }
+    notifyDashboardUpdate(req, req.user.id);
     res.json(result);
   } catch (error) {
     res.status(400).json({ message: error.message });
