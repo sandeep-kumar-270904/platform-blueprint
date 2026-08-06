@@ -34,12 +34,15 @@ const sendEmailBase = async (to, subject, htmlContent, retries = 1) => {
 
   const transporter = createTransporter();
   const mailOptions = {
-    from: `"StudentHub" <${process.env.EMAIL_USER}>`,
+    from: `"NotesHub" <${process.env.EMAIL_USER}>`,
     to,
     subject,
     html: htmlContent,
     // Add simple plain text fallback by stripping HTML tags loosely
-    text: htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    text: htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+    headers: {
+      'List-Unsubscribe': `<mailto:unsubscribe@${process.env.EMAIL_USER ? process.env.EMAIL_USER.split('@')[1] : 'noteshub.com'}>`,
+    }
   };
 
   try {
