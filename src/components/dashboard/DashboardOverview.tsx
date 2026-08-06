@@ -1,21 +1,21 @@
 import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
-import { ScrollReveal } from "@/components/animations/ScrollReveal";
-import {
-  BookOpen, Eye, Star, Lightbulb, Users, Bell, Download, Search, Calendar, Rocket
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ThisWeekStrip } from "./ThisWeekStrip";
-import { RecommendedColleges } from "./RecommendedColleges";
-import { RecommendedCourses } from "./RecommendedCourses";
-import { ResumeLearning } from "./ResumeLearning";
-import { RecentNotifications } from "./RecentNotifications";
-import { CommunityDashboardWidget } from "./CommunityDashboardWidget";
-import { VirtualClassroomWidget } from "../virtual-classroom/VirtualClassroomWidget";
-import { TeamHuntDashboardWidget } from "./TeamHuntDashboardWidget";
-import { CreatorDashboardWidget } from "./CreatorDashboardWidget";
-import { StudyGroupsDashboardWidget } from "./StudyGroupsDashboardWidget";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { DashboardEmptyState } from "./DashboardEmptyState";
 
+import {
+  ArrowRight, Users, Lightbulb, Star, Target, Calendar,
+  Sparkles, Lock, UserPlus
+} from "lucide-react";
+
+import { PlacementPrepWidget } from "./PlacementPrepWidget";
+import { RepairDashboardWidget } from "./RepairDashboardWidget";
+import { RoommatesDashboardWidget } from "./RoommatesDashboardWidget";
+import { RecentNotifications } from "./RecentNotifications";
+import { LiveActivity } from "./LiveActivity";
+
+// Data types from parent
 interface Stats {
   notesCount: number;
   notesViews: number;
@@ -26,114 +26,195 @@ interface Stats {
   notificationsCount: number;
 }
 
-const icons = [BookOpen, Eye, Download, Star, Lightbulb, Users, Bell];
-const colors = [
-  "bg-primary/10 text-primary",
-  "bg-accent/10 text-accent-foreground",
-  "bg-secondary/50 text-secondary-foreground",
-  "bg-primary/10 text-primary",
-  "bg-yellow-500/10 text-yellow-500",
-  "bg-blue-500/10 text-blue-500",
-  "bg-red-500/10 text-red-500",
-];
-const links = ["/notes", "/notes", "/notes", "/notes", "/innovation-hub", "/team-hunt", "#"];
-
 export const DashboardOverview = ({ stats, setActiveSection }: { stats: Stats, setActiveSection?: (s: string) => void }) => {
-  const items = [
-    { key: "notes", label: "My Notes", value: stats.notesCount },
-    { key: "views", label: "Note Views", value: stats.notesViews },
-    { key: "downloads", label: "Downloads", value: stats.downloads || stats.notesDownloads },
-    { key: "rating", label: "Avg Rating", value: stats.notesAvgRating.toFixed(1) },
-    { key: "ideas", label: "My Ideas", value: stats.ideasCount },
-    { key: "teams", label: "My Teams", value: stats.teamsCount },
-    { key: "notifications", label: "Notifications", value: stats.notificationsCount },
-  ];
-
-  const totalActivity = stats.notesCount + stats.ideasCount + stats.teamsCount + stats.notificationsCount;
+  const currentStreak = 5; // Placeholder for gamification stats
 
   return (
     <div className="space-y-6">
-      <ThisWeekStrip />
-      <ResumeLearning />
-      <VirtualClassroomWidget />
-      
-      {totalActivity === 0 ? (
-        <div className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 border rounded-xl p-8 text-center shadow-sm">
-          <div className="mx-auto w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4">
-            <Rocket className="h-8 w-8 text-primary" />
+      {/* 1. Identity Strip */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-[20px] md:text-[22px] font-medium flex items-center gap-2">
+            Welcome back <span className="relative flex h-2 w-2 ml-1"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
+          </h1>
+          <p className="text-[13px] text-muted-foreground mt-1">Here is what's happening today.</p>
+        </div>
+        <div className="flex items-center gap-4 border border-border rounded-xl px-4 py-2 bg-card shadow-sm">
+          <div className="text-center px-3 border-r border-border">
+            <div className="text-[15px] font-medium">{currentStreak}</div>
+            <div className="text-[12px] text-muted-foreground uppercase tracking-wider">Streak</div>
           </div>
-          <h2 className="text-2xl font-bold mb-2">Welcome to your Dashboard!</h2>
-          <p className="text-muted-foreground max-w-md mx-auto mb-6">
-            Your dashboard is looking a little empty. Start exploring the platform to see your activity, saved items, and personalized recommendations appear here.
-          </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/college-insights">
-              <Button className="gap-2"><Search className="h-4 w-4" /> Browse Colleges</Button>
-            </Link>
-            <Link to="/events">
-              <Button variant="outline" className="gap-2"><Calendar className="h-4 w-4" /> Explore Events</Button>
-            </Link>
+          <div className="text-center px-3 border-r border-border">
+            <div className="text-[15px] font-medium">{stats.teamsCount}</div>
+            <div className="text-[12px] text-muted-foreground uppercase tracking-wider">Teams</div>
+          </div>
+          <div className="text-center px-3 border-r border-border">
+            <div className="text-[15px] font-medium">{stats.ideasCount}</div>
+            <div className="text-[12px] text-muted-foreground uppercase tracking-wider">Ideas</div>
+          </div>
+          <div className="text-center px-3">
+            <div className="text-[15px] font-medium">{stats.notesCount}</div>
+            <div className="text-[12px] text-muted-foreground uppercase tracking-wider">Notes</div>
           </div>
         </div>
-      ) : (
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-          {items.map((stat, i) => {
-            const Icon = icons[i];
-            return (
-              <ScrollReveal key={i} delay={i * 0.04} direction="scale">
-                <Link to={links[i]}>
-                  <Card className="hover:shadow-md transition-all cursor-pointer">
-                    <CardContent className="flex items-center gap-3 p-4">
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${colors[i]}`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <div
-                          className="text-xl font-bold"
-                          data-testid={`stat-${stat.key}`}
-                          data-value={stat.value}
-                        >
-                          {stat.value}
-                        </div>
-                        <div className="text-xs text-muted-foreground">{stat.label}</div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </ScrollReveal>
-            );
-          })}
+      </div>
+
+      {/* 2. Primary Action Module & Explore Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2">
+          <DashboardEmptyState
+            tier="primary"
+            icon={Target}
+            title="Ready to jump in?"
+            description="You haven't joined a study group or team yet. Connect with peers and start collaborating."
+            actionLabel="Find a Team"
+            actionIcon={ArrowRight}
+            actionHref="/team-hunt"
+          />
         </div>
-      )}
-
-      {totalActivity > 0 && (
-        <ScrollReveal delay={0.1}>
-          <CommunityDashboardWidget />
-        </ScrollReveal>
-      )}
-
-      <ScrollReveal delay={0.11}>
-        <StudyGroupsDashboardWidget />
-      </ScrollReveal>
-
-      <ScrollReveal delay={0.12}>
-        <TeamHuntDashboardWidget />
-      </ScrollReveal>
-
-      <ScrollReveal delay={0.14}>
-        <CreatorDashboardWidget />
-      </ScrollReveal>
-
-      <RecommendedColleges />
-      <RecommendedCourses />
-      
-      {totalActivity > 0 && (
-        <div className="mt-8">
-          <ScrollReveal delay={0.2}>
-            <RecentNotifications onNavigate={() => setActiveSection && setActiveSection("notifications")} />
-          </ScrollReveal>
+        <div className="flex flex-col gap-3">
+          <Link to="/creators" className="group p-4 bg-card rounded-xl border border-border hover:border-primary/50 transition-colors flex items-center gap-3 shadow-sm h-full">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Sparkles className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
+            </div>
+            <div>
+              <div className="text-[13px] font-medium text-foreground">Creators Zone</div>
+              <div className="text-[12px] text-muted-foreground">Monetize content</div>
+            </div>
+          </Link>
+          <Link to="/study-groups" className="group p-4 bg-card rounded-xl border border-border hover:border-primary/50 transition-colors flex items-center gap-3 shadow-sm h-full">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Users className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
+            </div>
+            <div>
+              <div className="text-[13px] font-medium text-foreground">Study Groups</div>
+              <div className="text-[12px] text-muted-foreground">Join active sessions</div>
+            </div>
+          </Link>
+          <Link to="/events" className="group p-4 bg-card rounded-xl border border-border hover:border-primary/50 transition-colors flex items-center gap-3 shadow-sm h-full">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Calendar className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
+            </div>
+            <div>
+              <div className="text-[13px] font-medium text-foreground">Upcoming Events</div>
+              <div className="text-[12px] text-muted-foreground">Discover hackathons</div>
+            </div>
+          </Link>
         </div>
-      )}
+      </div>
+
+      {/* 3. Active Items Row */}
+      <div>
+        <h2 className="text-[15px] font-medium mb-3">Your active items</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <DashboardEmptyState
+            tier="secondary"
+            icon={Users}
+            title="No active teams"
+            actionLabel="Create"
+            actionHref="/team-hunt/create"
+          />
+          <DashboardEmptyState
+            tier="secondary"
+            icon={Lightbulb}
+            title="No ideas posted"
+            actionLabel="Post"
+            actionHref="/innovation-hub"
+          />
+          <DashboardEmptyState
+            tier="secondary"
+            icon={UserPlus}
+            title="No join requests"
+            actionLabel="Browse"
+            actionHref="/team-hunt"
+          />
+        </div>
+      </div>
+
+      {/* 4. Discovery Row */}
+      <div>
+        <h2 className="text-[15px] font-medium mb-3">Discover</h2>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <PlacementPrepWidget />
+          <RepairDashboardWidget />
+          <RoommatesDashboardWidget />
+        </div>
+      </div>
+
+      {/* 5. Progress Block */}
+      <Card className="border-border bg-card overflow-hidden shadow-sm rounded-xl">
+        <div className="p-5 flex flex-col md:flex-row gap-6">
+          <div className="flex-1 space-y-5">
+            <h2 className="text-[15px] font-medium">Your progress</h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <div className="text-[20px] font-medium">{stats.notesCount}</div>
+                <div className="text-[12px] text-muted-foreground">Notes uploaded</div>
+              </div>
+              <div>
+                <div className="text-[20px] font-medium">{stats.ideasCount}</div>
+                <div className="text-[12px] text-muted-foreground">Ideas posted</div>
+              </div>
+              <div>
+                <div className="text-[20px] font-medium">{stats.teamsCount}</div>
+                <div className="text-[12px] text-muted-foreground">Teams joined</div>
+              </div>
+            </div>
+            
+            <div className="space-y-3 pt-3 border-t border-border">
+              <div className="text-[13px] font-medium flex items-center gap-2"><Star className="h-4 w-4 text-primary" /> Recent Achievements</div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary" className="font-normal text-[12px] bg-muted/50 text-muted-foreground"><Lock className="h-3 w-3 mr-1" /> Innovator (3 Ideas)</Badge>
+                <Badge variant="secondary" className="font-normal text-[12px] bg-muted/50 text-muted-foreground"><Lock className="h-3 w-3 mr-1" /> Team Player (2 Teams)</Badge>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex-1 md:border-l md:border-border md:pl-6 space-y-4">
+            <h3 className="text-[13px] font-medium">Weekly Goals</h3>
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-center justify-between text-[12px] mb-1.5">
+                  <span className="text-muted-foreground">Current Streak</span>
+                  <span className="font-medium">{currentStreak}/7 Days</span>
+                </div>
+                <Progress value={(currentStreak / 7) * 100} className="h-1.5" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-[12px] mb-1.5">
+                  <span className="text-muted-foreground">Notes Goal</span>
+                  <span className="font-medium">{stats.notesCount}/10 Uploads</span>
+                </div>
+                <Progress value={Math.min((stats.notesCount / 10) * 100, 100)} className="h-1.5" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-[12px] mb-1.5">
+                  <span className="text-muted-foreground">Ideas Goal</span>
+                  <span className="font-medium">{stats.ideasCount}/5 Posts</span>
+                </div>
+                <Progress value={Math.min((stats.ideasCount / 5) * 100, 100)} className="h-1.5" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* 6. Ambient Footer */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-border">
+        <div>
+          <h2 className="text-[13px] font-medium mb-3 flex items-center justify-between">
+            Recent Notifications
+            {setActiveSection && (
+              <button onClick={() => setActiveSection("notifications")} className="text-[12px] text-primary hover:underline">View All</button>
+            )}
+          </h2>
+          <RecentNotifications onNavigate={() => setActiveSection && setActiveSection("notifications")} />
+        </div>
+        <div>
+          <h2 className="text-[13px] font-medium mb-3">Live Activity</h2>
+          <LiveActivity />
+        </div>
+      </div>
     </div>
   );
 };
