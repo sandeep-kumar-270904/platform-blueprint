@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy, Upload, Star, TrendingUp, Loader2 } from "lucide-react";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { formatStat } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Contributor {
   user_id: string;
@@ -14,6 +15,7 @@ interface Contributor {
   avg_rating: number;
   total_views: number;
   total_downloads: number;
+  rank?: number;
 }
 
 const RANK_STYLES = [
@@ -22,21 +24,28 @@ const RANK_STYLES = [
   { bg: "bg-orange-600/10", border: "border-orange-600/30", text: "text-orange-600", icon: "🥉" },
 ];
 
-export const TopContributors = () => {
+export const TopContributors = ({ refreshTrigger }: { refreshTrigger?: number }) => {
   const [contributors, setContributors] = useState<Contributor[]>([]);
+  const [currentUserData, setCurrentUserData] = useState<Contributor | null>(null);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     loadContributors();
-  }, []);
+  }, [refreshTrigger]);
 
   const loadContributors = async () => {
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const res = await fetch(`${API_URL}/api/notes/top-contributors`);
+      const token = localStorage.getItem("token");
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_URL}/api/notes/top-contributors`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setContributors(data);
+        setContributors(data.top10 || []);
+        setCurrentUserData(data.currentUser || null);
       }
     } catch {}
     setLoading(false);
@@ -69,7 +78,7 @@ export const TopContributors = () => {
                   <div
                     className={`flex items-center gap-3 rounded-lg p-2 transition-all hover:shadow-sm ${
                       rankStyle ? `${rankStyle.bg} border ${rankStyle.border}` : "hover:bg-muted/50 border border-transparent"
-                    }`}
+                    } ${c.user_id === user?.id ? "bg-primary/5 border-primary/20" : ""}`}
                   >
                     {/* Rank */}
                     <div className="w-6 text-center shrink-0">
@@ -91,7 +100,9 @@ export const TopContributors = () => {
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate text-foreground">{getDisplayName(c)}</p>
+                      <p className="text-sm font-medium truncate text-foreground">
+                        {getDisplayName(c)} {c.user_id === user?.id && <span className="text-xs text-primary font-normal">(You)</span>}
+                      </p>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Upload className="h-3 w-3" aria-hidden="true" />{formatStat(c.note_count, true)}
@@ -101,22 +112,38 @@ export const TopContributors = () => {
                             <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" aria-hidden="true" />{formatStat(c.avg_rating, true, "", true)}
                           </span>
                         )}
-                        <span className="flex items-center gap-1">
-                          <TrendingUp className="h-3 w-3" aria-hidden="true" />{formatStat(c.total_views, true)}
-                        </span>
                       </div>
                     </div>
-
-                    {/* Score badge for top 3 */}
-                    {i < 3 && (
-                      <Badge variant="secondary" className="text-[10px] shrink-0 font-medium">
-                        {formatStat(Math.round(c.note_count * 3 + c.avg_rating * 2 + c.total_downloads), true)} pts
-                      </Badge>
-                    )}
                   </div>
                 </ScrollReveal>
               );
             })}
+            
+            {/* Current User Rank if outside top 10 */}
+            {currentUserData && (!contributors.some(c => c.user_id === currentUserData.user_id)) && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <div className="flex items-center gap-3 rounded-lg p-2 bg-primary/5 border border-primary/20">
+                  <div className="w-6 text-center shrink-0">
+                    <span className="text-xs font-bold text-primary tabular-nums">
+                      #{currentUserData.rank}
+                    </span>
+                  </div>
+                  <Avatar className="h-8 w-8 shrink-0">
+                    <AvatarFallback className="text-xs bg-primary/10 text-primary border border-primary/20">
+                      {getInitials(currentUserData)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate text-foreground">You</p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1 text-primary/80">
+                        <Upload className="h-3 w-3" aria-hidden="true" />{formatStat(currentUserData.note_count, true)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

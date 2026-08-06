@@ -55,6 +55,14 @@ const NoteSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  rating_count: {
+    type: Number,
+    default: 0
+  },
+  comment_count: {
+    type: Number,
+    default: 0
+  },
   created_at: {
     type: Date,
     default: Date.now

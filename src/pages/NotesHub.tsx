@@ -36,7 +36,8 @@ const NotesHub = () => {
   const {
     notes, myNotes, bookmarkedNotes, filters, updateFilter, clearFilters,
     getFilteredNotes, subjects, categories, branches, semesters,
-    stats, loadNotes, deleteNote, addNoteOptimistic, user, loading
+    stats, loadNotes, deleteNote, addNoteOptimistic, user, loading,
+    toggleBookmark, incrementDownload, bookmarkedNoteIds
   } = useNotes();
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -122,6 +123,8 @@ const NotesHub = () => {
     onSession: (note: any) => { setSelectedNote(note); setShowSessionDialog(true); },
     onEdit: (note: any) => { setEditNote(note); setShowEditDialog(true); },
     onDelete: (note: any) => { setDeleteNoteState(note); setShowDeleteDialog(true); },
+    onToggleBookmark: (note: any) => toggleBookmark(note.id),
+    onDownload: (note: any) => incrementDownload(note.id),
   };
 
   const renderNotesList = (notesList: any[], isOwner = false) => {
@@ -144,7 +147,7 @@ const NotesHub = () => {
           <div className="space-y-6">
             <div className={viewMode === "grid" ? "grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "space-y-3"}>
               {visibleNotes.map((note, index) => (
-                <NoteCard key={note.id} note={note} index={index} isOwner={isOwner} {...cardHandlers} />
+                <NoteCard key={note.id} note={note} index={index} isOwner={isOwner} isBookmarked={bookmarkedNoteIds.has(note.id)} {...cardHandlers} />
               ))}
               {/* Add Note Tile */}
               {user && (
@@ -207,7 +210,7 @@ const NotesHub = () => {
               </p>
             </div>
             
-            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row items-center gap-12 w-full sm:w-auto">
               <div className="relative w-full sm:w-[260px] shrink-0">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <Input
@@ -331,7 +334,7 @@ const NotesHub = () => {
           </div>
           <div className="w-full lg:w-80 shrink-0">
             <div className="sticky top-6">
-              <TopContributors />
+              <TopContributors refreshTrigger={stats.totalNotes} />
             </div>
           </div>
         </div>
@@ -346,7 +349,14 @@ const NotesHub = () => {
           loadNotes();
         }} 
       />
-      <NotePreviewer open={showPreviewDialog} onOpenChange={setShowPreviewDialog} note={previewNote} />
+      <NotePreviewer 
+        open={showPreviewDialog} 
+        onOpenChange={setShowPreviewDialog} 
+        note={previewNote} 
+        onView={(id) => incrementView(id)}
+        onDownload={(id) => incrementDownload(id)}
+        onAddComment={(id, content) => addComment(id, content)}
+      />
       <BatchUploadDialog 
         open={showBatchUpload} 
         onOpenChange={setShowBatchUpload} 
