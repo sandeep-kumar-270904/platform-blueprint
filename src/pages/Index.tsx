@@ -58,10 +58,7 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
         scale: isHovered && !shouldReduceMotion ? 1.02 : 1,
         boxShadow: isHovered 
           ? "0 20px 40px -10px rgba(0,0,0,0.08)" 
-          : "0 2px 10px -4px rgba(0,0,0,0.02)",
-        background: isHovered 
-          ? "linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--primary)/0.03) 100%)" 
-          : "hsl(var(--card))"
+          : "0 2px 10px -4px rgba(0,0,0,0.02)"
       }}
       style={{
         background: "hsl(var(--card))",
@@ -557,25 +554,23 @@ const Index = () => {
                 transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.65 }}
                 className="flex flex-col sm:flex-row gap-4 justify-start"
               >
-                <motion.button 
+                <motion.div 
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => handleNavigate(user ? "/dashboard" : "/auth", "click_get_started_hero")}
                   className="w-full sm:w-auto"
                 >
-                  <Button size="lg" className="w-full h-14 px-8 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:bg-primary/90">
+                  <Button onClick={() => handleNavigate(user ? "/dashboard" : "/auth", "click_get_started_hero")} size="lg" className="w-full h-14 px-8 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:bg-primary/90">
                     Get Started
                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
-                </motion.button>
-                <motion.button 
+                </motion.div>
+                <motion.div 
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => { trackEvent('click_watch_demo'); setShowDemoModal(true); }}
                   className="w-full sm:w-auto"
                 >
-                  <Button size="lg" variant="outline" className="w-full h-14 px-8 hover:bg-muted transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:text-primary">
+                  <Button onClick={() => { trackEvent('click_watch_demo'); setShowDemoModal(true); }} size="lg" variant="outline" className="w-full h-14 px-8 hover:bg-muted transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:text-primary">
                     <Play className="mr-2 h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" /> Watch Demo
                   </Button>
-                </motion.button>
+                </motion.div>
               </motion.div>
             </motion.div>
 
@@ -1012,8 +1007,6 @@ const Index = () => {
         )}
       </AnimatePresence>
 
-      </motion.div>
-
       {/* Back to Top Button */}
       <AnimatePresence>
         {showBackToTop && (
@@ -1031,6 +1024,7 @@ const Index = () => {
           </motion.button>
         )}
       </AnimatePresence>
+      </motion.div>
     </AnimatePresence>
   );
 };
