@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, ExternalLink, Loader2, FileText, AlertCircle, Send } from "lucide-react";
+import { Download, ExternalLink, Loader2, FileText, AlertCircle, Send, Star } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,12 +24,19 @@ export const NotePreviewer = ({ open, onOpenChange, note, onView, onDownload, on
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
+  
+  // Rating states
+  const [hoveredRating, setHoveredRating] = useState(0);
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [submittingRating, setSubmittingRating] = useState(false);
 
   // Reset states when note changes
   useEffect(() => {
     if (open && note) {
       setLoading(true);
       setError(false);
+      setHoveredRating(0);
+      setSelectedRating(0);
       if (onView) onView(note.id);
       fetchComments();
     }
@@ -49,6 +56,38 @@ export const NotePreviewer = ({ open, onOpenChange, note, onView, onDownload, on
       console.error("Failed to load comments");
     } finally {
       setLoadingComments(false);
+    }
+  };
+
+  const handleRate = async (score: number) => {
+    if (!user) {
+      toast.error("Please sign in to rate");
+      return;
+    }
+    setSubmittingRating(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/notes/${note.id}/rate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ score })
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to submit rating");
+      }
+      
+      setSelectedRating(score);
+      toast.success("Thank you for rating this note!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit rating");
+    } finally {
+      setSubmittingRating(false);
     }
   };
 
@@ -178,8 +217,35 @@ export const NotePreviewer = ({ open, onOpenChange, note, onView, onDownload, on
             )}
           </div>
 
-          {/* Comments Sidebar */}
+          {/* Rating & Comments Sidebar */}
           <div className="w-full lg:w-80 flex flex-col border rounded-lg bg-card overflow-hidden shrink-0">
+            {/* Rating UI */}
+            <div className="p-4 border-b flex flex-col items-center justify-center bg-muted/10">
+              <span className="text-sm font-medium text-muted-foreground mb-2">Rate this Note</span>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    disabled={submittingRating}
+                    onMouseEnter={() => setHoveredRating(star)}
+                    onMouseLeave={() => setHoveredRating(0)}
+                    onClick={() => handleRate(star)}
+                    className="p-1 transition-transform hover:scale-110 active:scale-95 disabled:opacity-50"
+                    aria-label={`Rate ${star} stars`}
+                  >
+                    <Star 
+                      className={`h-6 w-6 transition-colors ${
+                        (hoveredRating || selectedRating) >= star 
+                          ? "fill-yellow-500 text-yellow-500" 
+                          : "text-muted-foreground/30"
+                      }`} 
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="p-3 border-b bg-muted/30 font-semibold text-sm flex items-center justify-between">
               Comments {comments.length > 0 && <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs">{comments.length}</span>}
             </div>
