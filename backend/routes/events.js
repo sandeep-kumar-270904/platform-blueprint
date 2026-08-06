@@ -6,6 +6,7 @@ const EventFeedback = require('../models/EventFeedback');
 const User = require('../models/User');
 const notificationService = require('../services/notificationService');
 const authMiddleware = require('../middleware/auth');
+const { notifyDashboardUpdate } = require('../services/dashboardCache');
 
 // GET /api/events
 router.get('/', async (req, res) => {
@@ -313,6 +314,7 @@ router.post('/:id/register', authMiddleware, async (req, res) => {
       req.io.emit('event_updated', { eventId: event._id });
     }
     
+    notifyDashboardUpdate(req, req.user.id);
     res.json({ message: 'Registration successful', status });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -348,6 +350,7 @@ router.delete('/:id/register', authMiddleware, async (req, res) => {
       req.io.emit('event_updated', { eventId: req.params.id });
     }
     
+    notifyDashboardUpdate(req, req.user.id);
     res.json({ message: 'Registration cancelled' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

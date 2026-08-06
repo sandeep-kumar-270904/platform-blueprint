@@ -8,7 +8,10 @@ const userActivitySchema = new mongoose.Schema({
   },
   action_type: {
     type: String,
-    enum: ['dsa_solve', 'interview_prep_review', 'mock_interview_book', 'mock_interview_complete'],
+    enum: [
+      'dsa_solve', 'interview_prep_review', 'mock_interview_book', 'mock_interview_complete',
+      'login', 'note_upload', 'idea_post', 'quiz_complete', 'team_join', 'event_rsvp', 'general_activity'
+    ],
     required: true
   },
   target_id: {

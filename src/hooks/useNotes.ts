@@ -38,6 +38,7 @@ export const useNotes = () => {
   }, []);
 
   const [notes, setNotes] = useState<any[]>([]);
+  const [stats, setStats] = useState({ totalNotes: 0, totalViews: 0, totalDownloads: 0, totalSubjects: 0 });
   const [bookmarkedNoteIds, setBookmarkedNoteIds] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<NotesFilters>(initialFilters);
   const [loading, setLoading] = useState(true);
@@ -60,12 +61,21 @@ export const useNotes = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(API_URL);
-      if (res.ok) {
-        const data = await res.json();
+      const [notesRes, statsRes] = await Promise.allSettled([
+        fetch(API_URL),
+        fetch(`${API_URL}/summary`)
+      ]);
+
+      if (notesRes.status === "fulfilled" && notesRes.value.ok) {
+        const data = await notesRes.value.json();
         setNotes(data.map((n: any) => ({ id: n._id, ...n })));
       } else {
         throw new Error("Failed to load notes");
+      }
+
+      if (statsRes.status === "fulfilled" && statsRes.value.ok) {
+        const statsData = await statsRes.value.json();
+        setStats(statsData);
       }
     } catch (err) {
       console.error("Failed to load notes", err);
@@ -142,17 +152,29 @@ export const useNotes = () => {
   );
 
   const deleteNote = async (noteId: string) => {
+    // Optimistic UI update
+    setNotes(current => current.filter(n => n.id !== noteId));
+    setStats(prev => ({ ...prev, totalNotes: Math.max(0, prev.totalNotes - 1) }));
 
     try {
       const token = localStorage.getItem("token");
-      await fetch(`${API_URL}/${noteId}`, {
+      const res = await fetch(`${API_URL}/${noteId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      loadNotes();
+      if (!res.ok) throw new Error("Delete failed");
     } catch (err) {
       console.error("Delete failed", err);
+      // Revert optimistic update by reloading
+      loadNotes();
+      throw err;
     }
+  };
+
+  const addNoteOptimistic = (newNote: any) => {
+    const mappedNote = { id: newNote._id || newNote.id || Date.now().toString(), ...newNote, user_id: user?.id, views: 0, downloads: 0 };
+    setNotes(current => [mappedNote, ...current]);
+    setStats(prev => ({ ...prev, totalNotes: prev.totalNotes + 1 }));
   };
 
   const incrementView = async (noteId: string) => {
@@ -189,10 +211,10 @@ export const useNotes = () => {
     categories,
     branches,
     semesters,
-    totalViews,
-    totalDownloads,
+    stats,
     loadNotes,
     deleteNote,
+    addNoteOptimistic,
     incrementView,
     incrementDownload,
     loading,

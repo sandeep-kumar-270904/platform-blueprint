@@ -6,6 +6,7 @@ const GroupSession = require('../models/GroupSession');
 const Notification = require('../models/Notification');
 const DSAProblem = require('../models/DSAProblem');
 const authMiddleware = require('../middleware/auth');
+const { notifyDashboardUpdate } = require('../services/dashboardCache');
 
 // Helper: Count active members
 const getActiveMemberCount = (group) => {
@@ -366,6 +367,7 @@ router.post('/', authMiddleware, async (req, res) => {
     });
 
     const savedGroup = await newGroup.save();
+    notifyDashboardUpdate(req, req.user.id);
     res.status(201).json(savedGroup);
   } catch (error) {
     console.error('Create study group error:', error);
@@ -411,6 +413,7 @@ router.post('/:id/join', authMiddleware, async (req, res) => {
       const populatedGroup = await StudyGroup.findById(group._id).populate('memberships.user', 'username avatar_url learningStreak quizStreak full_name');
       const io = req.app.get('io');
       if (io) io.to('group_' + group._id).emit('membership_updated', { groupId: group._id, memberships: populatedGroup.memberships });
+      notifyDashboardUpdate(req, req.user.id);
     }
 
     // Notify Owner if pending request
@@ -531,6 +534,7 @@ router.put('/:id/memberships/:userId', authMiddleware, async (req, res) => {
           });
         }
         if (status === 'active') {
+          notifyDashboardUpdate(req, req.params.userId);
           await Notification.create({
             userId: req.params.userId,
             type: 'group_request_approved',
@@ -577,6 +581,8 @@ router.post('/:id/leave', authMiddleware, async (req, res) => {
       userId: req.user.id,
       relatedContentId: group._id
     });
+
+    notifyDashboardUpdate(req, req.user.id);
 
     res.json({ message: 'Left group successfully.' });
   } catch (error) {

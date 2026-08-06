@@ -109,16 +109,19 @@ const Dashboard = () => {
   const [activeSection, setActiveSection] = useState<Section>("overview");
   const [stats, setStats] = useState({
     notesCount: 0, notesViews: 0, notesDownloads: 0,
-    notesAvgRating: 0, ideasCount: 0, teamsCount: 0, notificationsCount: 0,
+    ideasCount: 0, teamsCount: 0, notificationsCount: 0,
+    totalQuizzes: 0, avgQuizScore: 0, classroomsCount: 0, eventsCount: 0, currentStreak: 0
   });
+  const [achievements, setAchievements] = useState<any[]>([]);
   const [gamification, setGamification] = useState<any>(null);
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
 
   const fetchStats = useCallback(async () => {
     if (!targetUserId) return;
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('token');
-      const url = new URL(`${API_URL}/api/dashboard/stats`);
+      const url = new URL(`${API_URL}/api/dashboard/summary`);
       if (impersonateUserId) url.searchParams.append('userId', impersonateUserId);
       const res = await fetch(url.toString(), {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -127,19 +130,26 @@ const Dashboard = () => {
       const data = await res.json();
       
       setStats({
-        notesCount: data.notes.total,
-        notesViews: data.notes.views,
-        notesDownloads: data.notes.downloads,
-        notesAvgRating: 0,
-        ideasCount: data.ideas,
-        teamsCount: data.teams,
-        notificationsCount: data.notifications,
+        notesCount: data.stats.notesCount ?? null,
+        notesViews: data.stats.notesViews ?? null,
+        notesDownloads: data.stats.notesDownloads ?? null,
+        ideasCount: data.stats.ideasCount ?? null,
+        teamsCount: data.stats.teamsCount ?? null,
+        notificationsCount: data.stats.notificationsCount ?? null,
+        totalQuizzes: data.stats.totalQuizzes ?? null,
+        avgQuizScore: data.stats.avgQuizScore ?? null,
+        classroomsCount: data.stats.classroomsCount ?? null,
+        eventsCount: data.stats.eventsCount ?? null,
+        currentStreak: data.stats.currentStreak ?? null
       });
+      setAchievements(data.achievements || []);
       if (data.gamification) {
         setGamification(data.gamification);
       }
     } catch (error) {
       console.error(error);
+    } finally {
+      setIsStatsLoading(false);
     }
   }, [user]);
 
@@ -174,7 +184,7 @@ const Dashboard = () => {
       case "overview":
         return (
           <div className="space-y-6">
-            <DashboardOverview stats={stats} setActiveSection={setActiveSection} />
+            <DashboardOverview stats={stats} achievements={achievements} setActiveSection={setActiveSection} isLoading={isStatsLoading} />
           </div>
         );
       case "ideas":
