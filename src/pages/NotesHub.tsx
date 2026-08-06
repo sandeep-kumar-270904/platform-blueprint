@@ -37,7 +37,7 @@ const NotesHub = () => {
     notes, myNotes, bookmarkedNotes, filters, updateFilter, clearFilters,
     getFilteredNotes, subjects, categories, branches, semesters,
     stats, loadNotes, deleteNote, addNoteOptimistic, user, loading,
-    toggleBookmark, incrementDownload, bookmarkedNoteIds
+    toggleBookmark, incrementDownload, incrementView, bookmarkedNoteIds
   } = useNotes();
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
