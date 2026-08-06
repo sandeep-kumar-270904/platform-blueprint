@@ -10,6 +10,9 @@ interface NoteCardProps {
   note: any;
   index: number;
   isOwner?: boolean;
+  isBookmarked?: boolean;
+  onToggleBookmark?: (note: any) => void;
+  onDownload?: (note: any) => void;
   onDetail: (note: any) => void;
   onPreview: (note: any) => void;
   onAI: (note: any) => void;
@@ -22,6 +25,9 @@ export const NoteCard = ({
   note,
   index,
   isOwner = false,
+  isBookmarked = false,
+  onToggleBookmark,
+  onDownload,
   onDetail,
   onPreview,
   onEdit,
@@ -54,7 +60,12 @@ export const NoteCard = ({
                 {note.file_type}
               </Badge>
             )}
-            <NoteBookmarkButton noteId={note.id} aria-label="Bookmark this note" />
+            <NoteBookmarkButton 
+              noteId={note.id} 
+              isBookmarked={isBookmarked}
+              onToggle={(e) => { e.stopPropagation(); onToggleBookmark?.(note); }}
+              aria-label="Bookmark this note" 
+            />
             {isOwner && (
               <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm rounded-md absolute right-0 top-8">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onEdit?.(note); }} aria-label="Edit note">
@@ -97,21 +108,42 @@ export const NoteCard = ({
           })()}
         </div>
         
-        <div className="flex items-center gap-4 text-xs text-muted-foreground pt-3 border-t border-border/60 mt-auto">
+        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-3 border-t border-border/60 mt-auto">
           <div className="flex items-center gap-1.5 font-medium" title="Community rating">
             <Star className="h-3.5 w-3.5 fill-yellow-500 text-yellow-500" aria-hidden="true" />
             <span className={Number(note.rating) > 0 ? "text-foreground" : ""}>
-              {Number(note.rating) > 0 ? formatStat(note.rating, true, "", true) : "No ratings"}
+              {Number(note.rating) > 0 ? `${Number(note.rating).toFixed(1)} (${note.rating_count || 0})` : "No ratings"}
             </span>
           </div>
           <div className="flex items-center gap-1.5" title="Total page views">
             <Eye className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{formatStat(note.views, true)}</span>
+            <span>{formatStat(note.views || 0, true)}</span>
           </div>
-          <div className="flex items-center gap-1.5" title="Total downloads">
+          <div className="flex items-center gap-1.5" title="Total comments">
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>{formatStat(note.comment_count || 0, true)}</span>
+          </div>
+          <button 
+            className="flex items-center gap-1.5 hover:text-primary transition-colors ml-auto" 
+            title="Download note"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (note.content_url) {
+                const link = document.createElement('a');
+                const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                link.href = note.content_url.startsWith('http') ? note.content_url : `${backendUrl}${note.content_url}`;
+                link.download = note.title || 'download';
+                link.target = '_blank';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }
+              if (onDownload) onDownload(note);
+            }}
+          >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{formatStat(note.downloads, true)}</span>
-          </div>
+            <span>{formatStat(note.downloads || 0, true)}</span>
+          </button>
         </div>
       </CardContent>
       

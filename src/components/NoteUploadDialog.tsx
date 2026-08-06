@@ -56,8 +56,16 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.type !== "application/pdf") {
-        toast.error("Please upload a PDF file");
+      const allowedTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "text/csv"
+      ];
+      if (!allowedTypes.includes(selectedFile.type) && !selectedFile.name.match(/\.(pdf|doc|docx|xls|xlsx|csv)$/i)) {
+        toast.error("Please upload a PDF, Word, or Excel file");
         return;
       }
       if (selectedFile.size > 50 * 1024 * 1024) {
@@ -66,13 +74,13 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
       }
       setFile(selectedFile);
       if (!title) {
-        setTitle(selectedFile.name.replace(".pdf", ""));
+        setTitle(selectedFile.name.replace(/\.[^/.]+$/, ""));
       }
     }
   };
 
   const validateStep1 = () => {
-    if (!file) { toast.error("Please select a PDF file"); return false; }
+    if (!file) { toast.error("Please select a file to upload"); return false; }
     if (!title.trim() || title.trim().length < 5) { toast.error("Title must be at least 5 characters long"); return false; }
     if (!subject.trim()) { toast.error("Subject is required"); return false; }
     if (!category) { toast.error("Please select a category"); return false; }
@@ -185,7 +193,7 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
           <div className="space-y-4">
             {/* File Upload */}
             <div>
-              <Label htmlFor="file" className="text-sm font-medium">PDF File <span className="text-destructive">*</span></Label>
+              <Label htmlFor="file" className="text-sm font-medium">Document File <span className="text-destructive">*</span></Label>
               <div className="mt-1.5 border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => !uploading && document.getElementById('file-input')?.click()}>
                 {file ? (
                   <div className="flex items-center justify-center gap-3">
@@ -194,17 +202,17 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
                       <p className="font-medium text-sm">{file.name}</p>
                       <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                     </div>
-                    <Badge variant="secondary">PDF</Badge>
+                    <Badge variant="secondary">FILE</Badge>
                   </div>
                 ) : (
                   <div>
                     <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Click to select or drag & drop a PDF file</p>
+                    <p className="text-sm text-muted-foreground">Click to select or drag & drop a PDF, Word, or Excel file</p>
                     <p className="text-xs text-muted-foreground mt-1">Max file size: 50MB</p>
                   </div>
                 )}
               </div>
-              <Input id="file-input" type="file" accept="application/pdf" onChange={handleFileChange} disabled={uploading} className="hidden" />
+              <Input id="file-input" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv" onChange={handleFileChange} disabled={uploading} className="hidden" />
             </div>
 
             {/* AI Enhancement */}
@@ -244,7 +252,7 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
 
             {/* Description */}
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Description <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
               <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value.slice(0, 500))} placeholder="Briefly describe what these notes cover..." disabled={uploading} rows={3} className="mt-1.5" />
               <p className="text-xs text-muted-foreground mt-1">{description.length}/500 characters</p>
             </div>
@@ -260,7 +268,7 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Branch</Label>
+                <Label>Branch <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
                 <Select value={branch} onValueChange={setBranch} disabled={uploading}>
                   <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select branch" /></SelectTrigger>
                   <SelectContent>
@@ -271,7 +279,7 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
                 </Select>
               </div>
               <div>
-                <Label>Semester</Label>
+                <Label>Semester <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
                 <Select value={semester} onValueChange={setSemester} disabled={uploading}>
                   <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select semester" /></SelectTrigger>
                   <SelectContent>
@@ -285,11 +293,11 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="university">University / College</Label>
+                <Label htmlFor="university">University / College <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
                 <Input id="university" value={university} onChange={(e) => setUniversity(e.target.value.slice(0, 150))} placeholder="e.g., IIT Delhi" disabled={uploading} className="mt-1.5" />
               </div>
               <div>
-                <Label htmlFor="year">Year</Label>
+                <Label htmlFor="year">Year <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
                 <Select value={year} onValueChange={setYear} disabled={uploading}>
                   <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select year" /></SelectTrigger>
                   <SelectContent>

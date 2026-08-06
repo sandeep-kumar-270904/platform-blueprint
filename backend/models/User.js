@@ -209,6 +209,10 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'RoomRental'
   }],
+  bookmarked_notes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Note'
+  }],
   savedJobs: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Job'
