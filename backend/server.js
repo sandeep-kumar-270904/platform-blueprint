@@ -503,12 +503,12 @@ connectDB().then(async () => {
 
 // Middleware
 const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? [process.env.FRONTEND_URL] // No wildcards or localhost in production
-  : ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:5173', process.env.FRONTEND_URL].filter(Boolean);
+  ? [process.env.FRONTEND_URL?.replace(/\/$/, '')] // No wildcards or localhost in production
+  : ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:5173', process.env.FRONTEND_URL?.replace(/\/$/, '')].filter(Boolean);
 
 app.use(cors({
   origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
