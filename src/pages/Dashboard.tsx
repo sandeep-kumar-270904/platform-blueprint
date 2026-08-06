@@ -48,31 +48,58 @@ import { RoommatesDashboardWidget } from "@/components/dashboard/RoommatesDashbo
 
 type Section = "overview" | "courses" | "ideas" | "collaborations" | "requests" | "teams" | "skill-swap" | "creators" | "progress" | "notifications" | "notification-settings" | "live" | "analytics" | "profile" | "referrals" | "subscription" | "career-visibility" | "security" | "links" | "saved-colleges" | "activity" | "mentor-bookings" | "mentor-management";
 
-const navItems: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "courses", label: "My Learning", icon: BookOpen },
-  { id: "ideas", label: "My Ideas", icon: Lightbulb },
-  { id: "collaborations", label: "Collaborations", icon: Handshake },
-  { id: "requests", label: "Join Requests", icon: UserPlus },
-  { id: "teams", label: "My Teams", icon: Users },
-  { id: "skill-swap", label: "Skill Swap", icon: RefreshCw },
-  { id: "creators", label: "Creators Zone", icon: Sparkles },
-  { id: "progress", label: "Learning Progress", icon: TrendingUp },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "notification-settings", label: "Notification Settings", icon: Bell },
-  { id: "live", label: "Live Activity", icon: Radio },
-  { id: "analytics", label: "Host Analytics", icon: BarChart2 },
-  { id: "saved-colleges", label: "Saved Colleges", icon: Building2 },
-  { id: "activity", label: "Activity & Events", icon: Star },
-  { id: "mentor-bookings", label: "My Mentorship", icon: Handshake },
-  { id: "mentor-management", label: "Mentor Dashboard", icon: Briefcase },
-  { id: "profile", label: "Profile", icon: User },
-  { id: "referrals", label: "Wallet & Referrals", icon: Users },
-  { id: "subscription", label: "My Subscription", icon: Star },
-  { id: "career-visibility", label: "Career Visibility", icon: Briefcase },
-  { id: "security", label: "Security", icon: Lock },
-  { id: "links", label: "Quick Links", icon: ArrowRight },
-];
+const navGroups = [
+  {
+    label: "LEARN",
+    items: [
+      { id: "overview", label: "Overview", icon: LayoutDashboard },
+      { id: "courses", label: "My Learning", icon: BookOpen },
+      { id: "progress", label: "Learning Progress", icon: TrendingUp },
+    ]
+  },
+  {
+    label: "COLLABORATE",
+    items: [
+      { id: "ideas", label: "My Ideas", icon: Lightbulb },
+      { id: "teams", label: "My Teams", icon: Users },
+      { id: "collaborations", label: "Collaborations", icon: Handshake },
+      { id: "requests", label: "Join Requests", icon: UserPlus },
+    ]
+  },
+  {
+    label: "MANAGE",
+    items: [
+      { id: "creators", label: "Creators Zone", icon: Sparkles },
+      { id: "mentor-bookings", label: "My Mentorship", icon: Handshake },
+      { id: "mentor-management", label: "Mentor Dashboard", icon: Briefcase },
+      { id: "skill-swap", label: "Skill Swap", icon: RefreshCw },
+      { id: "analytics", label: "Host Analytics", icon: BarChart2 },
+      { id: "activity", label: "Activity & Events", icon: Star },
+    ]
+  },
+  {
+    label: "ACCOUNT",
+    items: [
+      { id: "profile", label: "Profile", icon: User },
+      { id: "notifications", label: "Notifications", icon: Bell },
+      { id: "notification-settings", label: "Notification Settings", icon: Bell },
+      { id: "referrals", label: "Wallet & Referrals", icon: Users },
+      { id: "subscription", label: "My Subscription", icon: Star },
+      { id: "career-visibility", label: "Career Visibility", icon: Briefcase },
+      { id: "security", label: "Security", icon: Lock },
+    ]
+  },
+  {
+    label: "QUICK LINKS",
+    items: [
+      { id: "live", label: "Live Activity", icon: Radio },
+      { id: "saved-colleges", label: "Saved Colleges", icon: Building2 },
+      { id: "links", label: "Quick Links", icon: ArrowRight },
+    ]
+  }
+] as const;
+
+const navItems = navGroups.flatMap(g => g.items);
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -148,87 +175,6 @@ const Dashboard = () => {
         return (
           <div className="space-y-6">
             <DashboardOverview stats={stats} setActiveSection={setActiveSection} />
-            
-            <ScrollReveal delay={0.05}>
-              <div className="mb-6 grid gap-6 lg:grid-cols-3">
-                <PlacementPrepWidget />
-                <RepairDashboardWidget />
-                <RoommatesDashboardWidget />
-              </div>
-            </ScrollReveal>
-
-            <div className="grid gap-6 lg:grid-cols-3">
-              <ScrollReveal delay={0.1}>
-                <MyIdeas userId={targetUserId} />
-              </ScrollReveal>
-              <ScrollReveal delay={0.15}>
-                <UpcomingSessions userId={targetUserId} />
-              </ScrollReveal>
-              <ScrollReveal delay={0.15}>
-                <LiveActivity />
-              </ScrollReveal>
-            </div>
-            <div className="grid gap-6 lg:grid-cols-3">
-              <ScrollReveal delay={0.2}>
-                <Card className="border-border bg-card">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <TrendingUp className="h-4 w-4" /> Weekly Progress
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {[
-                      { label: "Current Streak (Days)", current: gamification?.current_streak || 0, goal: 7 },
-                      { label: "Notes Uploaded", current: gamification?.notes_count || stats.notesCount, goal: 10 },
-                      { label: "Ideas Posted", current: gamification?.ideas_count || stats.ideasCount, goal: 5 },
-                    ].map((item) => (
-                      <div key={item.label}>
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="text-muted-foreground">{item.label}</span>
-                          <span className="font-medium">{item.current}/{item.goal}</span>
-                        </div>
-                        <Progress value={Math.min((item.current / item.goal) * 100, 100)} className="h-2" />
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </ScrollReveal>
-              <ScrollReveal delay={0.25}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Award className="h-4 w-4" /> Achievements
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {[
-                        { title: "Knowledge Sharer", desc: "Uploaded 5 notes", icon: "📚", earned: gamification?.badges?.knowledge_sharer || stats.notesCount >= 5 },
-                        { title: "Innovator", desc: "Posted 3 ideas", icon: "💡", earned: gamification?.badges?.innovator || stats.ideasCount >= 3 },
-                        { title: "Team Player", desc: "Joined 2 teams", icon: "🤝", earned: gamification?.badges?.team_player || stats.teamsCount >= 2 },
-                        { title: "Streak Master", desc: "7-day login streak", icon: "🔥", earned: gamification?.badges?.streak_master || false },
-                        { title: "Classroom Host", desc: "Hosted a virtual class", icon: "🎓", earned: gamification?.badges?.classroom_host || false },
-                      ].map((a, i) => (
-                        <div key={i} className={`flex items-start gap-3 ${!a.earned ? "opacity-40" : ""}`}>
-                          <span className="text-xl">{a.icon}</span>
-                          <div>
-                            <p className="font-medium text-sm">{a.title}</p>
-                            <p className="text-xs text-muted-foreground">{a.desc}</p>
-                          </div>
-                          {a.earned && <Star className="h-4 w-4 fill-primary text-primary ml-auto shrink-0" />}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </ScrollReveal>
-              <ScrollReveal delay={0.3}>
-                <NotificationsPanel userId={targetUserId} />
-              </ScrollReveal>
-            </div>
-            <ScrollReveal delay={0.35}>
-              <LearningProgress />
-            </ScrollReveal>
           </div>
         );
       case "ideas":
@@ -340,29 +286,36 @@ const Dashboard = () => {
           <div className="flex gap-6">
             {/* Sidebar Navigation */}
             <aside className="hidden md:block w-56 shrink-0">
-              <nav className="sticky top-24 space-y-1">
-                {navItems.map((item) => {
-                  const isActive = activeSection === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setActiveSection(item.id)}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                        isActive
-                          ? "bg-primary text-primary-foreground"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                      }`}
-                    >
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      {item.label}
-                      {item.id === "notifications" && stats.notificationsCount > 0 && (
-                        <Badge className="ml-auto bg-red-500 text-white text-[10px] px-1.5 py-0">
-                          {stats.notificationsCount}
-                        </Badge>
-                      )}
-                    </button>
-                  );
-                })}
+              <nav className="sticky top-24 space-y-6">
+                {navGroups.map((group) => (
+                  <div key={group.label} className="space-y-1">
+                    <h4 className="px-4 text-[11px] font-bold tracking-wider text-muted-foreground uppercase mb-2">
+                      {group.label}
+                    </h4>
+                    {group.items.map((item) => {
+                      const isActive = activeSection === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => setActiveSection(item.id)}
+                          className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                            isActive
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          }`}
+                        >
+                          <item.icon className="h-4 w-4 shrink-0" />
+                          {item.label}
+                          {item.id === "notifications" && stats.notificationsCount > 0 && (
+                            <Badge className="ml-auto bg-red-500 text-white text-[10px] px-1.5 py-0">
+                              {stats.notificationsCount}
+                            </Badge>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
               </nav>
             </aside>
 
