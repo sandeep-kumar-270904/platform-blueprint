@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { Shield, BarChart2 } from 'lucide-react';
+import { Shield, BarChart2, ShieldCheck } from 'lucide-react';
 
 interface PostItemProps {
   post: FeedPost;
@@ -76,6 +76,11 @@ export const PostItem: React.FC<PostItemProps> = ({ post, onThreadClick }) => {
                 {post.isAnonymous && (
                   <Badge variant="outline" className="text-[10px] h-4 px-1 gap-1 text-muted-foreground bg-muted/50">
                     <Shield className="h-3 w-3" /> Anonymous
+                  </Badge>
+                )}
+                {post.isOfficial && (
+                  <Badge className="text-[10px] h-4 px-1.5 gap-1 bg-blue-600 hover:bg-blue-700 text-white border-transparent">
+                    <ShieldCheck className="h-3 w-3" /> Official
                   </Badge>
                 )}
                 {post.category && post.category !== 'discussion' && post.category !== 'poll' && (

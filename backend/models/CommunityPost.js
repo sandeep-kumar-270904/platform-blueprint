@@ -35,7 +35,7 @@ const communityPostSchema = new mongoose.Schema({
       votes: { type: Number, default: 0 }
     }]
   },
-  category: { type: String, enum: ["question", "experience", "discussion", "opportunity", "poll"], required: true },
+  category: { type: String, enum: ["question", "experience", "discussion", "opportunity", "poll", "campus_update"], required: true },
   pollOptions: [{
     text: String,
     voteCount: { type: Number, default: 0 }

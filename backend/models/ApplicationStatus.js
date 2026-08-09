@@ -5,12 +5,12 @@ const applicationStatusSchema = new mongoose.Schema({
   collegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College', required: true },
   status: {
     type: String,
-    enum: ['Planning to Apply', 'Applied', 'Waitlisted', 'Accepted', 'Rejected', 'Enrolled'],
-    default: 'Planning to Apply'
+    enum: ["interested", "applied", "interviewing", "accepted", "rejected", "enrolled"],
+    default: "interested"
   },
   appliedDate: { type: Date },
   decisionDate: { type: Date },
-  notes: { type: String, maxLength: 1000 }
+  notes: { type: String, maxLength: 500 }
 }, { timestamps: true });
 
 // A user can only have one application status per college
