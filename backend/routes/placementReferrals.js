@@ -118,7 +118,7 @@ router.get('/my-profile', authMiddleware, async (req, res) => {
 // Submit a referral request
 router.post('/request', authMiddleware, async (req, res) => {
   try {
-    const { referrer_profile, company, resume, target_role, message } = req.body;
+    const { referrer_profile, company, opportunity, resume, target_role, message } = req.body;
     
     const profile = await ReferrerProfile.findById(referrer_profile).populate('user', 'name');
     if (!profile) return res.status(404).json({ message: 'Referrer profile not found' });
@@ -128,12 +128,15 @@ router.post('/request', authMiddleware, async (req, res) => {
     }
 
     // Check if student already has a pending/accepted request for this profile
-    const existingRequest = await ReferralRequest.findOne({
+    const existingQuery = {
       requester: req.user.id,
       referrer_profile,
-      company,
       status: { $in: ['pending', 'accepted'] }
-    });
+    };
+    if (opportunity) existingQuery.opportunity = opportunity;
+    else if (company) existingQuery.company = company;
+
+    const existingRequest = await ReferralRequest.findOne(existingQuery);
     
     if (existingRequest) {
       return res.status(400).json({ message: 'You already have an active request with this referrer.' });
@@ -157,6 +160,7 @@ router.post('/request', authMiddleware, async (req, res) => {
       requester: req.user.id,
       referrer_profile,
       company,
+      opportunity,
       resumeSnapshot: {
         original_id: resumeDoc._id,
         file_url: resumeDoc.file_url,

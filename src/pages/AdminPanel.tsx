@@ -198,6 +198,9 @@ const AdminPanel = () => {
                     <Link to="/admin/repair"><Wrench className="mr-3 h-5 w-5 text-gray-600" /> Repair & Maintenance</Link>
                   </Button>
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/alumni"><GraduationCap className="mr-3 h-5 w-5 text-blue-500" /> Alumni Verification</Link>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
                     <Link to="/admin/salary-moderation"><DollarSign className="mr-3 h-5 w-5 text-green-600" /> Salary Insights Moderation</Link>
                   </Button>
                 </CardContent>

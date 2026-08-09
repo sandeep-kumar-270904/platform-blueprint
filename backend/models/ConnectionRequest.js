@@ -21,6 +21,9 @@ const ConnectionRequestSchema = new mongoose.Schema({
     enum: ['qa', 'relay', 'session_1on1', 'session_group'], 
     required: true 
   },
+  intent: {
+    type: String
+  },
   status: { 
     type: String, 
     enum: ['pending', 'accepted', 'declined', 'completed'], 
@@ -37,6 +40,10 @@ const ConnectionRequestSchema = new mongoose.Schema({
     type: Boolean, 
     default: false 
   },
+  // Optional fields for 1:1 sessions
+  requestedDate: { type: Date },
+  requestedTime: { type: String }, // e.g. "10:00"
+
   generatedEventId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Event' 

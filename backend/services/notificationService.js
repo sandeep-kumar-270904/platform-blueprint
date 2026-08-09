@@ -85,6 +85,34 @@ const sendNotification = async (data) => {
         return null;
       }
       
+      // --- Connections Hub Email Preferences & Queuing ---
+      const alumniEmailTypeMap = {
+        'alumni_connection_request': 'connection_requests',
+        'alumni_connection_response': 'connection_responses',
+        'booking_requested': 'session_reminders',
+        'booking_confirmed': 'session_reminders',
+        'session_reminder': 'session_reminders',
+        'booking_cancelled': 'session_reminders',
+        'question_answered': 'qa_responses',
+        'mentor_application_status': 'mentorship_updates'
+      };
+      const alumniPrefKey = alumniEmailTypeMap[type];
+      if (alumniPrefKey) {
+         // Default to true except qa_responses which is default false
+         const defaultVal = alumniPrefKey === 'qa_responses' ? false : true;
+         const isEnabled = pref.toggles?.alumniConnections?.[alumniPrefKey] ?? defaultVal;
+         
+         if (isEnabled) {
+           data.deliveryChannels = data.deliveryChannels || ['in_app'];
+           if (!data.deliveryChannels.includes('email')) {
+             data.deliveryChannels.push('email');
+           }
+           data.emailSent = false;
+           data.emailStatus = 'pending';
+         }
+      }
+      
+      
       if (pref.quiet_hours && pref.quiet_hours.enabled) {
          const now = new Date();
          const hh = now.getUTCHours();

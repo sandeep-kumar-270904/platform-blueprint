@@ -7,6 +7,10 @@ import { Building2, ChevronLeft, MapPin, Briefcase } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Plus } from "lucide-react";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -28,6 +32,12 @@ const MyApplications: React.FC = () => {
   const [applications, setApplications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  // Manual Tracking State
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualCompany, setManualCompany] = useState('');
+  const [addingManual, setAddingManual] = useState(false);
 
   useEffect(() => {
     const fetchApps = async () => {
@@ -86,6 +96,35 @@ const MyApplications: React.FC = () => {
     }
   };
 
+  const handleAddManual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    setAddingManual(true);
+    try {
+      const res = await fetch(`${API_URL}/api/applications/track`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: manualTitle, company: manualCompany, url: '' })
+      });
+      if (res.ok) {
+        const newApp = await res.json();
+        setApplications(prev => [newApp, ...prev]);
+        toast.success("Manual application added");
+        setIsManualModalOpen(false);
+        setManualTitle('');
+        setManualCompany('');
+      } else {
+        throw new Error('Failed to add');
+      }
+    } catch (err) {
+      toast.error("Error adding manual application");
+    } finally {
+      setAddingManual(false);
+    }
+  };
+
   if (loading) {
     return <div className="container mx-auto p-8 max-w-5xl animate-pulse space-y-4">
       {[1,2,3].map(i => <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>)}
@@ -95,10 +134,37 @@ const MyApplications: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <Button variant="ghost" onClick={() => navigate('/jobs')} className="mb-6 -ml-4 text-gray-500">
-        <ChevronLeft className="w-4 h-4 mr-2" /> Back to Jobs
+        <ChevronLeft className="w-4 h-4 mr-2" /> Back to Opportunities
       </Button>
 
-      <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white mb-8">My Applications</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">My Applications</h1>
+        
+        <Dialog open={isManualModalOpen} onOpenChange={setIsManualModalOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="w-4 h-4 mr-2" /> Track Manual</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Track External Application</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAddManual} className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label>Job Title</Label>
+                <Input required value={manualTitle} onChange={e => setManualTitle(e.target.value)} placeholder="e.g. Frontend Engineer" />
+              </div>
+              <div className="space-y-2">
+                <Label>Company Name</Label>
+                <Input required value={manualCompany} onChange={e => setManualCompany(e.target.value)} placeholder="e.g. Acme Corp" />
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsManualModalOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={addingManual}>{addingManual ? 'Saving...' : 'Save Tracker'}</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {applications.length === 0 ? (
         <EmptyState 
@@ -114,13 +180,17 @@ const MyApplications: React.FC = () => {
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row justify-between gap-4">
                   <div>
-                    <h3 className="font-semibold text-xl cursor-pointer hover:underline" onClick={() => navigate(`/jobs/${app.job._id}`)}>
-                      {app.job.title}
+                    <h3 className="font-semibold text-xl cursor-pointer hover:underline" onClick={() => { if(app.job) navigate(`/jobs/${app.job._id}`)}}>
+                      {app.job ? app.job.title : app.studentManagedMetadata?.title || 'Unknown Role'}
                     </h3>
                     <div className="text-gray-500 flex items-center gap-2 mt-1">
-                      <Building2 className="w-4 h-4" /> {app.job.company.name}
-                      <span>•</span>
-                      <MapPin className="w-4 h-4" /> {app.job.location}
+                      <Building2 className="w-4 h-4" /> {app.job ? app.job.company.name : app.studentManagedMetadata?.company || 'Unknown Company'}
+                      {app.job && (
+                        <>
+                          <span>•</span>
+                          <MapPin className="w-4 h-4" /> {app.job.location}
+                        </>
+                      )}
                     </div>
                   </div>
                   

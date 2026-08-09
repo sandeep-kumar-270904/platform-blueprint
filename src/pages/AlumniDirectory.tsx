@@ -12,16 +12,18 @@ export default function AlumniDirectory() {
   const [alumni, setAlumni] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("");
+  const [pastCompanyFilter, setPastCompanyFilter] = useState("");
   const [yearFilter, setYearFilter] = useState("");
 
   useEffect(() => {
     fetchAlumni();
-  }, [companyFilter, yearFilter]);
+  }, [companyFilter, pastCompanyFilter, yearFilter]);
 
   const fetchAlumni = async () => {
     try {
       const params = new URLSearchParams();
       if (companyFilter) params.append('company', companyFilter);
+      if (pastCompanyFilter) params.append('pastCompany', pastCompanyFilter);
       if (yearFilter) params.append('year', yearFilter);
       
       const res = await api.get(`/alumni/directory?${params.toString()}`);
@@ -62,8 +64,14 @@ export default function AlumniDirectory() {
           onChange={e => setCompanyFilter(e.target.value)}
         />
         <Input 
-          placeholder="Graduation Year..." 
-          className="w-full md:w-48"
+          placeholder="Past Company (Career Path)..." 
+          className="w-full md:w-64"
+          value={pastCompanyFilter}
+          onChange={e => setPastCompanyFilter(e.target.value)}
+        />
+        <Input 
+          placeholder="Grad Year..." 
+          className="w-full md:w-32"
           type="number"
           value={yearFilter}
           onChange={e => setYearFilter(e.target.value)}

@@ -24,21 +24,24 @@ const isOwnerOrAdmin = (job, user) => {
 // GET /api/jobs
 router.get('/', async (req, res) => {
   try {
-    const { search, location, workMode, jobType, experienceLevel, minSalary, maxSalary, skills, sort, page = 1, limit = 20 } = req.query;
+    const { search, location, category, workMode, jobType, experienceLevel, minSalary, maxSalary, skills, sort, page = 1, limit = 20 } = req.query;
 
     const query = {};
 
-    // For non-logged in or normal users, only show published jobs.
-    // In a real app we might pass user context to conditionally show drafts to the owner.
-    // For this endpoint we'll default to only published jobs. If an owner wants to see their drafts, 
-    // they can use a separate recruiter dashboard endpoint, or we can check req.user if auth is optional.
-    // Let's assume this is the public feed:
     query.status = 'published';
+    
+    // Auto-exclude expired opportunities
+    query.$or = [
+      { applicationDeadline: { $gt: new Date() } },
+      { applicationDeadline: null },
+      { applicationDeadline: { $exists: false } }
+    ];
 
     if (search) {
       query.$text = { $search: search };
     }
     if (location) query.location = new RegExp(location, 'i');
+    if (category) query.category = category;
     if (workMode) query.workMode = workMode;
     if (jobType) query.jobType = jobType;
     if (experienceLevel) query.experienceLevel = experienceLevel;
@@ -173,10 +176,14 @@ router.get('/:id', async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'recruiter' && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Only recruiters or admins can post jobs.' });
+      const AlumniProfile = require('../models/AlumniProfile');
+      const alumni = await AlumniProfile.findOne({ userId: req.user.id });
+      if (!alumni || alumni.verificationStatus !== 'verified') {
+        return res.status(403).json({ message: 'Only recruiters, admins, or verified alumni can post opportunities.' });
+      }
     }
 
-    const { title, company, location, workMode, jobType, experienceLevel, salary, description, responsibilities, qualifications, benefits, skills, openings, department, applyMode, externalUrl, applicationDeadline, status } = req.body;
+    const { title, company, category, location, workMode, jobType, experienceLevel, salary, description, responsibilities, qualifications, benefits, skills, openings, department, applyMode, externalUrl, applicationDeadline, status } = req.body;
 
     if (applyMode === 'external' && !externalUrl) {
       return res.status(400).json({ message: 'externalUrl is required when applyMode is external' });
@@ -185,6 +192,7 @@ router.post('/', authMiddleware, async (req, res) => {
     const job = new Job({
       title,
       company,
+      category,
       location,
       workMode,
       jobType,
@@ -204,7 +212,9 @@ router.post('/', authMiddleware, async (req, res) => {
       postedBy: req.user.id
     });
 
-    if (job.status === 'published' && req.user.role === 'recruiter') {
+    if (req.user.role !== 'admin' && req.user.role !== 'recruiter') {
+      job.status = 'under_review'; // Force review for alumni
+    } else if (job.status === 'published' && req.user.role === 'recruiter') {
       if (req.user.recruiterProfile?.verificationStatus !== 'verified') {
         job.status = 'under_review';
       }
