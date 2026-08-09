@@ -70,11 +70,17 @@ const handleOAuth = async (provider, profile, done) => {
   }
 };
 
+// Helper for building absolute callback URLs
+const getCallbackUrl = (provider) => {
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+  return `${backendUrl.replace(/\/$/, '')}/api/auth/${provider}/callback`;
+};
+
 // Google Strategy
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID || 'MOCK_CLIENT_ID',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'MOCK_CLIENT_SECRET',
-    callbackURL: "/api/auth/google/callback"
+    callbackURL: getCallbackUrl('google')
   },
   (accessToken, refreshToken, profile, done) => handleOAuth('google', profile, done)
 ));
@@ -83,7 +89,7 @@ passport.use(new GoogleStrategy({
 passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID || 'MOCK_CLIENT_ID',
     clientSecret: process.env.GITHUB_CLIENT_SECRET || 'MOCK_CLIENT_SECRET',
-    callbackURL: "/api/auth/github/callback"
+    callbackURL: getCallbackUrl('github')
   },
   (accessToken, refreshToken, profile, done) => handleOAuth('github', profile, done)
 ));
@@ -92,7 +98,7 @@ passport.use(new GitHubStrategy({
 const linkedInStrategy = new LinkedInStrategy({
     clientID: process.env.LINKEDIN_CLIENT_ID || 'MOCK_CLIENT_ID',
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET || 'MOCK_CLIENT_SECRET',
-    callbackURL: "/api/auth/linkedin/callback",
+    callbackURL: getCallbackUrl('linkedin'),
     scope: ['openid', 'profile', 'email'],
     state: true
   },

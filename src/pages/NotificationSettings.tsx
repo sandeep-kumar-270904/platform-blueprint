@@ -55,6 +55,13 @@ export default function NotificationSettings() {
       start: "22:00",
       end: "08:00"
     },
+    alumniConnections: {
+      connection_requests: true,
+      connection_responses: true,
+      session_reminders: true,
+      qa_responses: false,
+      mentorship_updates: true
+    },
     roommateConnections: {
       new_requests: 'instant',
       accepted: 'instant',
@@ -116,6 +123,12 @@ export default function NotificationSettings() {
             setPreferences(prev => ({
               ...prev,
               roommateConnections: { ...prev.roommateConnections, ...data.preferences.roommateConnections }
+            }));
+          }
+          if (data.preferences?.alumniConnections) {
+            setPreferences(prev => ({
+              ...prev,
+              alumniConnections: { ...prev.alumniConnections, ...data.preferences.alumniConnections }
             }));
           }
           const roomRentalKeys = ['roomRentals_booking', 'roomRentals_inquiry', 'roomRentals_priceDrop', 'roomRentals_message'] as const;
@@ -208,6 +221,16 @@ export default function NotificationSettings() {
     }));
   };
 
+  const handleAlumniToggle = (field: keyof typeof preferences.alumniConnections) => {
+    setPreferences(prev => ({
+      ...prev,
+      alumniConnections: {
+        ...prev.alumniConnections,
+        [field]: !prev.alumniConnections[field]
+      }
+    }));
+  };
+
   const handleRoommateToggle = (field: keyof typeof preferences.roommateConnections, value: string) => {
     setPreferences(prev => ({
       ...prev,
@@ -263,6 +286,32 @@ export default function NotificationSettings() {
         </div>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Alumni Connections</CardTitle>
+              <CardDescription>Manage alerts for connections, mentoring, and Q&A (Emails & In-App)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[
+                { key: 'connection_requests', label: 'Connection Requests' },
+                { key: 'connection_responses', label: 'Connection Responses' },
+                { key: 'session_reminders', label: 'Session Reminders' },
+                { key: 'qa_responses', label: 'Q&A Responses' },
+                { key: 'mentorship_updates', label: 'Mentorship Updates' }
+              ].map(cat => (
+                <div key={`alumni-${cat.key}`} className="flex items-center justify-between">
+                  <Label htmlFor={`alumni-${cat.key}`} className="cursor-pointer">
+                    {cat.label}
+                  </Label>
+                  <Switch 
+                    id={`alumni-${cat.key}`} 
+                    checked={preferences.alumniConnections[cat.key as keyof typeof preferences.alumniConnections] as boolean} 
+                    onCheckedChange={() => handleAlumniToggle(cat.key as keyof typeof preferences.alumniConnections)} 
+                  />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Roommate Finder</CardTitle>

@@ -256,6 +256,11 @@ const UserSchema = new mongoose.Schema({
     }],
     searchKeywords: [{ type: String }]
   },
+  careerGoal: {
+    targetRole: { type: String },
+    targetRoleId: { type: mongoose.Schema.Types.ObjectId, ref: 'CareerRole' }, // Reference for deterministic pathing
+    targetSkills: [{ type: String }]
+  },
   defaultApplicationProfile: {
     resumeUrl: { type: String },
     defaultCoverLetter: { type: String }

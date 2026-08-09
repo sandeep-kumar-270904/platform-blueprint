@@ -9,8 +9,13 @@ const jobSchema = new mongoose.Schema({
   },
   postedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   location: { type: String, required: true },
-  workMode: { type: String, enum: ['remote', 'hybrid', 'onsite'], required: true },
-  jobType: { type: String, enum: ['full-time', 'part-time', 'internship', 'contract'], required: true },
+  category: { 
+    type: String, 
+    enum: ['job', 'internship', 'research', 'hackathon', 'scholarship', 'graduate', 'startup', 'freelance', 'campus', 'competition'], 
+    default: 'job' 
+  },
+  workMode: { type: String, enum: ['remote', 'hybrid', 'onsite'] },
+  jobType: { type: String, enum: ['full-time', 'part-time', 'internship', 'contract'] },
   experienceLevel: { type: String, enum: ['entry', 'mid', 'senior', 'lead'] },
   salary: { 
     min: { type: Number }, 
@@ -32,7 +37,7 @@ const jobSchema = new mongoose.Schema({
   },
   applicationDeadline: { type: Date },
   deadlineReminderSent: { type: Boolean, default: false },
-  status: { type: String, enum: ['draft', 'published', 'closed', 'under_review'], default: 'draft' },
+  status: { type: String, enum: ['draft', 'published', 'closed', 'under_review', 'expired', 'archived'], default: 'draft' },
   views: { type: Number, default: 0 },
   applicantCount: { type: Number, default: 0 }
 }, { timestamps: true });

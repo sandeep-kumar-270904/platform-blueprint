@@ -22,6 +22,7 @@ const JobsPortal: React.FC = () => {
   const [filters, setFilters] = useState({
     search: '',
     location: '',
+    category: '',
     workMode: '',
     jobType: '',
   });
@@ -70,6 +71,7 @@ const JobsPortal: React.FC = () => {
   const [formData, setFormData] = useState({
     title: '',
     companyName: '',
+    category: 'job',
     location: '',
     workMode: 'onsite',
     jobType: 'full-time',
@@ -85,6 +87,7 @@ const JobsPortal: React.FC = () => {
     await postJob({
       title: formData.title,
       company: { name: formData.companyName, verified: true },
+      category: formData.category,
       location: formData.location,
       workMode: formData.workMode,
       jobType: formData.jobType,
@@ -134,13 +137,13 @@ const JobsPortal: React.FC = () => {
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
-                  Post a Job
+                  Post an Opportunity
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Post a Job</DialogTitle>
-                <DialogDescription>Create a new job opportunity for the community.</DialogDescription>
+                <DialogTitle>Post an Opportunity</DialogTitle>
+                <DialogDescription>Create a new opportunity for the community.</DialogDescription>
               </DialogHeader>
               <form onSubmit={handlePostSubmit} className="space-y-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -154,10 +157,25 @@ const JobsPortal: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label>Location</Label>
                     <Input required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} placeholder="e.g. New York, NY" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <Select value={formData.category} onValueChange={v => setFormData({...formData, category: v})}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="job">Job</SelectItem>
+                        <SelectItem value="internship">Internship</SelectItem>
+                        <SelectItem value="hackathon">Hackathon</SelectItem>
+                        <SelectItem value="research">Research</SelectItem>
+                        <SelectItem value="freelance">Freelance</SelectItem>
+                        <SelectItem value="competition">Competition</SelectItem>
+                        <SelectItem value="open-source">Open Source</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Work Mode</Label>
@@ -228,11 +246,11 @@ const JobsPortal: React.FC = () => {
 
       {/* Filters Bar */}
       <Card className="mb-8">
-        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <CardContent className="p-4 grid grid-cols-1 md:grid-cols-6 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input 
-              placeholder="Search jobs, skills..." 
+              placeholder="Search..." 
               className="pl-9"
               value={filters.search}
               onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
@@ -243,6 +261,19 @@ const JobsPortal: React.FC = () => {
             value={filters.location}
             onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
           />
+          <Select value={filters.category} onValueChange={(v) => setFilters(prev => ({ ...prev, category: v === 'any' ? '' : v }))}>
+            <SelectTrigger><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">All Categories</SelectItem>
+              <SelectItem value="job">Job</SelectItem>
+              <SelectItem value="internship">Internship</SelectItem>
+              <SelectItem value="hackathon">Hackathon</SelectItem>
+              <SelectItem value="research">Research</SelectItem>
+              <SelectItem value="freelance">Freelance</SelectItem>
+              <SelectItem value="competition">Competition</SelectItem>
+              <SelectItem value="open-source">Open Source</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={filters.workMode} onValueChange={(v) => setFilters(prev => ({ ...prev, workMode: v === 'any' ? '' : v }))}>
             <SelectTrigger>
               <SelectValue placeholder="Work Mode" />

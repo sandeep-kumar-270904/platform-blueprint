@@ -28,7 +28,10 @@ export const AlumniOptInForm = () => {
     willingness: {
       openToQa: false,
       openToMentoring: false,
-      openToSalarySharing: false
+      openToSalarySharing: false,
+      openToResumeReview: false,
+      openToMockInterviews: false,
+      openToReferrals: false
     },
     availabilityNote: ""
   });
@@ -57,6 +60,9 @@ export const AlumniOptInForm = () => {
               openToQa: data.willingness?.openToQa || false,
               openToMentoring: data.willingness?.openToMentoring || false,
               openToSalarySharing: data.willingness?.openToSalarySharing || false,
+              openToResumeReview: data.willingness?.openToResumeReview || false,
+              openToMockInterviews: data.willingness?.openToMockInterviews || false,
+              openToReferrals: data.willingness?.openToReferrals || false,
             },
             availabilityNote: data.availabilityNote || ""
           });
@@ -232,6 +238,30 @@ export const AlumniOptInForm = () => {
               onCheckedChange={c => setFormData(p => ({ ...p, willingness: { ...p.willingness, openToSalarySharing: !!c }}))}
             />
             <Label htmlFor="salary" className="font-normal">Open to sharing salary data anonymously (for verified insights)</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="resume" 
+              checked={formData.willingness.openToResumeReview}
+              onCheckedChange={c => setFormData(p => ({ ...p, willingness: { ...p.willingness, openToResumeReview: !!c }}))}
+            />
+            <Label htmlFor="resume" className="font-normal">Open to reviewing student resumes</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="mock" 
+              checked={formData.willingness.openToMockInterviews}
+              onCheckedChange={c => setFormData(p => ({ ...p, willingness: { ...p.willingness, openToMockInterviews: !!c }}))}
+            />
+            <Label htmlFor="mock" className="font-normal">Open to conducting mock interviews</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="referral" 
+              checked={formData.willingness.openToReferrals}
+              onCheckedChange={c => setFormData(p => ({ ...p, willingness: { ...p.willingness, openToReferrals: !!c }}))}
+            />
+            <Label htmlFor="referral" className="font-normal">Open to providing job referrals</Label>
           </div>
         </div>
 

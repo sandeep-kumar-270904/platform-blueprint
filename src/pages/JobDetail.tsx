@@ -281,7 +281,7 @@ const JobDetail: React.FC = () => {
     <div className="container mx-auto px-4 py-8 max-w-5xl">
       <div className="flex justify-between items-center mb-6 -ml-4">
         <Button variant="ghost" onClick={() => navigate('/jobs')} className="text-gray-500">
-          <ChevronLeft className="w-4 h-4 mr-2" /> Back to Jobs
+          <ChevronLeft className="w-4 h-4 mr-2" /> Back to Opportunities
         </Button>
         <Button 
           variant="outline" 
@@ -289,7 +289,7 @@ const JobDetail: React.FC = () => {
           className="flex items-center gap-2"
         >
           <Bookmark className="w-4 h-4" fill={isSaved ? "currentColor" : "none"} />
-          {isSaved ? "Saved" : "Save Job"}
+          {isSaved ? "Saved" : "Save Opportunity"}
         </Button>
       </div>
 
@@ -535,13 +535,13 @@ const JobDetail: React.FC = () => {
             <Dialog open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
               <DialogTrigger asChild>
                 <Button variant="ghost" className="text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30">
-                  <Flag className="w-4 h-4 mr-2" /> Report this Job
+                  <Flag className="w-4 h-4 mr-2" /> Report this Opportunity
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Report Job Posting</DialogTitle>
-                  <DialogDescription>Let us know why you are reporting this job. This helps keep our community safe.</DialogDescription>
+                  <DialogTitle>Report Opportunity Posting</DialogTitle>
+                  <DialogDescription>Let us know why you are reporting this opportunity. This helps keep our community safe.</DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleReport} className="space-y-4 py-4">
                   <div className="space-y-2">

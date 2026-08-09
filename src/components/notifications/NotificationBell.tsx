@@ -182,6 +182,14 @@ export const NotificationBell = () => {
       return '/dashboard/repair-requests';
     }
     
+    if (n.type === 'alumni_connection_request') {
+      return '/alumni/connections/network';
+    }
+    
+    if (n.type === 'alumni_connection_response') {
+      return '/alumni/connections/network';
+    }
+    
     if (n.relatedCollegeId) {
       return `/colleges/${n.relatedCollegeId}`;
     }

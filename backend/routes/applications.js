@@ -23,6 +23,32 @@ router.get('/me', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/applications/track
+router.post('/track', authMiddleware, async (req, res) => {
+  try {
+    const { jobId, status, note } = req.body;
+    
+    const existing = await JobApplication.findOne({ job: jobId, applicant: req.user.id });
+    if (existing) {
+      return res.status(409).json({ message: 'Tracking record already exists' });
+    }
+    
+    const application = new JobApplication({
+      job: jobId,
+      applicant: req.user.id,
+      applyMode: 'external',
+      studentManaged: true,
+      status: status || 'interested',
+      statusHistory: [{ status: status || 'interested', changedAt: new Date(), changedBy: req.user.id, note }]
+    });
+    
+    await application.save();
+    res.status(201).json(application);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // PATCH /api/applications/:id/withdraw
 router.patch('/:id/withdraw', authMiddleware, async (req, res) => {
   try {
@@ -46,12 +72,17 @@ router.patch('/:id/status', authMiddleware, async (req, res) => {
   try {
     const { newStatus, note, rejectionFeedback, rejectionFeedbackNote } = req.body;
     
-    // Auth check: Only the recruiter of the job or admin can update status
     const application = await JobApplication.findById(req.params.id).populate('job');
     if (!application) return res.status(404).json({ message: 'Application not found' });
     
-    if (application.job.postedBy.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Unauthorized to update this application' });
+    const isOwner = application.job.postedBy.toString() === req.user.id;
+    const isAdmin = req.user.role === 'admin';
+    const isApplicant = application.applicant.toString() === req.user.id;
+    
+    if (!isOwner && !isAdmin) {
+      if (!(application.studentManaged && isApplicant)) {
+        return res.status(403).json({ message: 'Unauthorized to update this application' });
+      }
     }
 
     const updatedApplication = await updateApplicationStatus({

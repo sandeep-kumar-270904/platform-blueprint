@@ -14,14 +14,23 @@ const { syncItem, removeItem } = require('../services/placementSearchService');
 const notificationService = require('../services/notificationService');
 const lastNotifiedMap = new Map();
 
+const AlumniProfile = require('../models/AlumniProfile');
+
 // Helper to check for senior/alumni status
 async function fetchAuthorProfiles(userIds) {
   const users = await User.find({ _id: { $in: userIds } }, 'full_name username avatar_url').lean();
   const referrers = await ReferrerProfile.find({ user_id: { $in: userIds } }, 'user_id').lean();
+  const alumni = await AlumniProfile.find({ userId: { $in: userIds } }, 'userId currentCompany').lean();
+  
   const referrerSet = new Set(referrers.map(r => r.user_id.toString()));
+  const alumniSet = new Set(alumni.map(a => a.userId.toString()));
   
   return users.reduce((acc, u) => {
-    acc[u._id.toString()] = { ...u, isSenior: referrerSet.has(u._id.toString()) };
+    acc[u._id.toString()] = { 
+      ...u, 
+      isSenior: referrerSet.has(u._id.toString()),
+      isAlumni: alumniSet.has(u._id.toString())
+    };
     return acc;
   }, {});
 }

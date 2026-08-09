@@ -24,6 +24,13 @@ const NotificationPreferenceSchema = new mongoose.Schema({
       booking_status: { type: Boolean, default: true },
       feedback_prompts: { type: Boolean, default: true },
       milestones: { type: Boolean, default: true }
+    },
+    alumniConnections: {
+      connection_requests: { type: Boolean, default: true },
+      connection_responses: { type: Boolean, default: true },
+      session_reminders: { type: Boolean, default: true },
+      qa_responses: { type: Boolean, default: false },
+      mentorship_updates: { type: Boolean, default: true }
     }
   },
   

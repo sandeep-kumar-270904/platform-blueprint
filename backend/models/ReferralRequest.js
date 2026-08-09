@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const referralRequestSchema = new mongoose.Schema({
   requester: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   referrer_profile: { type: mongoose.Schema.Types.ObjectId, ref: 'ReferrerProfile', required: true },
-  company: { type: mongoose.Schema.Types.ObjectId, ref: 'CompanyPrep', required: true },
+  company: { type: mongoose.Schema.Types.ObjectId, ref: 'CompanyPrep' },
+  opportunity: { type: mongoose.Schema.Types.ObjectId, ref: 'Job' },
   // Snapshot of resume to prevent broken references if deleted
   resumeSnapshot: {
     original_id: { type: mongoose.Schema.Types.ObjectId, ref: 'ResumeVersion' },

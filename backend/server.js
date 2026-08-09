@@ -632,6 +632,7 @@ const globalLimiter = rateLimit({
   message: { message: 'Too many requests from this IP, please try again later' }
 });
 
+// Apply rate limiting to all API routes
 app.use('/api/', globalLimiter);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/settings', authLimiter, settingsRoutes);
@@ -731,7 +732,8 @@ app.use('/api/admin', require('./routes/adminJobs'));
 app.use('/api/recruiter', require('./routes/recruiter'));
 app.use('/api/offers', require('./routes/offers'));
 app.use('/api/innovation', require('./routes/innovation'));
-app.use('/api/career', require('./routes/careerSimulator'));
+app.use('/api/career-simulator', require('./routes/careerSimulator')); // Re-route to avoid conflict
+app.use('/api/career', require('./routes/career')); // New pathing endpoints
 app.use('/api/colleges', require('./routes/colleges'));
 app.use('/api/alumni', require('./routes/alumni'));
 app.use('/api/alumni/connections', require('./routes/alumniConnections'));
@@ -824,6 +826,7 @@ app.use('/api/admin/roommates', require('./routes/roommateAdmin'));
 app.use('/api/room-rental-reviews', roomRentalReviewsRoutes);
 app.use('/api/site-content', require('./routes/siteContent'));
 app.use('/api/admin/site-content', require('./routes/adminSiteContent'));
+app.use('/api/admin/alumni-registry', require('./routes/adminAlumniRegistry'));
 app.use('/api/search-alerts', require('./routes/roomSearchAlerts'));
 app.use('/api/hostels', require('./routes/hostels'));
 
