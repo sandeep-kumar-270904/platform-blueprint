@@ -10,6 +10,7 @@ const logger = require('./utils/logger');
 const { startCron } = require('./jobs/classroomCron');
 const { startStudyGroupCron } = require('./jobs/studyGroupCron');
 const { startRoommateDigestCron } = require('./jobs/roommateDigestCron');
+const { startJob: startFraudDetectionCron } = require('./jobs/fraudDetectionJob');
 const { startSlotExpirationWorker } = require('./workers/slotExpirationWorker');
 const { startQuoteExpirationWorker } = require('./workers/quoteExpirationWorker');
 const mongoose = require('mongoose');
@@ -23,10 +24,15 @@ dotenv.config({ path: envFile });
 // Start Cron Jobs
 startCron();
 startStudyGroupCron();
+startFraudDetectionCron();
 startSlotExpirationWorker();
 startQuoteExpirationWorker();
 
 const http = require('http');
+const salaryRoutes = require('./routes/salary');
+const communityFeedRoutes = require('./routes/communityFeed');
+const collegeQARoutes = require('./routes/collegeQA');
+const collegeApplicationsRoutes = require('./routes/collegeApplications');
 const { Server } = require('socket.io');
 
 const app = express();
@@ -503,14 +509,27 @@ connectDB().then(async () => {
 
 // Middleware
 const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? [process.env.FRONTEND_URL?.replace(/\/$/, '')] // No wildcards or localhost in production
-  : ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:5173', process.env.FRONTEND_URL?.replace(/\/$/, '')].filter(Boolean);
+  ? [process.env.FRONTEND_URL?.replace(/\/$/, '')] 
+  : ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:5173', 'http://127.0.0.1:8080', 'http://127.0.0.1:5173'];
 
 app.use(cors({
   origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ''))) {
+    // Allow requests with no origin (like mobile apps, curl, or same-origin)
+    if (!origin) return callback(null, true);
+    
+    // In development, allow any localhost or local IP
+    if (process.env.NODE_ENV !== 'production') {
+       if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$/.test(origin)) {
+         return callback(null, true);
+       }
+    }
+    
+    // Check against allowed origins list
+    const cleanOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(cleanOrigin) || cleanOrigin === process.env.FRONTEND_URL?.replace(/\/$/, '')) {
       callback(null, true);
     } else {
+      console.warn(`CORS blocked request from origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -603,13 +622,13 @@ const adminMentorsOverviewRoutes = require('./routes/adminMentorsOverview');
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // stricter limit for auth routes
+  max: process.env.NODE_ENV === 'production' ? 100 : 5000, // stricter limit in prod, high in dev
   message: { message: 'Too many auth requests from this IP, please try again after 15 minutes' }
 });
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs
+  max: process.env.NODE_ENV === 'production' ? 1000 : 10000, // high limit in dev
   message: { message: 'Too many requests from this IP, please try again later' }
 });
 
@@ -650,8 +669,12 @@ app.use('/api/placement-onboarding', placementOnboarding);
 app.use('/api/aptitude', aptitudeRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/quizzes', quizzesRoutes);
+app.use('/api/webhooks', webhooksRoutes);
+app.use('/api/salary', salaryRoutes);
+app.use('/api/community-feed', communityFeedRoutes);
 app.use('/api/gd', gdRoutes);
 app.use('/api/gd-live', gdLiveRoutes);
+app.use('/api/mentor', require('./routes/mentor'));
 
 // app.use('/api/classes', require('./routes/classes'));
 // app.use('/api/courses', require('./routes/courses'));
@@ -710,7 +733,11 @@ app.use('/api/offers', require('./routes/offers'));
 app.use('/api/innovation', require('./routes/innovation'));
 app.use('/api/career', require('./routes/careerSimulator'));
 app.use('/api/colleges', require('./routes/colleges'));
+app.use('/api/alumni', require('./routes/alumni'));
+app.use('/api/alumni/connections', require('./routes/alumniConnections'));
+app.use('/api/salary', require('./routes/salary'));
 app.use('/api/college-qa', require('./routes/collegeQA'));
+app.use('/api/college-applications', require('./routes/collegeApplications'));
 app.use('/api/ideas', require('./routes/ideas'));
 app.use('/api/brainstorm', require('./routes/brainstorm'));
 app.use('/api/idea-circles', require('./routes/ideaCircles'));

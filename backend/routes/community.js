@@ -325,9 +325,18 @@ router.get('/posts', optionalAuth, async (req, res) => {
           providerReference = { _id: p.provider_reference, name: "Provider no longer available", inactive: true };
         }
       }
+      let authorData = userMap[p.user_id.toString()] || null;
+      if (p.isAnonymous) {
+        authorData = {
+          _id: "anonymous",
+          username: "anonymous",
+          full_name: "Anonymous Student",
+          avatar_url: null
+        };
+      }
       return { 
         ...p, 
-        author: userMap[p.user_id.toString()] || null,
+        author: authorData,
         liked_by: likesMap[pid] || [],
         reactions: reactionsMap[pid] || { like: 0, celebrate: 0, insightful: 0, support: 0 },
         user_reaction: userReactionMap[pid] || null,

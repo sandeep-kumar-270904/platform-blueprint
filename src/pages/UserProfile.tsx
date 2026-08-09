@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { FollowButton } from "@/components/community-feed/FollowButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Award, GraduationCap, MapPin, Edit3, Flame, Trophy } from "lucide-react";
@@ -80,13 +81,17 @@ export default function UserProfile() {
                 </AvatarFallback>
               </Avatar>
               
-              {isOwnProfile && (
+              {isOwnProfile ? (
                 <Link to="/settings" className="mt-4 sm:mt-0">
                   <div className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background border border-input hover:bg-accent hover:text-accent-foreground h-10 py-2 px-4 gap-2">
                     <Edit3 className="h-4 w-4" />
                     Edit Profile
                   </div>
                 </Link>
+              ) : (
+                <div className="mt-4 sm:mt-0">
+                  <FollowButton targetId={profile._id || id} type="user" />
+                </div>
               )}
             </div>
             

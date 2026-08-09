@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, CheckCircle2, XCircle, Star } from "lucide-react";
 import { useColleges } from "@/hooks/useColleges";
+import { SaveComparisonButton, SavedComparisonsDialog } from "@/components/colleges/CompareSetsActions";
 
 const CompareColleges = () => {
   const [searchParams] = useSearchParams();
@@ -92,13 +93,19 @@ const CompareColleges = () => {
       <Header />
       
       <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center gap-4 mb-8">
-          <Link to="/college-insights">
-            <Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
-          </Link>
-          <div>
-            <h1 className="text-3xl font-bold">Compare Colleges</h1>
-            <p className="text-muted-foreground">Side-by-side comparison of {colleges.length} institutions</p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-4">
+            <Link to="/college-insights">
+              <Button variant="outline" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
+            </Link>
+            <div>
+              <h1 className="text-3xl font-bold">Compare Colleges</h1>
+              <p className="text-muted-foreground">Side-by-side comparison of {colleges.length} institutions</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <SavedComparisonsDialog />
+            <SaveComparisonButton collegeIds={colleges.map(c => c._id)} />
           </div>
         </div>
 

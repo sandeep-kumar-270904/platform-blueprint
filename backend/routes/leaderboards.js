@@ -163,4 +163,33 @@ router.get('/ideas', async (req, res) => {
   }
 });
 
+// GET /api/leaderboards/colleges
+router.get('/colleges', async (req, res) => {
+  try {
+    const { metric = 'rating', limit = 10 } = req.query;
+    const College = require('../models/College');
+    
+    let sortObj = {};
+    if (metric === 'rating') {
+      sortObj = { rating: -1, totalReviews: -1 };
+    } else if (metric === 'reviews') {
+      sortObj = { totalReviews: -1 };
+    } else if (metric === 'placements') {
+      // Assuming placementPercentage is a number
+      sortObj = { placementPercentage: -1 };
+    } else {
+      sortObj = { rating: -1 };
+    }
+
+    const colleges = await College.find({ draft: { $ne: true } })
+      .sort(sortObj)
+      .limit(parseInt(limit))
+      .select('name location.city location.state rating totalReviews placementPercentage logoOrIcon avgPackage');
+      
+    res.json(colleges);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 module.exports = router;

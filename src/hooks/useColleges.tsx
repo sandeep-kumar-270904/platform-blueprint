@@ -115,6 +115,54 @@ export const useColleges = () => {
     }
   });
 
+  const getCollegeFees = async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/colleges/${id}/fees`);
+      if (!res.ok) throw new Error("Failed to fetch fees");
+      return res.json();
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  };
+
+  const getFeeReminder = async (id: string) => {
+    if (!user) return "";
+    const token = localStorage.getItem("token");
+    if (!token) return "";
+    try {
+      const res = await fetch(`${API_URL}/api/colleges/${id}/fee-reminder`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to fetch fee reminder");
+      const data = await res.json();
+      return data.note;
+    } catch (e) {
+      console.warn("Could not fetch fee reminder", e);
+      return "";
+    }
+  };
+
+  const saveFeeReminder = async (id: string, note: string) => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`${API_URL}/api/colleges/${id}/fee-reminder`, {
+        method: "POST",
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ note })
+      });
+      if (!res.ok) throw new Error("Failed to save fee reminder");
+      return res.json();
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to save fee reminder");
+      throw e;
+    }
+  };
+
   return {
     filters: { search, type, feeRange, ratingMin, location, course, sort },
     setSearch, setType, setFeeRange, setRatingMin, setLocation, setCourse, setSort,
@@ -124,6 +172,9 @@ export const useColleges = () => {
     getReviews,
     getRatingBreakdown,
     getSavedColleges,
-    toggleSaveCollege
+    toggleSaveCollege,
+    getCollegeFees,
+    getFeeReminder,
+    saveFeeReminder
   };
 };

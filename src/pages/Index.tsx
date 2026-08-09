@@ -62,7 +62,7 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
       }}
       style={{
         background: "hsl(var(--card))",
-        flex: isHovered ? 2.2 : 1
+        flex: 1
       }}
     >
       <motion.div
@@ -383,7 +383,7 @@ const Index = () => {
         id="main-content"
         animate={{ opacity: isExiting ? 0 : 1 }}
         transition={{ duration: 0.3 }}
-        className="min-h-screen overflow-hidden"
+        className="relative min-h-screen overflow-hidden"
       >
       <Header />
 
@@ -754,7 +754,7 @@ const Index = () => {
       </section>
 
       {/* How it Works */}
-      <section ref={howItWorksRef} className="pt-16 pb-12 md:pt-20 md:pb-16 bg-background border-t">
+      <section ref={howItWorksRef} className="relative pt-16 pb-12 md:pt-20 md:pb-16 bg-background border-t">
         <div className="container">
           <motion.div 
             className="mb-12 max-w-2xl mx-auto text-center"
@@ -881,11 +881,11 @@ const Index = () => {
             <div className="flex flex-col items-center lg:items-end gap-5">
               <Link to="/auth">
                 <motion.div variants={{ hidden: { opacity: 0, scale: 0.9 }, visible: { opacity: 1, scale: 1, transition: { ease: masterEasing, duration: 0.5 } } }}>
-                  <motion.button whileTap={{ scale: 0.95 }} className="w-full">
+                  <motion.div whileTap={{ scale: 0.95 }} className="w-full md:w-auto inline-block">
                     <Button className="bg-white text-zinc-950 hover:bg-zinc-200 font-bold px-8 shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 w-full md:w-auto h-14 text-lg">
                       Create Your Account
                     </Button>
-                  </motion.button>
+                  </motion.div>
                 </motion.div>
               </Link>
               <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="flex items-center gap-3 text-sm text-zinc-400 mt-2">

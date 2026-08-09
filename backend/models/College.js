@@ -7,6 +7,17 @@ const CourseSchema = new mongoose.Schema({
   eligibility: { type: String, required: true }
 });
 
+const FeeStructureSchema = new mongoose.Schema({
+  year: { type: String, required: true }, // e.g. "Year 1", "Year 2"
+  tuition: { type: Number, required: true },
+  hostel: { type: Number, default: 0 },
+  mess: { type: Number, default: 0 },
+  otherCharges: { type: Number, default: 0 },
+  total: { type: Number, required: true },
+  lastVerified: { type: Date, default: Date.now },
+  source: { type: String, enum: ['official', 'admin-entered', 'crowd-reported'], default: 'admin-entered' }
+});
+
 const CollegeSchema = new mongoose.Schema({
   name: { type: String, required: true },
   location: {
@@ -27,13 +38,14 @@ const CollegeSchema = new mongoose.Schema({
     hostel: { type: Number, required: true },
     other: { type: Number, default: 0 }
   },
+  feeStructure: [FeeStructureSchema],
   avgPackage: { type: String },
   highestPackage: { type: String },
   placementPercentage: { type: Number },
   rating: { type: Number, default: 0 },
   totalReviews: { type: Number, default: 0 },
   avgHostelRating: { type: Number, default: 0 },
-  avgLabsRating: { type: Number, default: 0 },
+  avgValueForMoneyRating: { type: Number, default: 0 },
   avgFacultyRating: { type: Number, default: 0 },
   avgCampusLifeRating: { type: Number, default: 0 },
   avgPlacementsRating: { type: Number, default: 0 },

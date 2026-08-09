@@ -2,13 +2,18 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 module.exports = async function (req, res, next) {
-  // Get token from cookies or fallback to header
-  let token = req.cookies?.accessToken;
-  if (!token && req.header('Authorization')) {
-    const authHeader = req.header('Authorization');
-    if (authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
+  // Get token from header first, fallback to cookies
+  let token;
+  const authHeader = req.header('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const extracted = authHeader.split(' ')[1];
+    if (extracted !== 'null' && extracted !== 'undefined') {
+      token = extracted;
     }
+  }
+  
+  if (!token) {
+    token = req.cookies?.accessToken;
   }
 
   // Check if no token
@@ -45,12 +50,17 @@ module.exports = async function (req, res, next) {
 module.exports.protect = module.exports;
 
 module.exports.optionalAuth = async function (req, res, next) {
-  let token = req.cookies?.accessToken;
-  if (!token && req.header('Authorization')) {
-    const authHeader = req.header('Authorization');
-    if (authHeader.startsWith('Bearer ')) {
-      token = authHeader.split(' ')[1];
+  let token;
+  const authHeader = req.header('Authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const extracted = authHeader.split(' ')[1];
+    if (extracted !== 'null' && extracted !== 'undefined') {
+      token = extracted;
     }
+  }
+  
+  if (!token) {
+    token = req.cookies?.accessToken;
   }
 
   if (!token) {

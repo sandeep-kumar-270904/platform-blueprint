@@ -18,6 +18,38 @@ const isAdmin = async (req, res, next) => {
   }
 };
 
+// GET /api/admin/community/audit
+// Returns all posts (including anonymous) with real user_id populated
+router.get('/audit', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const query = {};
+    if (status) query.status = status;
+
+    const posts = await CommunityPost.find(query)
+      .sort({ createdAt: -1 })
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .limit(parseInt(limit))
+      .populate('user_id', 'username full_name email')
+      .lean();
+    
+    const total = await CommunityPost.countDocuments(query);
+
+    const AuditLog = require('../models/AuditLog');
+    await AuditLog.create({
+      actor_id: req.user.id,
+      action: 'viewed_anonymous_authors',
+      entity_type: 'CommunityPost',
+      entity_id: posts.length > 0 ? posts[0]._id : new require('mongoose').Types.ObjectId(),
+      metadata: { page, limit, count: posts.length }
+    });
+
+    res.json({ posts, total });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // GET /api/admin/community/posts
 router.get('/posts', authMiddleware, isAdmin, async (req, res) => {
   try {
