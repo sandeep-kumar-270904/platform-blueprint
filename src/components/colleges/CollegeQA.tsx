@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronDown, ChevronUp, MessageSquare, ThumbsUp } from "lucide-react";
+import { ChevronDown, ChevronUp, MessageSquare, ThumbsUp, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -313,7 +313,12 @@ export const CollegeQA = ({ collegeId }: { collegeId: string }) => {
                                 <p className="text-sm mb-2">{a.answerText}</p>
                                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                   <span>{a.answeredBy?.full_name || 'Anonymous User'}</span>
-                                  {a.isCurrentStudent && (
+                                  {a.isOfficial && (
+                                    <Badge variant="default" className="text-[10px] h-4 py-0 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
+                                      <ShieldCheck className="w-3 h-3 mr-1" /> Verified Official
+                                    </Badge>
+                                  )}
+                                  {a.isCurrentStudent && !a.isOfficial && (
                                     <Badge variant="secondary" className="text-[10px] h-4 py-0">Current Student / Alumni</Badge>
                                   )}
                                   <span>•</span>

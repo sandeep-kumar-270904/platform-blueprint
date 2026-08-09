@@ -18,6 +18,7 @@ import { AdminPageManager } from "@/components/admin/AdminPageManager";
 import { AdminTeamModeration } from "@/components/admin/AdminTeamModeration";
 import { AdminSkillSwap } from "@/components/admin/AdminSkillSwap";
 import { AdminCreatorsModeration } from "@/components/admin/AdminCreatorsModeration";
+import { AdminAlumniVerification } from "@/components/admin/AdminAlumniVerification";
 import { useAdmin } from "@/hooks/useAdmin";
 import { toast } from 'sonner';
 
@@ -113,6 +114,9 @@ const AdminPanel = () => {
             <TabsTrigger value="creators">
               <Video className="mr-2 h-4 w-4" /> Creators Zone
             </TabsTrigger>
+            <TabsTrigger value="alumni">
+              <GraduationCap className="mr-2 h-4 w-4" /> Alumni
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -192,6 +196,9 @@ const AdminPanel = () => {
                   </Button>
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
                     <Link to="/admin/repair"><Wrench className="mr-3 h-5 w-5 text-gray-600" /> Repair & Maintenance</Link>
+                  </Button>
+                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
+                    <Link to="/admin/salary-moderation"><DollarSign className="mr-3 h-5 w-5 text-green-600" /> Salary Insights Moderation</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -283,6 +290,10 @@ const AdminPanel = () => {
 
           <TabsContent value="creators" className="bg-white p-6 rounded-xl border shadow-sm">
             <AdminCreatorsModeration />
+          </TabsContent>
+
+          <TabsContent value="alumni" className="bg-white p-6 rounded-xl border shadow-sm">
+            <AdminAlumniVerification />
           </TabsContent>
         </Tabs>
       </main>

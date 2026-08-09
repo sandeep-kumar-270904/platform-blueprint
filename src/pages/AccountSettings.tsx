@@ -129,10 +129,8 @@ export default function AccountSettings() {
   const handleExportData = async () => {
     setExportLoading(true);
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/settings/request-data-export`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/me/export`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       if (!res.ok) throw new Error("Export failed");
       

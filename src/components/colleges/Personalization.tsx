@@ -7,6 +7,12 @@ import { useAuth } from "@/hooks/useAuth";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+const getImageUrl = (url?: string) => {
+  if (!url) return undefined;
+  if (url.startsWith("http") || url.startsWith("data:")) return url;
+  return `${API_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 export const Personalization = () => {
   const { user } = useAuth();
   const [data, setData] = useState<{ recentlyViewed: any[], recommended: any[] } | null>(null);
@@ -45,7 +51,7 @@ export const Personalization = () => {
       <Card className="h-full border-border hover:border-primary/50 transition-colors overflow-hidden flex flex-col">
         <div className="h-24 relative overflow-hidden bg-muted">
           {college.images?.[0] ? (
-             <img src={college.images[0]} alt={college.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+             <img src={getImageUrl(college.images[0])} alt={college.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           ) : (
              <div className="w-full h-full flex items-center justify-center text-4xl">{college.logoOrIcon || "🏛️"}</div>
           )}

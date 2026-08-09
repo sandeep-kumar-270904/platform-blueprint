@@ -43,8 +43,10 @@ const CareerInsightsPage = lazy(() => import("./pages/CareerInsightsPage"));
 const CoverLetterEditorPage = lazy(() => import("./pages/CoverLetterEditorPage"));
 const SharedResumeView = lazy(() => import("./pages/SharedResumeView"));
 const CollegeInsights = lazy(() => import("./pages/CollegeInsights"));
+const AIMentor = lazy(() => import("./pages/AIMentor"));
 const CollegeDetail = lazy(() => import("./pages/CollegeDetail"));
 const CompareColleges = lazy(() => import("./pages/CompareColleges"));
+const ApplicationTracker = lazy(() => import("./pages/ApplicationTracker"));
 const InnovationHub = lazy(() => import("./pages/InnovationHub"));
 const Scholarships = lazy(() => import("./pages/Scholarships"));
 const ScholarshipCommunity = lazy(() => import("./pages/ScholarshipCommunity"));
@@ -167,11 +169,14 @@ const DeveloperSettings = lazy(() => import("./pages/DeveloperSettings").then(m 
 const StaticPage = lazy(() => import("./pages/StaticPage").then(m => ({ default: m.StaticPage })));
 const AdminHostelsPanel = lazy(() => import("./pages/admin/AdminHostelsPanel").then(m => ({ default: m.AdminHostelsPanel })));
 const AdminRepairPanel = lazy(() => import("./pages/admin/AdminRepairPanel").then(m => ({ default: m.AdminRepairPanel })));
+const AdminSalaryModeration = lazy(() => import("./pages/admin/AdminSalaryModeration").then(m => ({ default: m.AdminSalaryModeration })));
 import { AnnouncementBanner } from "./components/layout/AnnouncementBanner";
 import { MaintenanceModeWrapper } from "./components/layout/MaintenanceMode";
 import { ErrorBoundary } from "./components/layout/ErrorBoundary";
 import { CookieConsent } from "./components/layout/CookieConsent";
 import { CustomCursor } from "./components/ui/CustomCursor";
+import { CreatorDetailModal } from '@/components/creators/CreatorDetailModal';
+import { AlumniConnectionsHub } from './pages/AlumniConnectionsHub';
 const OnboardingFlow = lazy(() => import("./pages/OnboardingFlow"));
 
 const queryClient = new QueryClient();
@@ -207,7 +212,8 @@ const App = () => (
           <Route path="/recruiter/verify" element={<RecruiterVerify />} />
           <Route path="/recruiter/candidates" element={<CandidateSearch />} />
           <Route path="/scholarships" element={<Scholarships />} />
-          <Route path="/scholarships/community" element={<ScholarshipCommunity />} />
+          <Route path="/scholarships/:id" element={<ScholarshipDetail />} />
+          <Route path="/alumni/connections" element={<AlumniConnectionsHub />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
           <Route path="/search" element={<Search />} />
           <Route path="/p/:slug" element={<StaticPage />} />
@@ -244,8 +250,10 @@ const App = () => (
           <Route path="/institution-dashboard" element={<InstitutionResumeStats />} />
           <Route path="/resume-builder/cover-letter/:id" element={<ProtectedRoute><CoverLetterEditorPage /></ProtectedRoute>} />
           <Route path="/college-insights" element={<ProtectedRoute><CollegeInsights /></ProtectedRoute>} />
+          <Route path="/ai-mentor" element={<ProtectedRoute><AIMentor /></ProtectedRoute>} />
           <Route path="/colleges/:id" element={<ProtectedRoute><CollegeDetail /></ProtectedRoute>} />
           <Route path="/compare" element={<ProtectedRoute><CompareColleges /></ProtectedRoute>} />
+          <Route path="/tracker" element={<ProtectedRoute><ApplicationTracker /></ProtectedRoute>} />
           <Route path="/innovation-hub" element={<ProtectedRoute><InnovationHub /></ProtectedRoute>} />
           <Route path="/scholarships" element={<ProtectedRoute><Scholarships /></ProtectedRoute>} />
           <Route path="/scholarships/my-scholarships" element={<ProtectedRoute><MyScholarships /></ProtectedRoute>} />
@@ -345,6 +353,7 @@ const App = () => (
           <Route path="/admin/roommates" element={<ProtectedRoute><AdminRoommatesPanel /></ProtectedRoute>} />
           <Route path="/admin/hostels" element={<ProtectedRoute><AdminHostelsPanel /></ProtectedRoute>} />
           <Route path="/admin/repair" element={<ProtectedRoute><AdminRepairPanel /></ProtectedRoute>} />
+          <Route path="/admin/salary-moderation" element={<ProtectedRoute><AdminSalaryModeration /></ProtectedRoute>} />
           <Route path="/recruiter/verify" element={<ProtectedRoute><RecruiterVerify /></ProtectedRoute>} />
           <Route path="/daily-hacks" element={<ProtectedRoute><DailyHacks /></ProtectedRoute>} />
 

@@ -193,6 +193,10 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'College' 
   }],
+  feeReminders: [{
+    collegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
+    note: { type: String }
+  }],
   subscribedQuizzes: [{ 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Quiz' 

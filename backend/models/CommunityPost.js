@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 
 const communityPostSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  collegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College', default: null },
+  parentPostId: { type: mongoose.Schema.Types.ObjectId, ref: 'CommunityPost', default: null },
   request_id: { type: String, sparse: true, index: true },
   content: { type: String, required: true },
   image_url: { type: String, default: null }, // Legacy
@@ -32,7 +34,21 @@ const communityPostSchema = new mongoose.Schema({
       text: String,
       votes: { type: Number, default: 0 }
     }]
-  }
+  },
+  category: { type: String, enum: ["question", "experience", "discussion", "opportunity", "poll"], required: true },
+  pollOptions: [{
+    text: String,
+    voteCount: { type: Number, default: 0 }
+  }],
+  pollVoters: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    optionIndex: Number
+  }],
+  isAnonymous: { type: Boolean, default: false },
+  isOfficial: { type: Boolean, default: false }
 }, { timestamps: true });
+
+communityPostSchema.index({ collegeId: 1 });
+communityPostSchema.index({ parentPostId: 1 });
 
 module.exports = mongoose.model('CommunityPost', communityPostSchema);

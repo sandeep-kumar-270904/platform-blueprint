@@ -9,6 +9,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Loader2, Camera } from "lucide-react";
+import { AlumniOptInForm } from "@/components/colleges/AlumniOptInForm";
 
 export default function ProfileSettings() {
   const { user, fetchUser } = useAuth();
@@ -196,6 +197,9 @@ export default function ProfileSettings() {
             </div>
           </CardContent>
         </Card>
+        
+        {/* Alumni Opt-In Section */}
+        <AlumniOptInForm />
       </div>
     </SettingsLayout>
   );

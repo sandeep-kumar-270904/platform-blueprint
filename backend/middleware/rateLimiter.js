@@ -15,11 +15,18 @@ const voteLimiter = rateLimit({
 });
 
 // Rate limiter for Reviews: Max 1 per hour (already somewhat handled by college validation, but good at IP level)
-const reviewLimiter = rateLimit({
+const baseReviewLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 2, // Max 2 reviews per hour per IP to prevent spamming
   message: { message: 'Too many reviews submitted, please try again after an hour.' }
 });
+
+const reviewLimiter = (req, res, next) => {
+  if (process.env.DISABLE_RATE_LIMIT_FOR_TESTS === 'true') {
+    return next();
+  }
+  return baseReviewLimiter(req, res, next);
+};
 
 
 // Rate limiter for general actions (like posting materials, sending invites)

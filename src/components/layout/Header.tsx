@@ -28,6 +28,8 @@ const defaultNavigationGroups = [
       { title: "Notes Hub", href: "/notes", desc: "Share and access study materials" },
       { title: "Resume Builder", href: "/resume-builder", desc: "ATS-optimized resume tips" },
       { title: "College Insights", href: "/college-insights", desc: "Reviews and comparisons" },
+      { title: "AI Mentor", href: "/ai-mentor", desc: "Data-driven college & career advice" },
+      { title: "Alumni Network", href: "/alumni/connections", desc: "Connect with graduates" },
       { title: "Innovation Hub", href: "/innovation-hub", desc: "Startup ideas and pitches" },
       { title: "Events & Hackathons", href: "/events", desc: "Competitions and workshops" },
       { title: "Scholarships", href: "/scholarships", desc: "Find funding opportunities" },
@@ -607,6 +609,12 @@ export const Header = () => {
                       <Link to="/dashboard" className="cursor-pointer flex items-center w-full">
                         <User className="mr-2 h-4 w-4 text-muted-foreground" />
                         <span>Dashboard</span>
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="p-2.5">
+                      <Link to="/alumni/connections" className="cursor-pointer flex items-center w-full">
+                        <UsersRound className="mr-2 h-4 w-4 text-muted-foreground" />
+                        <span>My Connections</span>
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild className="p-2.5">

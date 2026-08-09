@@ -93,7 +93,7 @@ const CollegeInsights = () => {
   useEffect(() => {
     loadColleges(1);
     setPage(1);
-  }, [filters]);
+  }, [filters.search, filters.type, filters.feeRange, filters.ratingMin, filters.location, filters.sort, filters.course]);
 
   useEffect(() => {
     if (user) {
@@ -341,9 +341,7 @@ const CollegeInsights = () => {
                       onOpenChange={setAiModalOpen} 
                       onSuccess={(data) => setAiResults(data)} 
                     />
-                    {user?.role === 'admin' && (
-                      <AddCollegeDialog onSuccess={() => { loadColleges(1); setPage(1); }} />
-                    )}
+                    <AddCollegeDialog onSuccess={() => { loadColleges(1); setPage(1); }} />
                   </div>
                 </div>
 
@@ -395,9 +393,7 @@ const CollegeInsights = () => {
                 <p className="text-muted-foreground mb-6">Try adjusting your search or filters, or check back later.</p>
                 <div className="flex justify-center gap-4">
                   {hasActiveFilters && <Button onClick={clearFilters}>Clear All Filters</Button>}
-                  {user?.role === 'admin' && (
-                    <AddCollegeDialog onSuccess={() => { loadColleges(1); setPage(1); }} />
-                  )}
+                  <AddCollegeDialog onSuccess={() => { loadColleges(1); setPage(1); }} />
                 </div>
               </div>
             )}
