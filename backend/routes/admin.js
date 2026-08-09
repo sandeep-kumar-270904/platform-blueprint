@@ -218,6 +218,10 @@ router.put('/colleges/claims/:id', authMiddleware, isAdmin, async (req, res) => 
     if (!claim) return res.status(404).json({ message: 'Claim not found' });
     
     claim.verificationStatus = status;
+    if (status === 'verified') {
+      claim.verifiedAt = new Date();
+      claim.verifiedBy = req.user.id;
+    }
     await claim.save();
     
     res.json(claim);

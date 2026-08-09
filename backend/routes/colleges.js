@@ -104,35 +104,7 @@ router.delete('/comparisons/:id', auth, async (req, res) => {
   }
 });
 
-// GET /api/colleges/:id/reality-check - Aggregate positive vs critical review themes
-router.get('/:id/reality-check', async (req, res) => {
-  try {
-    const reviews = await Review.find({ collegeId: req.params.id })
-      .sort({ upvotes: -1 })
-      .limit(50); // Get top 50 reviews to extract reality check
-    
-    // Simplistic aggregation logic for MVP:
-    // Extract first sentence of highly upvoted positive (4,5) and critical (1,2,3) reviews
-    const pros = [];
-    const cons = [];
-    
-    reviews.forEach(review => {
-      if (!review.reviewText) return;
-      const snippet = review.reviewText.split('.')[0] + '.';
-      if (snippet.length < 10) return; // ignore very short sentences
-      
-      if (review.rating >= 4 && pros.length < 5) {
-        pros.push({ text: snippet, upvotes: review.upvotes });
-      } else if (review.rating <= 3 && cons.length < 5) {
-        cons.push({ text: snippet, upvotes: review.upvotes });
-      }
-    });
 
-    res.json({ pros, cons });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
 
 // POST /api/colleges/:id/claim - Request official account status
 router.post('/:id/claim', auth, async (req, res) => {
@@ -518,11 +490,45 @@ router.get('/:id/rating-breakdown', async (req, res) => {
   }
 });
 
+// GET /api/colleges/:id/reality-check
+router.get('/:id/reality-check', async (req, res) => {
+  try {
+    const college = await College.findById(req.params.id);
+    if (!college) return res.status(404).json({ message: 'College not found' });
+
+    let feesTotal = null;
+    if (college.fees) {
+      feesTotal = (college.fees.tuition || 0) + (college.fees.hostel || 0) + (college.fees.other || 0);
+    }
+
+    const official = {
+      placementRate: college.placementPercentage || null,
+      avgPackage: college.avgPackage ? parseFloat(college.avgPackage) : null,
+      fees: feesTotal || null
+    };
+
+    const { aggregateCollegeReviews } = require('../services/collegeReviewAggregator');
+    const studentExperience = await aggregateCollegeReviews(req.params.id);
+
+    res.json({ official, studentExperience });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching reality check', error: error.message });
+  }
+});
+
 // POST /api/colleges/:id/reviews - Submit review
 router.post('/:id/reviews', auth, reviewLimiter, async (req, res) => {
   try {
     const college = await College.findById(req.params.id);
     if (!college) return res.status(404).json({ message: 'College not found' });
+
+    // Check if official account (cannot review any college - conflict of interest)
+    const CollegeOfficialAccount = require('../models/CollegeOfficialAccount');
+    const isOfficial = await CollegeOfficialAccount.findOne({ 
+      userId: req.user.id, 
+      verificationStatus: 'verified' 
+    });
+    if (isOfficial) return res.status(403).json({ message: 'Official college accounts cannot submit student reviews' });
 
     // Check if user already reviewed
     const existing = await Review.findOne({ collegeId: req.params.id, userId: req.user.id });
@@ -839,6 +845,38 @@ router.post('/:id/fee-reminder', auth, async (req, res) => {
     res.json({ note: user.feeReminders.find(r => r.collegeId.toString() === req.params.id).note });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/colleges/:id/claims
+router.post('/:id/claims', auth, async (req, res) => {
+  try {
+    const CollegeOfficialAccount = require('../models/CollegeOfficialAccount');
+    const college = await College.findById(req.params.id);
+    if (!college) return res.status(404).json({ message: 'College not found' });
+
+    const existingClaim = await CollegeOfficialAccount.findOne({ 
+      userId: req.user.id, 
+      collegeId: req.params.id 
+    });
+    
+    if (existingClaim) {
+      return res.status(400).json({ message: 'You have already submitted a claim for this college' });
+    }
+    
+    const user = await User.findById(req.user.id);
+
+    const claim = new CollegeOfficialAccount({
+      userId: req.user.id,
+      collegeId: req.params.id,
+      officialEmail: user.email,
+      verificationStatus: 'pending'
+    });
+    
+    await claim.save();
+    res.status(201).json(claim);
+  } catch (error) {
+    res.status(500).json({ message: 'Error submitting claim', error: error.message });
   }
 });
 

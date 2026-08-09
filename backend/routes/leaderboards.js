@@ -5,7 +5,86 @@ const QuizAttempt = require('../models/QuizAttempt');
 const Idea = require('../models/Idea');
 const authMiddleware = require('../middleware/auth');
 const mongoose = require('mongoose');
+const { aggregateCollegeReviews, cats } = require('../services/collegeReviewAggregator');
+const College = require('../models/College');
 
+// GET /api/leaderboards
+// Cross-college leaderboards by category and region
+router.get('/', async (req, res) => {
+  try {
+    const { category, region, page = 1, limit = 20 } = req.query;
+    
+    if (!category || !cats.includes(category)) {
+      return res.status(400).json({ message: 'Valid category is required' });
+    }
+
+    const allCollegesAggregation = await aggregateCollegeReviews();
+    
+    // allCollegesAggregation is an array of { collegeId, studentExperience }
+    // We need to filter sampleSize >= 5 and join with College model to get details
+    let leaderboards = [];
+    
+    for (let agg of allCollegesAggregation) {
+      const exp = agg.studentExperience[category];
+      if (exp && exp.sampleSize >= 5 && exp.avgRating !== null) {
+        leaderboards.push({
+          collegeId: agg.collegeId,
+          avgRating: exp.avgRating,
+          sampleSize: exp.sampleSize
+        });
+      }
+    }
+
+    // Now populate College details and apply region filter
+    const collegeIds = leaderboards.map(l => l.collegeId);
+    
+    let collegeQuery = { _id: { $in: collegeIds }, draft: { $ne: true } };
+    if (region) {
+      collegeQuery['location.state'] = region;
+    }
+    
+    const colleges = await College.find(collegeQuery, 'name location logoOrIcon').lean();
+    const collegeMap = colleges.reduce((acc, c) => {
+      acc[c._id.toString()] = c;
+      return acc;
+    }, {});
+    
+    let finalLeaderboard = leaderboards
+      .filter(l => collegeMap[l.collegeId.toString()])
+      .map(l => {
+        const c = collegeMap[l.collegeId.toString()];
+        return {
+          collegeId: l.collegeId,
+          collegeName: c.name,
+          location: c.location,
+          logoOrIcon: c.logoOrIcon,
+          avgRating: l.avgRating,
+          sampleSize: l.sampleSize
+        };
+      });
+
+    // Sort descending by avgRating
+    finalLeaderboard.sort((a, b) => b.avgRating - a.avgRating);
+    
+    // Add rank
+    finalLeaderboard.forEach((l, idx) => {
+      l.rank = idx + 1;
+    });
+
+    // Paginate
+    const startIndex = (Number(page) - 1) * Number(limit);
+    const paginated = finalLeaderboard.slice(startIndex, startIndex + Number(limit));
+
+    res.json({
+      leaderboard: paginated,
+      total: finalLeaderboard.length,
+      page: Number(page),
+      pages: Math.ceil(finalLeaderboard.length / Number(limit))
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
 
 // GET /api/leaderboards/global
 router.get('/global', async (req, res) => {

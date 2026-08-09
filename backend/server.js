@@ -738,6 +738,7 @@ app.use('/api/alumni/connections', require('./routes/alumniConnections'));
 app.use('/api/salary', require('./routes/salary'));
 app.use('/api/college-qa', require('./routes/collegeQA'));
 app.use('/api/college-applications', require('./routes/collegeApplications'));
+app.use('/api/comparisons', require('./routes/comparisons'));
 app.use('/api/ideas', require('./routes/ideas'));
 app.use('/api/brainstorm', require('./routes/brainstorm'));
 app.use('/api/idea-circles', require('./routes/ideaCircles'));

@@ -25,12 +25,29 @@ const maskAnonymous = (post) => {
 // Create a new post (general or college-scoped)
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { content, collegeId, parentPostId, image_urls, category, pollOptions, isAnonymous, isOfficial } = req.body;
+    const { content, collegeId, parentPostId, image_urls, category, pollOptions, isAnonymous } = req.body;
     if (!content) return res.status(400).json({ message: 'Content is required' });
+
+    const CollegeOfficialAccount = require('../models/CollegeOfficialAccount');
+    let isOfficial = false;
+
+    // Check if user is a verified official
+    const officialQuery = { userId: req.user.id, verificationStatus: 'verified' };
+    if (collegeId) officialQuery.collegeId = collegeId;
+    
+    const officialAccount = await CollegeOfficialAccount.findOne(officialQuery);
+    if (officialAccount) {
+      isOfficial = true;
+    }
 
     let finalCategory = category;
     if (pollOptions && pollOptions.length > 0) {
       finalCategory = "poll";
+    }
+
+    // Restrict "campus_update" to official accounts
+    if (finalCategory === "campus_update" && !isOfficial) {
+      return res.status(403).json({ message: 'Only verified official accounts can post campus updates' });
     }
 
     const post = new CommunityPost({
@@ -147,6 +164,10 @@ router.post('/post/:id/vote', authMiddleware, async (req, res) => {
     const post = await CommunityPost.findById(req.params.id);
     if (!post) return res.status(404).json({ message: 'Post not found' });
     if (post.category !== 'poll') return res.status(400).json({ message: 'Not a poll' });
+
+    const CollegeOfficialAccount = require('../models/CollegeOfficialAccount');
+    const isOfficial = await CollegeOfficialAccount.findOne({ userId: req.user.id, verificationStatus: 'verified' });
+    if (isOfficial) return res.status(403).json({ message: 'Official accounts cannot vote on polls' });
 
     // Check if user already voted
     const existingVote = post.pollVoters.find(v => v.userId.toString() === req.user.id);
