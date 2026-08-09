@@ -62,7 +62,7 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
       }}
       style={{
         background: "hsl(var(--card))",
-        flex: 1
+        flex: isHovered && !shouldReduceMotion ? 3 : 1
       }}
     >
       <motion.div

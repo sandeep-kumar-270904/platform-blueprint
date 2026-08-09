@@ -156,7 +156,7 @@ export const Header = () => {
       const timer = setTimeout(() => {
         setBannerDismissed(true);
         sessionStorage.setItem('email_banner_dismissed', 'true');
-      }, 30000);
+      }, 10000);
       return () => clearTimeout(timer);
     }
   }, [user, bannerDismissed]);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Header } from '@/components/layout/Header';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -102,8 +103,10 @@ export const AlumniConnectionsHub: React.FC = () => {
   if (loading) return <div className="p-8 text-center animate-pulse">Loading connections...</div>;
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-8">
-      <div className="flex justify-between items-end">
+    <div className="min-h-screen bg-background">
+      <Header />
+      <main className="max-w-5xl mx-auto p-4 md:p-6 space-y-8 mt-6">
+        <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold mb-2">Connections Hub</h1>
           <p className="text-muted-foreground">Manage your alumni interactions, Q&As, and 1:1 sessions.</p>
@@ -277,6 +280,7 @@ export const AlumniConnectionsHub: React.FC = () => {
           )}
         </TabsContent>
       </Tabs>
+      </main>
     </div>
   );
 };
