@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Calendar, MapPin, Users, Trophy, Clock, ArrowLeft, Loader2, CheckCircle2, Star, MessageSquare, ExternalLink } from "lucide-react";
+import { Calendar, MapPin, Users, Trophy, Clock, ArrowLeft, Loader2, CheckCircle2, Star, MessageSquare, ExternalLink, Globe, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { EventRow } from "@/hooks/useEvents";
@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { io } from "socket.io-client";
 import QRCode from "react-qr-code";
 import { Html5QrcodeScanner } from "html5-qrcode";
+import { formatDistanceToNowStrict, isPast as isDatePast, isFuture } from "date-fns";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -53,6 +54,8 @@ const EventDetail = () => {
   // QR Check-in states
   const [scanModalOpen, setScanModalOpen] = useState(false);
 
+  const [countdown, setCountdown] = useState<string>("");
+
   useEffect(() => {
     const fetchEvent = async () => {
       try {
@@ -77,16 +80,13 @@ const EventDetail = () => {
           .catch(console.error);
         }
         
-        // Fetch feedback if event is completed
-        if (data.status === 'completed') {
+        if (data.status === 'completed' || data.lifecycleStatus === 'completed') {
           fetch(`${API_URL}/api/events/${id}/feedback`)
             .then(r => r.json())
             .then(fData => setFeedbacks(fData.feedbacks || []))
             .catch(console.error);
         }
 
-        // Fetch discussions
-        const token = localStorage.getItem('token');
         fetch(`${API_URL}/api/events/${id}/discussions`, {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         })
@@ -101,6 +101,28 @@ const EventDetail = () => {
     };
     fetchEvent();
   }, [id, user]);
+
+  useEffect(() => {
+    if (!event) return;
+    const interval = setInterval(() => {
+      const now = new Date();
+      const start = new Date(event.startDate);
+      const end = new Date(event.endDate);
+      
+      if (event.isExternalContent) {
+        setCountdown("Community Content");
+      } else if (event.lifecycleStatus === 'cancelled') {
+        setCountdown("Event Cancelled");
+      } else if (event.lifecycleStatus === 'completed' || now >= end) {
+        setCountdown("Event Completed");
+      } else if (now >= start && now < end || event.lifecycleStatus === 'live') {
+        setCountdown("LIVE NOW");
+      } else {
+        setCountdown(`Starts in ${formatDistanceToNowStrict(start)}`);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [event]);
 
   useEffect(() => {
     const socket = io(API_URL);
@@ -198,7 +220,7 @@ const EventDetail = () => {
         }
         throw new Error(data.message || 'Registration failed');
       }
-      setMyStatus(data.status); // 'registered' or 'waitlisted'
+      setMyStatus(data.status); 
       setMyRegDetails({ lookingForTeammates, skills, teamName });
       setRegisterModalOpen(false);
       toast({ title: "Successfully Registered!" });
@@ -263,7 +285,6 @@ const EventDetail = () => {
         scanner.clear();
         setScanModalOpen(false);
       }, (err) => {
-        // ignore scan errors
       });
       return () => { scanner.clear(); };
     }
@@ -305,7 +326,6 @@ const EventDetail = () => {
       toast({ title: "Feedback Submitted", description: "Thank you for your feedback!" });
       setFeedbackOpen(false);
       
-      // Refresh feedbacks
       fetch(`${API_URL}/api/events/${id}/feedback`)
         .then(r => r.json())
         .then(fData => setFeedbacks(fData.feedbacks || []));
@@ -362,149 +382,110 @@ const EventDetail = () => {
     return <div className="min-h-screen pt-24 text-center">Event not found</div>;
   }
 
-  const isHost = user && (event.hostedBy._id === user.id || event.hostedBy === user.id);
+  const isHost = user && (event.hostedBy?._id === user.id || event.hostedBy === user.id);
   const isFull = event.capacity && (event.registrationCount || 0) >= event.capacity;
-  const isPast = new Date(event.startDate) < new Date(new Date().setHours(0,0,0,0));
+  const isPast = event.lifecycleStatus === 'completed' || new Date(event.endDate) <= new Date();
   const deadlinePassed = event.registrationDeadline && new Date(event.registrationDeadline) < new Date();
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-US", { weekday: 'long', month: "long", day: "numeric", year: "numeric" });
-  const typeColor = (t: string) => ({ hackathon: "accent", competition: "warning", workshop: "success", seminar: "secondary" } as any)[t] || "default";
+  
+  const isExternal = event.source && event.source.provider !== 'INTERNAL';
+  const isExternalContent = event.isExternalContent || event.eventType === 'community_content';
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       <Header />
-      <div className="container mx-auto px-4 pt-24 pb-12 max-w-5xl">
+      <div className="container mx-auto px-4 pt-24 pb-12 max-w-6xl">
         <Button variant="ghost" onClick={() => navigate("/events")} className="mb-6 -ml-4">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Events
         </Button>
 
-        {event.bannerImage && (
-          <div className="w-full h-64 md:h-96 rounded-xl overflow-hidden mb-8 shadow-sm">
-            <img src={event.bannerImage} alt={event.title} className="w-full h-full object-cover" />
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            <div>
-              <div className="flex gap-2 mb-3">
-                <Badge variant={typeColor(event.eventType)} className="capitalize">{event.eventType}</Badge>
-                <Badge variant="outline">{event.isVirtual ? "Virtual" : "In-Person"}</Badge>
-                {event.status === 'pending_approval' && <Badge variant="secondary">Pending Approval</Badge>}
-              </div>
-              <h1 className="text-4xl font-bold mb-4">{event.title}</h1>
-              <p className="text-muted-foreground text-lg whitespace-pre-wrap">{event.description}</p>
+        {/* EVENT HERO */}
+        <div className="relative w-full h-[300px] md:h-[400px] rounded-2xl overflow-hidden mb-12 shadow-md bg-muted flex items-end">
+          {event.bannerImage ? (
+            <>
+              <img src={event.bannerImage} alt={event.title} className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+            </>
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-tr from-primary/80 to-accent/80" />
+          )}
+          
+          <div className="relative z-10 w-full p-6 md:p-12 text-white">
+            <div className="flex flex-wrap gap-2 mb-4">
+              <Badge variant="outline" className="bg-white/10 backdrop-blur-md border-white/20 text-white capitalize px-3 py-1 text-xs font-semibold tracking-wider">
+                {event.eventType}
+              </Badge>
+              <Badge variant="outline" className="bg-white/10 backdrop-blur-md border-white/20 text-white px-3 py-1 text-xs font-semibold tracking-wider">
+                {event.isVirtual ? "Virtual" : "Offline"}
+              </Badge>
+              {isExternal && (
+                <Badge className="bg-blue-600/90 text-white hover:bg-blue-600 border-none px-3 py-1 text-xs font-semibold tracking-wider">
+                  <Globe className="w-3 h-3 mr-1" /> External Event
+                </Badge>
+              )}
+              {event.lifecycleStatus === 'live' && (
+                <Badge variant="destructive" className="animate-pulse px-3 py-1 text-xs font-semibold tracking-wider">
+                  LIVE NOW
+                </Badge>
+              )}
+              {event.lifecycleStatus === 'cancelled' && (
+                <Badge variant="destructive" className="px-3 py-1 text-xs font-semibold tracking-wider">
+                  CANCELLED
+                </Badge>
+              )}
             </div>
+            
+            <h1 className="text-3xl md:text-5xl font-extrabold mb-4 leading-tight">{event.title}</h1>
+            
+            <div className="flex items-center gap-2 text-white/80 font-medium">
+              <User className="w-4 h-4" />
+              <span>Hosted by <span className="text-white font-semibold">{event.hostName}</span></span>
+              {isExternal && <span className="text-white/60 text-sm ml-2">• Source: {event.source?.provider}</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative">
+          
+          {/* LEFT COLUMN - ABOUT & DISCUSSIONS */}
+          <div className="lg:col-span-2 space-y-12">
+            
+            <section className="bg-card p-6 md:p-8 rounded-2xl border shadow-sm">
+              <h2 className="text-2xl font-bold mb-4">About this event</h2>
+              <p className="text-muted-foreground text-lg whitespace-pre-wrap leading-relaxed">{event.description}</p>
+            </section>
 
             {event.prizes && event.prizes.length > 0 && (
-              <div>
-                <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Trophy className="h-4 w-4 text-warning" /> Prizes</h3>
-                <ul className="list-disc pl-5 space-y-1">
+              <section className="bg-card p-6 md:p-8 rounded-2xl border shadow-sm">
+                <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Trophy className="h-5 w-5 text-warning" /> Prizes</h3>
+                <ul className="list-disc pl-5 space-y-2 text-muted-foreground">
                   {event.prizes.map((p, i) => <li key={i}>{p}</li>)}
                 </ul>
-              </div>
+              </section>
             )}
 
             {isHost && (
-              <div className="mt-12 border-t pt-8">
-                <div className="flex justify-between items-center bg-primary/5 border border-primary/20 p-6 rounded-lg">
+              <section className="border-t pt-8">
+                <div className="flex justify-between items-center bg-primary/5 border border-primary/20 p-6 rounded-2xl">
                   <div>
                     <h2 className="text-xl font-bold mb-1">Host Dashboard</h2>
                     <p className="text-muted-foreground text-sm">Manage your attendees, edit details, and export data.</p>
                   </div>
-                  <Button onClick={() => navigate(`/events/${event.id}/manage`)}>Go to Dashboard</Button>
+                  <Button onClick={() => navigate(`/events/${event.id}/manage`)}>Manage Event</Button>
                 </div>
-              </div>
+              </section>
             )}
 
-            {event.status === 'completed' && (
-              <div className="mt-12 border-t pt-8">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold">Attendee Feedback</h2>
-                  {myStatus === 'registered' && !feedbacks.some(f => f.userId._id === user?.id) && (
-                    <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
-                      <DialogTrigger asChild>
-                        <Button>Rate This Event</Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Rate "{event.title}"</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                          <div>
-                            <Label>Rating (1-5)</Label>
-                            <div className="flex gap-2 mt-2">
-                              {[1, 2, 3, 4, 5].map(star => (
-                                <Star 
-                                  key={star} 
-                                  className={`h-8 w-8 cursor-pointer ${star <= feedbackForm.rating ? 'fill-warning text-warning' : 'text-muted-foreground/30'}`}
-                                  onClick={() => setFeedbackForm(prev => ({ ...prev, rating: star }))}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                          <div>
-                            <Label htmlFor="review-optional">Review (Optional)</Label><Textarea id="review-optional" 
-                              placeholder="What did you think of the event?" 
-                              value={feedbackForm.reviewText}
-                              onChange={e => setFeedbackForm(prev => ({ ...prev, reviewText: e.target.value }))}
-                              className="mt-2"
-                            />
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox 
-                              id="recommend" 
-                              checked={feedbackForm.wouldRecommend}
-                              onCheckedChange={(c) => setFeedbackForm(prev => ({ ...prev, wouldRecommend: !!c }))}
-                            />
-                            <Label htmlFor="recommend" className="cursor-pointer">I would recommend this event to others</Label>
-                          </div>
-                          <Button className="w-full mt-4" onClick={handleSubmitFeedback} disabled={submittingFeedback}>
-                            {submittingFeedback ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit Feedback"}
-                          </Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  )}
-                </div>
-                
-                {feedbacks.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
-                    <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                    <p>No feedback has been submitted yet.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {feedbacks.map((f: any) => (
-                      <Card key={f._id} className="bg-card/50">
-                        <CardContent className="p-4">
-                          <div className="flex justify-between mb-2">
-                            <div className="font-medium text-sm flex items-center gap-2">
-                              {f.userId.full_name || f.userId.username}
-                              {f.wouldRecommend && <Badge variant="success" className="text-[10px] py-0 h-4">Recommended</Badge>}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {f.rating} <Star className="h-3 w-3 fill-warning text-warning" />
-                            </div>
-                          </div>
-                          {f.reviewText && <p className="text-sm text-muted-foreground">{f.reviewText}</p>}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Event Discussions Section */}
-            <div className="mt-12 border-t pt-8">
-              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><MessageSquare className="h-5 w-5" /> Event Discussion</h2>
+            {/* EVENT DISCUSSION */}
+            <section className="border-t pt-8">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><MessageSquare className="h-5 w-5" /> Discussion</h2>
               {user ? (
-                <div className="mb-8 bg-muted/20 p-4 rounded-xl border">
+                <div className="mb-8 bg-muted/30 p-6 rounded-2xl border">
                   <Textarea 
                     placeholder="Ask a question or share a thought about this event..." 
                     value={discussionText}
                     onChange={e => setDiscussionText(e.target.value)}
-                    className="mb-3 bg-background"
+                    className="mb-4 bg-background resize-none"
                     rows={3}
                   />
                   <div className="flex justify-end">
@@ -514,112 +495,143 @@ const EventDetail = () => {
                   </div>
                 </div>
               ) : (
-                <div className="mb-8 p-4 bg-muted/20 border rounded-lg text-center">
-                  <p className="text-muted-foreground mb-3">Log in to participate in the discussion.</p>
-                  <Button variant="outline" onClick={() => navigate("/auth")}>Login</Button>
+                <div className="mb-8 p-6 bg-muted/30 border rounded-2xl text-center">
+                  <p className="text-muted-foreground mb-4">Log in to participate in the discussion.</p>
+                  <Button variant="outline" onClick={() => navigate("/auth")}>Login to Post</Button>
                 </div>
               )}
               
               <div className="space-y-4">
                 {discussions.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
+                  <div className="text-center py-12 text-muted-foreground bg-muted/10 rounded-2xl border border-dashed">
                     No discussions yet. Be the first to post!
                   </div>
                 ) : (
                   discussions.map(d => (
-                    <div key={d._id} className="p-4 rounded-lg border bg-card/50 flex gap-4">
+                    <div key={d._id} className="p-5 rounded-2xl border bg-card flex gap-4 shadow-sm transition-all hover:shadow-md">
                       <img src={d.userId.avatar_url || "https://ui-avatars.com/api/?name="+encodeURIComponent(d.userId.full_name || d.userId.username)} alt="" className="w-10 h-10 rounded-full" />
                       <div className="flex-1">
                         <div className="flex justify-between items-start">
                           <div>
                             <div className="font-semibold text-sm">{d.userId.full_name || d.userId.username}</div>
-                            <div className="text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleString()}</div>
+                            <div className="text-xs text-muted-foreground mt-0.5">{new Date(d.createdAt).toLocaleString()}</div>
                           </div>
                           {(user?.id === d.userId._id || isHost) && (
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteDiscussion(d._id)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteDiscussion(d._id)}>
                               &times;
                             </Button>
                           )}
                         </div>
-                        <p className="mt-2 text-sm">{d.content}</p>
+                        <p className="mt-3 text-sm leading-relaxed">{d.content}</p>
                       </div>
                     </div>
                   ))
                 )}
               </div>
-            </div>
+            </section>
           </div>
 
+          {/* RIGHT COLUMN - STICKY LOGISTICS CARD */}
           <div className="space-y-6">
-            <Card className="sticky top-24">
-              <CardHeader className="pb-4">
-                <h3 className="font-semibold text-lg">Event Details</h3>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-3">
-                  <Calendar className="h-4 w-4 text-primary shrink-0" />
-                  <div>
-                    <div className="font-medium">{fmtDate(event.startDate)}</div>
-                    <div className="text-sm text-muted-foreground">{event.startTime} - {event.endTime} {event.timezone ? `(${event.timezone})` : ""}</div>
-                  </div>
+            <Card className="sticky top-24 shadow-lg border-muted/60 rounded-2xl overflow-hidden">
+              <div className="bg-primary/5 px-6 py-4 border-b">
+                <div className="text-sm font-semibold text-primary uppercase tracking-wider mb-1">
+                  {countdown}
                 </div>
+                <h3 className="font-bold text-xl">Logistics</h3>
+              </div>
+              <CardContent className="p-6 space-y-6">
                 
-                <div className="flex gap-3">
-                  <MapPin className="h-4 w-4 text-primary shrink-0" />
+                {!isExternalContent && (
+                  <div className="flex gap-4">
+                    <div className="mt-1 bg-muted p-2 rounded-lg shrink-0 h-min">
+                      <Calendar className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-foreground">{event.startDate ? fmtDate(event.startDate) : 'TBD'}</div>
+                      <div className="text-sm text-muted-foreground mt-1">{event.startTime || ''} - {event.endTime || ''} {event.timezone ? `(${event.timezone})` : ""}</div>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex gap-4">
+                  <div className="mt-1 bg-muted p-2 rounded-lg shrink-0 h-min">
+                    <MapPin className="h-5 w-5 text-primary" />
+                  </div>
                   <div>
-                    <div className="font-medium">{event.isVirtual ? "Virtual Event" : event.venue}</div>
-                    {event.isVirtual && <div className="text-sm text-muted-foreground">{event.venue}</div>}
+                    <div className="font-semibold text-foreground">{event.isVirtual ? "Virtual Event" : event.venue}</div>
+                    {event.isVirtual && <div className="text-sm text-muted-foreground mt-1">{event.venue}</div>}
                   </div>
                 </div>
 
-                <div className="flex gap-3">
-                  <Users className="h-4 w-4 text-primary shrink-0" />
-                  <div>
-                    <div className="font-medium">Hosted by</div>
-                    <div className="text-sm text-muted-foreground">{event.hostName}</div>
-                  </div>
-                </div>
-
-                {event.registrationRequired && (
-                  <div className="pt-4 border-t">
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Registration</span>
-                      <span className="font-medium">{event.registrationCount || 0} / {event.capacity || '∞'}</span>
+                {event.registrationRequired && !isExternal && (
+                  <div className="pt-6 border-t">
+                    <div className="flex justify-between text-sm mb-3">
+                      <span className="text-muted-foreground">Registration</span>
+                      <span className="font-semibold">{event.registrationCount || 0} / {event.capacity || '∞'} spots filled</span>
                     </div>
                     {event.capacity && (
-                      <div className="w-full bg-muted rounded-full h-2">
+                      <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
                         <div 
-                          className="bg-primary h-2 rounded-full transition-all" 
+                          className="bg-primary h-full transition-all duration-500 ease-out" 
                           style={{ width: `${Math.min(((event.registrationCount || 0) / event.capacity) * 100, 100)}%` }} 
                         />
+                      </div>
+                    )}
+                    {event.registrationDeadline && (
+                      <div className="text-xs text-muted-foreground mt-3 text-right">
+                        Closes {new Date(event.registrationDeadline).toLocaleDateString()}
                       </div>
                     )}
                   </div>
                 )}
 
-                <div className="pt-4 border-t">
-                  {isPast ? (
-                    <Button className="w-full" disabled>Event has ended</Button>
-                  ) : event.source && event.source.provider !== 'INTERNAL' ? (
-                    <Button 
-                      className="w-full" 
-                      onClick={() => window.open(event.source.externalUrl || event.externalRegistrationLink, '_blank')}
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" /> Register on {event.source.provider}
+                <div className="pt-6 border-t space-y-3">
+                  {isExternal ? (
+                    <>
+                      {isExternalContent && (
+                        <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800 mb-4 text-center">
+                          <p className="text-sm text-blue-800 dark:text-blue-300 font-medium">
+                            This is community content discovered from {event.source?.provider}.
+                          </p>
+                        </div>
+                      )}
+                      {!isExternalContent && (
+                        <p className="text-sm text-muted-foreground text-center mb-4">
+                          Registration for this event is handled by the external organizer on {event.source?.provider}.
+                        </p>
+                      )}
+                      <Button 
+                        size="lg"
+                        className="w-full font-bold text-md" 
+                        onClick={() => window.open(event.source.externalUrl || event.externalRegistrationLink, '_blank')}
+                      >
+                        <ExternalLink className="mr-2 h-5 w-5" /> View on {event.source?.provider}
+                      </Button>
+                    </>
+                  ) : event.lifecycleStatus === 'cancelled' ? (
+                    <Button size="lg" variant="destructive" className="w-full font-bold text-md cursor-not-allowed">
+                      Event Cancelled
+                    </Button>
+                  ) : isPast ? (
+                    <Button size="lg" variant="secondary" className="w-full font-bold text-md cursor-not-allowed">
+                      Event has ended
+                    </Button>
+                  ) : deadlinePassed && !myStatus ? (
+                    <Button size="lg" variant="secondary" className="w-full font-bold text-md cursor-not-allowed">
+                      Registration Closed
                     </Button>
                   ) : myStatus ? (
-                    <div className="space-y-2">
-                      <Button variant="success" className="w-full bg-success/10 text-success hover:bg-success/20 cursor-default">
-                        <CheckCircle2 className="mr-2 h-4 w-4" /> {myStatus === 'waitlisted' ? 'On Waitlist' : 'Registered'}
+                    <div className="space-y-3">
+                      <Button size="lg" variant="success" className="w-full font-bold text-md bg-success/10 text-success hover:bg-success/20 cursor-default border border-success/20">
+                        <CheckCircle2 className="mr-2 h-5 w-5" /> {myStatus === 'waitlisted' ? 'On Waitlist' : 'Registered'}
                       </Button>
-                      <Button variant="ghost" className="w-full text-muted-foreground" onClick={handleCancel}>Cancel Registration</Button>
+                      <Button variant="ghost" className="w-full text-muted-foreground hover:text-destructive" onClick={handleCancel}>Cancel Registration</Button>
                     </div>
-                  ) : deadlinePassed ? (
-                    <Button className="w-full" disabled>Registration Closed</Button>
                   ) : (
                     <Dialog open={registerModalOpen} onOpenChange={setRegisterModalOpen}>
                       <DialogTrigger asChild>
-                        <Button className="w-full" variant={isFull ? "secondary" : "default"} onClick={(e) => {
+                        <Button size="lg" className="w-full font-bold text-md" variant={isFull ? "secondary" : "default"} onClick={(e) => {
                           if (event.eventType !== 'hackathon' && event.eventType !== 'competition') {
                             e.preventDefault();
                             handleRegister();
@@ -629,28 +641,33 @@ const EventDetail = () => {
                         </Button>
                       </DialogTrigger>
                       {(event.eventType === 'hackathon' || event.eventType === 'competition') && (
-                        <DialogContent>
-                          <DialogHeader><DialogTitle>Register for {event.title}</DialogTitle></DialogHeader>
-                          <div className="space-y-4 py-4">
-                            <div className="flex items-center space-x-2">
+                        <DialogContent className="sm:max-w-md">
+                          <DialogHeader><DialogTitle className="text-xl">Register for {event.title}</DialogTitle></DialogHeader>
+                          <div className="space-y-6 py-4">
+                            <div className="flex items-center space-x-3 p-4 bg-muted/30 rounded-lg border">
                               <Checkbox 
                                 id="lookingForTeammates" 
                                 checked={lookingForTeammates} 
                                 onCheckedChange={(c) => setLookingForTeammates(!!c)} 
                               />
-                              <Label htmlFor="lookingForTeammates">I am registering solo and looking for teammates</Label>
+                              <Label htmlFor="lookingForTeammates" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                I am registering solo and looking for teammates
+                              </Label>
                             </div>
+                            
                             {lookingForTeammates ? (
-                              <div>
-                                <Label htmlFor="my-skills-interests-short-tag">My Skills/Interests (Short Tag)</Label><Input id="my-skills-interests-short-tag" placeholder="e.g. Frontend, ML, Design" value={skills} onChange={e => setSkills(e.target.value)} />
+                              <div className="space-y-2">
+                                <Label htmlFor="my-skills" className="font-semibold">My Skills / Interests</Label>
+                                <Input id="my-skills" placeholder="e.g. Frontend, ML, Design" value={skills} onChange={e => setSkills(e.target.value)} />
                               </div>
                             ) : (
-                              <div>
-                                <Label htmlFor="team-name">Team Name</Label><Input id="team-name" placeholder="My Awesome Team" value={teamName} onChange={e => setTeamName(e.target.value)} />
-                                <p className="text-xs text-muted-foreground mt-1">If your friend shared a team name, enter it here to join them.</p>
+                              <div className="space-y-2">
+                                <Label htmlFor="team-name" className="font-semibold">Team Name</Label>
+                                <Input id="team-name" placeholder="My Awesome Team" value={teamName} onChange={e => setTeamName(e.target.value)} />
+                                <p className="text-xs text-muted-foreground">If a friend shared a team name, enter it here to join.</p>
                               </div>
                             )}
-                            <Button className="w-full" onClick={handleRegister}>Confirm Registration</Button>
+                            <Button size="lg" className="w-full font-bold" onClick={handleRegister}>Confirm Registration</Button>
                           </div>
                         </DialogContent>
                       )}
@@ -661,15 +678,15 @@ const EventDetail = () => {
             </Card>
 
             {myStatus === 'registered' && myRegDetails?.teamName && !myRegDetails?.lookingForTeammates && (
-              <Card className="mt-6 border-success/20 bg-success/5">
-                <CardHeader className="pb-4">
-                  <h3 className="font-semibold text-lg flex items-center gap-2"><Users className="h-4 w-4 text-success" /> Team: {myRegDetails.teamName}</h3>
+              <Card className="border-success/30 bg-success/5 shadow-sm rounded-2xl">
+                <CardHeader className="pb-2">
+                  <h3 className="font-semibold text-lg flex items-center gap-2"><Users className="h-5 w-5 text-success" /> Team: {myRegDetails.teamName}</h3>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm mb-4">Share this link with your friends so they can join your team directly:</p>
+                  <p className="text-sm mb-4 text-muted-foreground">Share this link with your friends to let them join your team:</p>
                   <div className="flex gap-2">
-                    <Input readOnly value={`${window.location.origin}/events/${id}?teamJoin=${encodeURIComponent(myRegDetails.teamName)}`} />
-                    <Button variant="outline" onClick={() => {
+                    <Input readOnly value={`${window.location.origin}/events/${id}?teamJoin=${encodeURIComponent(myRegDetails.teamName)}`} className="bg-background" />
+                    <Button variant="outline" className="shrink-0" onClick={() => {
                       navigator.clipboard.writeText(`${window.location.origin}/events/${id}?teamJoin=${encodeURIComponent(myRegDetails.teamName)}`);
                       toast({ title: "Copied to clipboard!" });
                     }}>Copy</Button>
@@ -679,38 +696,40 @@ const EventDetail = () => {
             )}
 
             {myStatus === 'registered' && myRegDetails?.lookingForTeammates && (
-              <Card className="mt-6 border-primary/20 bg-primary/5">
-                <CardHeader className="pb-4">
-                  <h3 className="font-semibold text-lg flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Find Teammates</h3>
+              <Card className="border-primary/20 bg-primary/5 shadow-sm rounded-2xl">
+                <CardHeader className="pb-2">
+                  <h3 className="font-bold text-lg flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> Find Teammates</h3>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {incomingRequests.length > 0 && (
-                    <div className="mb-4 space-y-2">
-                      <h4 className="text-sm font-semibold">Incoming Requests</h4>
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Incoming Requests</h4>
                       {incomingRequests.map(req => (
-                        <div key={req._id} className="flex items-center justify-between bg-background p-2 rounded border">
-                          <span className="text-sm">{req.fromUserId.full_name || req.fromUserId.username}</span>
+                        <div key={req._id} className="flex items-center justify-between bg-background p-3 rounded-xl border shadow-sm">
+                          <span className="text-sm font-medium">{req.fromUserId.full_name || req.fromUserId.username}</span>
                           <Button size="sm" onClick={() => handleAcceptTeamRequest(req._id)}>Accept</Button>
                         </div>
                       ))}
                     </div>
                   )}
                   {teammates.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No other solo registrants looking for teams right now.</p>
+                    <p className="text-sm text-muted-foreground text-center py-6 bg-background rounded-xl border border-dashed">No other solo registrants looking for teams right now.</p>
                   ) : (
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-semibold">Solo Registrants</h4>
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Solo Registrants</h4>
                       {teammates.map(tm => {
                         const hasSent = outgoingRequests.some(r => r.toUserId === tm.userId._id);
                         return (
-                          <div key={tm._id} className="flex items-center justify-between bg-background p-2 rounded border">
-                            <div>
-                              <div className="text-sm font-medium">{tm.userId.full_name || tm.userId.username}</div>
-                              {tm.skills && <Badge variant="secondary" className="text-[10px] mt-1">{tm.skills}</Badge>}
+                          <div key={tm._id} className="flex flex-col gap-3 bg-background p-4 rounded-xl border shadow-sm">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="text-sm font-bold">{tm.userId.full_name || tm.userId.username}</div>
+                                {tm.skills && <Badge variant="secondary" className="text-[10px] mt-1">{tm.skills}</Badge>}
+                              </div>
+                              <Button size="sm" variant={hasSent ? "secondary" : "default"} disabled={hasSent} onClick={() => handleSendTeamRequest(tm.userId._id)}>
+                                {hasSent ? 'Sent' : 'Request'}
+                              </Button>
                             </div>
-                            <Button size="sm" variant={hasSent ? "secondary" : "default"} disabled={hasSent} onClick={() => handleSendTeamRequest(tm.userId._id)}>
-                              {hasSent ? 'Sent' : 'Request'}
-                            </Button>
                           </div>
                         );
                       })}

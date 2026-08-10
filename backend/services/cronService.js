@@ -23,6 +23,7 @@ class CronService {
       this.checkSessionReminders();
       this.checkLiveSessionReminders();
       this.checkRepairReminders();
+      this.processEventLifecycle();
     });
 
     // Run every minute to transition AMA statuses and check expired holds
@@ -102,6 +103,38 @@ class CronService {
       console.log('✅ Background EVENT_SYNC completed.');
     } catch (err) {
       console.error('❌ Error in syncExternalEvents:', err);
+    }
+  }
+
+  async processEventLifecycle() {
+    try {
+      const Event = require('../models/Event');
+      const now = new Date();
+      
+      // UPCOMING -> LIVE (when now >= startDate && now < endDate)
+      await Event.updateMany(
+        {
+          lifecycleStatus: 'upcoming',
+          status: 'approved',
+          startDate: { $lte: now },
+          endDate: { $gt: now }
+        },
+        { $set: { lifecycleStatus: 'live' } }
+      );
+
+      // LIVE/UPCOMING -> COMPLETED (when now >= endDate)
+      await Event.updateMany(
+        {
+          lifecycleStatus: { $in: ['upcoming', 'live'] },
+          status: 'approved',
+          endDate: { $lte: now }
+        },
+        { $set: { lifecycleStatus: 'completed' } }
+      );
+
+      // We do not automatically archive here yet.
+    } catch (err) {
+      console.error('❌ Error in processEventLifecycle:', err);
     }
   }
 

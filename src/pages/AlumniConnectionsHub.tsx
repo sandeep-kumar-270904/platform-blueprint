@@ -8,6 +8,10 @@ import { toast } from 'sonner';
 import { Search, Compass, Users, MessageSquare, Briefcase, Calendar, ChevronRight, UserPlus } from 'lucide-react';
 import { AlumniCard } from '@/components/alumni/AlumniCard';
 import { useAuth } from '@/hooks/useAuth';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+
+const MySwal = withReactContent(Swal);
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -189,8 +193,37 @@ export const AlumniConnectionsHub: React.FC = () => {
                 <p className="text-sm text-primary-foreground/80 mb-4">
                   Received an invitation from your college? Enter your token to claim your official alumni profile.
                 </p>
-                <Button variant="secondary" className="w-full font-medium" onClick={() => {
-                  const token = window.prompt("Enter your claim token from the email:");
+                <Button variant="secondary" className="w-full font-medium" onClick={async () => {
+                  const { value: token } = await MySwal.fire({
+                    title: 'Claim Your Profile',
+                    html: `
+                      <div class="text-left space-y-4 mt-2 px-2">
+                        <p class="text-sm text-gray-600 mb-4 text-center">Enter the secure claim token you received in your email from the placement cell.</p>
+                        <input id="swal-token-input" class="swal2-input border-2 border-primary/20 rounded-xl focus:border-primary text-sm w-[90%] mx-auto block" placeholder="e.g. CLAIM-1234-ABCD">
+                      </div>
+                    `,
+                    icon: 'key',
+                    iconColor: '#3b82f6',
+                    showCancelButton: true,
+                    confirmButtonText: 'Verify Token',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#3b82f6',
+                    cancelButtonColor: '#ef4444',
+                    customClass: {
+                      popup: 'rounded-2xl border-none shadow-2xl',
+                      title: 'text-2xl font-serif text-gray-800',
+                      confirmButton: 'rounded-xl px-6 py-2 font-medium',
+                      cancelButton: 'rounded-xl px-6 py-2 font-medium',
+                    },
+                    preConfirm: () => {
+                      const input = document.getElementById('swal-token-input') as HTMLInputElement;
+                      if (!input.value.trim()) {
+                        Swal.showValidationMessage('Please enter your claim token');
+                      }
+                      return input.value.trim();
+                    }
+                  });
+
                   if (token) {
                     navigate(`/claim-alumni?token=${token}`);
                   }

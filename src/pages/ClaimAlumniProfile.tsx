@@ -8,6 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+
+const MySwal = withReactContent(Swal);
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -52,7 +56,7 @@ export const ClaimAlumniProfile: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePreSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const authToken = localStorage.getItem('token') || localStorage.getItem('accessToken');
     if (!authToken) {
@@ -61,6 +65,42 @@ export const ClaimAlumniProfile: React.FC = () => {
       return;
     }
 
+    const { value: proofDetails, isConfirmed } = await MySwal.fire({
+      title: 'Verify Your Identity',
+      html: `
+        <div class="text-left space-y-4 mt-4 px-2">
+          <p class="text-sm text-gray-600 mb-4 text-center">To maintain trust in our alumni network, please provide your Student ID, Graduation Roll Number, or a link to a credential proving your graduation.</p>
+          <input id="swal-proof-input" class="swal2-input border-2 border-primary/20 rounded-xl focus:border-primary text-sm w-[90%] mx-auto block" placeholder="e.g. Roll No. 2019-XXX or Credential Link">
+        </div>
+      `,
+      icon: 'info',
+      iconColor: '#3b82f6',
+      showCancelButton: true,
+      confirmButtonText: 'Submit & Claim',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#3b82f6',
+      cancelButtonColor: '#ef4444',
+      customClass: {
+        popup: 'rounded-2xl border-none shadow-2xl',
+        title: 'text-2xl font-serif text-gray-800',
+        confirmButton: 'rounded-xl px-6 py-2 font-medium',
+        cancelButton: 'rounded-xl px-6 py-2 font-medium',
+      },
+      preConfirm: () => {
+        const input = document.getElementById('swal-proof-input') as HTMLInputElement;
+        if (!input.value.trim()) {
+          Swal.showValidationMessage('Please provide your proof of identity');
+        }
+        return input.value;
+      }
+    });
+
+    if (isConfirmed) {
+      await performSubmit(proofDetails);
+    }
+  };
+
+  const performSubmit = async (proofDetails: string) => {
     setSubmitting(true);
     try {
       const res = await fetch(`${API_URL}/api/alumni/claim`, {
@@ -119,7 +159,7 @@ export const ClaimAlumniProfile: React.FC = () => {
                 </Button>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handlePreSubmit} className="space-y-6">
                 <div className="bg-muted/50 p-4 rounded-lg border">
                   <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider mb-2">Institutional Record</h3>
                   <p className="font-medium">{registryInfo?.collegeName}</p>

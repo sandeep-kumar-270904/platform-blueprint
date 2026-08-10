@@ -9,14 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ChevronRight, ChevronLeft, CheckCircle2, Calendar } from "lucide-react";
+import { ChevronRight, ChevronLeft, CheckCircle2, Calendar, MapPin, Clock, Users, Link as LinkIcon, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const steps = [
-  "Basic Details",
-  "Time & Location",
-  "Settings",
-  "Review"
+  { title: "Basic Details", desc: "Name and describe your event" },
+  { title: "Time & Location", desc: "When and where is it?" },
+  { title: "Settings", desc: "Capacity and aesthetics" },
+  { title: "Review", desc: "Confirm and publish" }
 ];
 
 export default function EventCreate() {
@@ -51,7 +51,7 @@ export default function EventCreate() {
     if (currentStep > 0) setCurrentStep(c => c - 1);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (isDraft = false) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -60,7 +60,8 @@ export default function EventCreate() {
         venue: form.isVirtual ? (form.venue || "Virtual") : form.venue,
         tags: form.tags ? form.tags.split(",").map((t: string) => t.trim()) : [],
         hostName: form.hostName || user?.full_name || user?.username || "Community Member",
-        capacity: form.capacity ? Number(form.capacity) : null
+        capacity: form.capacity ? Number(form.capacity) : null,
+        draft: isDraft
       };
 
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/events`, {
@@ -78,7 +79,7 @@ export default function EventCreate() {
       }
       
       const createdEvent = await res.json();
-      toast.success("Event created successfully!");
+      toast.success(isDraft ? "Draft saved successfully!" : "Event submitted for approval!");
       navigate(`/events/${createdEvent._id || createdEvent.id}/manage`);
     } catch (err: any) {
       toast.error(err.message);
@@ -88,40 +89,73 @@ export default function EventCreate() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-background text-foreground">
       <Header />
-      <div className="container max-w-3xl mx-auto px-4 pt-24 pb-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Create New Event</h1>
+      
+      <div className="bg-muted pt-24 pb-12 border-b">
+        <div className="container mx-auto px-4 max-w-4xl text-center">
+          <div className="inline-flex items-center gap-2 px-3 py-1 mb-6 rounded-full bg-primary/10 text-primary text-sm font-semibold tracking-wide">
+            <Sparkles className="w-4 h-4" /> Let's build something great
+          </div>
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">Create an Event</h1>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Host a hackathon, seminar, or workshop for the community. Fill in the details below to get started.
+          </p>
+        </div>
+      </div>
+
+      <div className="container max-w-4xl mx-auto px-4 py-12">
+        {/* Stepper */}
+        <div className="mb-12">
           <div className="flex items-center justify-between relative mt-8">
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-muted rounded-full" />
-            <div 
-              className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-primary rounded-full transition-all duration-300"
-              style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
-            />
-            {steps.map((label, i) => (
-              <div key={label} className="relative z-10 flex flex-col items-center">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${i <= currentStep ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground border-2 border-background'}`}>
-                  {i < currentStep ? <CheckCircle2 className="w-5 h-5" /> : i + 1}
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-primary transition-all duration-500 ease-out"
+                style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
+              />
+            </div>
+            {steps.map((step, i) => {
+              const isActive = i === currentStep;
+              const isCompleted = i < currentStep;
+              return (
+                <div key={step.title} className="relative z-10 flex flex-col items-center group">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${
+                    isActive ? 'bg-primary text-primary-foreground scale-110 shadow-lg shadow-primary/30' : 
+                    isCompleted ? 'bg-primary text-primary-foreground' : 
+                    'bg-muted text-muted-foreground border-4 border-background'
+                  }`}>
+                    {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : i + 1}
+                  </div>
+                  <div className={`absolute top-14 text-center w-32 -ml-11 transition-colors duration-300 ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    <div className={`text-sm font-bold ${isActive ? 'text-primary' : ''}`}>{step.title}</div>
+                    <div className="text-xs hidden md:block mt-1 opacity-70">{step.desc}</div>
+                  </div>
                 </div>
-                <span className={`absolute top-10 text-xs font-medium whitespace-nowrap ${i <= currentStep ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        <Card className="mt-12 shadow-sm border-muted/60">
-          <CardContent className="pt-6">
+        {/* Form Card */}
+        <Card className="shadow-xl border-muted/60 rounded-3xl overflow-hidden backdrop-blur-sm bg-card/90 mt-20 md:mt-12">
+          <CardContent className="p-8 md:p-12">
+            
+            {/* Step 1: Basic Details */}
             {currentStep === 0 && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-                <div>
-                  <Label>Event Title</Label>
-                  <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Intro to React Workshop" />
+              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="space-y-2">
+                  <Label className="text-lg font-semibold">Event Title</Label>
+                  <Input 
+                    className="h-14 text-lg rounded-xl" 
+                    value={form.title} 
+                    onChange={e => setForm({ ...form, title: e.target.value })} 
+                    placeholder="e.g. Intro to React Workshop" 
+                  />
                 </div>
-                <div>
-                  <Label>Event Type</Label>
+                <div className="space-y-2">
+                  <Label className="text-lg font-semibold">Event Type</Label>
                   <Select value={form.eventType} onValueChange={v => setForm({ ...form, eventType: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-14 text-md rounded-xl"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="hackathon">Hackathon</SelectItem>
                       <SelectItem value="competition">Competition</SelectItem>
@@ -130,134 +164,202 @@ export default function EventCreate() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Description</Label>
-                  <Textarea rows={5} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Describe what attendees can expect..." />
-                </div>
-                <div>
-                  <Label>Tags (Comma separated)</Label>
-                  <Input value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="react, web-dev, beginner" />
-                </div>
-              </div>
-            )}
-
-            {currentStep === 1 && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Start Date</Label>
-                    <Input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>End Date</Label>
-                    <Input type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>Start Time</Label>
-                    <Input type="time" value={form.startTime} onChange={e => setForm({ ...form, startTime: e.target.value })} />
-                  </div>
-                  <div>
-                    <Label>End Time</Label>
-                    <Input type="time" value={form.endTime} onChange={e => setForm({ ...form, endTime: e.target.value })} />
-                  </div>
-                  <div className="col-span-2">
-                    <Label>Timezone</Label>
-                    <Input value={form.timezone} onChange={e => setForm({ ...form, timezone: e.target.value })} placeholder="e.g. America/New_York" />
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2 pt-2">
-                  <Checkbox 
-                    id="virtual" 
-                    checked={form.isVirtual} 
-                    onCheckedChange={(c) => setForm({ ...form, isVirtual: !!c })} 
+                <div className="space-y-2">
+                  <Label className="text-lg font-semibold">Description</Label>
+                  <Textarea 
+                    className="min-h-[160px] text-md rounded-xl resize-y" 
+                    value={form.description} 
+                    onChange={e => setForm({ ...form, description: e.target.value })} 
+                    placeholder="Describe what attendees can expect..." 
                   />
-                  <Label htmlFor="virtual" className="font-normal cursor-pointer">This is a virtual event</Label>
                 </div>
-                
-                <div>
-                  <Label>{form.isVirtual ? "Meeting Link / Platform" : "Venue Location"}</Label>
+                <div className="space-y-2">
+                  <Label className="text-lg font-semibold">Tags (Comma separated)</Label>
                   <Input 
-                    value={form.venue} 
-                    onChange={e => setForm({ ...form, venue: e.target.value })} 
-                    placeholder={form.isVirtual ? "e.g. Zoom link or 'Discord'" : "e.g. Room 304, Building A"} 
+                    className="h-14 text-md rounded-xl" 
+                    value={form.tags} 
+                    onChange={e => setForm({ ...form, tags: e.target.value })} 
+                    placeholder="react, web-dev, beginner" 
                   />
                 </div>
               </div>
             )}
 
-            {currentStep === 2 && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-                <div>
-                  <Label>Host / Organization Name</Label>
-                  <Input value={form.hostName} onChange={e => setForm({ ...form, hostName: e.target.value })} placeholder={`e.g. ${user?.full_name || 'My Organization'}`} />
+            {/* Step 2: Time & Location */}
+            {currentStep === 1 && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <Label className="text-lg font-semibold flex items-center gap-2"><Calendar className="w-4 h-4" /> Start Date</Label>
+                    <Input className="h-14 rounded-xl" type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-lg font-semibold flex items-center gap-2"><Calendar className="w-4 h-4" /> End Date</Label>
+                    <Input className="h-14 rounded-xl" type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-lg font-semibold flex items-center gap-2"><Clock className="w-4 h-4" /> Start Time</Label>
+                    <Input className="h-14 rounded-xl" type="time" value={form.startTime} onChange={e => setForm({ ...form, startTime: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-lg font-semibold flex items-center gap-2"><Clock className="w-4 h-4" /> End Time</Label>
+                    <Input className="h-14 rounded-xl" type="time" value={form.endTime} onChange={e => setForm({ ...form, endTime: e.target.value })} />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <Label className="text-lg font-semibold">Timezone</Label>
+                    <Select value={form.timezone} onValueChange={v => setForm({ ...form, timezone: v })}>
+                      <SelectTrigger className="h-14 text-md rounded-xl"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="UTC">UTC (Universal Time)</SelectItem>
+                        <SelectItem value="America/New_York">Eastern Time (US/Canada)</SelectItem>
+                        <SelectItem value="America/Chicago">Central Time (US/Canada)</SelectItem>
+                        <SelectItem value="America/Denver">Mountain Time (US/Canada)</SelectItem>
+                        <SelectItem value="America/Los_Angeles">Pacific Time (US/Canada)</SelectItem>
+                        <SelectItem value="Europe/London">London (GMT/BST)</SelectItem>
+                        <SelectItem value="Europe/Paris">Central European Time</SelectItem>
+                        <SelectItem value="Asia/Kolkata">India Standard Time</SelectItem>
+                        <SelectItem value="Asia/Tokyo">Japan Standard Time</SelectItem>
+                        <SelectItem value="Australia/Sydney">Sydney Time</SelectItem>
+                        {![
+                          "UTC", "America/New_York", "America/Chicago", "America/Denver", 
+                          "America/Los_Angeles", "Europe/London", "Europe/Paris", "Asia/Kolkata", 
+                          "Asia/Tokyo", "Australia/Sydney"
+                        ].includes(Intl.DateTimeFormat().resolvedOptions().timeZone) && (
+                          <SelectItem value={Intl.DateTimeFormat().resolvedOptions().timeZone}>
+                            {Intl.DateTimeFormat().resolvedOptions().timeZone} (Local)
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
-                <div className="flex items-center space-x-2 pt-2">
+                <div className="pt-6 border-t border-muted">
+                  <div className="flex items-center space-x-3 bg-muted/40 p-4 rounded-2xl border mb-6 transition-colors hover:bg-muted/60">
+                    <Checkbox 
+                      id="virtual" 
+                      className="w-6 h-6 rounded-md"
+                      checked={form.isVirtual} 
+                      onCheckedChange={(c) => setForm({ ...form, isVirtual: !!c })} 
+                    />
+                    <Label htmlFor="virtual" className="text-lg font-medium cursor-pointer flex-1">This is a virtual event</Label>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label className="text-lg font-semibold flex items-center gap-2">
+                      {form.isVirtual ? <><LinkIcon className="w-4 h-4" /> Meeting Link / Platform</> : <><MapPin className="w-4 h-4" /> Venue Location</>}
+                    </Label>
+                    <Input 
+                      className="h-14 rounded-xl"
+                      value={form.venue} 
+                      onChange={e => setForm({ ...form, venue: e.target.value })} 
+                      placeholder={form.isVirtual ? "e.g. Zoom link or 'Discord'" : "e.g. Room 304, Building A"} 
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Settings */}
+            {currentStep === 2 && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="space-y-2">
+                  <Label className="text-lg font-semibold">Host / Organization Name</Label>
+                  <Input className="h-14 rounded-xl" value={form.hostName} onChange={e => setForm({ ...form, hostName: e.target.value })} placeholder={`e.g. ${user?.full_name || 'My Organization'}`} />
+                </div>
+                
+                <div className="flex items-center space-x-3 bg-muted/40 p-4 rounded-2xl border transition-colors hover:bg-muted/60">
                   <Checkbox 
                     id="regReq" 
+                    className="w-6 h-6 rounded-md"
                     checked={form.registrationRequired} 
                     onCheckedChange={(c) => setForm({ ...form, registrationRequired: !!c })} 
                   />
-                  <Label htmlFor="regReq" className="font-normal cursor-pointer">Requires Registration</Label>
+                  <Label htmlFor="regReq" className="text-lg font-medium cursor-pointer flex-1">Requires Registration</Label>
                 </div>
 
                 {form.registrationRequired && (
-                  <div className="grid grid-cols-2 gap-4 p-4 border rounded-md bg-background">
-                    <div>
-                      <Label>Capacity (Leave empty for unlimited)</Label>
-                      <Input type="number" value={form.capacity} onChange={e => setForm({ ...form, capacity: e.target.value })} placeholder="e.g. 50" />
+                  <div className="grid md:grid-cols-2 gap-8 p-6 border rounded-2xl bg-muted/20">
+                    <div className="space-y-2">
+                      <Label className="text-md font-semibold flex items-center gap-2"><Users className="w-4 h-4" /> Capacity (Empty for unlimited)</Label>
+                      <Input className="h-12 rounded-xl" type="number" value={form.capacity} onChange={e => setForm({ ...form, capacity: e.target.value })} placeholder="e.g. 50" />
                     </div>
-                    <div>
-                      <Label>Registration Deadline</Label>
-                      <Input type="date" value={form.registrationDeadline} onChange={e => setForm({ ...form, registrationDeadline: e.target.value })} />
+                    <div className="space-y-2">
+                      <Label className="text-md font-semibold flex items-center gap-2"><Clock className="w-4 h-4" /> Registration Deadline</Label>
+                      <Input className="h-12 rounded-xl" type="date" value={form.registrationDeadline} onChange={e => setForm({ ...form, registrationDeadline: e.target.value })} />
                     </div>
                   </div>
                 )}
                 
-                <div>
-                  <Label>Banner Image (URL)</Label>
-                  <Input value={form.bannerImage} onChange={e => setForm({ ...form, bannerImage: e.target.value })} placeholder="https://example.com/image.png" />
+                <div className="space-y-2 pt-4 border-t border-muted">
+                  <Label className="text-lg font-semibold">Banner Image (URL)</Label>
+                  <Input className="h-14 rounded-xl" value={form.bannerImage} onChange={e => setForm({ ...form, bannerImage: e.target.value })} placeholder="https://example.com/image.png" />
+                  {form.bannerImage && (
+                    <div className="mt-4 rounded-xl overflow-hidden h-40 border border-muted relative">
+                      <img src={form.bannerImage} alt="Banner Preview" className="absolute inset-0 w-full h-full object-cover" />
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
+            {/* Step 4: Review */}
             {currentStep === 3 && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-                <div className="bg-primary/5 p-6 rounded-lg border border-primary/20 text-center">
-                  <Calendar className="w-12 h-12 text-primary mx-auto mb-4" />
-                  <h3 className="text-xl font-bold mb-2">{form.title || "Untitled Event"}</h3>
-                  <p className="text-muted-foreground mb-4">
-                    {form.startDate ? new Date(form.startDate).toLocaleDateString() : 'No date'} at {form.startTime || 'No time'} ({form.timezone})
+              <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+                <div className="bg-primary/5 p-8 rounded-3xl border border-primary/20 text-center relative overflow-hidden">
+                  <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary via-accent to-primary" />
+                  
+                  <div className="bg-background w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-md">
+                    <Calendar className="w-10 h-10 text-primary" />
+                  </div>
+                  
+                  <h3 className="text-3xl font-extrabold mb-3">{form.title || "Untitled Event"}</h3>
+                  <p className="text-lg text-muted-foreground mb-6 font-medium">
+                    {form.startDate ? new Date(form.startDate).toLocaleDateString() : 'No date'} at {form.startTime || 'No time'} <span className="text-sm opacity-70">({form.timezone})</span>
                   </p>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="px-3 py-1 bg-background rounded-full text-sm font-medium border">
+                  
+                  <div className="flex items-center justify-center gap-3 flex-wrap">
+                    <span className="px-4 py-2 bg-background shadow-sm rounded-full text-sm font-bold tracking-wider uppercase text-primary border">
                       {form.eventType}
                     </span>
-                    <span className="px-3 py-1 bg-background rounded-full text-sm font-medium border">
+                    <span className="px-4 py-2 bg-background shadow-sm rounded-full text-sm font-bold tracking-wider uppercase border">
                       {form.isVirtual ? 'Virtual' : 'In-Person'}
                     </span>
+                    {form.registrationRequired && (
+                      <span className="px-4 py-2 bg-background shadow-sm rounded-full text-sm font-bold tracking-wider uppercase border">
+                        {form.capacity ? `${form.capacity} Spots` : 'Unlimited Spots'}
+                      </span>
+                    )}
                   </div>
                 </div>
-                <p className="text-center text-sm text-muted-foreground mt-4">
-                  Please review your details carefully. Your event will be created in draft mode or sent for admin approval depending on the platform settings.
-                </p>
+                
+                <div className="text-center p-6 bg-muted/40 rounded-2xl border border-dashed">
+                  <p className="text-muted-foreground font-medium">
+                    Please review your details carefully. Your event will be created in draft mode or sent for admin approval depending on the platform settings.
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>
-          <CardFooter className="flex justify-between border-t p-6 bg-muted/10">
-            <Button variant="outline" onClick={handleBack} disabled={currentStep === 0 || loading}>
-              <ChevronLeft className="w-4 h-4 mr-1" /> Back
+          
+          <CardFooter className="flex justify-between border-t p-6 md:p-8 bg-muted/10">
+            <Button variant="outline" size="lg" className="rounded-xl h-12 px-6" onClick={handleBack} disabled={currentStep === 0 || loading}>
+              <ChevronLeft className="w-5 h-5 mr-2" /> Back
             </Button>
             
             {currentStep < steps.length - 1 ? (
-              <Button onClick={handleNext}>
-                Next <ChevronRight className="w-4 h-4 ml-1" />
+              <Button size="lg" className="rounded-xl h-12 px-8 shadow-md" onClick={handleNext}>
+                Continue <ChevronRight className="w-5 h-5 ml-2" />
               </Button>
             ) : (
-              <Button onClick={handleSubmit} disabled={loading}>
-                {loading ? "Publishing..." : "Publish Event"}
-              </Button>
+              <div className="flex gap-3">
+                <Button variant="secondary" size="lg" className="rounded-xl h-12 shadow-sm" onClick={() => handleSubmit(true)} disabled={loading}>
+                  Save Draft
+                </Button>
+                <Button size="lg" className="rounded-xl h-12 px-8 shadow-md" onClick={() => handleSubmit(false)} disabled={loading}>
+                  {loading ? "Publishing..." : "Submit for Approval"}
+                </Button>
+              </div>
             )}
           </CardFooter>
         </Card>
