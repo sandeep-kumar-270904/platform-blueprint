@@ -3,45 +3,46 @@ const EventSyncLog = require('../models/EventSyncLog');
 const User = require('../models/User');
 const { normalizeEvent } = require('./eventNormalizer');
 
+const https = require('https');
+
 /**
- * Mocks an external provider API fetch.
- * In a real scenario, this would use axios/fetch to hit an external endpoint.
+ * Fetches real tech events/hackathons from DEV.to API.
+ * Uses articles tagged 'hackathon' as virtual events.
  */
-async function fetchFromProvider(provider) {
-  // Mock external data payload
-  return [
-    {
-      id: "ext_101",
-      name: "Global Tech Summit 2026",
-      description: "Join thousands of developers in exploring the future of tech.",
-      type: "Conference", // Will fallback/normalize to 'seminar'
-      start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // next week
-      end_date: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString(),
-      timezone: "America/New_York",
-      is_online: true,
-      url: "https://example.com/events/ext_101",
-      organizer_name: "TechGlobal",
-      status: "published",
-      capacity: 5000,
-      tags: ["tech", "summit", "development"]
-    },
-    {
-      id: "ext_102",
-      name: "Local Hack Day",
-      description: "A 24-hour hackathon for local university students.",
-      type: "Hackathon",
-      start_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-      end_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-      timezone: "America/Chicago",
-      is_online: false,
-      venue: "University Student Center",
-      url: "https://example.com/events/ext_102",
-      organizer_name: "HackersOrg",
-      status: "published",
-      capacity: 200,
-      tags: ["hackathon", "coding", "students"]
-    }
-  ];
+function fetchFromProvider(provider) {
+  return new Promise((resolve, reject) => {
+    const url = 'https://dev.to/api/articles?tag=hackathon&state=fresh&per_page=10';
+    
+    https.get(url, { headers: { 'User-Agent': 'StudentHub-Events-Bot' } }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          if (res.statusCode !== 200) {
+            throw new Error(`API returned status ${res.statusCode}`);
+          }
+          const articles = JSON.parse(data);
+          const events = articles.map(article => ({
+            id: `devto_${article.id}`,
+            name: article.title,
+            description: article.description || "Join this virtual hackathon reading event.",
+            type: "community_content",
+            isExternalContent: true,
+            is_online: true,
+            url: article.url,
+            organizer_name: article.user?.name || "DEV Community",
+            status: "published",
+            tags: article.tag_list || ["hackathon", "virtual"]
+          }));
+          resolve(events);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }).on('error', (err) => {
+      reject(err);
+    });
+  });
 }
 
 /**

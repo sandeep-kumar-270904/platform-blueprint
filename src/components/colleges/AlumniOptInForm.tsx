@@ -153,7 +153,7 @@ export const AlumniOptInForm = () => {
                 <SelectValue placeholder="Select your college" />
               </SelectTrigger>
               <SelectContent>
-                {colleges.map(c => (
+                {colleges?.map(c => (
                   <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
                 ))}
               </SelectContent>

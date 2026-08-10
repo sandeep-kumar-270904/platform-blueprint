@@ -47,31 +47,31 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
       initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
-      transition={{ delay: shouldReduceMotion ? 0 : index * 0.2 + 0.1, ...premiumTransition }}
+      transition={shouldReduceMotion ? { duration: 0 } : { delay: isHovered ? 0 : index * 0.2 + 0.1, ...premiumTransition, layout: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onFocus={() => setIsHovered(true)}
       onBlur={() => setIsHovered(false)}
       tabIndex={0}
       animate={{
-        y: isHovered && !shouldReduceMotion ? -8 : 0,
-        scale: isHovered && !shouldReduceMotion ? 1.02 : 1,
+        y: isHovered ? -8 : 0,
+        scale: isHovered ? 1.02 : 1,
         boxShadow: isHovered 
           ? "0 20px 40px -10px rgba(0,0,0,0.08)" 
           : "0 2px 10px -4px rgba(0,0,0,0.02)"
       }}
       style={{
         background: "hsl(var(--card))",
-        flex: isHovered && !shouldReduceMotion ? 3 : 1
+        flex: isHovered ? 3 : 1
       }}
     >
       <motion.div
         layout
         animate={{ 
-          y: isHovered && !shouldReduceMotion ? -8 : 0,
+          y: isHovered ? -8 : 0,
           opacity: isHovered ? 0 : 1
         }}
-        transition={premiumTransition}
+        transition={shouldReduceMotion ? { duration: 0 } : { ...premiumTransition, layout: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }}
         className="w-full flex flex-col items-center relative z-20"
       >
         <motion.div 
@@ -99,7 +99,7 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.8, ease: "easeInOut" }}
             className="absolute inset-0 z-0 overflow-hidden"
           >
             <motion.img
@@ -107,12 +107,12 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
               alt={title}
               loading="lazy"
               decoding="async"
-              className="w-full h-full object-cover blur-up"
+              className="w-full h-full object-cover object-top blur-up"
               onLoad={(e) => (e.target as HTMLImageElement).classList.add("loaded")}
               initial={{ scale: 1.05 }}
               animate={{ scale: 1 }}
               exit={{ scale: 1.05 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.8, ease: "easeOut" }}
             />
           </motion.div>
         )}

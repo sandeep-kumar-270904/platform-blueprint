@@ -38,9 +38,9 @@ router.get('/', async (req, res) => {
     }
     
     if (filter === 'upcoming') {
-      query.endDate = { $gte: new Date() };
+      query.lifecycleStatus = { $in: ['upcoming', 'live'] };
     } else if (filter === 'past') {
-      query.endDate = { $lt: new Date() };
+      query.lifecycleStatus = { $in: ['completed', 'archived'] };
     } else if (filter === 'this_week') {
       const now = new Date();
       const in7Days = new Date();
@@ -89,6 +89,27 @@ router.get('/', async (req, res) => {
       page,
       pages: Math.ceil(total / limit)
     });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/events/bookmarks/me
+router.get('/bookmarks/me', authMiddleware, async (req, res) => {
+  try {
+    const bookmarks = await EventBookmark.find({ userId: req.user.id })
+      .populate({
+        path: 'eventId',
+        populate: [
+          { path: 'hostedBy', select: 'username full_name avatar_url' },
+          { path: 'hostCollegeId', select: 'name' }
+        ]
+      })
+      .sort({ createdAt: -1 });
+    
+    // Filter out bookmarks where event is null (deleted)
+    const validBookmarks = bookmarks.filter(b => b.eventId);
+    res.json(validBookmarks.map(b => b.eventId));
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -147,7 +168,8 @@ router.post('/', authMiddleware, async (req, res) => {
     const event = new Event({
       ...req.body,
       hostedBy: req.user.id,
-      status: isAdmin ? 'approved' : 'pending_approval'
+      draft: req.body.draft || false,
+      status: req.body.draft ? 'pending_approval' : (isAdmin ? 'approved' : 'pending_approval')
     });
     
     await event.save();
@@ -249,27 +271,6 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/events/bookmarks/me
-router.get('/bookmarks/me', authMiddleware, async (req, res) => {
-  try {
-    const bookmarks = await EventBookmark.find({ userId: req.user.id })
-      .populate({
-        path: 'eventId',
-        populate: [
-          { path: 'hostedBy', select: 'username full_name avatar_url' },
-          { path: 'hostCollegeId', select: 'name' }
-        ]
-      })
-      .sort({ createdAt: -1 });
-    
-    // Filter out bookmarks where event is null (deleted)
-    const validBookmarks = bookmarks.filter(b => b.eventId);
-    res.json(validBookmarks.map(b => b.eventId));
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
 // GET /api/events/:id/bookmarks/me
 router.get('/:id/bookmarks/me', authMiddleware, async (req, res) => {
   try {
@@ -325,6 +326,7 @@ router.post('/:id/register', authMiddleware, async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: 'Event not found' });
     if (event.status !== 'approved') return res.status(400).json({ message: 'Event is not open for registration' });
+    if (event.lifecycleStatus !== 'upcoming') return res.status(400).json({ message: 'Registration is closed (event is no longer upcoming)' });
     
     if (event.registrationDeadline && new Date() > new Date(event.registrationDeadline)) {
       return res.status(400).json({ message: 'Registration deadline has passed' });
@@ -404,15 +406,18 @@ router.delete('/:id/register', authMiddleware, async (req, res) => {
     const reg = await EventRegistration.findOneAndDelete({ eventId: req.params.id, userId: req.user.id });
     if (!reg) return res.status(404).json({ message: 'Registration not found' });
     
-    // If they were 'registered', promote a waitlisted user
+    // If they were 'registered', promote a waitlisted user atomically
     if (reg.status === 'registered') {
-      const nextWaitlisted = await EventRegistration.findOne({ eventId: req.params.id, status: 'waitlisted' }).sort({ registeredAt: 1 });
+      const EventRegistration = require('../models/EventRegistration');
       const Event = require('../models/Event');
       
+      const nextWaitlisted = await EventRegistration.findOneAndUpdate(
+        { eventId: req.params.id, status: 'waitlisted' },
+        { status: 'registered' },
+        { sort: { registeredAt: 1 }, new: true }
+      );
+      
       if (nextWaitlisted) {
-        nextWaitlisted.status = 'registered';
-        await nextWaitlisted.save();
-        
         const event = await Event.findById(req.params.id);
         
         await notificationService.createNotification({

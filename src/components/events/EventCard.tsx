@@ -9,13 +9,13 @@ const BookmarkButton = ({ eventId, bookmarked, toggleBookmark }: any) => {
     <Button 
       variant="ghost" 
       size="icon" 
-      className={`h-8 w-8 rounded-full bg-background/80 hover:bg-background backdrop-blur-sm shadow-sm ${bookmarked ? 'text-primary' : 'text-muted-foreground'}`}
+      className={`h-9 w-9 rounded-full bg-background/90 hover:bg-background hover:scale-105 backdrop-blur-md shadow-sm transition-all duration-300 ${bookmarked ? 'text-rose-500' : 'text-muted-foreground'}`}
       onClick={(e) => {
         e.stopPropagation();
         toggleBookmark(eventId);
       }}
     >
-      <Heart className={`h-4 w-4 ${bookmarked ? 'fill-current' : ''}`} />
+      <Heart className={`h-4 w-4 transition-transform ${bookmarked ? 'fill-current scale-110' : ''}`} />
     </Button>
   );
 };
@@ -25,64 +25,121 @@ export const EventCard = ({ event, registered, bookmarked, toggleBookmark, fmtDa
   const isPast = new Date(event.startDate) < new Date();
   
   return (
-    <Card className="card-hover overflow-hidden flex flex-col cursor-pointer" onClick={onClick}>
+    <Card 
+      className="group relative overflow-hidden flex flex-col cursor-pointer border-muted/60 shadow-md hover:shadow-xl transition-all duration-300 rounded-2xl bg-card hover:-translate-y-1" 
+      onClick={onClick}
+    >
+      {/* IMAGE SECTION */}
       {event.bannerImage ? (
-        <div className={`${compact ? 'h-32' : 'h-40'} w-full overflow-hidden relative`}>
-          <img src={event.bannerImage} alt={event.title} className="w-full h-full object-cover" />
-          <div className="absolute top-2 right-2 flex gap-1">
+        <div className={`${compact ? 'h-36' : 'h-48'} w-full overflow-hidden relative`}>
+          <img 
+            src={event.bannerImage} 
+            alt={event.title} 
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
+          
+          <div className="absolute top-3 right-3 flex gap-2 z-10">
             <BookmarkButton eventId={event.id} bookmarked={bookmarked} toggleBookmark={toggleBookmark} />
+          </div>
+          
+          {/* BADGES ON IMAGE */}
+          <div className="absolute bottom-3 left-3 flex flex-wrap gap-2 z-10">
+             {event.source && event.source.provider !== 'INTERNAL' && (
+              <Badge variant="secondary" className="bg-background/90 text-foreground backdrop-blur-md border-none font-semibold">
+                <ExternalLink className="mr-1 h-3 w-3" /> {(event.isExternalContent || event.eventType === 'community_content') ? 'Community' : 'External'}
+              </Badge>
+            )}
+             <Badge variant={event.eventType as any} className="capitalize shadow-sm font-semibold">{event.eventType}</Badge>
           </div>
         </div>
       ) : (
-        <div className={`${compact ? 'h-32' : 'h-40'} w-full flex items-center justify-center bg-muted relative`}>
-          <Calendar className={`h-12 w-12 text-muted-foreground opacity-20`} />
-          <div className="absolute top-2 right-2 flex gap-1">
+        <div className={`${compact ? 'h-36' : 'h-48'} w-full flex items-center justify-center bg-gradient-to-br from-muted to-muted/50 relative overflow-hidden`}>
+          <Calendar className={`h-16 w-16 text-muted-foreground opacity-20 group-hover:scale-110 transition-transform duration-500`} />
+          <div className="absolute top-3 right-3 flex gap-2 z-10">
             <BookmarkButton eventId={event.id} bookmarked={bookmarked} toggleBookmark={toggleBookmark} />
+          </div>
+          <div className="absolute bottom-3 left-3 flex flex-wrap gap-2 z-10">
+             {event.source && event.source.provider !== 'INTERNAL' && (
+              <Badge variant="secondary" className="bg-background/90 text-foreground backdrop-blur-md border-none font-semibold">
+                <ExternalLink className="mr-1 h-3 w-3" /> {(event.isExternalContent || event.eventType === 'community_content') ? 'Community' : 'External'}
+              </Badge>
+            )}
+             <Badge variant={event.eventType as any} className="capitalize shadow-sm font-semibold">{event.eventType}</Badge>
           </div>
         </div>
       )}
-      <CardHeader className="pb-3 flex-grow">
-        <div className="mb-2 flex items-center gap-2 flex-wrap">
-          <Badge variant={event.eventType as any} className="capitalize">{event.eventType}</Badge>
-          <Badge variant="outline">{event.isVirtual ? "Virtual" : "In-Person"}</Badge>
-          {event.prizes && event.prizes.length > 0 && <Badge variant="success"><Trophy className="mr-1 h-3 w-3" />Prizes</Badge>}
-          {event.source && event.source.provider !== 'INTERNAL' && (
-            <Badge variant="secondary" className="bg-slate-100 text-slate-700">
-              <ExternalLink className="mr-1 h-3 w-3" /> External
-            </Badge>
-          )}
+
+      {/* CONTENT SECTION */}
+      <CardHeader className={`pb-3 flex-grow ${compact ? 'pt-4' : 'pt-5'}`}>
+        <div className="mb-2 flex items-center justify-between">
+           <Badge variant="outline" className="text-xs bg-muted/30 border-muted-foreground/20 text-muted-foreground font-medium">
+             {event.isVirtual ? "Virtual Event" : "In-Person Event"}
+           </Badge>
+           {event.prizes && event.prizes.length > 0 && (
+             <span className="text-xs font-semibold flex items-center text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+               <Trophy className="mr-1 h-3 w-3" /> Prizes
+             </span>
+           )}
         </div>
-        <h3 className={`font-semibold line-clamp-2 ${compact ? 'text-md' : 'text-lg'}`}>{event.title}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">Hosted by {event.hostName}</p>
+        
+        <h3 className={`font-bold leading-tight line-clamp-2 group-hover:text-primary transition-colors ${compact ? 'text-lg' : 'text-xl'}`}>
+          {event.title}
+        </h3>
+        
+        <div className="mt-2 flex items-center text-sm text-muted-foreground">
+          <span className="truncate">By {event.hostName}</span>
+        </div>
         
         {event.hostCollegeId && event.hostCollegeId.name && (
-          <div className="mt-2 inline-flex items-center text-xs font-medium bg-muted px-2 py-1 rounded-md text-muted-foreground hover:text-primary transition-colors"
-            onClick={(e) => { e.stopPropagation(); /* TODO: Navigate to college */ }}
+          <div className="mt-2 inline-flex items-center text-xs font-medium bg-secondary/50 px-2.5 py-1 rounded-md text-secondary-foreground hover:bg-secondary transition-colors"
+            onClick={(e) => { e.stopPropagation(); /* Navigate to college */ }}
           >
             🏫 {event.hostCollegeId.name}
           </div>
         )}
       </CardHeader>
-      <CardContent className="space-y-2 text-sm mt-auto">
+
+      <CardContent className="space-y-3 pb-5 pt-0 mt-auto border-t border-border/50 pt-4">
         {event.avgRating > 0 && (
-          <div className="flex items-center gap-1 text-warning mb-2">
+          <div className="flex items-center gap-1.5 text-warning mb-2">
             <Star className="h-4 w-4 fill-current" />
-            <span className="font-semibold">{event.avgRating.toFixed(1)}</span>
-            <span className="text-muted-foreground font-normal">({event.totalFeedbackCount})</span>
+            <span className="font-bold text-foreground">{event.avgRating.toFixed(1)}</span>
+            <span className="text-muted-foreground font-medium text-xs">({event.totalFeedbackCount} reviews)</span>
           </div>
         )}
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-primary" />
-          {fmtDate(event.startDate)} at {event.startTime}
+        
+        <div className="flex items-center gap-2.5 text-sm font-medium">
+          <div className="p-1.5 bg-primary/10 rounded-md text-primary">
+            <Calendar className="h-4 w-4" />
+          </div>
+          {fmtDate(event.startDate)} <span className="text-muted-foreground">•</span> {event.startTime}
         </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <MapPin className="h-4 w-4" />
-          <span className="truncate">{event.venue}</span>
+        
+        <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+          <div className="p-1.5 bg-muted rounded-md text-muted-foreground">
+            <MapPin className="h-4 w-4" />
+          </div>
+          <span className="truncate font-medium">{event.venue}</span>
         </div>
+        
         {event.registrationRequired && (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Users className="h-4 w-4" />
-            {event.capacity ? `${event.registrationCount || 0}/${event.capacity} registered` : "Unlimited spots"}
+          <div className="flex items-center gap-2.5 text-sm text-muted-foreground mt-2">
+            <div className="p-1.5 bg-muted rounded-md text-muted-foreground">
+              <Users className="h-4 w-4" />
+            </div>
+            <span className="font-medium">
+              {event.capacity ? (
+                <>
+                  <span className={isFull ? 'text-destructive' : 'text-foreground'}>
+                    {event.registrationCount || 0}
+                  </span>
+                  /{event.capacity} registered
+                </>
+              ) : (
+                "Unlimited spots"
+              )}
+            </span>
           </div>
         )}
       </CardContent>

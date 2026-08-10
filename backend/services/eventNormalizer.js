@@ -12,16 +12,17 @@ function normalizeEvent(rawEvent, provider) {
     description: rawEvent.description || rawEvent.summary || 'No description provided.',
     eventType: mapEventType(rawEvent.type || rawEvent.category),
     
-    // Dates & Times
-    startDate: parseDate(rawEvent.start_date || rawEvent.startTime),
-    endDate: parseDate(rawEvent.end_date || rawEvent.endTime),
-    startTime: extractTime(rawEvent.start_date || rawEvent.startTime),
-    endTime: extractTime(rawEvent.end_date || rawEvent.endTime),
+    // Dates & Times - Optional for external content
+    startDate: rawEvent.isExternalContent ? null : parseDate(rawEvent.start_date || rawEvent.startTime),
+    endDate: rawEvent.isExternalContent ? null : parseDate(rawEvent.end_date || rawEvent.endTime),
+    startTime: rawEvent.isExternalContent ? null : extractTime(rawEvent.start_date || rawEvent.startTime),
+    endTime: rawEvent.isExternalContent ? null : extractTime(rawEvent.end_date || rawEvent.endTime),
     timezone: rawEvent.timezone || 'UTC',
     
     // Logistics
     isVirtual: Boolean(rawEvent.is_online || rawEvent.isVirtual),
     venue: rawEvent.venue || rawEvent.location || 'See external link for location details',
+    isExternalContent: rawEvent.isExternalContent || false,
     
     // Host Info
     hostedBy: null, // External events don't have an internal User host. The ingestion service will assign an Admin ID or leave it handling carefully.
@@ -55,6 +56,7 @@ function normalizeEvent(rawEvent, provider) {
 function mapEventType(typeStr) {
   if (!typeStr) return 'seminar';
   const t = typeStr.toLowerCase();
+  if (t.includes('community_content')) return 'community_content';
   if (t.includes('hackathon')) return 'hackathon';
   if (t.includes('comp')) return 'competition';
   if (t.includes('work')) return 'workshop';
