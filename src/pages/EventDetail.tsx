@@ -610,17 +610,75 @@ const EventDetail = () => {
                       </Button>
                     </>
                   ) : event.lifecycleStatus === 'cancelled' ? (
-                    <Button size="lg" variant="destructive" className="w-full font-bold text-md cursor-not-allowed">
-                      Event Cancelled
-                    </Button>
+                    <div className="space-y-3">
+                      <Button size="lg" variant="destructive" className="w-full font-bold text-md cursor-not-allowed">
+                        Event Cancelled
+                      </Button>
+                      {myStatus && (
+                         <div className="text-sm text-muted-foreground text-center">
+                           Your registration ({myStatus}) has been voided.
+                         </div>
+                      )}
+                    </div>
                   ) : isPast ? (
-                    <Button size="lg" variant="secondary" className="w-full font-bold text-md cursor-not-allowed">
-                      Event has ended
-                    </Button>
-                  ) : deadlinePassed && !myStatus ? (
-                    <Button size="lg" variant="secondary" className="w-full font-bold text-md cursor-not-allowed">
-                      Registration Closed
-                    </Button>
+                    <div className="space-y-3">
+                      <Button size="lg" variant="secondary" className="w-full font-bold text-md cursor-not-allowed">
+                        Event has ended
+                      </Button>
+                      {myStatus && (
+                        <div className="text-sm text-success text-center font-medium flex items-center justify-center gap-1">
+                          <CheckCircle2 className="h-4 w-4" /> You {myStatus === 'waitlisted' ? 'were on the waitlist' : 'attended this event'}
+                        </div>
+                      )}
+                      {myStatus === 'registered' && (
+                        <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" className="w-full shadow-sm">
+                              <Star className="mr-2 h-4 w-4" /> Rate & Review
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                              <DialogTitle>Rate {event.title}</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                              <div className="space-y-2">
+                                <Label>Rating (1-5)</Label>
+                                <div className="flex gap-2">
+                                  {[1, 2, 3, 4, 5].map(star => (
+                                    <Star 
+                                      key={star} 
+                                      className={`h-8 w-8 cursor-pointer transition-colors ${feedbackForm.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`}
+                                      onClick={() => setFeedbackForm({...feedbackForm, rating: star})}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Review</Label>
+                                <Textarea 
+                                  placeholder="What did you think of the event?" 
+                                  value={feedbackForm.reviewText} 
+                                  onChange={e => setFeedbackForm({...feedbackForm, reviewText: e.target.value})}
+                                  className="min-h-[100px]"
+                                />
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox 
+                                  id="recommend" 
+                                  checked={feedbackForm.wouldRecommend} 
+                                  onCheckedChange={c => setFeedbackForm({...feedbackForm, wouldRecommend: !!c})}
+                                />
+                                <Label htmlFor="recommend">I would recommend this event</Label>
+                              </div>
+                              <Button className="w-full" onClick={handleSubmitFeedback} disabled={submittingFeedback}>
+                                {submittingFeedback ? "Submitting..." : "Submit Feedback"}
+                              </Button>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                    </div>
                   ) : myStatus ? (
                     <div className="space-y-3">
                       <Button size="lg" variant="success" className="w-full font-bold text-md bg-success/10 text-success hover:bg-success/20 cursor-default border border-success/20">
@@ -628,6 +686,10 @@ const EventDetail = () => {
                       </Button>
                       <Button variant="ghost" className="w-full text-muted-foreground hover:text-destructive" onClick={handleCancel}>Cancel Registration</Button>
                     </div>
+                  ) : deadlinePassed ? (
+                    <Button size="lg" variant="secondary" className="w-full font-bold text-md cursor-not-allowed">
+                      Registration Closed
+                    </Button>
                   ) : (
                     <Dialog open={registerModalOpen} onOpenChange={setRegisterModalOpen}>
                       <DialogTrigger asChild>

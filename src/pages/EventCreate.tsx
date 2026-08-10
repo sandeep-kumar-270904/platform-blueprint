@@ -44,6 +44,21 @@ export default function EventCreate() {
   });
 
   const handleNext = () => {
+    if (currentStep === 0) {
+      if (!form.title.trim() || !form.description.trim()) {
+        return toast.error("Title and description are required.");
+      }
+    } else if (currentStep === 1) {
+      if (!form.startDate || !form.endDate || !form.startTime || !form.endTime) {
+        return toast.error("All time and date fields are required.");
+      }
+      if (new Date(form.endDate) < new Date(form.startDate)) {
+        return toast.error("End date cannot be before start date.");
+      }
+      if (!form.isVirtual && !form.venue.trim()) {
+        return toast.error("Venue location is required for in-person events.");
+      }
+    }
     if (currentStep < steps.length - 1) setCurrentStep(c => c + 1);
   };
 
