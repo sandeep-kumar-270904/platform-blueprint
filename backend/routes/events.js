@@ -3,10 +3,23 @@ const router = express.Router();
 const Event = require('../models/Event');
 const EventRegistration = require('../models/EventRegistration');
 const EventFeedback = require('../models/EventFeedback');
+const EventBookmark = require('../models/EventBookmark');
 const User = require('../models/User');
 const notificationService = require('../services/notificationService');
 const authMiddleware = require('../middleware/auth');
 const { notifyDashboardUpdate } = require('../services/dashboardCache');
+const { ingestEvents } = require('../services/eventIngestion');
+
+// POST /api/events/sync - Trigger external event ingestion
+router.post('/sync', async (req, res) => {
+  try {
+    const provider = req.body.provider || 'EXTERNAL_API';
+    const log = await ingestEvents(provider);
+    res.json({ message: 'Sync complete', log });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 // GET /api/events
 router.get('/', async (req, res) => {
@@ -21,10 +34,7 @@ router.get('/', async (req, res) => {
     }
     
     if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { tags: { $regex: search, $options: 'i' } }
-      ];
+      query.$text = { $search: search };
     }
     
     if (filter === 'upcoming') {
@@ -50,12 +60,14 @@ router.get('/', async (req, res) => {
     if (sort === 'newest') sortObj = { createdAt: -1 };
     if (sort === 'oldest') sortObj = { createdAt: 1 };
     if (sort === 'date_desc') sortObj = { startDate: -1 };
+    if (search) sortObj = { score: { $meta: "textScore" } };
     
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    const events = await Event.find(query)
+    const queryOpts = search ? { score: { $meta: "textScore" } } : {};
+    const events = await Event.find(query, queryOpts)
       .sort(sortObj)
       .skip(skip)
       .limit(limit)
@@ -64,21 +76,11 @@ router.get('/', async (req, res) => {
       .lean();
       
     const total = await Event.countDocuments(query);
-      
-    // Append registrationCount
-    const eventIds = events.map(e => e._id);
-    const regCounts = await EventRegistration.aggregate([
-      { $match: { eventId: { $in: eventIds }, status: { $in: ['registered', 'waitlisted'] } } },
-      { $group: { _id: '$eventId', count: { $sum: 1 } } }
-    ]);
-    
-    const countMap = {};
-    regCounts.forEach(rc => { countMap[rc._id.toString()] = rc.count; });
     
     const eventsWithCount = events.map(e => ({
       ...e,
       id: e._id,
-      registrationCount: countMap[e._id.toString()] || 0
+      registrationCount: e.registrationCount || 0
     }));
     
     res.json({
@@ -247,6 +249,65 @@ router.delete('/:id', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/events/bookmarks/me
+router.get('/bookmarks/me', authMiddleware, async (req, res) => {
+  try {
+    const bookmarks = await EventBookmark.find({ userId: req.user.id })
+      .populate({
+        path: 'eventId',
+        populate: [
+          { path: 'hostedBy', select: 'username full_name avatar_url' },
+          { path: 'hostCollegeId', select: 'name' }
+        ]
+      })
+      .sort({ createdAt: -1 });
+    
+    // Filter out bookmarks where event is null (deleted)
+    const validBookmarks = bookmarks.filter(b => b.eventId);
+    res.json(validBookmarks.map(b => b.eventId));
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/events/:id/bookmarks/me
+router.get('/:id/bookmarks/me', authMiddleware, async (req, res) => {
+  try {
+    const bookmark = await EventBookmark.findOne({ eventId: req.params.id, userId: req.user.id });
+    res.json({ bookmarked: !!bookmark });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/events/:id/bookmark
+router.post('/:id/bookmark', authMiddleware, async (req, res) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: 'Event not found' });
+    
+    await EventBookmark.findOneAndUpdate(
+      { eventId: req.params.id, userId: req.user.id },
+      { eventId: req.params.id, userId: req.user.id },
+      { upsert: true, new: true }
+    );
+    
+    res.json({ message: 'Event bookmarked' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// DELETE /api/events/:id/bookmark
+router.delete('/:id/bookmark', authMiddleware, async (req, res) => {
+  try {
+    await EventBookmark.findOneAndDelete({ eventId: req.params.id, userId: req.user.id });
+    res.json({ message: 'Bookmark removed' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // GET /api/events/:id/registrations/me
 router.get('/:id/registrations/me', authMiddleware, async (req, res) => {
   try {
@@ -274,17 +335,11 @@ router.post('/:id/register', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Already registered' });
     }
     
-    const count = await EventRegistration.countDocuments({ eventId: event._id, status: 'registered' });
-    
-    let status = 'registered';
-    if (event.capacity && count >= event.capacity) {
-      status = 'waitlisted';
-    }
-    
     const teamName = req.body.teamName || null;
     const lookingForTeammates = req.body.lookingForTeammates || false;
     const skills = req.body.skills || '';
     
+    // Validate team constraints first before reserving a spot
     if (event.eventType === 'hackathon' || event.eventType === 'competition') {
       const min = event.teamSize?.min || 1;
       const max = event.teamSize?.max || 1;
@@ -298,17 +353,39 @@ router.post('/:id/register', authMiddleware, async (req, res) => {
         return res.status(400).json({ message: `You must provide a Team Name to team up, or mark as looking for teammates.` });
       }
     }
-
-    const reg = new EventRegistration({
-      eventId: event._id,
-      userId: req.user.id,
-      status,
-      teamName: req.body.teamName || null,
-      lookingForTeammates,
-      skills
-    });
     
-    await reg.save();
+    // Atomic capacity check and reservation
+    let status = 'registered';
+    if (event.capacity) {
+      const updatedEvent = await Event.findOneAndUpdate(
+        { _id: event._id, registrationCount: { $lt: event.capacity } },
+        { $inc: { registrationCount: 1 } },
+        { new: true }
+      );
+      if (!updatedEvent) {
+        status = 'waitlisted'; // Capacity full, user is waitlisted
+      }
+    } else {
+      await Event.findByIdAndUpdate(event._id, { $inc: { registrationCount: 1 } });
+    }
+
+    try {
+      const reg = new EventRegistration({
+        eventId: event._id,
+        userId: req.user.id,
+        status,
+        teamName,
+        lookingForTeammates,
+        skills
+      });
+      await reg.save();
+    } catch (saveErr) {
+      // Rollback reservation if save fails
+      if (status === 'registered') {
+        await Event.findByIdAndUpdate(event._id, { $inc: { registrationCount: -1 } });
+      }
+      throw saveErr;
+    }
     
     if (req.io) {
       req.io.emit('event_updated', { eventId: event._id });
@@ -330,11 +407,12 @@ router.delete('/:id/register', authMiddleware, async (req, res) => {
     // If they were 'registered', promote a waitlisted user
     if (reg.status === 'registered') {
       const nextWaitlisted = await EventRegistration.findOne({ eventId: req.params.id, status: 'waitlisted' }).sort({ registeredAt: 1 });
+      const Event = require('../models/Event');
+      
       if (nextWaitlisted) {
         nextWaitlisted.status = 'registered';
         await nextWaitlisted.save();
         
-        const Event = require('../models/Event');
         const event = await Event.findById(req.params.id);
         
         await notificationService.createNotification({
@@ -343,6 +421,9 @@ router.delete('/:id/register', authMiddleware, async (req, res) => {
           relatedContentId: event._id,
           message: `Good news! A spot opened up for "${event.title}" and you are now officially registered.`
         });
+      } else {
+        // No waitlist to promote, so decrement the count
+        await Event.findByIdAndUpdate(req.params.id, { $inc: { registrationCount: -1 } });
       }
     }
     
@@ -745,6 +826,68 @@ router.post('/:id/team-requests/:reqId/accept', authMiddleware, async (req, res)
     });
 
     res.json({ message: 'Team request accepted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+// GET /api/events/:id/discussions
+router.get('/:id/discussions', authMiddleware, async (req, res) => {
+  try {
+    const EventDiscussion = require('../models/EventDiscussion');
+    const discussions = await EventDiscussion.find({ eventId: req.params.id })
+      .populate('userId', 'username full_name avatar_url')
+      .sort({ createdAt: -1 });
+    res.json(discussions);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// POST /api/events/:id/discussions
+router.post('/:id/discussions', authMiddleware, async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content) return res.status(400).json({ message: 'Content is required' });
+
+    const EventDiscussion = require('../models/EventDiscussion');
+    const newDiscussion = new EventDiscussion({
+      eventId: req.params.id,
+      userId: req.user.id,
+      content
+    });
+
+    await newDiscussion.save();
+    
+    // Optionally notify event host or attendees (skipping for now to avoid spam)
+    
+    const populated = await EventDiscussion.findById(newDiscussion._id)
+      .populate('userId', 'username full_name avatar_url');
+      
+    res.status(201).json(populated);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// DELETE /api/events/:id/discussions/:discussionId
+router.delete('/:id/discussions/:discussionId', authMiddleware, async (req, res) => {
+  try {
+    const EventDiscussion = require('../models/EventDiscussion');
+    const discussion = await EventDiscussion.findById(req.params.discussionId);
+    
+    if (!discussion) return res.status(404).json({ message: 'Discussion not found' });
+    
+    if (discussion.userId.toString() !== req.user.id) {
+      // Allow event host or admins to delete
+      const event = await Event.findById(req.params.id);
+      const user = await User.findById(req.user.id);
+      if (event.hostedBy.toString() !== req.user.id && user?.role !== 'admin') {
+        return res.status(403).json({ message: 'Unauthorized' });
+      }
+    }
+    
+    await EventDiscussion.findByIdAndDelete(req.params.discussionId);
+    res.json({ message: 'Discussion deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

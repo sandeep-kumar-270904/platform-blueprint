@@ -296,9 +296,14 @@ connectDB().then(async () => {
           await event.save();
         }
 
-        // --- Mark events as completed and request feedback ---
         // Find approved events where endDate + endTime is in the past
-        const allApprovedEvents = await Event.find({ status: 'approved' });
+        // Optimization: Only query events where endDate is on or before today
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+        const allApprovedEvents = await Event.find({ 
+          status: 'approved',
+          endDate: { $lte: endOfDay }
+        });
         for (const event of allApprovedEvents) {
           // Parse endDate and endTime
           // Note: Event.endDate is stored as Date, but might be midnight. endTime is "HH:mm".
