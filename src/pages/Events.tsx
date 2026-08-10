@@ -209,7 +209,7 @@ const Events = () => {
                   <h3 className="text-2xl font-bold mb-3">No events found</h3>
                   <p className="text-muted-foreground text-lg mb-8 max-w-md">We couldn't find any events matching your current filters. Try adjusting your search query.</p>
                   {(searchQuery || selectedType !== 'all' || timeFilter !== 'upcoming') && (
-                    <Button size="lg" variant="outline" onClick={() => { setSearchQuery(""); setSelectedType("all"); setTimeFilter("upcoming"); }}>
+                    <Button size="lg" variant="outline" onClick={() => { setLocalSearch(""); setSelectedType("all"); setTimeFilter("upcoming"); }}>
                       Clear all filters
                     </Button>
                   )}
