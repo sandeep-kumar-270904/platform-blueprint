@@ -56,16 +56,37 @@ const eventSchema = new mongoose.Schema({
   
   tags: [{ type: String }],
   
-  rejectionReason: { type: String, default: null }, // Added previously possibly but we should make sure it exists, wait, it didn't exist in the file but let's add it if missing. Oh wait, it wasn't in the schema above? Wait, in the previous conversation I did add rejectionReason. I'll add reminded24h and rejectionReason if missing. 
+  rejectionReason: { type: String, default: null },
   
   reminded24h: { type: Boolean, default: false },
   
   avgRating: { type: Number, default: 0 },
   totalFeedbackCount: { type: Number, default: 0 },
   
+  timezone: { type: String, default: 'UTC' }, // New field for robust date handling
+  draft: { type: Boolean, default: false }, // New field for creation wizard
+  
+  registrationCount: { type: Number, default: 0 }, // Tracks registered attendees atomically
+  
+  source: {
+    provider: { 
+      type: String, 
+      enum: ['INTERNAL', 'EXTERNAL_API', 'COLLEGE_FEED', 'ORGANIZER_FEED', 'PARTNER'],
+      default: 'INTERNAL'
+    },
+    externalEventId: { type: String, default: null },
+    externalUrl: { type: String, default: null },
+    importedAt: { type: Date, default: null },
+    lastSyncedAt: { type: Date, default: null },
+    syncStatus: { type: String, default: 'HEALTHY' }
+  }
+  
 }, { timestamps: true });
 
 eventSchema.index({ startDate: 1, status: 1 });
 eventSchema.index({ hostedBy: 1 });
+eventSchema.index({ status: 1, endDate: 1 }); // For cron job optimization
+eventSchema.index({ 'source.provider': 1, 'source.externalEventId': 1 }); // For external event deduplication
+eventSchema.index({ title: 'text', tags: 'text' }); // For text search optimization
 
 module.exports = mongoose.model('Event', eventSchema);

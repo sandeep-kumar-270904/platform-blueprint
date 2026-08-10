@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Calendar, MapPin, Users, Trophy, Clock, ArrowLeft, Loader2, CheckCircle2, Star, MessageSquare } from "lucide-react";
+import { Calendar, MapPin, Users, Trophy, Clock, ArrowLeft, Loader2, CheckCircle2, Star, MessageSquare, ExternalLink } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
 import { EventRow } from "@/hooks/useEvents";
@@ -35,6 +35,11 @@ const EventDetail = () => {
   const [feedbackForm, setFeedbackForm] = useState({ rating: 5, reviewText: "", wouldRecommend: true });
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  // Discussions states
+  const [discussions, setDiscussions] = useState<any[]>([]);
+  const [discussionText, setDiscussionText] = useState("");
+  const [submittingDiscussion, setSubmittingDiscussion] = useState(false);
 
   // Team Formation states
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
@@ -79,6 +84,15 @@ const EventDetail = () => {
             .then(fData => setFeedbacks(fData.feedbacks || []))
             .catch(console.error);
         }
+
+        // Fetch discussions
+        const token = localStorage.getItem('token');
+        fetch(`${API_URL}/api/events/${id}/discussions`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        })
+          .then(r => r.ok ? r.json() : [])
+          .then(setDiscussions)
+          .catch(console.error);
       } catch (err) {
         toast({ title: "Error", description: "Failed to load event details", variant: "destructive" });
       } finally {
@@ -303,6 +317,43 @@ const EventDetail = () => {
     }
   };
 
+  const handlePostDiscussion = async () => {
+    if (!discussionText.trim()) return;
+    setSubmittingDiscussion(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/events/${id}/discussions`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: discussionText })
+      });
+      if (!res.ok) throw new Error('Failed to post message');
+      const data = await res.json();
+      setDiscussions(prev => [data, ...prev]);
+      setDiscussionText("");
+      toast({ title: "Message posted" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmittingDiscussion(false);
+    }
+  };
+
+  const handleDeleteDiscussion = async (discussionId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/events/${id}/discussions/${discussionId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to delete message');
+      setDiscussions(prev => prev.filter(d => d._id !== discussionId));
+      toast({ title: "Message deleted" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
   if (loading) {
     return <div className="min-h-screen flex justify-center items-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
@@ -355,57 +406,13 @@ const EventDetail = () => {
 
             {isHost && (
               <div className="mt-12 border-t pt-8">
-                <h2 className="text-2xl font-bold mb-6">Host Dashboard</h2>
-                <Tabs defaultValue="attendees">
-                  <TabsList>
-                    <TabsTrigger value="attendees">Attendees ({attendees.length})</TabsTrigger>
-                    <TabsTrigger value="manage">Manage Event</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="attendees" className="mt-4">
-                    {!event.isVirtual && (
-                      <div className="mb-4 flex gap-2">
-                        <Button variant="outline" onClick={() => setScanModalOpen(true)}>Scan Check-In QR</Button>
-                      </div>
-                    )}
-                    <Dialog open={scanModalOpen} onOpenChange={setScanModalOpen}>
-                      <DialogContent>
-                        <DialogHeader><DialogTitle>Scan Attendee QR</DialogTitle></DialogHeader>
-                        <div id="reader" className="w-full"></div>
-                      </DialogContent>
-                    </Dialog>
-                    <Card>
-                      <CardContent className="p-0">
-                        {attendees.length === 0 ? (
-                          <div className="p-8 text-center text-muted-foreground">No attendees registered yet.</div>
-                        ) : (
-                          <div className="divide-y">
-                            {attendees.map(a => (
-                              <div key={a._id} className="p-4 flex items-center justify-between">
-                                <div>
-                                  <div className="font-medium">{a.userId.full_name || a.userId.username}</div>
-                                  <div className="text-sm text-muted-foreground">{a.userId.email}</div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant={a.status === 'waitlisted' ? 'warning' : 'success'} className="capitalize">{a.status}</Badge>
-                                  {!event.isVirtual && a.status === 'registered' && (
-                                    a.checkedIn ? (
-                                      <Badge variant="success">Checked In</Badge>
-                                    ) : (
-                                      <Button variant="outline" size="sm" onClick={() => handleCheckIn(a._id)}>Check In</Button>
-                                    )
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                  <TabsContent value="manage" className="mt-4">
-                    <Button variant="outline">Edit Event Details</Button>
-                  </TabsContent>
-                </Tabs>
+                <div className="flex justify-between items-center bg-primary/5 border border-primary/20 p-6 rounded-lg">
+                  <div>
+                    <h2 className="text-xl font-bold mb-1">Host Dashboard</h2>
+                    <p className="text-muted-foreground text-sm">Manage your attendees, edit details, and export data.</p>
+                  </div>
+                  <Button onClick={() => navigate(`/events/${event.id}/manage`)}>Go to Dashboard</Button>
+                </div>
               </div>
             )}
 
@@ -487,6 +494,60 @@ const EventDetail = () => {
                 )}
               </div>
             )}
+
+            {/* Event Discussions Section */}
+            <div className="mt-12 border-t pt-8">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><MessageSquare className="h-5 w-5" /> Event Discussion</h2>
+              {user ? (
+                <div className="mb-8 bg-muted/20 p-4 rounded-xl border">
+                  <Textarea 
+                    placeholder="Ask a question or share a thought about this event..." 
+                    value={discussionText}
+                    onChange={e => setDiscussionText(e.target.value)}
+                    className="mb-3 bg-background"
+                    rows={3}
+                  />
+                  <div className="flex justify-end">
+                    <Button onClick={handlePostDiscussion} disabled={submittingDiscussion || !discussionText.trim()}>
+                      {submittingDiscussion ? "Posting..." : "Post Message"}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-8 p-4 bg-muted/20 border rounded-lg text-center">
+                  <p className="text-muted-foreground mb-3">Log in to participate in the discussion.</p>
+                  <Button variant="outline" onClick={() => navigate("/auth")}>Login</Button>
+                </div>
+              )}
+              
+              <div className="space-y-4">
+                {discussions.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No discussions yet. Be the first to post!
+                  </div>
+                ) : (
+                  discussions.map(d => (
+                    <div key={d._id} className="p-4 rounded-lg border bg-card/50 flex gap-4">
+                      <img src={d.userId.avatar_url || "https://ui-avatars.com/api/?name="+encodeURIComponent(d.userId.full_name || d.userId.username)} alt="" className="w-10 h-10 rounded-full" />
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-semibold text-sm">{d.userId.full_name || d.userId.username}</div>
+                            <div className="text-xs text-muted-foreground">{new Date(d.createdAt).toLocaleString()}</div>
+                          </div>
+                          {(user?.id === d.userId._id || isHost) && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteDiscussion(d._id)}>
+                              &times;
+                            </Button>
+                          )}
+                        </div>
+                        <p className="mt-2 text-sm">{d.content}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="space-y-6">
@@ -499,7 +560,7 @@ const EventDetail = () => {
                   <Calendar className="h-4 w-4 text-primary shrink-0" />
                   <div>
                     <div className="font-medium">{fmtDate(event.startDate)}</div>
-                    <div className="text-sm text-muted-foreground">{event.startTime} - {event.endTime}</div>
+                    <div className="text-sm text-muted-foreground">{event.startTime} - {event.endTime} {event.timezone ? `(${event.timezone})` : ""}</div>
                   </div>
                 </div>
                 
@@ -539,6 +600,13 @@ const EventDetail = () => {
                 <div className="pt-4 border-t">
                   {isPast ? (
                     <Button className="w-full" disabled>Event has ended</Button>
+                  ) : event.source && event.source.provider !== 'INTERNAL' ? (
+                    <Button 
+                      className="w-full" 
+                      onClick={() => window.open(event.source.externalUrl || event.externalRegistrationLink, '_blank')}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" /> Register on {event.source.provider}
+                    </Button>
                   ) : myStatus ? (
                     <div className="space-y-2">
                       <Button variant="success" className="w-full bg-success/10 text-success hover:bg-success/20 cursor-default">

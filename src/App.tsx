@@ -131,6 +131,8 @@ const FoundersPassport = lazy(() => import("./pages/FoundersPassport"));
 const InviteAccept = lazy(() => import("./pages/InviteAccept"));
 const Search = lazy(() => import("./pages/Search"));
 const EventDetail = lazy(() => import("./pages/EventDetail"));
+const EventCreate = lazy(() => import("./pages/EventCreate"));
+const EventManage = lazy(() => import("./pages/EventManage"));
 const PublicSkillsProfile = lazy(() => import("./pages/PublicSkillsProfile"));
 const MentorProfilePage = lazy(() => import("./pages/MentorProfilePage"));
 const MentorCommunity = lazy(() => import("./pages/MentorCommunity"));
@@ -218,7 +220,9 @@ const App = () => (
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/events" element={<Events />} />
+          <Route path="/events/create" element={<ProtectedRoute><EventCreate /></ProtectedRoute>} />
           <Route path="/events/:id" element={<EventDetail />} />
+          <Route path="/events/:id/manage" element={<ProtectedRoute><EventManage /></ProtectedRoute>} />
           <Route path="/video/:id" element={<VideoRoomPage />} />
           <Route path="/recruiter/verify" element={<RecruiterVerify />} />
           <Route path="/recruiter/candidates" element={<CandidateSearch />} />

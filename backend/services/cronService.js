@@ -90,7 +90,19 @@ class CronService {
     cron.schedule('0 * * * *', async () => {
       this.checkNewsIngestionHealth();
       this.computePlacementAnalytics();
+      this.syncExternalEvents(); // New addition: sync external events
     });
+  }
+
+  async syncExternalEvents() {
+    try {
+      console.log('⏳ Running background EVENT_SYNC for external providers...');
+      const { ingestEvents } = require('./eventIngestion');
+      await ingestEvents('EXTERNAL_API');
+      console.log('✅ Background EVENT_SYNC completed.');
+    } catch (err) {
+      console.error('❌ Error in syncExternalEvents:', err);
+    }
   }
 
   async checkSessionReminders() {

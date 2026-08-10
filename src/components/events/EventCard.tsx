@@ -1,20 +1,44 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Calendar, MapPin, Users, Trophy, Star } from "lucide-react";
+import { Calendar, MapPin, Users, Trophy, Star, Heart, ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-export const EventCard = ({ event, registered, fmtDate, typeColorClass, onClick, compact = false }: any) => {
+const BookmarkButton = ({ eventId, bookmarked, toggleBookmark }: any) => {
+  if (!toggleBookmark) return null;
+  return (
+    <Button 
+      variant="ghost" 
+      size="icon" 
+      className={`h-8 w-8 rounded-full bg-background/80 hover:bg-background backdrop-blur-sm shadow-sm ${bookmarked ? 'text-primary' : 'text-muted-foreground'}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        toggleBookmark(eventId);
+      }}
+    >
+      <Heart className={`h-4 w-4 ${bookmarked ? 'fill-current' : ''}`} />
+    </Button>
+  );
+};
+
+export const EventCard = ({ event, registered, bookmarked, toggleBookmark, fmtDate, typeColorClass, onClick, compact = false }: any) => {
   const isFull = event.capacity && event.registrationCount >= event.capacity;
   const isPast = new Date(event.startDate) < new Date();
   
   return (
     <Card className="card-hover overflow-hidden flex flex-col cursor-pointer" onClick={onClick}>
       {event.bannerImage ? (
-        <div className={`${compact ? 'h-32' : 'h-40'} w-full overflow-hidden`}>
+        <div className={`${compact ? 'h-32' : 'h-40'} w-full overflow-hidden relative`}>
           <img src={event.bannerImage} alt={event.title} className="w-full h-full object-cover" />
+          <div className="absolute top-2 right-2 flex gap-1">
+            <BookmarkButton eventId={event.id} bookmarked={bookmarked} toggleBookmark={toggleBookmark} />
+          </div>
         </div>
       ) : (
-        <div className={`${compact ? 'h-32' : 'h-40'} w-full flex items-center justify-center bg-muted`}>
+        <div className={`${compact ? 'h-32' : 'h-40'} w-full flex items-center justify-center bg-muted relative`}>
           <Calendar className={`h-12 w-12 text-muted-foreground opacity-20`} />
+          <div className="absolute top-2 right-2 flex gap-1">
+            <BookmarkButton eventId={event.id} bookmarked={bookmarked} toggleBookmark={toggleBookmark} />
+          </div>
         </div>
       )}
       <CardHeader className="pb-3 flex-grow">
@@ -22,6 +46,11 @@ export const EventCard = ({ event, registered, fmtDate, typeColorClass, onClick,
           <Badge variant={event.eventType as any} className="capitalize">{event.eventType}</Badge>
           <Badge variant="outline">{event.isVirtual ? "Virtual" : "In-Person"}</Badge>
           {event.prizes && event.prizes.length > 0 && <Badge variant="success"><Trophy className="mr-1 h-3 w-3" />Prizes</Badge>}
+          {event.source && event.source.provider !== 'INTERNAL' && (
+            <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+              <ExternalLink className="mr-1 h-3 w-3" /> External
+            </Badge>
+          )}
         </div>
         <h3 className={`font-semibold line-clamp-2 ${compact ? 'text-md' : 'text-lg'}`}>{event.title}</h3>
         <p className="mt-1 text-sm text-muted-foreground">Hosted by {event.hostName}</p>
