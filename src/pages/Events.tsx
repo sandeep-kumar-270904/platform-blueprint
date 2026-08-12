@@ -1,20 +1,34 @@
 import { useState, useEffect } from "react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Calendar, MapPin, Users, Trophy, Clock, Search, Plus, Loader2, LayoutList, CalendarDays, ExternalLink, ChevronLeft, ChevronRight, Compass } from "lucide-react";
-import { useEvents, EventRow } from "@/hooks/useEvents";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { 
+  Clock, Search, Plus, LayoutList, CalendarDays, Filter, ChevronDown, Check
+} from "lucide-react";
+import { useEvents } from "@/hooks/useEvents";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { CalendarView } from "@/components/events/CalendarView";
 import { format } from "date-fns";
 import { EventCard } from "@/components/events/EventCard";
-import { useSearchParams } from "react-router-dom";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-const Events = () => {
+const CATEGORIES = [
+  { id: 'all', label: 'All Opportunities' },
+  { id: 'hackathon', label: 'Hackathons' },
+  { id: 'competition', label: 'Competitions' },
+  { id: 'coding_contest', label: 'Coding Contests' },
+  { id: 'workshop', label: 'Workshops' },
+  { id: 'seminar', label: 'Seminars' },
+  { id: 'conference', label: 'Conferences' },
+  { id: 'webinar', label: 'Webinars' },
+  { id: 'career_event', label: 'Career Events' },
+  { id: 'tech_event', label: 'Tech Events' },
+  { id: 'other', label: 'Other' }
+];
+
+export default function Events() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -24,6 +38,8 @@ const Events = () => {
   const searchQuery = searchParams.get("search") || "";
   const viewMode = (searchParams.get("view") as "list" | "calendar") || "list";
   const page = parseInt(searchParams.get("page") || "1");
+  const modeFilter = searchParams.get("mode") || "all"; // all, online, in_person
+  const sortOrder = searchParams.get("sort") || "upcoming"; // upcoming, newest, deadline
 
   const updateParam = (key: string, value: string, defaultValue: string) => {
     setSearchParams(prev => {
@@ -37,9 +53,11 @@ const Events = () => {
   const setSelectedType = (v: string) => updateParam("type", v, "all");
   const setTimeFilter = (v: string) => updateParam("time", v, "upcoming");
   const setViewMode = (v: "list" | "calendar") => updateParam("view", v, "list");
-  const setPage = (p: number) => updateParam("page", p.toString(), "1");
+  const setModeFilter = (v: string) => updateParam("mode", v, "all");
+  const setSortOrder = (v: string) => updateParam("sort", v, "upcoming");
 
   const [localSearch, setLocalSearch] = useState(searchQuery);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -50,183 +68,274 @@ const Events = () => {
     return () => clearTimeout(timer);
   }, [localSearch]);
 
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  
-  const { events, thisWeekEvents, myRegistrations, myBookmarks, pagination, toggleBookmark, loading } = useEvents(
+  const { events, thisWeekEvents, myRegistrations, myBookmarks, toggleBookmark, loading } = useEvents(
     selectedType, 
     viewMode === "list" ? timeFilter : "all", 
     searchQuery,
     viewMode === "calendar" ? format(currentMonth, 'yyyy-MM') : "",
-    page
+    page,
+    modeFilter,
+    sortOrder
   );
 
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   
   const typeColorClass = (t: string) => {
-    return t === 'hackathon' ? 'bg-blue-600 text-white' :
-           t === 'competition' ? 'bg-orange-600 text-white' :
-           t === 'workshop' ? 'bg-purple-600 text-white' :
-           'bg-green-600 text-white';
+    if (['hackathon', 'coding_contest'].includes(t)) return 'bg-blue-600 text-white';
+    if (['competition'].includes(t)) return 'bg-orange-600 text-white';
+    if (['workshop', 'seminar', 'webinar'].includes(t)) return 'bg-purple-600 text-white';
+    if (['career_event'].includes(t)) return 'bg-emerald-600 text-white';
+    return 'bg-green-600 text-white';
   };
+
+  const getSortLabel = () => {
+    if (sortOrder === 'newest') return 'Recently Added';
+    if (sortOrder === 'deadline') return 'Closing Soon';
+    return 'Upcoming First';
+  };
+
+  const FilterPanel = () => (
+    <div className="space-y-8">
+      {/* Category Filter */}
+      <div>
+        <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">Category</h3>
+        <div className="flex flex-col space-y-1">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedType(cat.id)}
+              className={`flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors text-left ${
+                selectedType === cat.id 
+                  ? 'bg-primary/10 text-primary font-medium' 
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              {cat.label}
+              {selectedType === cat.id && <Check className="w-4 h-4" />}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Mode Filter */}
+      <div>
+        <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">Event Mode</h3>
+        <div className="flex flex-col space-y-1">
+          {[
+            { id: 'all', label: 'Any Mode' },
+            { id: 'online', label: 'Online / Virtual' },
+            { id: 'in_person', label: 'In-Person' }
+          ].map((mode) => (
+            <button
+              key={mode.id}
+              onClick={() => setModeFilter(mode.id)}
+              className={`flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors text-left ${
+                modeFilter === mode.id 
+                  ? 'bg-primary/10 text-primary font-medium' 
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              {mode.label}
+              {modeFilter === mode.id && <Check className="w-4 h-4" />}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Time Filter */}
+      <div>
+        <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">Timeframe</h3>
+        <div className="flex flex-col space-y-1">
+          {[
+            { id: 'upcoming', label: 'Upcoming' },
+            { id: 'past', label: 'Past Events' }
+          ].map((time) => (
+            <button
+              key={time.id}
+              onClick={() => setTimeFilter(time.id)}
+              className={`flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors text-left ${
+                timeFilter === time.id 
+                  ? 'bg-primary/10 text-primary font-medium' 
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              {time.label}
+              {timeFilter === time.id && <Check className="w-4 h-4" />}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
       
-      {/* PREMIUM DISCOVERY HERO */}
-      <div className="relative pt-24 pb-16 bg-muted overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/5 to-transparent" />
-        <div className="container relative z-10 mx-auto px-4 text-center max-w-3xl">
-          <Badge variant="outline" className="mb-4 bg-background/50 backdrop-blur-sm border-primary/20 text-primary">
-            <Compass className="w-3 h-3 mr-2" /> Explore the ecosystem
-          </Badge>
-          <h1 className="text-4xl md:text-5xl font-extrabold mb-6 tracking-tight">
-            Discover <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">Tech Events</span> & Hackathons
-          </h1>
-          <p className="text-lg text-muted-foreground mb-8">
-            Find the best campus events, global tech summits, and virtual hackathons to accelerate your career.
-          </p>
-          
-          <div className="relative max-w-xl mx-auto shadow-lg rounded-2xl overflow-hidden bg-background p-2 flex items-center border border-muted-foreground/10">
-            <Search className="h-5 w-5 text-muted-foreground ml-3 mr-2 shrink-0" />
-            <Input 
-              placeholder="Search by keyword, tag, or technology..." 
-              value={localSearch}
-              onChange={(e) => setLocalSearch(e.target.value)}
-              className="border-none shadow-none focus-visible:ring-0 text-md h-12"
-            />
-            {user ? (
-              <Button onClick={() => navigate('/events/create')} className="shrink-0 h-12 px-6 rounded-xl shadow-md transition-transform active:scale-95">
-                <Plus className="h-4 w-4 mr-2" /> Host
-              </Button>
-            ) : (
-              <Button onClick={() => navigate("/auth")} className="shrink-0 h-12 px-6 rounded-xl">Login to Host</Button>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* COMMAND BAR */}
+      <div className="pt-28 pb-6 bg-background relative z-10 border-b">
+        <div className="container mx-auto px-4 max-w-7xl">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Search */}
+            <div className="w-full md:max-w-xl relative flex items-center bg-muted/20 hover:bg-muted/40 rounded-xl border border-border/60 focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all shadow-sm">
+              <Search className="h-5 w-5 text-muted-foreground ml-4 shrink-0" />
+              <Input 
+                placeholder="Search opportunities, organizers, tech..." 
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                className="border-none shadow-none focus-visible:ring-0 bg-transparent h-12 w-full text-base placeholder:text-muted-foreground/60"
+              />
+            </div>
 
-      <div className="container mx-auto px-4 py-12 max-w-7xl">
-        
-        {/* FILTER CONTROLS */}
-        <div className="mb-10 flex flex-col lg:flex-row items-center justify-between gap-6 border-b pb-6">
-          <Tabs value={selectedType} onValueChange={setSelectedType} className="w-full lg:w-auto">
-            <TabsList className="w-full overflow-x-auto flex flex-nowrap justify-start p-1 bg-muted/50 rounded-xl">
-              <TabsTrigger value="all" className="rounded-lg px-6">All Events</TabsTrigger>
-              <TabsTrigger value="hackathon" className="rounded-lg px-6">Hackathons</TabsTrigger>
-              <TabsTrigger value="competition" className="rounded-lg px-6">Competitions</TabsTrigger>
-              <TabsTrigger value="workshop" className="rounded-lg px-6">Workshops</TabsTrigger>
-              <TabsTrigger value="seminar" className="rounded-lg px-6">Seminars</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          
-          <div className="flex items-center gap-4 w-full lg:w-auto">
-            {viewMode === 'list' && (
-              <Tabs value={timeFilter} onValueChange={setTimeFilter}>
-                <TabsList className="bg-muted/50 rounded-xl p-1">
-                  <TabsTrigger value="upcoming" className="rounded-lg px-6">Upcoming</TabsTrigger>
-                  <TabsTrigger value="past" className="rounded-lg px-6">Past</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
-            
-            <div className="flex border rounded-xl p-1 bg-muted/50">
-              <Button 
-                variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
-                size="sm" 
-                className={`h-9 px-4 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-background shadow-sm' : ''}`}
-                onClick={() => setViewMode('list')}
-              >
-                <LayoutList className="h-4 w-4 mr-2" /> List
-              </Button>
-              <Button 
-                variant={viewMode === 'calendar' ? 'secondary' : 'ghost'} 
-                size="sm" 
-                className={`h-9 px-4 rounded-lg transition-colors ${viewMode === 'calendar' ? 'bg-background shadow-sm' : ''}`}
-                onClick={() => setViewMode('calendar')}
-              >
-                <CalendarDays className="h-4 w-4 mr-2" /> Calendar
-              </Button>
+            {/* Actions */}
+            <div className="flex items-center gap-3 shrink-0 overflow-x-auto no-scrollbar pb-1 md:pb-0">
+              <div className="flex bg-muted/30 p-1 rounded-lg border border-border/50 shrink-0">
+                <button 
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}
+                  onClick={() => setViewMode('list')}
+                >
+                  <LayoutList className="h-4 w-4" /> List
+                </button>
+                <button 
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'calendar' ? 'bg-background text-foreground shadow-sm border border-border/50' : 'text-muted-foreground hover:text-foreground'}`}
+                  onClick={() => setViewMode('calendar')}
+                >
+                  <CalendarDays className="h-4 w-4" /> Calendar
+                </button>
+              </div>
+
+              {user && (
+                <>
+                  <div className="h-6 w-px bg-border/60 mx-1 hidden md:block" />
+                  <Button onClick={() => navigate('/events/create')} className="shrink-0 rounded-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm h-10 px-5">
+                    <Plus className="h-4 w-4 mr-2" /> Host Event
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* THIS WEEK HIGHLIGHT STRIP */}
-        {(() => {
-          const showThisWeek = viewMode === 'list' && thisWeekEvents.length > 0 && timeFilter === 'upcoming' && !searchQuery;
-          const filteredGridEvents = showThisWeek 
-            ? events.filter(e => !thisWeekEvents.some(twe => twe.id === e.id)) 
-            : events;
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+          
+          {/* DESKTOP SIDEBAR FILTER */}
+          <aside className="hidden lg:block w-[240px] shrink-0 sticky top-28 h-[calc(100vh-140px)] overflow-y-auto no-scrollbar pb-8 border-r pr-6">
+            <FilterPanel />
+          </aside>
+
+          {/* MAIN CONTENT AREA */}
+          <main className="flex-1 min-w-0 w-full">
             
-          return (
-            <>
-              {showThisWeek && (
-                <div className="mb-12">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-2xl font-bold flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg text-primary"><Clock className="h-5 w-5" /></div> 
-                      Happening This Week
-                    </h3>
-                  </div>
-                  <div className="flex overflow-x-auto gap-6 pb-6 snap-x pt-2 -mx-4 px-4 md:mx-0 md:px-0">
-                    {thisWeekEvents.map(event => (
-                      <div key={event.id} className="min-w-[320px] w-[320px] snap-start">
-                        <EventCard 
-                          event={event} 
-                          registered={myRegistrations.has(event.id!)} 
-                          bookmarked={myBookmarks.has(event.id!)}
-                          toggleBookmark={toggleBookmark}
-                          fmtDate={fmtDate} 
-                          typeColorClass={typeColorClass}
-                          onClick={() => navigate(`/events/${event.id}`)}
-                          compact
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* CONTENT */}
-              {loading ? (
-                <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                  {[1, 2, 3, 4, 5, 6].map(i => (
-                    <Card key={i} className="animate-pulse border-muted/60 shadow-sm rounded-2xl overflow-hidden">
-                      <div className="h-48 bg-muted"></div>
-                      <CardHeader><div className="h-6 bg-muted rounded w-3/4"></div></CardHeader>
-                      <CardContent className="space-y-3 pb-6">
-                        <div className="h-4 bg-muted rounded w-1/2"></div>
-                        <div className="h-4 bg-muted rounded w-2/3"></div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : events.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-32 text-center border-2 rounded-2xl border-dashed bg-muted/10">
-                  <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center mb-6">
-                    <Search className="h-8 w-8 text-muted-foreground opacity-50" />
-                  </div>
-                  <h3 className="text-2xl font-bold mb-3">No events found</h3>
-                  <p className="text-muted-foreground text-lg mb-8 max-w-md">We couldn't find any events matching your current filters. Try adjusting your search query.</p>
-                  {(searchQuery || selectedType !== 'all' || timeFilter !== 'upcoming') && (
-                    <Button size="lg" variant="outline" onClick={() => { setLocalSearch(""); setSelectedType("all"); setTimeFilter("upcoming"); }}>
-                      Clear all filters
+            {/* MOBILE FILTER & SORT BAR */}
+            <div className="flex items-center justify-between mb-6 lg:mb-8">
+              
+              {/* Mobile Filter Drawer */}
+              <div className="lg:hidden">
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 font-semibold bg-muted/30">
+                      <Filter className="w-4 h-4 mr-2" /> Filters
                     </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-[300px] overflow-y-auto">
+                    <SheetHeader className="mb-6">
+                      <SheetTitle>Filters</SheetTitle>
+                    </SheetHeader>
+                    <FilterPanel />
+                  </SheetContent>
+                </Sheet>
+              </div>
+
+              {/* Desktop Title (Only shows on LG+) */}
+              <div className="hidden lg:block">
+                <h2 className="text-xl font-bold tracking-tight">
+                  {CATEGORIES.find(c => c.id === selectedType)?.label || "Opportunities"}
+                </h2>
+              </div>
+
+              {/* SORT DROPDOWN */}
+              {viewMode === 'list' && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-muted-foreground h-9 px-3">
+                      Sort: <span className="text-foreground ml-1 font-medium">{getSortLabel()}</span>
+                      <ChevronDown className="w-4 h-4 ml-2 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => setSortOrder('upcoming')} className="justify-between">
+                      Upcoming First {sortOrder === 'upcoming' && <Check className="w-4 h-4" />}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortOrder('newest')} className="justify-between">
+                      Recently Added {sortOrder === 'newest' && <Check className="w-4 h-4" />}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortOrder('deadline')} className="justify-between">
+                      Closing Soon {sortOrder === 'deadline' && <Check className="w-4 h-4" />}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+
+            {/* HAPPENING THIS WEEK STRIP */}
+            {(() => {
+              const showThisWeek = viewMode === 'list' && thisWeekEvents.length > 0 && timeFilter === 'upcoming' && !searchQuery && selectedType === 'all';
+              const filteredGridEvents = showThisWeek 
+                ? events.filter(e => !thisWeekEvents.some(twe => twe.id === e.id)) 
+                : events;
+                
+              return (
+                <>
+                  {showThisWeek && (
+                    <div className="mb-12">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-bold flex items-center gap-2">
+                          <Clock className="h-5 w-5 text-primary" /> 
+                          Happening This Week
+                        </h3>
+                      </div>
+                      <div className="flex overflow-x-auto gap-6 pb-4 snap-x pt-1 no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
+                        {thisWeekEvents.map(event => (
+                          <div key={event.id} className="min-w-[340px] w-[340px] snap-start">
+                            <EventCard 
+                              event={event} 
+                              registered={myRegistrations.has(event.id!)} 
+                              bookmarked={myBookmarks.has(event.id!)}
+                              toggleBookmark={toggleBookmark}
+                              fmtDate={fmtDate} 
+                              typeColorClass={typeColorClass}
+                              onClick={() => navigate(`/events/${event.id}`)}
+                              compact
+                            />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="h-px bg-border/40 w-full mt-6" />
+                    </div>
                   )}
-                </div>
-              ) : (
-                viewMode === 'list' ? (
-                  <>
-                    {filteredGridEvents.length > 0 && showThisWeek && (
-                      <h3 className="text-2xl font-bold mb-6 mt-12 flex items-center gap-3">
-                        <div className="p-2 bg-accent/10 rounded-lg text-accent"><CalendarDays className="h-5 w-5" /></div>
-                        All Upcoming Events
-                      </h3>
-                    )}
-                    <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+
+                  {/* MAIN GRID OR CALENDAR */}
+                  {viewMode === "calendar" ? (
+                     <div className="bg-card border rounded-xl overflow-hidden shadow-sm animate-in fade-in">
+                       <CalendarView 
+                         events={events} 
+                         currentMonth={currentMonth} 
+                         onMonthChange={setCurrentMonth} 
+                       />
+                     </div>
+                  ) : loading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {[1, 2, 3, 4, 5, 6].map(i => (
+                        <div key={i} className="h-[340px] bg-muted/40 animate-pulse rounded-xl border" />
+                      ))}
+                    </div>
+                  ) : filteredGridEvents.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in">
                       {filteredGridEvents.map(event => (
                         <EventCard 
-                          key={event.id} 
+                          key={event.id}
                           event={event} 
                           registered={myRegistrations.has(event.id!)} 
                           bookmarked={myBookmarks.has(event.id!)}
@@ -234,55 +343,28 @@ const Events = () => {
                           fmtDate={fmtDate} 
                           typeColorClass={typeColorClass}
                           onClick={() => navigate(`/events/${event.id}`)}
+                          compact={false}
                         />
                       ))}
                     </div>
-                    
-                    {/* PAGINATION CONTROLS */}
-                    {pagination.pages > 1 && (
-                      <div className="flex justify-center items-center mt-12 gap-6">
-                        <Button 
-                          variant="outline" 
-                          size="lg"
-                          disabled={pagination.page <= 1} 
-                          onClick={() => setPage(pagination.page - 1)}
-                          className="rounded-xl"
-                        >
-                          <ChevronLeft className="h-5 w-5 mr-2" /> Previous
-                        </Button>
-                        <span className="text-sm font-semibold text-muted-foreground">
-                          Page <span className="text-foreground">{pagination.page}</span> of <span className="text-foreground">{pagination.pages}</span>
-                        </span>
-                        <Button 
-                          variant="outline" 
-                          size="lg"
-                          disabled={pagination.page >= pagination.pages} 
-                          onClick={() => setPage(pagination.page + 1)}
-                          className="rounded-xl"
-                        >
-                          Next <ChevronRight className="h-5 w-5 ml-2" />
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="bg-card rounded-2xl shadow-sm border border-muted overflow-hidden">
-                    <CalendarView 
-                      currentMonth={currentMonth} 
-                      setCurrentMonth={setCurrentMonth} 
-                      events={events}
-                      navigate={navigate}
-                      typeColorClass={typeColorClass}
-                    />
-                  </div>
-                )
-              )}
-            </>
-          );
-        })()}
+                  ) : (
+                    <div className="text-center py-20 bg-muted/20 border border-dashed rounded-xl mt-4">
+                      <h3 className="text-xl font-bold mb-2">No opportunities found</h3>
+                      <p className="text-muted-foreground max-w-md mx-auto mb-6">
+                        We couldn't find any events matching your current filters. Try adjusting your search or removing some filters.
+                      </p>
+                      <Button onClick={() => navigate('/events')} variant="outline">
+                        Clear all filters
+                      </Button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+
+          </main>
+        </div>
       </div>
     </div>
   );
-};
-
-export default Events;
+}
