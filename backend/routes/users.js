@@ -530,6 +530,36 @@ router.get('/me/events/registered', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/users/:id/events/public
+router.get('/:id/events/public', async (req, res) => {
+  try {
+    const EventRegistration = require('../models/EventRegistration');
+    const Event = require('../models/Event');
+    
+    const registrations = await EventRegistration.find({ userId: req.params.id, status: 'registered' });
+    const eventIds = registrations.map(r => r.eventId);
+    
+    // Only return public events
+    const events = await Event.find({ _id: { $in: eventIds }, visibility: 'public' });
+    
+    const now = new Date();
+    const upcoming = [];
+    const past = [];
+    
+    events.forEach(event => {
+      if (new Date(event.endDate) >= now) {
+        upcoming.push(event);
+      } else {
+        past.push(event);
+      }
+    });
+    
+    res.json({ upcoming, past });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // GET /api/users/:id/profile
 router.get('/:id/profile', async (req, res) => {
   try {

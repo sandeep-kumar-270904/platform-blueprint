@@ -21,6 +21,18 @@ import { formatDistanceToNowStrict, isPast as isDatePast, isFuture } from "date-
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+const isValidDate = (d: any) => {
+  if (!d) return false;
+  const date = new Date(d);
+  return date.getTime() > 0 && date.getFullYear() > 1971;
+};
+
+const formatEventType = (type: string) => {
+  if (!type) return "";
+  if (type === 'community_content') return 'Community';
+  return type.replace(/_/g, ' ');
+};
+
 const EventDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -43,13 +55,6 @@ const EventDetail = () => {
   const [submittingDiscussion, setSubmittingDiscussion] = useState(false);
 
   // Team Formation states
-  const [registerModalOpen, setRegisterModalOpen] = useState(false);
-  const [lookingForTeammates, setLookingForTeammates] = useState(false);
-  const [skills, setSkills] = useState("");
-  const [teamName, setTeamName] = useState("");
-  const [teammates, setTeammates] = useState<any[]>([]);
-  const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
-  const [outgoingRequests, setOutgoingRequests] = useState<any[]>([]);
 
   // QR Check-in states
   const [scanModalOpen, setScanModalOpen] = useState(false);
@@ -152,35 +157,12 @@ const EventDetail = () => {
     }
   };
 
-  const loadTeammates = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/events/${id}/teammates`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTeammates(data.teammates || []);
-        setIncomingRequests(data.incomingRequests || []);
-        setOutgoingRequests(data.outgoingRequests || []);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+
 
   useEffect(() => {
     if (event && user) {
       if (event.hostedBy._id === user.id || event.hostedBy === user.id) {
         loadAttendees();
-      }
-      loadTeammates();
-      
-      const searchParams = new URLSearchParams(window.location.search);
-      const teamJoin = searchParams.get('teamJoin');
-      if (teamJoin && !myStatus && event.eventType !== 'seminar' && event.eventType !== 'workshop') {
-        setTeamName(teamJoin);
-        setRegisterModalOpen(true);
       }
     }
   }, [event, user, myStatus]);
@@ -189,13 +171,6 @@ const EventDetail = () => {
     if (!user) {
       navigate("/auth");
       return;
-    }
-    
-    if (event?.eventType === 'hackathon' || event?.eventType === 'competition') {
-      if (!registerModalOpen) {
-        setRegisterModalOpen(true);
-        return;
-      }
     }
     
     const isFull = event?.capacity && (event?.registrationCount || 0) >= event?.capacity;
@@ -207,22 +182,19 @@ const EventDetail = () => {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/events/${id}/register`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lookingForTeammates, skills, teamName })
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
       const data = await res.json();
       if (!res.ok) {
         if (data.message === 'Already registered') {
           setMyStatus('registered');
           toast({ title: "You are already registered!" });
-          setRegisterModalOpen(false);
           return;
         }
         throw new Error(data.message || 'Registration failed');
       }
       setMyStatus(data.status); 
-      setMyRegDetails({ lookingForTeammates, skills, teamName });
-      setRegisterModalOpen(false);
+      setMyRegDetails({});
       toast({ title: "Successfully Registered!" });
     } catch (err: any) {
       setMyStatus(prevStatus); // revert
@@ -230,36 +202,6 @@ const EventDetail = () => {
     }
   };
 
-  const handleSendTeamRequest = async (toUserId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/events/${id}/team-request`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toUserId })
-      });
-      if (!res.ok) throw new Error("Failed to send request");
-      toast({ title: "Team Request Sent!" });
-      loadTeammates();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    }
-  };
-
-  const handleAcceptTeamRequest = async (reqId: string) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/events/${id}/team-requests/${reqId}/accept`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error("Failed to accept request");
-      toast({ title: "Team Request Accepted!" });
-      loadTeammates();
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    }
-  };
 
   const handleCheckIn = async (registrationId: string) => {
     try {
@@ -400,69 +342,102 @@ const EventDetail = () => {
         </Button>
 
         {/* EVENT HERO */}
-        <div className="relative w-full h-[300px] md:h-[400px] rounded-2xl overflow-hidden mb-12 shadow-md bg-muted flex items-end">
+        <div className="relative w-full h-[240px] md:h-[320px] rounded-3xl overflow-hidden mb-12 shadow-sm bg-muted flex items-end">
           {event.bannerImage ? (
             <>
               <img src={event.bannerImage} alt={event.title} className="absolute inset-0 w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-90" />
             </>
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-tr from-primary/80 to-accent/80" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-muted-foreground/20 to-muted flex items-center justify-center">
+              <Globe className="w-24 h-24 text-muted-foreground/30" />
+            </div>
           )}
           
-          <div className="relative z-10 w-full p-6 md:p-12 text-white">
-            <div className="flex flex-wrap gap-2 mb-4">
-              <Badge variant="outline" className="bg-white/10 backdrop-blur-md border-white/20 text-white capitalize px-3 py-1 text-xs font-semibold tracking-wider">
-                {event.eventType}
+          <div className="relative z-10 w-full p-6 md:p-10 text-white">
+            <div className="flex flex-wrap gap-2 mb-3">
+              <Badge variant="outline" className="bg-white/10 backdrop-blur-md border-white/20 text-white uppercase px-2 py-0.5 text-[10px] font-semibold tracking-wider">
+                {formatEventType(event.eventType)}
               </Badge>
-              <Badge variant="outline" className="bg-white/10 backdrop-blur-md border-white/20 text-white px-3 py-1 text-xs font-semibold tracking-wider">
-                {event.isVirtual ? "Virtual" : "Offline"}
+              <Badge variant="outline" className="bg-white/10 backdrop-blur-md border-white/20 text-white px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase">
+                {event.isVirtual ? "Virtual" : "In-Person"}
               </Badge>
               {isExternal && (
-                <Badge className="bg-blue-600/90 text-white hover:bg-blue-600 border-none px-3 py-1 text-xs font-semibold tracking-wider">
-                  <Globe className="w-3 h-3 mr-1" /> External Event
+                <Badge className="bg-black/50 text-white hover:bg-black/50 border-white/20 px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase">
+                  <ExternalLink className="w-3 h-3 mr-1" /> External
                 </Badge>
               )}
               {event.lifecycleStatus === 'live' && (
-                <Badge variant="destructive" className="animate-pulse px-3 py-1 text-xs font-semibold tracking-wider">
+                <Badge variant="destructive" className="animate-pulse px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase">
                   LIVE NOW
                 </Badge>
               )}
               {event.lifecycleStatus === 'cancelled' && (
-                <Badge variant="destructive" className="px-3 py-1 text-xs font-semibold tracking-wider">
+                <Badge variant="destructive" className="px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase">
                   CANCELLED
                 </Badge>
               )}
             </div>
             
-            <h1 className="text-3xl md:text-5xl font-extrabold mb-4 leading-tight">{event.title}</h1>
+            <h1 className="text-3xl md:text-5xl font-extrabold mb-3 leading-tight">{event.title}</h1>
             
-            <div className="flex items-center gap-2 text-white/80 font-medium">
+            <div className="flex items-center gap-2 text-white/80 font-medium text-sm">
               <User className="w-4 h-4" />
-              <span>Hosted by <span className="text-white font-semibold">{event.hostName}</span></span>
-              {isExternal && <span className="text-white/60 text-sm ml-2">• Source: {event.source?.provider}</span>}
+              <span>Hosted by <span className="text-white font-semibold">{event.hostName || "Unknown Host"}</span></span>
+              {isExternal && <span className="text-white/60 ml-2">• Source: {event.source?.provider}</span>}
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative">
           
-          {/* LEFT COLUMN - ABOUT & DISCUSSIONS */}
+          {/* LEFT COLUMN - MAIN CONTENT */}
           <div className="lg:col-span-2 space-y-12">
             
+            {/* ABOUT */}
             <section className="bg-card p-6 md:p-8 rounded-2xl border shadow-sm">
               <h2 className="text-2xl font-bold mb-4">About this event</h2>
-              <p className="text-muted-foreground text-lg whitespace-pre-wrap leading-relaxed">{event.description}</p>
+              <p className="text-muted-foreground text-[17px] whitespace-pre-wrap leading-relaxed">
+                {event.description || "No description provided for this event."}
+              </p>
             </section>
 
-            {event.prizes && event.prizes.length > 0 && (
-              <section className="bg-card p-6 md:p-8 rounded-2xl border shadow-sm">
-                <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Trophy className="h-5 w-5 text-warning" /> Prizes</h3>
-                <ul className="list-disc pl-5 space-y-2 text-muted-foreground">
-                  {event.prizes.map((p, i) => <li key={i}>{p}</li>)}
-                </ul>
+            {/* PARTICIPATION & PRIZES */}
+            {((event.prizes && event.prizes.length > 0) || event.capacity) && (
+              <section className="bg-card p-6 md:p-8 rounded-2xl border shadow-sm space-y-6">
+                {event.prizes && event.prizes.length > 0 && (
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Trophy className="h-5 w-5 text-amber-500" /> Prizes & Awards</h3>
+                    <ul className="list-disc pl-5 space-y-2 text-muted-foreground">
+                      {event.prizes.map((p, i) => <li key={i}>{p}</li>)}
+                    </ul>
+                  </div>
+                )}
+                
+                {event.capacity && (
+                  <div>
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> Participation Limits</h3>
+                    <p className="text-muted-foreground">This event is strictly limited to {event.capacity} total attendees.</p>
+                  </div>
+                )}
               </section>
             )}
+
+            {/* ORGANIZER / HOST */}
+            <section className="bg-card p-6 md:p-8 rounded-2xl border shadow-sm">
+              <h2 className="text-2xl font-bold mb-4">Organizer</h2>
+              <div className="flex items-center gap-4 p-4 rounded-xl border bg-muted/20">
+                <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-lg">
+                  {(event.hostName || "H")[0]}
+                </div>
+                <div>
+                  <div className="font-bold text-lg">{event.hostName || "Unknown Host"}</div>
+                  {event.source && event.source.provider !== 'INTERNAL' && (
+                    <div className="text-sm text-muted-foreground">Sourced from {event.source.provider}</div>
+                  )}
+                </div>
+              </div>
+            </section>
 
             {isHost && (
               <section className="border-t pt-8">
@@ -544,23 +519,23 @@ const EventDetail = () => {
                 
                 {!isExternalContent && (
                   <div className="flex gap-4">
-                    <div className="mt-1 bg-muted p-2 rounded-lg shrink-0 h-min">
-                      <Calendar className="h-5 w-5 text-primary" />
+                    <div className="mt-1 bg-muted p-2 rounded-lg shrink-0 h-min text-foreground">
+                      <Calendar className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="font-semibold text-foreground">{event.startDate ? fmtDate(event.startDate) : 'TBD'}</div>
-                      <div className="text-sm text-muted-foreground mt-1">{event.startTime || ''} - {event.endTime || ''} {event.timezone ? `(${event.timezone})` : ""}</div>
+                      <div className="font-semibold text-foreground">{isValidDate(event.startDate) ? fmtDate(event.startDate) : 'Date TBA'}</div>
+                      <div className="text-sm text-muted-foreground mt-1">{(event.startTime || event.endTime) ? `${event.startTime || ''} - ${event.endTime || ''}` : ""} {event.timezone ? `(${event.timezone})` : ""}</div>
                     </div>
                   </div>
                 )}
                 
                 <div className="flex gap-4">
-                  <div className="mt-1 bg-muted p-2 rounded-lg shrink-0 h-min">
-                    <MapPin className="h-5 w-5 text-primary" />
+                  <div className="mt-1 bg-muted p-2 rounded-lg shrink-0 h-min text-foreground">
+                    <MapPin className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="font-semibold text-foreground">{event.isVirtual ? "Virtual Event" : event.venue}</div>
-                    {event.isVirtual && <div className="text-sm text-muted-foreground mt-1">{event.venue}</div>}
+                    <div className="font-semibold text-foreground">{event.isVirtual ? "Virtual Event" : event.venue ? event.venue : "Location TBA"}</div>
+                    {event.isVirtual && event.venue && <div className="text-sm text-muted-foreground mt-1">{event.venue}</div>}
                   </div>
                 </div>
 
@@ -604,9 +579,13 @@ const EventDetail = () => {
                       <Button 
                         size="lg"
                         className="w-full font-bold text-md" 
-                        onClick={() => window.open(event.source.externalUrl || event.externalRegistrationLink, '_blank')}
+                        onClick={() => {
+                          const url = event.source?.externalUrl || event.externalRegistrationLink;
+                          if (url) window.open(url, '_blank');
+                          else toast({ title: "Registration link unavailable", variant: "destructive" });
+                        }}
                       >
-                        <ExternalLink className="mr-2 h-5 w-5" /> View on {event.source?.provider}
+                        <ExternalLink className="mr-2 h-5 w-5" /> View on {event.source?.provider || "External Site"}
                       </Button>
                     </>
                   ) : event.lifecycleStatus === 'cancelled' ? (
@@ -691,111 +670,33 @@ const EventDetail = () => {
                       Registration Closed
                     </Button>
                   ) : (
-                    <Dialog open={registerModalOpen} onOpenChange={setRegisterModalOpen}>
-                      <DialogTrigger asChild>
-                        <Button size="lg" className="w-full font-bold text-md" variant={isFull ? "secondary" : "default"} onClick={(e) => {
-                          if (event.eventType !== 'hackathon' && event.eventType !== 'competition') {
-                            e.preventDefault();
-                            handleRegister();
-                          }
-                        }}>
-                          {isFull ? "Join Waitlist" : "Register Now"}
-                        </Button>
-                      </DialogTrigger>
-                      {(event.eventType === 'hackathon' || event.eventType === 'competition') && (
-                        <DialogContent className="sm:max-w-md">
-                          <DialogHeader><DialogTitle className="text-xl">Register for {event.title}</DialogTitle></DialogHeader>
-                          <div className="space-y-6 py-4">
-                            <div className="flex items-center space-x-3 p-4 bg-muted/30 rounded-lg border">
-                              <Checkbox 
-                                id="lookingForTeammates" 
-                                checked={lookingForTeammates} 
-                                onCheckedChange={(c) => setLookingForTeammates(!!c)} 
-                              />
-                              <Label htmlFor="lookingForTeammates" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                I am registering solo and looking for teammates
-                              </Label>
-                            </div>
-                            
-                            {lookingForTeammates ? (
-                              <div className="space-y-2">
-                                <Label htmlFor="my-skills" className="font-semibold">My Skills / Interests</Label>
-                                <Input id="my-skills" placeholder="e.g. Frontend, ML, Design" value={skills} onChange={e => setSkills(e.target.value)} />
-                              </div>
-                            ) : (
-                              <div className="space-y-2">
-                                <Label htmlFor="team-name" className="font-semibold">Team Name</Label>
-                                <Input id="team-name" placeholder="My Awesome Team" value={teamName} onChange={e => setTeamName(e.target.value)} />
-                                <p className="text-xs text-muted-foreground">If a friend shared a team name, enter it here to join.</p>
-                              </div>
-                            )}
-                            <Button size="lg" className="w-full font-bold" onClick={handleRegister}>Confirm Registration</Button>
-                          </div>
-                        </DialogContent>
-                      )}
-                    </Dialog>
+                    <Button size="lg" className="w-full font-bold text-md" variant={isFull ? "secondary" : "default"} onClick={(e) => {
+                      e.preventDefault();
+                      handleRegister();
+                    }}>
+                      {isFull ? "Join Waitlist" : "Register Now"}
+                    </Button>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            {myStatus === 'registered' && myRegDetails?.teamName && !myRegDetails?.lookingForTeammates && (
-              <Card className="border-success/30 bg-success/5 shadow-sm rounded-2xl">
-                <CardHeader className="pb-2">
-                  <h3 className="font-semibold text-lg flex items-center gap-2"><Users className="h-5 w-5 text-success" /> Team: {myRegDetails.teamName}</h3>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm mb-4 text-muted-foreground">Share this link with your friends to let them join your team:</p>
-                  <div className="flex gap-2">
-                    <Input readOnly value={`${window.location.origin}/events/${id}?teamJoin=${encodeURIComponent(myRegDetails.teamName)}`} className="bg-background" />
-                    <Button variant="outline" className="shrink-0" onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/events/${id}?teamJoin=${encodeURIComponent(myRegDetails.teamName)}`);
-                      toast({ title: "Copied to clipboard!" });
-                    }}>Copy</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {myStatus === 'registered' && myRegDetails?.lookingForTeammates && (
+            {myStatus === 'registered' && (event.eventType === 'hackathon' || event.eventType === 'competition') && (
               <Card className="border-primary/20 bg-primary/5 shadow-sm rounded-2xl">
                 <CardHeader className="pb-2">
-                  <h3 className="font-bold text-lg flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> Find Teammates</h3>
+                  <h3 className="font-bold text-lg flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> Team Status</h3>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {incomingRequests.length > 0 && (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Incoming Requests</h4>
-                      {incomingRequests.map(req => (
-                        <div key={req._id} className="flex items-center justify-between bg-background p-3 rounded-xl border shadow-sm">
-                          <span className="text-sm font-medium">{req.fromUserId.full_name || req.fromUserId.username}</span>
-                          <Button size="sm" onClick={() => handleAcceptTeamRequest(req._id)}>Accept</Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {teammates.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-6 bg-background rounded-xl border border-dashed">No other solo registrants looking for teams right now.</p>
+                  {myRegDetails?.teamId ? (
+                     <div className="flex flex-col gap-3">
+                       <p className="text-sm text-muted-foreground">You are part of a team for this event.</p>
+                       <Button onClick={() => navigate(`/team-hunt/${myRegDetails.teamId}`)}>Manage Team</Button>
+                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Solo Registrants</h4>
-                      {teammates.map(tm => {
-                        const hasSent = outgoingRequests.some(r => r.toUserId === tm.userId._id);
-                        return (
-                          <div key={tm._id} className="flex flex-col gap-3 bg-background p-4 rounded-xl border shadow-sm">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <div className="text-sm font-bold">{tm.userId.full_name || tm.userId.username}</div>
-                                {tm.skills && <Badge variant="secondary" className="text-[10px] mt-1">{tm.skills}</Badge>}
-                              </div>
-                              <Button size="sm" variant={hasSent ? "secondary" : "default"} disabled={hasSent} onClick={() => handleSendTeamRequest(tm.userId._id)}>
-                                {hasSent ? 'Sent' : 'Request'}
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                     <div className="flex flex-col gap-3">
+                       <p className="text-sm text-muted-foreground">Join or Create a Team for this Event to participate fully.</p>
+                       <Button onClick={() => navigate(`/team-hunt?eventId=${id}`)}>Go to Team Hunt</Button>
+                     </div>
                   )}
                 </CardContent>
               </Card>

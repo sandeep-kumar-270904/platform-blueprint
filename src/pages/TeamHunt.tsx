@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { ScrollReveal } from "@/components/animations/ScrollReveal";
 import { ParallaxSection } from "@/components/animations/ParallaxSection";
@@ -23,9 +23,13 @@ import { FounderTrustSignal } from "@/components/team/FounderTrustSignal";
 
 const CATEGORIES = ['Hackathon', 'Research', 'Startup', 'Course Project', 'Other'];
 
+
+
 export default function TeamHunt() {
   const { t } = useTranslation();
   const isOffline = !navigator.onLine;
+  const [searchParams] = useSearchParams();
+  const eventId = searchParams.get('eventId');
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 500);
   const [category, setCategory] = useState<string>("all");
@@ -41,6 +45,7 @@ export default function TeamHunt() {
     status: status,
     sort: sort,
     limit: 50,
+    eventId: eventId || undefined,
   });
 
   const { data: recommendedData, isLoading: recommendedLoading } = useRecommendedTeams();

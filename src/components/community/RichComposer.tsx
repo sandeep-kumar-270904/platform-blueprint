@@ -128,10 +128,10 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
   }, [searchParams, setSearchParams]);
 
   const handleTagInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value;
+    const val = e.target.value;
     if (val.includes(',')) {
       const tagsToAdd = val.split(',').map(t => t.trim()).filter(t => t);
-      let currentTags = [...selectedTags];
+      const currentTags = [...selectedTags];
       tagsToAdd.forEach(t => {
         if (!currentTags.includes(t) && currentTags.length < 5) currentTags.push(t);
       });

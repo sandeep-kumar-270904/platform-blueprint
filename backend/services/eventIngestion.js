@@ -2,57 +2,27 @@ const Event = require('../models/Event');
 const EventSyncLog = require('../models/EventSyncLog');
 const User = require('../models/User');
 const { normalizeEvent } = require('./eventNormalizer');
+const devToProvider = require('./providers/DevToProvider');
 
-const https = require('https');
-
-/**
- * Fetches real tech events/hackathons from DEV.to API.
- * Uses articles tagged 'hackathon' as virtual events.
- */
-function fetchFromProvider(provider) {
-  return new Promise((resolve, reject) => {
-    const url = 'https://dev.to/api/articles?tag=hackathon&state=fresh&per_page=10';
-    
-    https.get(url, { headers: { 'User-Agent': 'StudentHub-Events-Bot' } }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          if (res.statusCode !== 200) {
-            throw new Error(`API returned status ${res.statusCode}`);
-          }
-          const articles = JSON.parse(data);
-          const events = articles.map(article => ({
-            id: `devto_${article.id}`,
-            name: article.title,
-            description: article.description || "Join this virtual hackathon reading event.",
-            type: "community_content",
-            isExternalContent: true,
-            is_online: true,
-            url: article.url,
-            organizer_name: article.user?.name || "DEV Community",
-            status: "published",
-            tags: article.tag_list || ["hackathon", "virtual"]
-          }));
-          resolve(events);
-        } catch (err) {
-          reject(err);
-        }
-      });
-    }).on('error', (err) => {
-      reject(err);
-    });
-  });
-}
+const providersRegistry = {
+  'EXTERNAL_API': devToProvider,
+  'DEV_COMMUNITY': devToProvider // Alias for clarity
+};
 
 /**
  * Main ingestion logic
+ * @param {String} providerName - Identifier for the provider (e.g. 'DEV_COMMUNITY')
  */
-async function ingestEvents(provider) {
-  let log = new EventSyncLog({ provider, status: 'SUCCESS' });
+async function ingestEvents(providerName) {
+  let log = new EventSyncLog({ provider: providerName, status: 'SUCCESS' });
   
   try {
-    const rawEvents = await fetchFromProvider(provider);
+    const providerInstance = providersRegistry[providerName] || providersRegistry['EXTERNAL_API'];
+    if (!providerInstance) {
+      throw new Error(`Provider ${providerName} not found or unsupported.`);
+    }
+
+    const rawEvents = await providerInstance.fetchEvents();
     
     // We need an admin or system user to be the 'hostedBy' for external events
     // For safety, let's grab the first admin we can find, or a hardcoded system user ID if one existed.
@@ -65,7 +35,7 @@ async function ingestEvents(provider) {
 
     for (const raw of rawEvents) {
       try {
-        const normalized = normalizeEvent(raw, provider);
+        const normalized = normalizeEvent(raw, providerName);
         if (fallbackHostId) {
           normalized.hostedBy = fallbackHostId;
         }
@@ -110,5 +80,6 @@ async function ingestEvents(provider) {
 }
 
 module.exports = {
-  ingestEvents
+  ingestEvents,
+  providersRegistry
 };

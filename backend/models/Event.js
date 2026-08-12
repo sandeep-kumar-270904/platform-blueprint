@@ -11,7 +11,7 @@ const eventSchema = new mongoose.Schema({
   description: { type: String, required: true },
   eventType: { 
     type: String, 
-    enum: ['hackathon', 'competition', 'workshop', 'seminar', 'community_content'],
+    enum: ['hackathon', 'competition', 'workshop', 'seminar', 'conference', 'tech_event', 'webinar', 'career_event', 'coding_contest', 'other', 'community_content'],
     required: true
   },
   bannerImage: { type: String, default: null },

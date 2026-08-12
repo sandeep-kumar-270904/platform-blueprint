@@ -57,9 +57,13 @@ const attachCreatorTrustSingle = async (teamObj) => {
 // @access  Private
 exports.getTeams = async (req, res) => {
   try {
-    const { search, category, status, role, skill, institution, sort = 'newest', page = 1, limit = 10 } = req.query;
+    const { search, category, status, role, skill, institution, eventId, sort = 'newest', page = 1, limit = 10 } = req.query;
 
     let query = {};
+
+    if (eventId) {
+      query.eventId = eventId;
+    }
 
     if (institution) {
       query.institution = institution;
@@ -174,10 +178,31 @@ exports.getTeamById = async (req, res) => {
 // @access  Private
 exports.createTeam = async (req, res) => {
   try {
-    const { title, description, teamSize, requiredRoles, requiredSkills, category, deadline, tags, institution } = req.body;
+    const { title, description, teamSize, requiredRoles, requiredSkills, category, deadline, tags, institution, eventId } = req.body;
 
     if (!title || !description || !teamSize || !teamSize.max) {
       return res.status(400).json({ success: false, message: 'Please provide title, description, and max team size' });
+    }
+
+    if (eventId) {
+      const Event = require('../models/Event');
+      const EventRegistration = require('../models/EventRegistration');
+      
+      const event = await Event.findById(eventId);
+      if (!event) {
+        return res.status(404).json({ success: false, message: 'Event not found' });
+      }
+
+      // Check if user is registered for the event
+      const isRegistered = await EventRegistration.findOne({ eventId, userId: req.user.id });
+      if (!isRegistered) {
+        return res.status(403).json({ success: false, message: 'You must be registered for this event to create a team for it' });
+      }
+
+      // Enforce event max team size
+      if (event.teamSize && event.teamSize > 0 && parseInt(teamSize.max) > event.teamSize) {
+        return res.status(400).json({ success: false, message: `Max team size cannot exceed the event's limit of ${event.teamSize}` });
+      }
     }
 
     // Content Moderation
@@ -209,6 +234,7 @@ exports.createTeam = async (req, res) => {
       name: title, // for backwards compatibility
       description,
       creator: req.user.id,
+      eventId: eventId || null,
       teamSize: {
         current: 1, // Creator counts as 1
         max: parseInt(teamSize.max)
@@ -226,6 +252,14 @@ exports.createTeam = async (req, res) => {
     }
 
     const team = await Team.create(teamData);
+
+    if (eventId) {
+      const EventRegistration = require('../models/EventRegistration');
+      await EventRegistration.findOneAndUpdate(
+        { eventId, userId: req.user.id },
+        { teamId: team._id }
+      );
+    }
 
     res.status(201).json({
       success: true,

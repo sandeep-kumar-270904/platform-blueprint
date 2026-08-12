@@ -24,7 +24,7 @@ router.post('/sync', async (req, res) => {
 // GET /api/events
 router.get('/', async (req, res) => {
   try {
-    const { type, status, filter, search, sort } = req.query;
+    const { type, status, filter, search, sort, mode } = req.query;
     
     // Default to approved public events
     let query = { status: status || 'approved' };
@@ -35,6 +35,12 @@ router.get('/', async (req, res) => {
     
     if (search) {
       query.$text = { $search: search };
+    }
+    
+    if (mode === 'online') {
+      query.isVirtual = true;
+    } else if (mode === 'in_person') {
+      query.isVirtual = false;
     }
     
     if (filter === 'upcoming') {
@@ -60,6 +66,7 @@ router.get('/', async (req, res) => {
     if (sort === 'newest') sortObj = { createdAt: -1 };
     if (sort === 'oldest') sortObj = { createdAt: 1 };
     if (sort === 'date_desc') sortObj = { startDate: -1 };
+    if (sort === 'deadline') sortObj = { registrationDeadline: 1 };
     if (search) sortObj = { score: { $meta: "textScore" } };
     
     const page = parseInt(req.query.page) || 1;
@@ -337,24 +344,7 @@ router.post('/:id/register', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Already registered' });
     }
     
-    const teamName = req.body.teamName || null;
-    const lookingForTeammates = req.body.lookingForTeammates || false;
     const skills = req.body.skills || '';
-    
-    // Validate team constraints first before reserving a spot
-    if (event.eventType === 'hackathon' || event.eventType === 'competition') {
-      const min = event.teamSize?.min || 1;
-      const max = event.teamSize?.max || 1;
-      
-      if (teamName) {
-        const existingTeamMembers = await EventRegistration.countDocuments({ eventId: event._id, teamName });
-        if (existingTeamMembers + 1 > max) {
-          return res.status(400).json({ message: `Team '${teamName}' is already full (max ${max} members).` });
-        }
-      } else if (!lookingForTeammates && min > 1) {
-        return res.status(400).json({ message: `You must provide a Team Name to team up, or mark as looking for teammates.` });
-      }
-    }
     
     // Atomic capacity check and reservation
     let status = 'registered';
@@ -376,8 +366,6 @@ router.post('/:id/register', authMiddleware, async (req, res) => {
         eventId: event._id,
         userId: req.user.id,
         status,
-        teamName,
-        lookingForTeammates,
         skills
       });
       await reg.save();
@@ -601,106 +589,7 @@ router.delete('/:id/feedback/:feedbackId', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/events/:id/teammates
-router.get('/:id/teammates', authMiddleware, async (req, res) => {
-  try {
-    const teammates = await EventRegistration.find({ 
-      eventId: req.params.id, 
-      lookingForTeammates: true,
-      userId: { $ne: req.user.id } // exclude self
-    }).populate('userId', 'username full_name avatar_url email');
-    
-    // Get incoming and outgoing team requests for the current user
-    const TeamRequest = require('../models/TeamRequest');
-    const incomingRequests = await TeamRequest.find({ eventId: req.params.id, toUserId: req.user.id, status: 'pending' }).populate('fromUserId', 'username full_name avatar_url');
-    const outgoingRequests = await TeamRequest.find({ eventId: req.params.id, fromUserId: req.user.id, status: 'pending' });
 
-    res.json({ teammates, incomingRequests, outgoingRequests });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// POST /api/events/:id/team-request
-router.post('/:id/team-request', authMiddleware, async (req, res) => {
-  try {
-    const { toUserId } = req.body;
-    if (!toUserId) return res.status(400).json({ message: 'Target user ID is required' });
-
-    const TeamRequest = require('../models/TeamRequest');
-    
-    const existing = await TeamRequest.findOne({ eventId: req.params.id, fromUserId: req.user.id, toUserId });
-    if (existing) return res.status(400).json({ message: 'Request already sent' });
-
-    const reqDoc = new TeamRequest({
-      eventId: req.params.id,
-      fromUserId: req.user.id,
-      toUserId
-    });
-    await reqDoc.save();
-
-    const event = await Event.findById(req.params.id);
-    await notificationService.createNotification({
-      userId: toUserId,
-      type: 'team_request',
-      relatedContentId: event._id,
-      message: `Someone wants to team up with you for ${event.title}!`
-    });
-
-    res.json(reqDoc);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// POST /api/events/:id/team-requests/:reqId/accept
-router.post('/:id/team-requests/:reqId/accept', authMiddleware, async (req, res) => {
-  try {
-    const TeamRequest = require('../models/TeamRequest');
-    const teamReq = await TeamRequest.findById(req.params.reqId).populate('fromUserId');
-    if (!teamReq) return res.status(404).json({ message: 'Request not found' });
-    
-    if (teamReq.toUserId.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to accept this request' });
-    }
-
-    teamReq.status = 'accepted';
-    await teamReq.save();
-
-    // Update registrations
-    const myReg = await EventRegistration.findOne({ eventId: req.params.id, userId: req.user.id });
-    const theirReg = await EventRegistration.findOne({ eventId: req.params.id, userId: teamReq.fromUserId._id });
-    
-    if (myReg && theirReg) {
-      // Ensure there is a team name
-      if (!myReg.teamName && !theirReg.teamName) {
-        myReg.teamName = 'Team ' + myReg._id.toString().slice(-6).toUpperCase();
-      } else if (!myReg.teamName) {
-        myReg.teamName = theirReg.teamName;
-      }
-      
-      myReg.lookingForTeammates = false;
-      await myReg.save();
-
-      // Update their reg
-      theirReg.lookingForTeammates = false;
-      theirReg.teamName = myReg.teamName;
-      await theirReg.save();
-    }
-
-    const event = await Event.findById(req.params.id);
-    await notificationService.createNotification({
-      userId: teamReq.fromUserId._id,
-      type: 'team_request_accepted',
-      relatedContentId: event._id,
-      message: `Your team request for ${event.title} was accepted!`
-    });
-
-    res.json({ message: 'Request accepted' });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
 
 // POST /api/events/:id/checkin
 router.post('/:id/checkin', authMiddleware, async (req, res) => {
@@ -729,112 +618,9 @@ router.post('/:id/checkin', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/events/:id/teammates
-router.get('/:id/teammates', authMiddleware, async (req, res) => {
-  try {
-    const EventRegistration = require('../models/EventRegistration');
-    const TeamRequest = require('../models/TeamRequest');
 
-    const teammates = await EventRegistration.find({ 
-      eventId: req.params.id, 
-      status: 'registered',
-      lookingForTeammates: true,
-      userId: { $ne: req.user.id }
-    }).populate('userId', 'username full_name avatar_url');
 
-    const incomingRequests = await TeamRequest.find({
-      eventId: req.params.id,
-      toUserId: req.user.id,
-      status: 'pending'
-    }).populate('fromUserId', 'username full_name avatar_url');
 
-    const outgoingRequests = await TeamRequest.find({
-      eventId: req.params.id,
-      fromUserId: req.user.id,
-      status: 'pending'
-    });
-    
-    res.json({ teammates, incomingRequests, outgoingRequests });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// POST /api/events/:id/team-request
-router.post('/:id/team-request', authMiddleware, async (req, res) => {
-  try {
-    const { toUserId } = req.body;
-    const event = await Event.findById(req.params.id);
-    const TeamRequest = require('../models/TeamRequest');
-    
-    if (!event) return res.status(404).json({ message: 'Event not found' });
-    
-    const existingReq = await TeamRequest.findOne({
-      eventId: event._id,
-      fromUserId: req.user.id,
-      toUserId
-    });
-
-    if (existingReq) return res.status(400).json({ message: 'Request already sent' });
-
-    const newReq = new TeamRequest({
-      eventId: event._id,
-      fromUserId: req.user.id,
-      toUserId
-    });
-    await newReq.save();
-
-    const sender = await User.findById(req.user.id);
-    
-    await notificationService.createNotification({
-      userId: toUserId,
-      type: 'team_invite',
-      relatedContentId: event._id,
-      message: `${sender?.full_name || sender?.username} sent you a request to join their team for "${event.title}".`
-    });
-    
-    res.json({ message: 'Team request sent successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
-
-// POST /api/events/:id/team-requests/:reqId/accept
-router.post('/:id/team-requests/:reqId/accept', authMiddleware, async (req, res) => {
-  try {
-    const TeamRequest = require('../models/TeamRequest');
-    const EventRegistration = require('../models/EventRegistration');
-    
-    const teamReq = await TeamRequest.findById(req.params.reqId).populate('fromUserId');
-    if (!teamReq) return res.status(404).json({ message: 'Request not found' });
-    if (teamReq.toUserId.toString() !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
-
-    teamReq.status = 'accepted';
-    await teamReq.save();
-
-    // Group them up by giving them a teamName
-    const teamName = `Team ${teamReq.fromUserId.full_name || teamReq.fromUserId.username}`;
-
-    await EventRegistration.updateMany(
-      { eventId: req.params.id, userId: { $in: [teamReq.fromUserId._id, teamReq.toUserId] } },
-      { $set: { teamName, lookingForTeammates: false } }
-    );
-
-    const event = await Event.findById(req.params.id);
-    const acceptor = await User.findById(req.user.id);
-
-    await notificationService.createNotification({
-      userId: teamReq.fromUserId._id,
-      type: 'team_accept',
-      relatedContentId: event._id,
-      message: `${acceptor?.full_name || acceptor?.username} accepted your team request for "${event.title}".`
-    });
-
-    res.json({ message: 'Team request accepted' });
-  } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-});
 // GET /api/events/:id/discussions
 router.get('/:id/discussions', authMiddleware, async (req, res) => {
   try {

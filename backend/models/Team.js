@@ -20,6 +20,11 @@ const TeamSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  eventId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Event',
+    default: null
+  },
   teamSize: {
     current: {
       type: Number,
