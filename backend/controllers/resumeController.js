@@ -1,5 +1,3 @@
-const Job = require('../models/Job');
-const JobApplication = require('../models/JobApplication');
 const InterviewSession = require('../models/InterviewSession');
 const Resume = require('../models/Resume');
 const User = require('../models/User');
@@ -111,8 +109,7 @@ exports.tailorResume = async (req, res) => {
     // Get suggestions
     let descriptionToUse = jobDescription;
     if (jobId && !jobDescription) {
-      const job = await Job.findById(jobId);
-      if (job) descriptionToUse = job.description;
+      return res.status(400).json({ message: 'Job descriptions must be provided manually' });
     }
 
     if (descriptionToUse) {
@@ -694,46 +691,9 @@ exports.getInsights = async (req, res) => {
       });
     });
 
-    // 2. Gather skills from Jobs the user applied to
-    // Use the correct reference field for Job on JobApplication, which is 'job'
-    const applications = await JobApplication.find({ applicant: req.user.id }).populate('job').populate('resumeId');
-    let requiredSkills = {};
-    
-    // Tailoring effectiveness tracking
-    let tailoredAppsCount = 0;
-    let tailoredAppsInterviewCount = 0;
-    let untailoredAppsCount = 0;
-    let untailoredAppsInterviewCount = 0;
-
-    applications.forEach(app => {
-      if (app.job && app.job.skills) {
-        app.job.skills.forEach(skill => {
-          const s = skill.toLowerCase();
-          requiredSkills[s] = (requiredSkills[s] || 0) + 1;
-        });
-      }
-      
-      // Track tailoring effectiveness
-      const isInterviewed = ['shortlisted', 'interview', 'offered', 'hired'].includes(app.status);
-      const isTailored = app.resumeId && app.resumeId.tailoredForJobId && app.resumeId.tailoredForJobId.toString() === app.job._id.toString();
-      
-      if (isTailored) {
-        tailoredAppsCount++;
-        if (isInterviewed) tailoredAppsInterviewCount++;
-      } else {
-        untailoredAppsCount++;
-        if (isInterviewed) untailoredAppsInterviewCount++;
-      }
-    });
-
     // 3. Find Gaps (skills required by applied jobs but missing in user's resumes)
     let gaps = [];
-    for (const [skill, count] of Object.entries(requiredSkills)) {
-      if (!userSkills.has(skill)) {
-        gaps.push({ skill, demand: count });
-      }
-    }
-    gaps.sort((a, b) => b.demand - a.demand);
+    // Features relying on job application analysis have been removed.
 
     // 4. ATS Trend
     const atsTrend = resumes

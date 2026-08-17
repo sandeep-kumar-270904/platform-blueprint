@@ -19,6 +19,7 @@ import { AdminTeamModeration } from "@/components/admin/AdminTeamModeration";
 import { AdminSkillSwap } from "@/components/admin/AdminSkillSwap";
 import { AdminCreatorsModeration } from "@/components/admin/AdminCreatorsModeration";
 import { AdminAlumniVerification } from "@/components/admin/AdminAlumniVerification";
+import { AdminEventsPanel } from "@/components/admin/AdminEventsPanel";
 import { useAdmin } from "@/hooks/useAdmin";
 import { toast } from 'sonner';
 
@@ -117,6 +118,9 @@ const AdminPanel = () => {
             <TabsTrigger value="alumni">
               <GraduationCap className="mr-2 h-4 w-4" /> Alumni
             </TabsTrigger>
+            <TabsTrigger value="events">
+              <Activity className="mr-2 h-4 w-4" /> Events
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -160,9 +164,6 @@ const AdminPanel = () => {
                 <CardContent className="grid grid-cols-1 gap-4">
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
                     <Link to="/admin/mentors"><Users className="mr-3 h-5 w-5 text-blue-500" /> Mentors & Enterprise Cohorts</Link>
-                  </Button>
-                  <Button variant="outline" className="justify-start h-12 text-left" asChild>
-                    <Link to="/admin/jobs"><Briefcase className="mr-3 h-5 w-5 text-orange-500" /> Job Board & Recruiters</Link>
                   </Button>
                   <Button variant="outline" className="justify-start h-12 text-left" asChild>
                     <Link to="/admin/colleges"><GraduationCap className="mr-3 h-5 w-5 text-purple-500" /> College Insights</Link>
@@ -297,6 +298,10 @@ const AdminPanel = () => {
 
           <TabsContent value="alumni" className="bg-white p-6 rounded-xl border shadow-sm">
             <AdminAlumniVerification />
+          </TabsContent>
+
+          <TabsContent value="events" className="bg-white p-6 rounded-xl border shadow-sm">
+            <AdminEventsPanel />
           </TabsContent>
         </Tabs>
       </main>

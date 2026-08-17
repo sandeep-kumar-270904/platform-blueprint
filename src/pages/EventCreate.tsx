@@ -15,7 +15,7 @@ import { EventCard } from "@/components/events/EventCard";
 const steps = [
   { id: 1, title: "Details" },
   { id: 2, title: "Schedule" },
-  { id: 3, title: "Settings" },
+  { id: 3, title: "Participation" },
   { id: 4, title: "Review" }
 ];
 
@@ -175,22 +175,47 @@ export default function EventCreate() {
       setLoading(false);
     }
   };
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    toast.promise(
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/uploads`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        body: formData
+      }).then(async res => {
+        if (!res.ok) throw new Error("Upload failed");
+        const data = await res.json();
+        setForm(f => ({ ...f, bannerImage: data.url }));
+      }),
+      {
+        loading: 'Uploading image...',
+        success: 'Image uploaded successfully!',
+        error: 'Failed to upload image'
+      }
+    );
+  };
+
 
   // Build a fake Event object for the live preview
   const previewEvent = {
     _id: "preview-id",
     id: "preview-id",
-    title: form.title || "Event Title",
+    title: form.title || "Untitled event",
     description: form.description || "Event description will appear here.",
     eventType: form.eventType,
     bannerImage: form.bannerImage,
-    startDate: form.startDate || new Date().toISOString(),
-    endDate: form.endDate || new Date().toISOString(),
-    startTime: form.startTime || "09:00",
-    endTime: form.endTime || "17:00",
+    startDate: form.startDate,
+    endDate: form.endDate,
+    startTime: form.startTime,
+    endTime: form.endTime,
     timezone: form.timezone,
     isVirtual: form.isVirtual,
-    venue: form.isVirtual ? "Virtual" : (form.venue || "Location TBA"),
+    venue: form.isVirtual ? "Virtual" : form.venue,
     hostName: user?.full_name || user?.username || "You",
     registrationRequired: form.registrationRequired,
     capacity: form.capacity ? Number(form.capacity) : null,
@@ -252,9 +277,6 @@ export default function EventCreate() {
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground hidden md:inline-block mr-2">Drafts saved automatically</span>
-            <Button variant="outline" size="sm" onClick={() => handleSubmit(true)} disabled={loading}>
-              Save Draft
-            </Button>
           </div>
         </div>
       </header>
@@ -316,23 +338,48 @@ export default function EventCreate() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Cover Image URL (Optional)</Label>
-                        <div className="flex gap-2">
+                        <Label>Cover image</Label>
+                        <div className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center bg-muted/10 hover:bg-muted/20 transition-colors relative overflow-hidden group">
+                          {form.bannerImage ? (
+                            <div className="absolute inset-0 w-full h-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                               <p className="text-white font-medium">Click to replace</p>
+                            </div>
+                          ) : null}
+                          {form.bannerImage && (
+                             <img src={form.bannerImage.startsWith('http') ? form.bannerImage : `http://localhost:5000${form.bannerImage}`} alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-50" />
+                          )}
+                          <div className="relative z-20 flex flex-col items-center pointer-events-none">
+                            <ImageIcon className={`w-8 h-8 mb-4 ${form.bannerImage ? 'text-white drop-shadow-md' : 'text-muted-foreground'}`} />
+                            <p className={`font-semibold text-sm ${form.bannerImage ? 'text-white drop-shadow-md' : ''}`}>Upload cover image</p>
+                            <p className={`text-xs mb-4 ${form.bannerImage ? 'text-white drop-shadow-md' : 'text-muted-foreground'}`}>Drag & drop or browse (PNG · JPG · WebP)</p>
+                          </div>
+                          
+                          <input 
+                            type="file" 
+                            accept="image/png, image/jpeg, image/webp" 
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-30" 
+                            onChange={handleImageUpload}
+                          />
+                        </div>
+                        <div className="mt-2 flex gap-2 items-center">
                           <Input 
-                            placeholder="https://example.com/image.jpg" 
+                            placeholder="Or paste an image URL directly..." 
                             value={form.bannerImage}
                             onChange={e => setForm({...form, bannerImage: e.target.value})}
+                            className="text-xs"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Tags (Optional)</Label>
-                        <Input 
-                          placeholder="e.g. react, ai, beginner (comma separated)" 
-                          value={form.tags}
-                          onChange={e => setForm({...form, tags: e.target.value})}
-                        />
+                        <Label>Topics & Skills</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            placeholder="e.g. AI, React, Web3 (comma separated)" 
+                            value={form.tags}
+                            onChange={e => setForm({...form, tags: e.target.value})}
+                          />
+                        </div>
                       </div>
                     </div>
                  </div>
@@ -444,7 +491,19 @@ export default function EventCreate() {
                         </div>
                       </div>
 
-                      {!form.isVirtual && (
+                      {form.isVirtual ? (
+                        <div className="space-y-2 animate-in fade-in">
+                          <Label>Platform Link</Label>
+                          <Input 
+                            placeholder="e.g. https://zoom.us/j/..." 
+                            value={form.venue}
+                            onChange={e => {
+                              setForm({...form, venue: e.target.value});
+                              if(errors.venue) setErrors({...errors, venue: ""});
+                            }}
+                          />
+                        </div>
+                      ) : (
                         <div className="space-y-2 animate-in fade-in">
                           <Label>Venue Address <span className="text-destructive">*</span></Label>
                           <Input 
@@ -624,6 +683,23 @@ export default function EventCreate() {
                            </li>
                          </ul>
                       </div>
+
+                      <div className="p-5 border rounded-xl bg-card space-y-3">
+                         <div className="flex justify-between items-center">
+                           <h4 className="font-semibold">Participation</h4>
+                           <Button variant="ghost" size="sm" onClick={() => setCurrentStep(3)}>Edit</Button>
+                         </div>
+                         <ul className="space-y-2 text-sm">
+                           <li className="flex items-center gap-2"><Check className="w-4 h-4 text-success" /> Registration: {form.registrationRequired ? 'Required' : 'Optional'}</li>
+                           <li className="flex items-center gap-2"><Check className="w-4 h-4 text-success" /> Capacity: {form.capacity ? form.capacity : 'Unlimited'}</li>
+                           {form.registrationRequired && (
+                             <li className="flex items-center gap-2">
+                               {form.registrationDeadline ? <Check className="w-4 h-4 text-success" /> : <AlertCircle className="w-4 h-4 text-warning" />}
+                               Deadline: {form.registrationDeadline || 'Recommended'}
+                             </li>
+                           )}
+                         </ul>
+                      </div>
                     </div>
                  </div>
                )}
@@ -659,6 +735,9 @@ export default function EventCreate() {
            </div>
            
            <div className="flex gap-3">
+             <Button variant="outline" onClick={() => handleSubmit(true)} disabled={loading}>
+               Save Draft
+             </Button>
              {currentStep < 4 ? (
                <Button onClick={handleNext}>
                  Continue <ChevronRight className="w-4 h-4 ml-2" />

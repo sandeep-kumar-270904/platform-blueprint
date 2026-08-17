@@ -1,4 +1,3 @@
-const Course = require('../models/Course');
 const Team = require('../models/Team');
 const User = require('../models/User');
 const SkillGapLog = require('../models/SkillGapLog');
@@ -316,19 +315,7 @@ class SkillGapAdvisor {
    * Ensure curated course catalog is seeded into Course collection (reusing StudentHub's existing learning library)
    */
   async ensureCuratedCatalog() {
-    if (isSeeded) return;
-    try {
-      for (const item of CURATED_COURSE_CATALOG) {
-        await Course.findOneAndUpdate(
-          { externalUrl: item.externalUrl },
-          { $set: item },
-          { upsert: true, new: true }
-        );
-      }
-      isSeeded = true;
-    } catch (err) {
-      console.error('[SkillGapAdvisor] Error seeding curated catalog:', err.message || err);
-    }
+    isSeeded = true;
   }
 
   /**
@@ -383,42 +370,26 @@ class SkillGapAdvisor {
     const resourcesBySkill = [];
     for (const skill of missingSkills) {
       const cleanSkill = skill.toLowerCase().trim();
-      // Search courses where tags include cleanSkill or title/description matches
-      const matchedCourses = await Course.find({
-        $or: [
-          { tags: { $in: [cleanSkill] } },
-          { title: { $regex: new RegExp(cleanSkill, 'i') } },
-          { category: { $regex: new RegExp(cleanSkill, 'i') } }
-        ]
-      }).sort({ level: 1, totalEnrollments: -1 }).limit(3);
+      
+      const resources = [];
 
-      // Map to frontend-friendly resource objects
-      const resources = matchedCourses.map(c => ({
-        id: c._id,
-        title: c.title,
-        url: c.externalUrl,
-        type: c.externalUrl && c.externalUrl.includes('youtube') ? 'video' : 'course',
-        difficulty: c.level ? c.level.toLowerCase() : 'beginner',
-        source: c.provider || 'StudentHub Learning'
-      }));
-
-      // If no direct database match found, look up from fallback catalog in memory
-      if (resources.length === 0) {
-        const catalogMatches = CURATED_COURSE_CATALOG.filter(c => 
-          c.tags.includes(cleanSkill) || c.title.toLowerCase().includes(cleanSkill) || c.category.toLowerCase().includes(cleanSkill)
-        ).slice(0, 2);
-        
-        catalogMatches.forEach(c => {
-          resources.push({
-            id: 'curated_' + Math.random().toString(36).substr(2, 6),
-            title: c.title,
-            url: c.externalUrl,
-            type: 'course',
-            difficulty: c.level.toLowerCase(),
-            source: c.provider
-          });
+      // Look up from catalog in memory
+      const catalogMatches = CURATED_COURSE_CATALOG.filter(c => 
+        (c.tags && c.tags.includes(cleanSkill)) || 
+        (c.title && c.title.toLowerCase().includes(cleanSkill)) || 
+        (c.category && c.category.toLowerCase().includes(cleanSkill))
+      ).slice(0, 3);
+      
+      catalogMatches.forEach(c => {
+        resources.push({
+          id: 'curated_' + Math.random().toString(36).substr(2, 6),
+          title: c.title,
+          url: c.externalUrl,
+          type: c.externalUrl && c.externalUrl.includes('youtube') ? 'video' : 'course',
+          difficulty: c.level ? c.level.toLowerCase() : 'beginner',
+          source: c.provider || 'StudentHub Learning'
         });
-      }
+      });
 
       resourcesBySkill.push({
         skill: skill,
@@ -478,19 +449,17 @@ class SkillGapAdvisor {
     for (const [skill, count] of sortedSkills) {
       const percentage = logs.length > 0 ? Math.round((count / logs.length) * 100) : 0;
 
-      // Look up resources from existing Course model
-      const matchedCourses = await Course.find({
-        $or: [
-          { tags: { $in: [skill] } },
-          { title: { $regex: new RegExp(skill, 'i') } }
-        ]
-      }).sort({ level: 1 }).limit(3);
+      // Look up resources from catalog in memory
+      const catalogMatches = CURATED_COURSE_CATALOG.filter(c => 
+        (c.tags && c.tags.includes(skill)) || 
+        (c.title && c.title.toLowerCase().includes(skill))
+      ).slice(0, 3);
 
-      const resources = matchedCourses.map(c => ({
-        id: c._id,
+      const resources = catalogMatches.map(c => ({
+        id: 'curated_' + Math.random().toString(36).substr(2, 6),
         title: c.title,
         url: c.externalUrl,
-        type: 'course',
+        type: c.externalUrl && c.externalUrl.includes('youtube') ? 'video' : 'course',
         difficulty: c.level ? c.level.toLowerCase() : 'beginner',
         source: c.provider || 'StudentHub Learning'
       }));

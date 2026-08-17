@@ -304,7 +304,7 @@ export default function Events() {
                               registered={myRegistrations.has(event.id!)} 
                               bookmarked={myBookmarks.has(event.id!)}
                               toggleBookmark={toggleBookmark}
-                              fmtDate={fmtDate} 
+ 
                               typeColorClass={typeColorClass}
                               onClick={() => navigate(`/events/${event.id}`)}
                               compact
@@ -340,7 +340,7 @@ export default function Events() {
                           registered={myRegistrations.has(event.id!)} 
                           bookmarked={myBookmarks.has(event.id!)}
                           toggleBookmark={toggleBookmark}
-                          fmtDate={fmtDate} 
+ 
                           typeColorClass={typeColorClass}
                           onClick={() => navigate(`/events/${event.id}`)}
                           compact={false}
