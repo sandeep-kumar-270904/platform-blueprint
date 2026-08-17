@@ -51,22 +51,10 @@ const ApplicationTracker = lazy(() => import("./pages/ApplicationTracker"));
 const InnovationHub = lazy(() => import("./pages/InnovationHub"));
 const Scholarships = lazy(() => import("./pages/Scholarships"));
 const ScholarshipCommunity = lazy(() => import("./pages/ScholarshipCommunity"));
-const Courses = lazy(() => import("./pages/Courses"));
-const CourseDetail = lazy(() => import("./pages/CourseDetail"));
 const LearningPathDetail = lazy(() => import("./pages/LearningPathDetail"));
-const JobsPortal = lazy(() => import("./pages/JobsPortal"));
-const JobDetail = lazy(() => import("./pages/JobDetail"));
-const SavedJobs = lazy(() => import("./pages/SavedJobs"));
-const JobAlerts = lazy(() => import("./pages/JobAlerts"));
 const FollowedCompanies = lazy(() => import("./pages/FollowedCompanies"));
 const CampusInsights = lazy(() => import("./pages/CampusInsights"));
-const ATSChecker = lazy(() => import("./pages/ATSChecker"));
-const MyApplications = lazy(() => import("./pages/MyApplications"));
-const ATSDashboard = lazy(() => import("./pages/ATSDashboard"));
 const Assessments = lazy(() => import("./pages/Assessments"));
-const RecruiterDashboard = lazy(() => import("./pages/RecruiterDashboard"));
-const JobAnalytics = lazy(() => import("./pages/JobAnalytics"));
-const CandidateSearch = lazy(() => import("./pages/CandidateSearch"));
 const QuizHub = lazy(() => import("./pages/QuizHub"));
 const Challenges = lazy(() => import("./pages/Challenges"));
 const Tournaments = lazy(() => import("./pages/Tournaments"));
@@ -115,7 +103,6 @@ const AdminCreatorsPanel = lazy(() => import("./pages/admin/AdminCreatorsPanel")
 const AdminClassroomsPanel = lazy(() => import("./pages/admin/AdminClassroomsPanel"));
 const DailyHacks = lazy(() => import("./pages/DailyHacks"));
 const VideoRoomPage = lazy(() => import("./pages/VideoRoomPage"));
-const AdminJobsPanel = lazy(() => import("./pages/admin/AdminJobsPanel"));
 const AdminStudyGroupsPanel = lazy(() => import("./pages/admin/AdminStudyGroupsPanel"));
 const AdminRoomRentalsPanel = lazy(() => import("./pages/admin/AdminRoomRentalsPanel"));
 const AdminRoommatesPanel = lazy(() => import("./pages/admin/AdminRoommatesPanel"));
@@ -225,7 +212,6 @@ const App = () => (
           <Route path="/events/:id/manage" element={<ProtectedRoute><EventManage /></ProtectedRoute>} />
           <Route path="/video/:id" element={<VideoRoomPage />} />
           <Route path="/recruiter/verify" element={<RecruiterVerify />} />
-          <Route path="/recruiter/candidates" element={<CandidateSearch />} />
           <Route path="/scholarships" element={<Scholarships />} />
           <Route path="/scholarships/:id" element={<ScholarshipDetail />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
@@ -286,21 +272,10 @@ const App = () => (
           <Route path="/scholarships/calculator" element={<ProtectedRoute><ScholarshipCalculator /></ProtectedRoute>} />
           <Route path="/scholarships/:id" element={<ScholarshipDetail />} />
           <Route path="/scholarships/:id/apply" element={<ProtectedRoute><ScholarshipApply /></ProtectedRoute>} />
-          <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
-          <Route path="/courses/:id" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
           <Route path="/learning-paths/:id" element={<ProtectedRoute><LearningPathDetail /></ProtectedRoute>} />
-          <Route path="/jobs" element={<ProtectedRoute><JobsPortal /></ProtectedRoute>} />
-          <Route path="/jobs/saved" element={<ProtectedRoute><SavedJobs /></ProtectedRoute>} />
-          <Route path="/job-alerts" element={<ProtectedRoute><JobAlerts /></ProtectedRoute>} />
           <Route path="/companies/followed" element={<ProtectedRoute><FollowedCompanies /></ProtectedRoute>} />
           <Route path="/insights" element={<ProtectedRoute><CampusInsights /></ProtectedRoute>} />
-          <Route path="/resume/ats-check" element={<ProtectedRoute><ATSChecker /></ProtectedRoute>} />
           <Route path="/assessments" element={<ProtectedRoute><Assessments /></ProtectedRoute>} />
-          <Route path="/jobs/:id" element={<ProtectedRoute><JobDetail /></ProtectedRoute>} />
-          <Route path="/applications" element={<ProtectedRoute><MyApplications /></ProtectedRoute>} />
-          <Route path="/recruiter/dashboard" element={<ProtectedRoute><RecruiterDashboard /></ProtectedRoute>} />
-          <Route path="/recruiter/jobs/:id/applicants" element={<ProtectedRoute><ATSDashboard /></ProtectedRoute>} />
-          <Route path="/recruiter/jobs/:id/analytics" element={<ProtectedRoute><JobAnalytics /></ProtectedRoute>} />
           <Route path="/quizzes" element={<ProtectedRoute><QuizHub /></ProtectedRoute>} />
           <Route path="/quiz" element={<ProtectedRoute><QuizHub /></ProtectedRoute>} />
           <Route path="/quiz/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
@@ -363,7 +338,6 @@ const App = () => (
           <Route path="/admin/scholarships" element={<ProtectedRoute><AdminScholarships /></ProtectedRoute>} />
           <Route path="/admin/creators" element={<ProtectedRoute><AdminCreatorsPanel /></ProtectedRoute>} />
           <Route path="/admin/users/:id/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/admin/jobs" element={<ProtectedRoute><AdminJobsPanel /></ProtectedRoute>} />
           <Route path="/admin/colleges" element={<ProtectedRoute><AdminCollegePanel /></ProtectedRoute>} />
           <Route path="/admin/mentors" element={<ProtectedRoute><MentorsAdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/resumes" element={<ProtectedRoute><AdminResumeDashboard /></ProtectedRoute>} />
@@ -414,3 +388,5 @@ const App = () => (
 );
 
 export default App;
+
+

@@ -26,6 +26,10 @@ const isValidDate = (d: any) => {
   return date.getTime() > 0 && date.getFullYear() > 1971;
 };
 
+const fmtDate = (d: any) => {
+  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+
 const formatEventType = (type: string) => {
   if (!type) return "Event";
   if (type === 'community_content') return 'Community';
@@ -51,7 +55,7 @@ const getCategoryVisuals = (type: string) => {
   }
 };
 
-export const EventCard = ({ event, registered, bookmarked, toggleBookmark, fmtDate, onClick }: any) => {
+export const EventCard = ({ event, registered, bookmarked, toggleBookmark, onClick }: any) => {
   const isFull = event.capacity && event.registrationCount >= event.capacity;
   const isPast = isValidDate(event.startDate) && new Date(event.startDate) < new Date();
   

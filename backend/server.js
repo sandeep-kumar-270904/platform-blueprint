@@ -315,7 +315,7 @@ connectDB().then(async () => {
           
           if (endDate < now) {
             // Event has passed, mark as completed
-            event.status = 'completed';
+            event.lifecycleStatus = 'completed';
             await event.save();
             
             // Notify attendees to leave feedback
@@ -499,7 +499,7 @@ connectDB().then(async () => {
       // --- 30-Day Notification Cleanup ---
       try {
         const Notification = require('./models/Notification');
-        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         await Notification.deleteMany({ createdAt: { $lt: thirtyDaysAgo } });
       } catch (err) {
         console.error('Error in Notification cleanup cron:', err);
@@ -654,7 +654,6 @@ app.use('/api/coach', require('./routes/coach'));
 
 const notificationsRouter = require('./routes/notifications');
 
-const applicationsRoutes = require('./routes/applications');
 const resumesRoutes = require('./routes/resumes');
 const mentorsRoutes = require('./routes/mentors');
 const scholarshipRoutes = require('./routes/scholarships');
@@ -663,7 +662,6 @@ const roommateAdminRoutes = require('./routes/roommateAdmin');
 const roommateSuggestionsRoutes = require('./routes/roommateSuggestions');
 const roommateCalendarRoutes = require('./routes/roommateCalendar');
 const roommateAnalyticsRoutes = require('./routes/roommateAnalytics');
-const jobRoutes = require('./routes/jobs');
 const quizzesRoutes = require('./routes/quizzes');
 
 app.use('/api/auth', authRoutes);
@@ -673,7 +671,6 @@ app.use('/api/study-groups', studyGroups);
 app.use('/api/placement-referrals', placementReferrals);
 app.use('/api/placement-onboarding', placementOnboarding);
 app.use('/api/aptitude', aptitudeRoutes);
-app.use('/api/jobs', jobRoutes);
 app.use('/api/quizzes', quizzesRoutes);
 app.use('/api/webhooks', webhooksRoutes);
 app.use('/api/salary', salaryRoutes);
@@ -683,7 +680,6 @@ app.use('/api/gd-live', gdLiveRoutes);
 app.use('/api/mentor', require('./routes/mentor'));
 
 // app.use('/api/classes', require('./routes/classes'));
-// app.use('/api/courses', require('./routes/courses'));
 // app.use('/api/skills', require('./routes/skills'));
 // app.use('/api/projects', require('./routes/projects'));
 // app.use('/api/companies', require('./routes/companies'));
@@ -700,7 +696,6 @@ app.use('/api/events', require('./routes/events'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/community', require('./routes/community'));
 app.use('/api/mentors', require('./routes/mentors'));
-app.use('/api/jobs', require('./routes/jobs'));
 app.use('/api/resumes', require('./routes/resumes'));
 app.use('/api/templates', require('./routes/templates'));
 app.use('/api/scholarships', require('./routes/scholarships'));
@@ -727,14 +722,12 @@ app.use('/api/note-comments', require('./routes/noteComments'));
 app.use('/api/admin/collections', require('./routes/adminCrud'));
 app.use('/api/admin/analytics', require('./routes/adminAnalytics'));
 app.use('/api/admin', require('./routes/admin'));
-app.use('/api/admin', require('./routes/adminJobs'));
   app.use('/api/admin/mentors', require('./routes/adminMentorsOverview'));
   app.use('/api/admin/moderation', require('./routes/adminModeration'));
   app.use('/api/admin/community', require('./routes/adminCommunity'));
   app.use('/api/admin/financials', require('./routes/adminFinancials'));
   app.use('/api/admin/quiz-review', require('./routes/adminQuizReview'));
   app.use('/api/admin/skill-swap', require('./routes/adminSkillSwap'));
-app.use('/api/recruiter', require('./routes/recruiter'));
 app.use('/api/offers', require('./routes/offers'));
 app.use('/api/innovation', require('./routes/innovation'));
 app.use('/api/career-simulator', require('./routes/careerSimulator')); // Re-route to avoid conflict
@@ -772,16 +765,12 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/courses', require('./routes/courses'));
 app.use('/api/learning-paths', require('./routes/learningPaths'));
 app.use('/api/mentors', require('./routes/mentors'));
-app.use('/api/applications', require('./routes/applications'));
-app.use('/api/job-alerts', require('./routes/jobAlerts'));
 app.use('/api/companies', require('./routes/companies'));
 app.use('/api/assessments', require('./routes/assessments'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/insights', require('./routes/insights'));
-app.use('/api/admin/jobs', require('./routes/adminJobs'));
 app.use('/api/oa', require('./routes/oa'));
 app.use('/api/admin/quiz-reports', require('./routes/adminQuizReports'));
 app.use('/api/admin/resumes', require('./routes/adminResumes'));
@@ -1087,3 +1076,7 @@ process.on('SIGINT', shutdown);
 
 
 module.exports = app;
+
+
+
+

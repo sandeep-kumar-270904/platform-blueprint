@@ -27,7 +27,12 @@ router.get('/', async (req, res) => {
     const { type, status, filter, search, sort, mode } = req.query;
     
     // Default to approved public events
-    let query = { status: status || 'approved' };
+    let query = {};
+    if (status && status !== 'all') {
+      query.status = status;
+    } else if (!status) {
+      query.status = 'approved';
+    }
     
     if (type && type !== 'all') {
       query.eventType = type;

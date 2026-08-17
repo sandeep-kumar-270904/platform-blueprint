@@ -333,10 +333,143 @@ const EventDetail = () => {
   const isExternal = event.source && event.source.provider !== 'INTERNAL';
   const isExternalContent = event.isExternalContent || event.eventType === 'community_content';
 
+  const renderPrimaryAction = (isMobile = false) => {
+    if (isExternal) {
+      return (
+        <>
+          {!isMobile && isExternalContent && (
+            <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800 mb-4 text-center">
+              <p className="text-sm text-blue-800 dark:text-blue-300 font-medium">
+                This is community content discovered from {event.source?.provider}.
+              </p>
+            </div>
+          )}
+          {!isMobile && !isExternalContent && (
+            <p className="text-sm text-muted-foreground text-center mb-4">
+              Registration for this event is handled by the external organizer on {event.source?.provider}.
+            </p>
+          )}
+          <Button 
+            size="lg"
+            className="w-full font-bold text-md" 
+            onClick={() => {
+              const url = event.source?.externalUrl || event.externalRegistrationLink;
+              if (url) window.open(url, '_blank');
+              else toast({ title: "Registration link unavailable", variant: "destructive" });
+            }}
+          >
+            <ExternalLink className="mr-2 h-5 w-5" /> View on {event.source?.provider || "External Site"}
+          </Button>
+        </>
+      );
+    }
+    if (event.lifecycleStatus === 'cancelled') {
+      return (
+        <div className="space-y-3 w-full">
+          <Button size="lg" variant="destructive" className="w-full font-bold text-md cursor-not-allowed">
+            Event Cancelled
+          </Button>
+          {!isMobile && myStatus && (
+             <div className="text-sm text-muted-foreground text-center">
+               Your registration ({myStatus}) has been voided.
+             </div>
+          )}
+        </div>
+      );
+    }
+    if (isPast) {
+      return (
+        <div className="space-y-3 w-full">
+          <Button size="lg" variant="secondary" className="w-full font-bold text-md cursor-not-allowed">
+            Event has ended
+          </Button>
+          {!isMobile && myStatus && (
+            <div className="text-sm text-success text-center font-medium flex items-center justify-center gap-1">
+              <CheckCircle2 className="h-4 w-4" /> You {myStatus === 'waitlisted' ? 'were on the waitlist' : 'attended this event'}
+            </div>
+          )}
+          {myStatus === 'registered' && !isMobile && (
+            <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full shadow-sm">
+                  <Star className="mr-2 h-4 w-4" /> Rate & Review
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Rate {event.title}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Rating (1-5)</Label>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <Star 
+                          key={star} 
+                          className={`h-8 w-8 cursor-pointer transition-colors ${feedbackForm.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`}
+                          onClick={() => setFeedbackForm({...feedbackForm, rating: star})}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Review</Label>
+                    <Textarea 
+                      placeholder="What did you think of the event?" 
+                      value={feedbackForm.reviewText} 
+                      onChange={e => setFeedbackForm({...feedbackForm, reviewText: e.target.value})}
+                      className="min-h-[100px]"
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="recommend" 
+                      checked={feedbackForm.wouldRecommend} 
+                      onCheckedChange={c => setFeedbackForm({...feedbackForm, wouldRecommend: !!c})}
+                    />
+                    <Label htmlFor="recommend">I would recommend this event</Label>
+                  </div>
+                  <Button className="w-full" onClick={handleSubmitFeedback} disabled={submittingFeedback}>
+                    {submittingFeedback ? "Submitting..." : "Submit Feedback"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      );
+    }
+    if (myStatus) {
+      return (
+        <div className="space-y-3 w-full">
+          <Button size="lg" variant="success" className="w-full font-bold text-md bg-success/10 text-success hover:bg-success/20 cursor-default border border-success/20">
+            <CheckCircle2 className="mr-2 h-5 w-5" /> {myStatus === 'waitlisted' ? 'On Waitlist' : 'Registered'}
+          </Button>
+          {!isMobile && <Button variant="ghost" className="w-full text-muted-foreground hover:text-destructive" onClick={handleCancel}>Cancel Registration</Button>}
+        </div>
+      );
+    }
+    if (deadlinePassed) {
+      return (
+        <Button size="lg" variant="secondary" className="w-full font-bold text-md cursor-not-allowed">
+          Registration Closed
+        </Button>
+      );
+    }
+    return (
+      <Button size="lg" className="w-full font-bold text-md" variant={isFull ? "secondary" : "default"} onClick={(e) => {
+        e.preventDefault();
+        handleRegister();
+      }}>
+        {isFull ? "Join Waitlist" : "Register Now"}
+      </Button>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
-      <div className="container mx-auto px-4 pt-24 pb-12 max-w-6xl">
+      <div className="container mx-auto px-4 pt-24 pb-32 md:pb-12 max-w-6xl">
         <Button variant="ghost" onClick={() => navigate("/events")} className="mb-6 -ml-4">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Events
         </Button>
@@ -561,122 +694,8 @@ const EventDetail = () => {
                   </div>
                 )}
 
-                <div className="pt-6 border-t space-y-3">
-                  {isExternal ? (
-                    <>
-                      {isExternalContent && (
-                        <div className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800 mb-4 text-center">
-                          <p className="text-sm text-blue-800 dark:text-blue-300 font-medium">
-                            This is community content discovered from {event.source?.provider}.
-                          </p>
-                        </div>
-                      )}
-                      {!isExternalContent && (
-                        <p className="text-sm text-muted-foreground text-center mb-4">
-                          Registration for this event is handled by the external organizer on {event.source?.provider}.
-                        </p>
-                      )}
-                      <Button 
-                        size="lg"
-                        className="w-full font-bold text-md" 
-                        onClick={() => {
-                          const url = event.source?.externalUrl || event.externalRegistrationLink;
-                          if (url) window.open(url, '_blank');
-                          else toast({ title: "Registration link unavailable", variant: "destructive" });
-                        }}
-                      >
-                        <ExternalLink className="mr-2 h-5 w-5" /> View on {event.source?.provider || "External Site"}
-                      </Button>
-                    </>
-                  ) : event.lifecycleStatus === 'cancelled' ? (
-                    <div className="space-y-3">
-                      <Button size="lg" variant="destructive" className="w-full font-bold text-md cursor-not-allowed">
-                        Event Cancelled
-                      </Button>
-                      {myStatus && (
-                         <div className="text-sm text-muted-foreground text-center">
-                           Your registration ({myStatus}) has been voided.
-                         </div>
-                      )}
-                    </div>
-                  ) : isPast ? (
-                    <div className="space-y-3">
-                      <Button size="lg" variant="secondary" className="w-full font-bold text-md cursor-not-allowed">
-                        Event has ended
-                      </Button>
-                      {myStatus && (
-                        <div className="text-sm text-success text-center font-medium flex items-center justify-center gap-1">
-                          <CheckCircle2 className="h-4 w-4" /> You {myStatus === 'waitlisted' ? 'were on the waitlist' : 'attended this event'}
-                        </div>
-                      )}
-                      {myStatus === 'registered' && (
-                        <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" className="w-full shadow-sm">
-                              <Star className="mr-2 h-4 w-4" /> Rate & Review
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                              <DialogTitle>Rate {event.title}</DialogTitle>
-                            </DialogHeader>
-                            <div className="space-y-4 py-4">
-                              <div className="space-y-2">
-                                <Label>Rating (1-5)</Label>
-                                <div className="flex gap-2">
-                                  {[1, 2, 3, 4, 5].map(star => (
-                                    <Star 
-                                      key={star} 
-                                      className={`h-8 w-8 cursor-pointer transition-colors ${feedbackForm.rating >= star ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground'}`}
-                                      onClick={() => setFeedbackForm({...feedbackForm, rating: star})}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Review</Label>
-                                <Textarea 
-                                  placeholder="What did you think of the event?" 
-                                  value={feedbackForm.reviewText} 
-                                  onChange={e => setFeedbackForm({...feedbackForm, reviewText: e.target.value})}
-                                  className="min-h-[100px]"
-                                />
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox 
-                                  id="recommend" 
-                                  checked={feedbackForm.wouldRecommend} 
-                                  onCheckedChange={c => setFeedbackForm({...feedbackForm, wouldRecommend: !!c})}
-                                />
-                                <Label htmlFor="recommend">I would recommend this event</Label>
-                              </div>
-                              <Button className="w-full" onClick={handleSubmitFeedback} disabled={submittingFeedback}>
-                                {submittingFeedback ? "Submitting..." : "Submit Feedback"}
-                              </Button>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      )}
-                    </div>
-                  ) : myStatus ? (
-                    <div className="space-y-3">
-                      <Button size="lg" variant="success" className="w-full font-bold text-md bg-success/10 text-success hover:bg-success/20 cursor-default border border-success/20">
-                        <CheckCircle2 className="mr-2 h-5 w-5" /> {myStatus === 'waitlisted' ? 'On Waitlist' : 'Registered'}
-                      </Button>
-                      <Button variant="ghost" className="w-full text-muted-foreground hover:text-destructive" onClick={handleCancel}>Cancel Registration</Button>
-                    </div>
-                  ) : deadlinePassed ? (
-                    <Button size="lg" variant="secondary" className="w-full font-bold text-md cursor-not-allowed">
-                      Registration Closed
-                    </Button>
-                  ) : (
-                    <Button size="lg" className="w-full font-bold text-md" variant={isFull ? "secondary" : "default"} onClick={(e) => {
-                      e.preventDefault();
-                      handleRegister();
-                    }}>
-                      {isFull ? "Join Waitlist" : "Register Now"}
-                    </Button>
-                  )}
+                <div className="pt-6 border-t space-y-3 hidden md:block">
+                  {renderPrimaryAction(false)}
                 </div>
               </CardContent>
             </Card>
@@ -703,6 +722,22 @@ const EventDetail = () => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* MOBILE STICKY ACTION BAR */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-xl border-t shadow-[0_-8px_30px_rgb(0,0,0,0.08)] z-50 animate-in slide-in-from-bottom-full duration-300">
+        <div className="flex items-center justify-between mb-3 px-1">
+          <div>
+            <div className="font-bold text-lg leading-tight">{isValidDate(event.startDate) ? fmtDate(event.startDate) : 'Date TBA'}</div>
+            <div className="text-xs text-primary font-semibold uppercase tracking-wider">{countdown}</div>
+          </div>
+          {myStatus && (
+             <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-destructive px-2" onClick={handleCancel}>
+               Cancel
+             </Button>
+          )}
+        </div>
+        {renderPrimaryAction(true)}
       </div>
     </div>
   );

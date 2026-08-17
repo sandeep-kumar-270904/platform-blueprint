@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 
 import { DashboardOverview } from "@/components/dashboard/DashboardOverview";
-import { MyCourses } from "@/components/dashboard/MyCourses";
 import { MyIdeas } from "@/components/dashboard/MyIdeas";
 import { MyCollaborations } from "@/components/dashboard/MyCollaborations";
 import { MyTeams } from "@/components/dashboard/MyTeams";
@@ -53,7 +52,6 @@ const navGroups = [
     label: "LEARN",
     items: [
       { id: "overview", label: "Overview", icon: LayoutDashboard },
-      { id: "courses", label: "My Learning", icon: BookOpen },
       { id: "progress", label: "Learning Progress", icon: TrendingUp },
     ]
   },
@@ -179,8 +177,6 @@ const Dashboard = () => {
     if (!targetUserId) return null;
 
     switch (activeSection) {
-      case "courses":
-        return <MyCourses />;
       case "overview":
         return (
           <div className="space-y-6">
@@ -368,3 +364,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
