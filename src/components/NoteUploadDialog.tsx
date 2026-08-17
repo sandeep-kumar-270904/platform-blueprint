@@ -7,14 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, Loader2, Sparkles, FileText, BookOpen } from "lucide-react";
+import { Upload, Sparkles, FileText, BookOpen } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 
 interface NoteUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  onSuccess: (newNote: any) => void;
 }
 
 const CATEGORIES = [
@@ -48,14 +48,24 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
   const [year, setYear] = useState("");
   const [tags, setTags] = useState("");
   const [enhanceWithAI, setEnhanceWithAI] = useState(true);
+  
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [step, setStep] = useState(1);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.type !== "application/pdf") {
-        toast.error("Please upload a PDF file");
+      const allowedTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "text/csv"
+      ];
+      if (!allowedTypes.includes(selectedFile.type) && !selectedFile.name.match(/\.(pdf|doc|docx|xls|xlsx|csv)$/i)) {
+        toast.error("Please upload a PDF, Word, or Excel file");
         return;
       }
       if (selectedFile.size > 50 * 1024 * 1024) {
@@ -64,16 +74,17 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
       }
       setFile(selectedFile);
       if (!title) {
-        setTitle(selectedFile.name.replace(".pdf", ""));
+        setTitle(selectedFile.name.replace(/\.[^/.]+$/, ""));
       }
     }
   };
 
   const validateStep1 = () => {
-    if (!file) { toast.error("Please select a PDF file"); return false; }
-    if (!title.trim() || title.trim().length < 3) { toast.error("Title must be at least 3 characters"); return false; }
+    if (!file) { toast.error("Please select a file to upload"); return false; }
+    if (!title.trim() || title.trim().length < 5) { toast.error("Title must be at least 5 characters long"); return false; }
     if (!subject.trim()) { toast.error("Subject is required"); return false; }
     if (!category) { toast.error("Please select a category"); return false; }
+    if (description.trim() && description.trim().length < 10) { toast.error("Description should be at least 10 characters long if provided"); return false; }
     return true;
   };
 
@@ -84,7 +95,7 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
   const resetForm = () => {
     setFile(null); setTitle(""); setSubject(""); setDescription("");
     setBranch(""); setSemester(""); setCategory(""); setUniversity("");
-    setYear(""); setTags(""); setStep(1);
+    setYear(""); setTags(""); setStep(1); setProgress(0); setUploading(false);
   };
 
   const handleUpload = async () => {
@@ -94,6 +105,8 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
     }
 
     setUploading(true);
+    setProgress(0);
+    
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -108,33 +121,58 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
       if (tags) formData.append("tags", tags);
 
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/notes", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        },
-        body: formData
+      
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const newNote = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${API_URL}/api/notes`);
+        if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        xhr.withCredentials = true;
+        
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            // Cap at 95% until we actually get the server response
+            setProgress(Math.min(percentComplete, 95));
+          }
+        };
+        
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setProgress(100);
+            try {
+              resolve(JSON.parse(xhr.response));
+            } catch {
+              resolve({});
+            }
+          } else {
+            try {
+              const err = JSON.parse(xhr.response);
+              reject(new Error(err.error || "Failed to upload note"));
+            } catch {
+              reject(new Error("Failed to upload note"));
+            }
+          }
+        };
+        
+        xhr.onerror = () => reject(new Error("Network error occurred"));
+        xhr.send(formData);
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to upload note");
-      }
-
       toast.success("Note uploaded successfully! 🎉");
-      onSuccess();
+      onSuccess(newNote);
       onOpenChange(false);
       resetForm();
     } catch (error: any) {
       console.error("Upload error:", error);
       toast.error(error.message || "Failed to upload note");
-    } finally {
       setUploading(false);
+      setProgress(0);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) resetForm(); }}>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v && !uploading) resetForm(); }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -157,8 +195,8 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
           <div className="space-y-4">
             {/* File Upload */}
             <div>
-              <Label htmlFor="file" className="text-sm font-medium">PDF File <span className="text-destructive">*</span></Label>
-              <div className="mt-1.5 border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => document.getElementById('file-input')?.click()}>
+              <Label htmlFor="file" className="text-sm font-medium">Document File <span className="text-destructive">*</span></Label>
+              <div className="mt-1.5 border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => !uploading && document.getElementById('file-input')?.click()}>
                 {file ? (
                   <div className="flex items-center justify-center gap-3">
                     <FileText className="h-8 w-8 text-primary" />
@@ -166,17 +204,17 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
                       <p className="font-medium text-sm">{file.name}</p>
                       <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                     </div>
-                    <Badge variant="secondary">PDF</Badge>
+                    <Badge variant="secondary">FILE</Badge>
                   </div>
                 ) : (
                   <div>
                     <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Click to select or drag & drop a PDF file</p>
+                    <p className="text-sm text-muted-foreground">Click to select or drag & drop a PDF, Word, or Excel file</p>
                     <p className="text-xs text-muted-foreground mt-1">Max file size: 50MB</p>
                   </div>
                 )}
               </div>
-              <Input id="file-input" type="file" accept="application/pdf" onChange={handleFileChange} disabled={uploading} className="hidden" />
+              <Input id="file-input" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv" onChange={handleFileChange} disabled={uploading} className="hidden" />
             </div>
 
             {/* AI Enhancement */}
@@ -216,14 +254,14 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
 
             {/* Description */}
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">Description <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
               <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value.slice(0, 500))} placeholder="Briefly describe what these notes cover..." disabled={uploading} rows={3} className="mt-1.5" />
               <p className="text-xs text-muted-foreground mt-1">{description.length}/500 characters</p>
             </div>
 
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="outline" onClick={() => onOpenChange(false)} disabled={uploading}>Cancel</Button>
-              <Button onClick={handleNext}>Next →</Button>
+              <Button onClick={handleNext} disabled={uploading}>Next →</Button>
             </div>
           </div>
         )}
@@ -232,7 +270,7 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Branch</Label>
+                <Label>Branch <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
                 <Select value={branch} onValueChange={setBranch} disabled={uploading}>
                   <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select branch" /></SelectTrigger>
                   <SelectContent>
@@ -243,7 +281,7 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
                 </Select>
               </div>
               <div>
-                <Label>Semester</Label>
+                <Label>Semester <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
                 <Select value={semester} onValueChange={setSemester} disabled={uploading}>
                   <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select semester" /></SelectTrigger>
                   <SelectContent>
@@ -257,11 +295,11 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="university">University / College</Label>
+                <Label htmlFor="university">University / College <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
                 <Input id="university" value={university} onChange={(e) => setUniversity(e.target.value.slice(0, 150))} placeholder="e.g., IIT Delhi" disabled={uploading} className="mt-1.5" />
               </div>
               <div>
-                <Label htmlFor="year">Year</Label>
+                <Label htmlFor="year">Year <span className="text-xs text-muted-foreground font-normal">(Optional)</span></Label>
                 <Select value={year} onValueChange={setYear} disabled={uploading}>
                   <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select year" /></SelectTrigger>
                   <SelectContent>
@@ -300,14 +338,25 @@ export const NoteUploadDialog = ({ open, onOpenChange, onSuccess }: NoteUploadDi
               </div>
             </div>
 
+            {uploading && (
+              <div className="space-y-1.5 pt-2">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Uploading...</span>
+                  <span>{progress}%</span>
+                </div>
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary transition-all duration-300 ease-out"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-2 justify-end pt-2">
               <Button variant="outline" onClick={() => setStep(1)} disabled={uploading}>← Back</Button>
               <Button onClick={handleUpload} disabled={!file || uploading}>
-                {uploading ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading...</>
-                ) : (
-                  <><Upload className="mr-2 h-4 w-4" />Upload Note</>
-                )}
+                <Upload className="mr-2 h-4 w-4" />Upload Note
               </Button>
             </div>
           </div>

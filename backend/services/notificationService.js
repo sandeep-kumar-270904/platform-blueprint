@@ -85,6 +85,34 @@ const sendNotification = async (data) => {
         return null;
       }
       
+      // --- Connections Hub Email Preferences & Queuing ---
+      const alumniEmailTypeMap = {
+        'alumni_connection_request': 'connection_requests',
+        'alumni_connection_response': 'connection_responses',
+        'booking_requested': 'session_reminders',
+        'booking_confirmed': 'session_reminders',
+        'session_reminder': 'session_reminders',
+        'booking_cancelled': 'session_reminders',
+        'question_answered': 'qa_responses',
+        'mentor_application_status': 'mentorship_updates'
+      };
+      const alumniPrefKey = alumniEmailTypeMap[type];
+      if (alumniPrefKey) {
+         // Default to true except qa_responses which is default false
+         const defaultVal = alumniPrefKey === 'qa_responses' ? false : true;
+         const isEnabled = pref.toggles?.alumniConnections?.[alumniPrefKey] ?? defaultVal;
+         
+         if (isEnabled) {
+           data.deliveryChannels = data.deliveryChannels || ['in_app'];
+           if (!data.deliveryChannels.includes('email')) {
+             data.deliveryChannels.push('email');
+           }
+           data.emailSent = false;
+           data.emailStatus = 'pending';
+         }
+      }
+      
+      
       if (pref.quiet_hours && pref.quiet_hours.enabled) {
          const now = new Date();
          const hh = now.getUTCHours();
@@ -262,13 +290,38 @@ const sendNotification = async (data) => {
       else if (type && type.startsWith('community_')) title = created.title || 'Community Feed';
       else if (type && type.startsWith('placement_')) title = created.title || 'Placement Prep';
       else if (type && type.startsWith('skill_swap_')) title = created.title || 'Skill Swap';
+      else if (type && type.startsWith('event_')) title = created.title || 'Events';
       
       let url = '/';
-      if (type && type.startsWith('team_')) {
+      const t = type || '';
+      if (t.startsWith('team_')) {
         url = created.relatedContentId ? `/team-hunt/${created.relatedContentId}` : '/team-hunt/dashboard';
-      } else if (type && type.startsWith('skill_swap_')) {
+      } else if (t.startsWith('skill_swap_')) {
         url = '/skill-swap';
+      } else if (t.startsWith('event_') || t === 'waitlist_confirmed') {
+        url = created.relatedContentId ? `/events/${created.relatedContentId}` : '/events';
+      } else if (t.startsWith('community_')) {
+        url = '/community';
+      } else if (t.startsWith('placement_') || t === 'placement_referral') {
+        url = '/placement-dashboard';
+      } else if (t.startsWith('roommate_')) {
+        url = '/roommates';
+      } else if (t.startsWith('booking_') || t.startsWith('mentor_') || t === 'session_reminder') {
+        url = '/mentors';
+      } else if (t.startsWith('study_group_')) {
+        url = created.relatedContentId ? `/study-groups/${created.relatedContentId}` : '/study-groups';
+      } else if (t.startsWith('alumni_') || t === 'connection_request') {
+        url = '/alumni-connections';
+      } else if (t.startsWith('college_')) {
+        url = created.relatedContentId ? `/colleges/${created.relatedContentId}` : '/colleges';
+      } else if (t.startsWith('room_rental') || t.startsWith('room_agreement')) {
+        url = '/room-rentals';
+      } else if (t === 'quiz_assigned' || t === 'quiz_completed') {
+        url = '/quizzes';
+      } else if (t.startsWith('classroom_') || t === 'virtual_class' || t === 'course' || t === 'course_enrolled') {
+        url = created.relatedContentId ? `/classrooms/${created.relatedContentId}` : '/classrooms';
       } else if (created.relatedContentId) {
+        // Fallback for any unknown features that relied on the old behavior
         url = `/classrooms/${created.relatedContentId}`;
       }
 

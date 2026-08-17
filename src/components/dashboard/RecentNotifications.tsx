@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Bell, ArrowRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
+import { DashboardEmptyState } from "./DashboardEmptyState";
 
 export const RecentNotifications = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { user } = useAuth();
@@ -18,7 +19,7 @@ export const RecentNotifications = ({ onNavigate }: { onNavigate?: () => void })
       try {
         const token = localStorage.getItem("token");
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        const res = await fetch(`${API_URL}/api/notifications/me`, {
+        const res = await fetch(`${API_URL}/api/notifications`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
@@ -34,33 +35,27 @@ export const RecentNotifications = ({ onNavigate }: { onNavigate?: () => void })
     fetchNotifs();
   }, [user]);
 
-  if (loading || notifications.length === 0) return null;
+  if (loading) return null;
+
+  if (notifications.length === 0) {
+    return <DashboardEmptyState tier="tertiary" icon={Bell} title="No recent notifications" />;
+  }
 
   return (
-    <Card className="border-border">
-      <CardHeader className="pb-3 flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Bell className="h-4 w-4" /> Recent Notifications
-        </CardTitle>
-        <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs" onClick={onNavigate}>
-          View All <ArrowRight className="h-3 w-3" />
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {notifications.slice(0, 3).map((notif) => (
-          <div key={notif._id} className="flex gap-3 items-start border-b border-border/50 pb-3 last:border-0 last:pb-0">
-            <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${!notif.isRead ? 'bg-primary' : 'bg-muted'}`} />
-            <div>
-              <p className={`text-sm ${!notif.isRead ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-                {notif.message}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
-              </p>
-            </div>
+    <div className="space-y-3">
+      {notifications.slice(0, 3).map((notif) => (
+        <div key={notif._id} className="flex gap-3 items-start border-b border-border/50 pb-3 last:border-0 last:pb-0">
+          <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${!notif.isRead ? 'bg-primary' : 'bg-muted'}`} />
+          <div>
+            <p className={`text-sm ${!notif.isRead ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+              {notif.message}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
+            </p>
           </div>
-        ))}
-      </CardContent>
-    </Card>
+        </div>
+      ))}
+    </div>
   );
 };

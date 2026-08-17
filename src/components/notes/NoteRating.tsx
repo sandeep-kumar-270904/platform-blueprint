@@ -48,10 +48,10 @@ export const NoteRating = ({ noteId, currentRating, compact = false, onRated }: 
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/notes/${noteId}/ratings`, {
+      const res = await fetch(`${API_URL}/api/notes/${noteId}/rate`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating })
+        body: JSON.stringify({ score: rating })
       });
       if (res.ok) {
         setUserRating(rating);

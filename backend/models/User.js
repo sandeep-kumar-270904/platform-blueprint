@@ -193,6 +193,10 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'College' 
   }],
+  feeReminders: [{
+    collegeId: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
+    note: { type: String }
+  }],
   subscribedQuizzes: [{ 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Quiz' 
@@ -208,6 +212,10 @@ const UserSchema = new mongoose.Schema({
   savedRoomRentals: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'RoomRental'
+  }],
+  bookmarked_notes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Note'
   }],
   savedJobs: [{
     type: mongoose.Schema.Types.ObjectId,
@@ -247,6 +255,11 @@ const UserSchema = new mongoose.Schema({
       viewedAt: { type: Date, default: Date.now }
     }],
     searchKeywords: [{ type: String }]
+  },
+  careerGoal: {
+    targetRole: { type: String },
+    targetRoleId: { type: mongoose.Schema.Types.ObjectId, ref: 'CareerRole' }, // Reference for deterministic pathing
+    targetSkills: [{ type: String }]
   },
   defaultApplicationProfile: {
     resumeUrl: { type: String },

@@ -38,6 +38,7 @@ export const useNotes = () => {
   }, []);
 
   const [notes, setNotes] = useState<any[]>([]);
+  const [stats, setStats] = useState({ totalNotes: 0, totalViews: 0, totalDownloads: 0, totalSubjects: 0 });
   const [bookmarkedNoteIds, setBookmarkedNoteIds] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<NotesFilters>(initialFilters);
   const [loading, setLoading] = useState(true);
@@ -60,12 +61,30 @@ export const useNotes = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(API_URL);
-      if (res.ok) {
-        const data = await res.json();
+      const token = localStorage.getItem("token");
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      const [notesRes, statsRes, bookmarksRes] = await Promise.allSettled([
+        fetch(API_URL),
+        fetch(`${API_URL}/summary`),
+        token ? fetch(`${API_URL}/bookmarks`, { headers }) : Promise.resolve({ ok: true, json: () => Promise.resolve([]) } as any)
+      ]);
+
+      if (notesRes.status === "fulfilled" && notesRes.value.ok) {
+        const data = await notesRes.value.json();
         setNotes(data.map((n: any) => ({ id: n._id, ...n })));
       } else {
         throw new Error("Failed to load notes");
+      }
+
+      if (statsRes.status === "fulfilled" && statsRes.value.ok) {
+        const statsData = await statsRes.value.json();
+        setStats(statsData);
+      }
+
+      if (bookmarksRes.status === "fulfilled" && bookmarksRes.value.ok) {
+        const bookmarksData = await bookmarksRes.value.json();
+        setBookmarkedNoteIds(new Set(bookmarksData));
       }
     } catch (err) {
       console.error("Failed to load notes", err);
@@ -142,28 +161,112 @@ export const useNotes = () => {
   );
 
   const deleteNote = async (noteId: string) => {
+    // Optimistic UI update
+    setNotes(current => current.filter(n => n.id !== noteId));
+    setStats(prev => ({ ...prev, totalNotes: Math.max(0, prev.totalNotes - 1) }));
 
     try {
       const token = localStorage.getItem("token");
-      await fetch(`${API_URL}/${noteId}`, {
+      const res = await fetch(`${API_URL}/${noteId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      loadNotes();
+      if (!res.ok) throw new Error("Delete failed");
     } catch (err) {
       console.error("Delete failed", err);
+      // Revert optimistic update by reloading
+      loadNotes();
+      throw err;
     }
   };
 
+  const addNoteOptimistic = (newNote: any) => {
+    const mappedNote = { id: newNote._id || newNote.id || Date.now().toString(), ...newNote, user_id: user?.id, views: 0, downloads: 0 };
+    setNotes(current => [mappedNote, ...current]);
+    setStats(prev => ({ ...prev, totalNotes: prev.totalNotes + 1 }));
+  };
+
   const incrementView = async (noteId: string) => {
+    const sessionKey = `viewed_note_${noteId}`;
+    if (sessionStorage.getItem(sessionKey)) return;
+
     try {
       await fetch(`${API_URL}/${noteId}/view`, { method: 'PUT' });
-      setNotes(notes.map(n => n.id === noteId ? { ...n, views: n.views + 1 } : n));
+      sessionStorage.setItem(sessionKey, 'true');
+      setNotes(notes.map(n => n.id === noteId ? { ...n, views: (n.views || 0) + 1 } : n));
+      setStats(prev => ({ ...prev, totalViews: prev.totalViews + 1 }));
     } catch (err) {}
   };
 
   const incrementDownload = async (noteId: string) => {
-    // Implement on backend later if needed
+    try {
+      await fetch(`${API_URL}/${noteId}/download`, { method: 'PUT' });
+      setNotes(notes.map(n => n.id === noteId ? { ...n, downloads: (n.downloads || 0) + 1 } : n));
+      setStats(prev => ({ ...prev, totalDownloads: prev.totalDownloads + 1 }));
+    } catch (err) {}
+  };
+
+  const toggleBookmark = async (noteId: string) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    
+    // Optimistic update
+    setBookmarkedNoteIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(noteId)) newSet.delete(noteId);
+      else newSet.add(noteId);
+      return newSet;
+    });
+
+    try {
+      const res = await fetch(`${API_URL}/${noteId}/bookmark`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Bookmark failed");
+      const data = await res.json();
+      setBookmarkedNoteIds(new Set(data.bookmarked_notes));
+    } catch (err) {
+      // Revert optimistic update
+      console.error("Bookmark failed", err);
+      loadNotes();
+    }
+  };
+
+  const rateNote = async (noteId: string, score: number, review?: string) => {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Unauthorized");
+
+    const res = await fetch(`${API_URL}/${noteId}/rate`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ score, review })
+    });
+    
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || "Rating failed");
+    }
+    
+    const updatedNote = await res.json();
+    setNotes(notes.map(n => n.id === noteId ? { ...n, rating: updatedNote.rating, rating_count: updatedNote.rating_count } : n));
+  };
+
+  const addComment = async (noteId: string, content: string) => {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Unauthorized");
+
+    const res = await fetch(`${API_URL}/${noteId}/comments`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    
+    if (!res.ok) throw new Error("Comment failed");
+    
+    const newComment = await res.json();
+    setNotes(notes.map(n => n.id === noteId ? { ...n, comment_count: (n.comment_count || 0) + 1 } : n));
+    return newComment;
   };
 
   const totalViews = notes.reduce((sum, n) => sum + (n.views || 0), 0);
@@ -181,6 +284,7 @@ export const useNotes = () => {
     notes,
     myNotes,
     bookmarkedNotes,
+    bookmarkedNoteIds,
     filters,
     updateFilter,
     clearFilters,
@@ -189,12 +293,15 @@ export const useNotes = () => {
     categories,
     branches,
     semesters,
-    totalViews,
-    totalDownloads,
+    stats,
     loadNotes,
     deleteNote,
+    addNoteOptimistic,
     incrementView,
     incrementDownload,
+    toggleBookmark,
+    rateNote,
+    addComment,
     loading,
     error,
     user,

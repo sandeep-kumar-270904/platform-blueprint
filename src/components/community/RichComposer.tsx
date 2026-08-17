@@ -53,7 +53,7 @@ interface RichComposerProps {
     tags: string[], 
     files: File[], 
     poll?: any, 
-    options?: { privacy: string, clubId?: string, template: string, templateData?: any, provider_reference?: string | null },
+    options?: { privacy: string, clubId?: string, template: string, templateData?: any, provider_reference?: string | null, category?: string, isAnonymous?: boolean },
     onProgress?: (progress: number) => void
   ) => Promise<boolean | void>;
   user: any;
@@ -82,6 +82,9 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
   const [clubId, setClubId] = useState<string>("");
   const [template, setTemplate] = useState<string>("standard");
   const [templateData, setTemplateData] = useState<any>({});
+  
+  const [category, setCategory] = useState<string>("discussion");
+  const [isAnonymous, setIsAnonymous] = useState<boolean>(false);
   
   const [providerReference, setProviderReference] = useState<{ id: string, name: string } | null>(null);
   const [providerSearch, setProviderSearch] = useState("");
@@ -125,10 +128,10 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
   }, [searchParams, setSearchParams]);
 
   const handleTagInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value;
+    const val = e.target.value;
     if (val.includes(',')) {
       const tagsToAdd = val.split(',').map(t => t.trim()).filter(t => t);
-      let currentTags = [...selectedTags];
+      const currentTags = [...selectedTags];
       tagsToAdd.forEach(t => {
         if (!currentTags.includes(t) && currentTags.length < 5) currentTags.push(t);
       });
@@ -349,7 +352,7 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
       selectedTags, 
       images.map(i => i.file), 
       showPoll && pollOptions.filter(o => o.trim()).length >= 2 ? { options: pollOptions.filter(o => o.trim()).map(text => ({ text })) } : undefined,
-      { privacy, clubId: clubId || undefined, template, templateData, provider_reference: providerReference?.id || null },
+      { privacy, clubId: clubId || undefined, template, templateData, provider_reference: providerReference?.id || null, category, isAnonymous },
       (progress) => setUploadProgress(progress)
     );
     
@@ -370,6 +373,8 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
     setPollOptions(["", ""]);
     setTemplate("standard");
     setTemplateData({});
+    setCategory("discussion");
+    setIsAnonymous(false);
     setProviderReference(null);
     setSpamWarning(false);
     setDuplicateWarning(false);
@@ -625,6 +630,33 @@ export const RichComposer = ({ onSubmit, user }: RichComposerProps) => {
                 <DropdownMenuItem onClick={() => { setPrivacy('club'); setClubId('default_club'); }}><Shield className="h-4 w-4 mr-2" /> My Club (Mock)</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Category Selector */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-primary">
+                  <span className="hidden sm:inline capitalize">Category: {category}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => setCategory('discussion')}>Discussion</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCategory('question')}>Question</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCategory('experience')}>Experience</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setCategory('opportunity')}>Opportunity</DropdownMenuItem>
+                {/* poll category is set automatically if poll options exist */}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Anonymous Toggle */}
+            <Button 
+              type="button" 
+              variant="ghost" 
+              size="sm" 
+              className={`h-8 px-2 ${isAnonymous ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-primary'}`}
+              onClick={() => setIsAnonymous(!isAnonymous)}
+            >
+              <Shield className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Anonymous</span>
+            </Button>
             
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">

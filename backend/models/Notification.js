@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  targetEmail: { type: String },
   type: { 
     type: String, 
     enum: [
@@ -29,6 +30,8 @@ const notificationSchema = new mongoose.Schema({
       'team_request_accepted',
       'team_application',
       'team_application_accepted',
+      'alumni_connection_request',
+      'alumni_connection_response',
       'team_application_rejected',
       'team_completed',
       'team_disbanded',
@@ -118,7 +121,8 @@ const notificationSchema = new mongoose.Schema({
       'hostel_verified',
       'hostel_review_received',
       'repair_request_status_change',
-      'repair_request_note'
+      'repair_request_note',
+      'alumni_invitation'
     ],
     required: true
   },
@@ -132,7 +136,10 @@ const notificationSchema = new mongoose.Schema({
   actionUrl: { type: String },
   channel: { type: String, enum: ['in_app', 'email', 'both'], default: 'in_app' },
   deliveryChannels: [{ type: String, enum: ['in_app', 'email', 'push'] }],
-  emailSent: { type: Boolean, default: false },
+  emailStatus: { type: String, enum: ['pending', 'processing', 'sent', 'failed'], default: 'pending' },
+  emailAttempts: { type: Number, default: 0 },
+  emailLockedUntil: { type: Date },
+  emailSent: { type: Boolean, default: false }, // Legacy compat
   emailSentAt: { type: Date },
   emailFailureReason: { type: String },
   isRead: { type: Boolean, default: false },
@@ -146,5 +153,6 @@ const notificationSchema = new mongoose.Schema({
 
 notificationSchema.index({ userId: 1, isRead: 1 });
 notificationSchema.index({ userId: 1, createdAt: -1 }); // Fast retrieval for paginated timeline
+notificationSchema.index({ deliveryChannels: 1, emailStatus: 1, emailLockedUntil: 1 }); // Fast worker queries
 
 module.exports = mongoose.model('Notification', notificationSchema);

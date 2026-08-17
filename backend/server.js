@@ -10,6 +10,7 @@ const logger = require('./utils/logger');
 const { startCron } = require('./jobs/classroomCron');
 const { startStudyGroupCron } = require('./jobs/studyGroupCron');
 const { startRoommateDigestCron } = require('./jobs/roommateDigestCron');
+const { startJob: startFraudDetectionCron } = require('./jobs/fraudDetectionJob');
 const { startSlotExpirationWorker } = require('./workers/slotExpirationWorker');
 const { startQuoteExpirationWorker } = require('./workers/quoteExpirationWorker');
 const mongoose = require('mongoose');
@@ -23,10 +24,15 @@ dotenv.config({ path: envFile });
 // Start Cron Jobs
 startCron();
 startStudyGroupCron();
+startFraudDetectionCron();
 startSlotExpirationWorker();
 startQuoteExpirationWorker();
 
 const http = require('http');
+const salaryRoutes = require('./routes/salary');
+const communityFeedRoutes = require('./routes/communityFeed');
+const collegeQARoutes = require('./routes/collegeQA');
+const collegeApplicationsRoutes = require('./routes/collegeApplications');
 const { Server } = require('socket.io');
 
 const app = express();
@@ -290,9 +296,14 @@ connectDB().then(async () => {
           await event.save();
         }
 
-        // --- Mark events as completed and request feedback ---
         // Find approved events where endDate + endTime is in the past
-        const allApprovedEvents = await Event.find({ status: 'approved' });
+        // Optimization: Only query events where endDate is on or before today
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+        const allApprovedEvents = await Event.find({ 
+          status: 'approved',
+          endDate: { $lte: endOfDay }
+        });
         for (const event of allApprovedEvents) {
           // Parse endDate and endTime
           // Note: Event.endDate is stored as Date, but might be midnight. endTime is "HH:mm".
@@ -304,7 +315,7 @@ connectDB().then(async () => {
           
           if (endDate < now) {
             // Event has passed, mark as completed
-            event.status = 'completed';
+            event.lifecycleStatus = 'completed';
             await event.save();
             
             // Notify attendees to leave feedback
@@ -488,7 +499,7 @@ connectDB().then(async () => {
       // --- 30-Day Notification Cleanup ---
       try {
         const Notification = require('./models/Notification');
-        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         await Notification.deleteMany({ createdAt: { $lt: thirtyDaysAgo } });
       } catch (err) {
         console.error('Error in Notification cleanup cron:', err);
@@ -503,14 +514,27 @@ connectDB().then(async () => {
 
 // Middleware
 const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? [process.env.FRONTEND_URL] // No wildcards or localhost in production
-  : ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:5173', process.env.FRONTEND_URL].filter(Boolean);
+  ? [process.env.FRONTEND_URL?.replace(/\/$/, '')] 
+  : ['http://localhost:8080', 'http://localhost:8081', 'http://localhost:5173', 'http://127.0.0.1:8080', 'http://127.0.0.1:5173'];
 
 app.use(cors({
   origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests with no origin (like mobile apps, curl, or same-origin)
+    if (!origin) return callback(null, true);
+    
+    // In development, allow any localhost or local IP
+    if (process.env.NODE_ENV !== 'production') {
+       if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$/.test(origin)) {
+         return callback(null, true);
+       }
+    }
+    
+    // Check against allowed origins list
+    const cleanOrigin = origin.replace(/\/$/, '');
+    if (allowedOrigins.includes(cleanOrigin) || cleanOrigin === process.env.FRONTEND_URL?.replace(/\/$/, '')) {
       callback(null, true);
     } else {
+      console.warn(`CORS blocked request from origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -603,16 +627,17 @@ const adminMentorsOverviewRoutes = require('./routes/adminMentorsOverview');
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // stricter limit for auth routes
+  max: process.env.NODE_ENV === 'production' ? 100 : 5000, // stricter limit in prod, high in dev
   message: { message: 'Too many auth requests from this IP, please try again after 15 minutes' }
 });
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // limit each IP to 1000 requests per windowMs
+  max: process.env.NODE_ENV === 'production' ? 1000 : 10000, // high limit in dev
   message: { message: 'Too many requests from this IP, please try again later' }
 });
 
+// Apply rate limiting to all API routes
 app.use('/api/', globalLimiter);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/settings', authLimiter, settingsRoutes);
@@ -629,7 +654,6 @@ app.use('/api/coach', require('./routes/coach'));
 
 const notificationsRouter = require('./routes/notifications');
 
-const applicationsRoutes = require('./routes/applications');
 const resumesRoutes = require('./routes/resumes');
 const mentorsRoutes = require('./routes/mentors');
 const scholarshipRoutes = require('./routes/scholarships');
@@ -638,7 +662,6 @@ const roommateAdminRoutes = require('./routes/roommateAdmin');
 const roommateSuggestionsRoutes = require('./routes/roommateSuggestions');
 const roommateCalendarRoutes = require('./routes/roommateCalendar');
 const roommateAnalyticsRoutes = require('./routes/roommateAnalytics');
-const jobRoutes = require('./routes/jobs');
 const quizzesRoutes = require('./routes/quizzes');
 
 app.use('/api/auth', authRoutes);
@@ -648,13 +671,15 @@ app.use('/api/study-groups', studyGroups);
 app.use('/api/placement-referrals', placementReferrals);
 app.use('/api/placement-onboarding', placementOnboarding);
 app.use('/api/aptitude', aptitudeRoutes);
-app.use('/api/jobs', jobRoutes);
 app.use('/api/quizzes', quizzesRoutes);
+app.use('/api/webhooks', webhooksRoutes);
+app.use('/api/salary', salaryRoutes);
+app.use('/api/community-feed', communityFeedRoutes);
 app.use('/api/gd', gdRoutes);
 app.use('/api/gd-live', gdLiveRoutes);
+app.use('/api/mentor', require('./routes/mentor'));
 
 // app.use('/api/classes', require('./routes/classes'));
-// app.use('/api/courses', require('./routes/courses'));
 // app.use('/api/skills', require('./routes/skills'));
 // app.use('/api/projects', require('./routes/projects'));
 // app.use('/api/companies', require('./routes/companies'));
@@ -671,7 +696,6 @@ app.use('/api/events', require('./routes/events'));
 app.use('/api/search', require('./routes/search'));
 app.use('/api/community', require('./routes/community'));
 app.use('/api/mentors', require('./routes/mentors'));
-app.use('/api/jobs', require('./routes/jobs'));
 app.use('/api/resumes', require('./routes/resumes'));
 app.use('/api/templates', require('./routes/templates'));
 app.use('/api/scholarships', require('./routes/scholarships'));
@@ -698,19 +722,23 @@ app.use('/api/note-comments', require('./routes/noteComments'));
 app.use('/api/admin/collections', require('./routes/adminCrud'));
 app.use('/api/admin/analytics', require('./routes/adminAnalytics'));
 app.use('/api/admin', require('./routes/admin'));
-app.use('/api/admin', require('./routes/adminJobs'));
   app.use('/api/admin/mentors', require('./routes/adminMentorsOverview'));
   app.use('/api/admin/moderation', require('./routes/adminModeration'));
   app.use('/api/admin/community', require('./routes/adminCommunity'));
   app.use('/api/admin/financials', require('./routes/adminFinancials'));
   app.use('/api/admin/quiz-review', require('./routes/adminQuizReview'));
   app.use('/api/admin/skill-swap', require('./routes/adminSkillSwap'));
-app.use('/api/recruiter', require('./routes/recruiter'));
 app.use('/api/offers', require('./routes/offers'));
 app.use('/api/innovation', require('./routes/innovation'));
-app.use('/api/career', require('./routes/careerSimulator'));
+app.use('/api/career-simulator', require('./routes/careerSimulator')); // Re-route to avoid conflict
+app.use('/api/career', require('./routes/career')); // New pathing endpoints
 app.use('/api/colleges', require('./routes/colleges'));
+app.use('/api/alumni', require('./routes/alumni'));
+app.use('/api/alumni/connections', require('./routes/alumniConnections'));
+app.use('/api/salary', require('./routes/salary'));
 app.use('/api/college-qa', require('./routes/collegeQA'));
+app.use('/api/college-applications', require('./routes/collegeApplications'));
+app.use('/api/comparisons', require('./routes/comparisons'));
 app.use('/api/ideas', require('./routes/ideas'));
 app.use('/api/brainstorm', require('./routes/brainstorm'));
 app.use('/api/idea-circles', require('./routes/ideaCircles'));
@@ -737,16 +765,12 @@ app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/courses', require('./routes/courses'));
 app.use('/api/learning-paths', require('./routes/learningPaths'));
 app.use('/api/mentors', require('./routes/mentors'));
-app.use('/api/applications', require('./routes/applications'));
-app.use('/api/job-alerts', require('./routes/jobAlerts'));
 app.use('/api/companies', require('./routes/companies'));
 app.use('/api/assessments', require('./routes/assessments'));
 app.use('/api/referrals', require('./routes/referrals'));
 app.use('/api/insights', require('./routes/insights'));
-app.use('/api/admin/jobs', require('./routes/adminJobs'));
 app.use('/api/oa', require('./routes/oa'));
 app.use('/api/admin/quiz-reports', require('./routes/adminQuizReports'));
 app.use('/api/admin/resumes', require('./routes/adminResumes'));
@@ -796,6 +820,7 @@ app.use('/api/admin/roommates', require('./routes/roommateAdmin'));
 app.use('/api/room-rental-reviews', roomRentalReviewsRoutes);
 app.use('/api/site-content', require('./routes/siteContent'));
 app.use('/api/admin/site-content', require('./routes/adminSiteContent'));
+app.use('/api/admin/alumni-registry', require('./routes/adminAlumniRegistry'));
 app.use('/api/search-alerts', require('./routes/roomSearchAlerts'));
 app.use('/api/hostels', require('./routes/hostels'));
 
@@ -1051,3 +1076,7 @@ process.on('SIGINT', shutdown);
 
 
 module.exports = app;
+
+
+
+

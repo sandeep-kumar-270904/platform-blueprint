@@ -47,34 +47,31 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
       initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
-      transition={{ delay: shouldReduceMotion ? 0 : index * 0.2 + 0.1, ...premiumTransition }}
+      transition={shouldReduceMotion ? { duration: 0 } : { delay: isHovered ? 0 : index * 0.2 + 0.1, ...premiumTransition, layout: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onFocus={() => setIsHovered(true)}
       onBlur={() => setIsHovered(false)}
       tabIndex={0}
       animate={{
-        y: isHovered && !shouldReduceMotion ? -8 : 0,
-        scale: isHovered && !shouldReduceMotion ? 1.02 : 1,
+        y: isHovered ? -8 : 0,
+        scale: isHovered ? 1.02 : 1,
         boxShadow: isHovered 
           ? "0 20px 40px -10px rgba(0,0,0,0.08)" 
-          : "0 2px 10px -4px rgba(0,0,0,0.02)",
-        background: isHovered 
-          ? "linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--primary)/0.03) 100%)" 
-          : "hsl(var(--card))"
+          : "0 2px 10px -4px rgba(0,0,0,0.02)"
       }}
       style={{
         background: "hsl(var(--card))",
-        flex: isHovered ? 2.2 : 1
+        flex: isHovered ? 3 : 1
       }}
     >
       <motion.div
         layout
         animate={{ 
-          y: isHovered && !shouldReduceMotion ? -8 : 0,
+          y: isHovered ? -8 : 0,
           opacity: isHovered ? 0 : 1
         }}
-        transition={premiumTransition}
+        transition={shouldReduceMotion ? { duration: 0 } : { ...premiumTransition, layout: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }}
         className="w-full flex flex-col items-center relative z-20"
       >
         <motion.div 
@@ -102,7 +99,7 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: "easeInOut" }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.8, ease: "easeInOut" }}
             className="absolute inset-0 z-0 overflow-hidden"
           >
             <motion.img
@@ -110,12 +107,12 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
               alt={title}
               loading="lazy"
               decoding="async"
-              className="w-full h-full object-cover blur-up"
+              className="w-full h-full object-cover object-top blur-up"
               onLoad={(e) => (e.target as HTMLImageElement).classList.add("loaded")}
               initial={{ scale: 1.05 }}
               animate={{ scale: 1 }}
               exit={{ scale: 1.05 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.8, ease: "easeOut" }}
             />
           </motion.div>
         )}
@@ -386,7 +383,7 @@ const Index = () => {
         id="main-content"
         animate={{ opacity: isExiting ? 0 : 1 }}
         transition={{ duration: 0.3 }}
-        className="min-h-screen overflow-hidden"
+        className="relative min-h-screen overflow-hidden"
       >
       <Header />
 
@@ -557,25 +554,23 @@ const Index = () => {
                 transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.65 }}
                 className="flex flex-col sm:flex-row gap-4 justify-start"
               >
-                <motion.button 
+                <motion.div 
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => handleNavigate(user ? "/dashboard" : "/auth", "click_get_started_hero")}
                   className="w-full sm:w-auto"
                 >
-                  <Button size="lg" className="w-full h-14 px-8 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:bg-primary/90">
+                  <Button onClick={() => handleNavigate(user ? "/dashboard" : "/auth", "click_get_started_hero")} size="lg" className="w-full h-14 px-8 shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:bg-primary/90">
                     Get Started
                     <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </Button>
-                </motion.button>
-                <motion.button 
+                </motion.div>
+                <motion.div 
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => { trackEvent('click_watch_demo'); setShowDemoModal(true); }}
                   className="w-full sm:w-auto"
                 >
-                  <Button size="lg" variant="outline" className="w-full h-14 px-8 hover:bg-muted transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:text-primary">
+                  <Button onClick={() => { trackEvent('click_watch_demo'); setShowDemoModal(true); }} size="lg" variant="outline" className="w-full h-14 px-8 hover:bg-muted transition-all duration-300 text-lg group hover:-translate-y-0.5 hover:text-primary">
                     <Play className="mr-2 h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" /> Watch Demo
                   </Button>
-                </motion.button>
+                </motion.div>
               </motion.div>
             </motion.div>
 
@@ -759,7 +754,7 @@ const Index = () => {
       </section>
 
       {/* How it Works */}
-      <section ref={howItWorksRef} className="pt-16 pb-12 md:pt-20 md:pb-16 bg-background border-t">
+      <section ref={howItWorksRef} className="relative pt-16 pb-12 md:pt-20 md:pb-16 bg-background border-t">
         <div className="container">
           <motion.div 
             className="mb-12 max-w-2xl mx-auto text-center"
@@ -886,11 +881,11 @@ const Index = () => {
             <div className="flex flex-col items-center lg:items-end gap-5">
               <Link to="/auth">
                 <motion.div variants={{ hidden: { opacity: 0, scale: 0.9 }, visible: { opacity: 1, scale: 1, transition: { ease: masterEasing, duration: 0.5 } } }}>
-                  <motion.button whileTap={{ scale: 0.95 }} className="w-full">
+                  <motion.div whileTap={{ scale: 0.95 }} className="w-full md:w-auto inline-block">
                     <Button className="bg-white text-zinc-950 hover:bg-zinc-200 font-bold px-8 shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 w-full md:w-auto h-14 text-lg">
                       Create Your Account
                     </Button>
-                  </motion.button>
+                  </motion.div>
                 </motion.div>
               </Link>
               <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="flex items-center gap-3 text-sm text-zinc-400 mt-2">
@@ -1012,8 +1007,6 @@ const Index = () => {
         )}
       </AnimatePresence>
 
-      </motion.div>
-
       {/* Back to Top Button */}
       <AnimatePresence>
         {showBackToTop && (
@@ -1031,6 +1024,7 @@ const Index = () => {
           </motion.button>
         )}
       </AnimatePresence>
+      </motion.div>
     </AnimatePresence>
   );
 };

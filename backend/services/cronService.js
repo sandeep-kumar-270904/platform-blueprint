@@ -23,6 +23,7 @@ class CronService {
       this.checkSessionReminders();
       this.checkLiveSessionReminders();
       this.checkRepairReminders();
+      this.processEventLifecycle();
     });
 
     // Run every minute to transition AMA statuses and check expired holds
@@ -31,6 +32,7 @@ class CronService {
       this.checkExpiredHolds();
       this.checkNoShows();
       this.checkAbandonedQuizAttempts();
+      this.processPendingEmails();
     });
 
     // Run every hour to check job application deadlines and team deadlines
@@ -89,7 +91,51 @@ class CronService {
     cron.schedule('0 * * * *', async () => {
       this.checkNewsIngestionHealth();
       this.computePlacementAnalytics();
+      this.syncExternalEvents(); // New addition: sync external events
     });
+  }
+
+  async syncExternalEvents() {
+    try {
+      console.log('⏳ Running background EVENT_SYNC for external providers...');
+      const { ingestEvents } = require('./eventIngestion');
+      await ingestEvents('EXTERNAL_API');
+      console.log('✅ Background EVENT_SYNC completed.');
+    } catch (err) {
+      console.error('❌ Error in syncExternalEvents:', err);
+    }
+  }
+
+  async processEventLifecycle() {
+    try {
+      const Event = require('../models/Event');
+      const now = new Date();
+      
+      // UPCOMING -> LIVE (when now >= startDate && now < endDate)
+      await Event.updateMany(
+        {
+          lifecycleStatus: 'upcoming',
+          status: 'approved',
+          startDate: { $lte: now },
+          endDate: { $gt: now }
+        },
+        { $set: { lifecycleStatus: 'live' } }
+      );
+
+      // LIVE/UPCOMING -> COMPLETED (when now >= endDate)
+      await Event.updateMany(
+        {
+          lifecycleStatus: { $in: ['upcoming', 'live'] },
+          status: 'approved',
+          endDate: { $lte: now }
+        },
+        { $set: { lifecycleStatus: 'completed' } }
+      );
+
+      // We do not automatically archive here yet.
+    } catch (err) {
+      console.error('❌ Error in processEventLifecycle:', err);
+    }
   }
 
   async checkSessionReminders() {
@@ -585,11 +631,11 @@ const NewsDigestLog = require('../models/NewsDigestLog');
 const NewsDigestLog = require('../models/NewsDigestLog');
       const notificationService = require('./notificationService');
       
-      const lastLog = await NewsIngestionLog.findOne().sort({ createdAt: -1 });
+      const lastLog = await NewsIngestionLog.findOne().sort({ runAt: -1 });
       const now = new Date();
       
       // If no logs, or the last log is older than 60 minutes
-      if (!lastLog || (now.getTime() - lastLog.createdAt.getTime()) > 60 * 60 * 1000) {
+      if (!lastLog || (now.getTime() - lastLog.runAt.getTime()) > 60 * 60 * 1000) {
         const adminUsers = await User.find({ role: 'admin' });
         for (const admin of adminUsers) {
           await notificationService.createNotification({
@@ -1402,6 +1448,183 @@ const NewsDigestLog = require('../models/NewsDigestLog');
       }
     } catch (error) {
       console.error('Error in checkRepairReminders cron:', error);
+    }
+  }
+
+  async processPendingEmails() {
+    try {
+      const emailService = require('./emailService');
+      const User = require('../models/User');
+      
+      const now = new Date();
+      const lockTime = new Date(now.getTime() + 5 * 60 * 1000); // 5-minute processing lock
+
+      // 1. Find candidate IDs to prevent full table scans in updateMany
+      const candidates = await Notification.find({
+        deliveryChannels: 'email',
+        emailStatus: { $in: ['pending', 'processing'] },
+        $or: [
+          { emailLockedUntil: { $exists: false } },
+          { emailLockedUntil: null },
+          { emailLockedUntil: { $lte: now } }
+        ]
+      })
+      .sort({ createdAt: 1 })
+      .limit(50)
+      .select('_id')
+      .lean();
+
+      if (!candidates.length) return;
+
+      const candidateIds = candidates.map(c => c._id);
+
+      // 2. Atomically lock candidates
+      const updateResult = await Notification.updateMany(
+        {
+          _id: { $in: candidateIds },
+          $or: [
+            { emailLockedUntil: { $exists: false } },
+            { emailLockedUntil: null },
+            { emailLockedUntil: { $lte: now } }
+          ]
+        },
+        {
+          $set: { 
+             emailStatus: 'processing',
+             emailLockedUntil: lockTime
+          },
+          $inc: { emailAttempts: 1 }
+        }
+      );
+
+      if (updateResult.modifiedCount === 0) return; // Another worker got them all
+
+      // 3. Fetch only the notifications we successfully locked
+      const pendingNotifications = await Notification.find({
+        _id: { $in: candidateIds },
+        emailStatus: 'processing',
+        emailLockedUntil: lockTime
+      }).lean();
+
+      console.log(`[Cron] Processing ${pendingNotifications.length} atomic-locked emails...`);
+
+      for (const notification of pendingNotifications) {
+        try {
+          let recipientEmail = notification.targetEmail;
+          let userObj = null;
+
+          if (notification.userId) {
+            userObj = await User.findById(notification.userId).select('email full_name').lean();
+            if (userObj && userObj.email) {
+              recipientEmail = userObj.email;
+            }
+          }
+
+          if (!recipientEmail) {
+             await Notification.updateOne({ _id: notification._id }, { 
+               $set: { 
+                 emailStatus: 'failed', 
+                 emailSent: false, 
+                 emailFailureReason: 'No valid user or target email',
+                 emailLockedUntil: null 
+               } 
+             });
+             continue;
+          }
+
+          // Backwards compatibility for the switch block
+          const user = userObj || { email: recipientEmail };
+
+          let actionUrl = notification.actionUrl || notification.link || '/';
+
+          switch (notification.type) {
+            case 'alumni_connection_request':
+              const purpose = notification.metadata?.purpose || 'a connection';
+              const message = notification.metadata?.message || 'I would love to connect.';
+              const studentName = notification.actors?.[0]?.name || 'A student';
+              await emailService.sendConnectionRequestReceivedEmail(user.email, studentName, purpose, message, actionUrl);
+              break;
+            case 'alumni_connection_response':
+              const alumniName = notification.actors?.[0]?.name || 'An alumni';
+              if (notification.message && notification.message.toLowerCase().includes('declined')) {
+                await emailService.sendConnectionRequestDeclinedEmail(user.email, alumniName, actionUrl);
+              } else {
+                await emailService.sendConnectionRequestAcceptedEmail(user.email, alumniName, actionUrl);
+              }
+              break;
+            case 'booking_confirmed':
+              const participant = notification.actors?.[0]?.name || 'a member';
+              const dateObj = notification.metadata?.date ? new Date(notification.metadata.date) : new Date();
+              const bookDetails = { date: dateObj.toLocaleDateString(), time: dateObj.toLocaleTimeString() };
+              await emailService.sendSessionBookedEmail(user.email, participant, bookDetails, actionUrl);
+              break;
+            case 'session_reminder':
+            case 'booking_requested':
+              const remindDateObj = notification.metadata?.date ? new Date(notification.metadata.date) : new Date();
+              const remindDetails = { date: remindDateObj.toLocaleDateString(), time: remindDateObj.toLocaleTimeString() };
+              await emailService.sendSessionReminderEmail(user.email, remindDetails, actionUrl);
+              break;
+            case 'booking_cancelled':
+              const cancelParticipant = notification.actors?.[0]?.name || 'a member';
+              await emailService.sendSessionCancelledEmail(user.email, cancelParticipant, actionUrl);
+              break;
+            case 'alumni_invitation':
+              const collegeName = notification.metadata?.collegeName || 'your college';
+              const adminName = notification.actors?.[0]?.name || 'An Administrator';
+              await emailService.sendAlumniInvitation(user.email, actionUrl, collegeName, adminName);
+              break;
+            default:
+              const safeMessage = emailService.escapeHTML ? emailService.escapeHTML(notification.message) : notification.message;
+              const emailHtml = `
+                <div style="font-family: sans-serif; padding: 20px;">
+                   <h2>Notification from NotesHub</h2>
+                   <p>${safeMessage}</p>
+                   <a href="${process.env.FRONTEND_URL || 'http://localhost:8080'}${actionUrl}">View details</a>
+                </div>
+              `;
+              await emailService.sendEmail(user.email, notification.title || 'New Notification', emailHtml);
+              break;
+          }
+
+          // Mark successful delivery
+          await Notification.updateOne({ _id: notification._id }, { 
+            $set: { 
+              emailStatus: 'sent', 
+              emailSent: true, 
+              emailSentAt: new Date(),
+              emailLockedUntil: null
+            } 
+          });
+
+        } catch (err) {
+          console.error(`[Cron] Error sending email for notification ${notification._id}:`, err);
+          
+          const errorMessage = err.message || 'Unknown error';
+          const isPermanent = errorMessage.includes('Invalid') || errorMessage.includes('No recipient') || errorMessage.includes('400') || errorMessage.includes('401') || errorMessage.includes('404');
+          
+          if (isPermanent || notification.emailAttempts >= 3) {
+            await Notification.updateOne({ _id: notification._id }, { 
+              $set: { 
+                emailStatus: 'failed', 
+                emailFailureReason: errorMessage,
+                emailLockedUntil: null 
+              } 
+            });
+          } else {
+            // Temporary failure, set back to pending so it can retry later
+            await Notification.updateOne({ _id: notification._id }, { 
+              $set: { 
+                emailStatus: 'pending', 
+                emailFailureReason: errorMessage,
+                emailLockedUntil: null 
+              } 
+            });
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('[Cron] Error in processPendingEmails:', error);
     }
   }
 }

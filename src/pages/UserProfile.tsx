@@ -4,10 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { FollowButton } from "@/components/community-feed/FollowButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Award, GraduationCap, MapPin, Edit3, Flame, Trophy } from "lucide-react";
+import { Award, GraduationCap, MapPin, Edit3, Flame, Trophy, CalendarDays, Calendar } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { EventCard } from "@/components/events/EventCard";
 
 export default function UserProfile() {
   const { id } = useParams();
@@ -17,21 +19,36 @@ export default function UserProfile() {
   const isOwnProfile = !id || id === currentUser?._id;
   const profileId = id || currentUser?._id;
 
-  const { data: profile, isLoading, error } = useQuery({
-    queryKey: ['user-profile', profileId],
-    queryFn: async () => {
-      if (!profileId) return null;
-      const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-      
-      const url = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/${profileId}/profile`;
-      const res = await fetch(url, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      });
-      if (!res.ok) throw new Error("Failed to fetch profile");
-      return res.json();
-    },
-    enabled: !!profileId,
-  });
+    const { data: profile, isLoading, error } = useQuery({
+      queryKey: ['user-profile', profileId],
+      queryFn: async () => {
+        if (!profileId) return null;
+        const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+        
+        const url = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/${profileId}/profile`;
+        const res = await fetch(url, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (!res.ok) throw new Error("Failed to fetch profile");
+        return res.json();
+      },
+      enabled: !!profileId,
+    });
+
+    const { data: publicEvents, isLoading: isEventsLoading } = useQuery({
+      queryKey: ['user-events', profileId],
+      queryFn: async () => {
+        if (!profileId) return null;
+        const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+        const url = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/${profileId}/events/public`;
+        const res = await fetch(url, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (!res.ok) throw new Error("Failed to fetch events");
+        return res.json();
+      },
+      enabled: !!profileId,
+    });
 
   if (isLoading) {
     return (
@@ -80,13 +97,17 @@ export default function UserProfile() {
                 </AvatarFallback>
               </Avatar>
               
-              {isOwnProfile && (
+              {isOwnProfile ? (
                 <Link to="/settings" className="mt-4 sm:mt-0">
                   <div className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background border border-input hover:bg-accent hover:text-accent-foreground h-10 py-2 px-4 gap-2">
                     <Edit3 className="h-4 w-4" />
                     Edit Profile
                   </div>
                 </Link>
+              ) : (
+                <div className="mt-4 sm:mt-0">
+                  <FollowButton targetId={profile._id || id} type="user" />
+                </div>
               )}
             </div>
             
@@ -204,6 +225,52 @@ export default function UserProfile() {
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">No badges earned yet. Participate in quizzes and discussions to earn badges!</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5 text-primary" />
+                  Hackathons & Events
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isEventsLoading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-32 w-full rounded-xl" />
+                    <Skeleton className="h-32 w-full rounded-xl" />
+                  </div>
+                ) : publicEvents && (publicEvents.upcoming?.length > 0 || publicEvents.past?.length > 0) ? (
+                  <div className="space-y-6">
+                    {publicEvents.upcoming?.length > 0 && (
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Upcoming ({publicEvents.upcoming.length})</h4>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          {publicEvents.upcoming.map((evt: any) => (
+                            <EventCard key={evt._id} event={{...evt, id: evt._id}} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {publicEvents.past?.length > 0 && (
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Past Participation ({publicEvents.past.length})</h4>
+                        <div className="grid sm:grid-cols-2 gap-4 opacity-75">
+                          {publicEvents.past.map((evt: any) => (
+                            <EventCard key={evt._id} event={{...evt, id: evt._id}} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-6">
+                    <Calendar className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+                    No public events to show yet.
+                  </p>
                 )}
               </CardContent>
             </Card>

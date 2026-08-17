@@ -8,7 +8,12 @@ const eventRegistrationSchema = new mongoose.Schema({
     enum: ['registered', 'waitlisted', 'cancelled'],
     default: 'registered'
   },
-  teamName: { type: String, default: null },
+  teamId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team',
+    default: null
+  },
+  teamName: { type: String, default: null }, // DEPRECATED: use teamId instead
   teamMembers: [{ type: String }], // array of names/emails
   lookingForTeammates: { type: Boolean, default: false },
   skills: { type: String, default: "" },

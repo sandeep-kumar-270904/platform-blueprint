@@ -25,7 +25,25 @@ const createTransporter = () => {
   }
 };
 
+const escapeHTML = (str) => {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+exports.escapeHTML = escapeHTML;
+
 const sendEmailBase = async (to, subject, htmlContent, retries = 1) => {
+  if (process.env.MOCK_EMAIL === 'true') {
+    exports.mockEmailOutbox = exports.mockEmailOutbox || [];
+    exports.mockEmailOutbox.push({ to, subject, htmlContent, template: 'MOCK', timestamp: new Date() });
+    console.log(`[MOCK EMAIL CAPTURED] To: ${to} | Subject: ${subject}`);
+    return;
+  }
+  
   if (!process.env.EMAIL_USER) {
     console.log(`[MOCK EMAIL] To: ${to} | Subject: ${subject}`);
     console.log(htmlContent);
@@ -34,12 +52,15 @@ const sendEmailBase = async (to, subject, htmlContent, retries = 1) => {
 
   const transporter = createTransporter();
   const mailOptions = {
-    from: `"StudentHub" <${process.env.EMAIL_USER}>`,
+    from: `"NotesHub" <${process.env.EMAIL_USER}>`,
     to,
     subject,
     html: htmlContent,
     // Add simple plain text fallback by stripping HTML tags loosely
-    text: htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    text: htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+    headers: {
+      'List-Unsubscribe': `<mailto:unsubscribe@${process.env.EMAIL_USER ? process.env.EMAIL_USER.split('@')[1] : 'noteshub.com'}>`,
+    }
   };
 
   try {
@@ -303,4 +324,92 @@ exports.sendLiveSessionResultsEmail = async (email, quizTitle, score, actionUrl)
   );
   await sendEmailBase(email, `Results: Live Quiz - ${quizTitle}`, html);
 };
+
+// --- Connections Hub Emails ---
+exports.sendConnectionRequestReceivedEmail = async (email, studentName, requestPurpose, requestQuestion, actionUrl) => {
+  const safeName = escapeHTML(studentName);
+  const safePurpose = escapeHTML(requestPurpose);
+  const safeQuestion = escapeHTML(requestQuestion);
+  const html = getBaseTemplate(
+    'New Connection Request',
+    `<strong>${safeName}</strong> wants to connect regarding <strong>${safePurpose}</strong>.<br/><br/>"${safeQuestion}"`,
+    'Review Request',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `New Connection Request from ${safeName}`, html);
+};
+
+exports.sendConnectionRequestAcceptedEmail = async (email, alumniName, actionUrl) => {
+  const safeName = escapeHTML(alumniName);
+  const html = getBaseTemplate(
+    'Connection Request Accepted',
+    `Good news! <strong>${safeName}</strong> has accepted your connection request.`,
+    'View Conversation',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `${safeName} accepted your request`, html);
+};
+
+exports.sendConnectionRequestDeclinedEmail = async (email, alumniName, actionUrl) => {
+  const safeName = escapeHTML(alumniName);
+  const html = getBaseTemplate(
+    'Connection Request Update',
+    `<strong>${safeName}</strong> is unable to accept your connection request at this time. Keep exploring the Alumni Directory to find other mentors.`,
+    'View Alumni Directory',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Update on your connection request to ${safeName}`, html);
+};
+
+exports.sendSessionBookedEmail = async (email, participantName, sessionDetails, actionUrl) => {
+  const safeName = escapeHTML(participantName);
+  const html = getBaseTemplate(
+    'Session Confirmed',
+    `A session has been booked with <strong>${safeName}</strong>.<br/><br/>Date: ${escapeHTML(sessionDetails.date)}<br/>Time: ${escapeHTML(sessionDetails.time)}`,
+    'View Session Details',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Session Confirmed with ${safeName}`, html);
+};
+
+exports.sendSessionReminderEmail = async (email, sessionDetails, actionUrl) => {
+  const html = getBaseTemplate(
+    'Upcoming Session Reminder',
+    `You have a session scheduled in 24 hours.<br/><br/>Date: ${escapeHTML(sessionDetails.date)}<br/>Time: ${escapeHTML(sessionDetails.time)}`,
+    'Go to Classroom',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Reminder: Upcoming Session Tomorrow`, html);
+};
+
+exports.sendSessionCancelledEmail = async (email, participantName, actionUrl) => {
+  const safeName = escapeHTML(participantName);
+  const html = getBaseTemplate(
+    'Session Cancelled',
+    `Your scheduled session with <strong>${safeName}</strong> has been cancelled.`,
+    'View Details',
+    `${getFrontendUrl()}${actionUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Session Cancelled`, html);
+};
+
+exports.sendAlumniInvitation = async (email, claimUrl, collegeName, adminName) => {
+  const safeCollege = escapeHTML(collegeName);
+  const safeAdmin = escapeHTML(adminName);
+  const html = getBaseTemplate(
+    'Join Your Official Alumni Network',
+    `You have been invited by <strong>${safeAdmin}</strong> to claim your official alumni profile for <strong>${safeCollege}</strong> on StudentHub.<br/><br/>Join your peers, mentor students, and stay connected with your alma mater. Click below to securely verify your identity and activate your account.`,
+    'Claim My Alumni Profile',
+    `${getFrontendUrl()}${claimUrl}`,
+    preferencesLink
+  );
+  await sendEmailBase(email, `Invitation: Join ${safeCollege} Alumni Network`, html);
+};
+
 exports.sendEmail = sendEmailBase;

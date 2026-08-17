@@ -32,10 +32,12 @@ export interface EventRow {
   createdAt: string;
 }
 
-export const useEvents = (typeFilter: string = "all", timeFilter: string = "upcoming", searchQuery: string = "", month: string = "") => {
+export const useEvents = (typeFilter: string = "all", timeFilter: string = "upcoming", searchQuery: string = "", month: string = "", page: number = 1, modeFilter: string = "all", sortOrder: string = "upcoming") => {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [thisWeekEvents, setThisWeekEvents] = useState<EventRow[]>([]);
   const [myRegistrations, setMyRegistrations] = useState<Set<string>>(new Set());
+  const [myBookmarks, setMyBookmarks] = useState<Set<string>>(new Set());
+  const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('live');
 
@@ -47,30 +49,42 @@ export const useEvents = (typeFilter: string = "all", timeFilter: string = "upco
       if (timeFilter !== "all") qs.append('filter', timeFilter);
       if (searchQuery) qs.append('search', searchQuery);
       if (month) qs.append('month', month);
+      qs.append('page', page.toString());
+      if (modeFilter !== "all") qs.append('mode', modeFilter);
+      if (sortOrder !== "upcoming") qs.append('sort', sortOrder);
       
       const [res, twRes] = await Promise.all([
         fetch(`${API_URL}/api/events?${qs.toString()}`),
         fetch(`${API_URL}/api/events?filter=this_week`)
       ]);
       
-      let data = await res.json();
+      const data = await res.json();
       const eventsArray = Array.isArray(data.events) ? data.events : (Array.isArray(data) ? data : []);
       const mappedEvents = eventsArray.map((e: any) => ({ ...e, id: e._id }));
       setEvents(mappedEvents);
+      if (data.total !== undefined) {
+        setPagination({ total: data.total, page: data.page, pages: data.pages });
+      }
 
-      let twData = await twRes.json();
+      const twData = await twRes.json();
       const twEventsArray = Array.isArray(twData.events) ? twData.events : (Array.isArray(twData) ? twData : []);
       const mappedTwEvents = twEventsArray.map((e: any) => ({ ...e, id: e._id }));
       setThisWeekEvents(mappedTwEvents);
 
       if (token) {
-        const regsRes = await fetch(`${API_URL}/api/users/me/events/registered`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const [regsRes, booksRes] = await Promise.all([
+          fetch(`${API_URL}/api/users/me/events/registered`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`${API_URL}/api/events/bookmarks/me`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        
         if (regsRes.ok) {
           const data = await regsRes.json();
           const allRegs = [...(data.upcoming || []), ...(data.past || [])];
           setMyRegistrations(new Set(allRegs.map((r: any) => r._id)));
+        }
+        if (booksRes.ok) {
+          const bookmarkedIds = await booksRes.json();
+          setMyBookmarks(new Set(bookmarkedIds));
         }
       }
     } catch (err) {
@@ -79,7 +93,7 @@ export const useEvents = (typeFilter: string = "all", timeFilter: string = "upco
     } finally {
       setLoading(false);
     }
-  }, [typeFilter, timeFilter, searchQuery, month]);
+  }, [typeFilter, timeFilter, searchQuery, month, page, modeFilter, sortOrder]);
 
   useEffect(() => {
     setLoading(true);
@@ -149,5 +163,36 @@ export const useEvents = (typeFilter: string = "all", timeFilter: string = "upco
     }
   };
 
-  return { events, thisWeekEvents, myRegistrations, loading, status, register, cancel, createEvent, refetch: fetchAll };
+  const toggleBookmark = async (eventId: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return toast({ title: "Sign in required", variant: "destructive" });
+    const isBookmarked = myBookmarks.has(eventId);
+    
+    // Optimistic update
+    setMyBookmarks(prev => {
+      const next = new Set(prev);
+      if (isBookmarked) next.delete(eventId);
+      else next.add(eventId);
+      return next;
+    });
+
+    try {
+      const res = await fetch(`${API_URL}/api/events/${eventId}/bookmark`, {
+        method: isBookmarked ? 'DELETE' : 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to toggle bookmark');
+    } catch (error: any) {
+      // Revert optimistic update
+      setMyBookmarks(prev => {
+        const next = new Set(prev);
+        if (isBookmarked) next.add(eventId);
+        else next.delete(eventId);
+        return next;
+      });
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    }
+  };
+
+  return { events, thisWeekEvents, myRegistrations, myBookmarks, pagination, loading, status, register, cancel, createEvent, toggleBookmark, refetch: fetchAll };
 };

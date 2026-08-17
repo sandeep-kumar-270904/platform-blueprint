@@ -17,6 +17,7 @@ import { Building2, Plus, Edit, Trash2, Shield, Eye, EyeOff, Check, MessageSquar
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { AdminReviewFlags } from "@/components/admin/AdminReviewFlags";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
@@ -352,56 +353,7 @@ const AdminCollegePanel = () => {
         </Card>
       </TabsContent>
           <TabsContent value="flagged-reviews" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Flagged Reviews</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
-                      <tr>
-                        <th className="px-4 py-3">College</th>
-                        <th className="px-4 py-3">User</th>
-                        <th className="px-4 py-3">Review Text</th>
-                        <th className="px-4 py-3">Flag Count</th>
-                        <th className="px-4 py-3">Reasons</th>
-                        <th className="px-4 py-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {flaggedReviews.map((review) => (
-                        <tr key={review._id} className="border-b border-border hover:bg-muted/30">
-                          <td className="px-4 py-4 font-medium">{review.collegeId?.name || "Unknown"}</td>
-                          <td className="px-4 py-4">{review.userId?.username || "Unknown"}</td>
-                          <td className="px-4 py-4 max-w-[200px] truncate" title={review.reviewText}>{review.reviewText}</td>
-                          <td className="px-4 py-4 font-bold text-destructive">{review.flaggedCount}</td>
-                          <td className="px-4 py-4 max-w-[200px] truncate text-xs text-muted-foreground">
-                            {review.flagReasons?.map((r: any) => r.reason).join(", ")}
-                          </td>
-                          <td className="px-4 py-4 text-right space-x-2">
-                            <Button variant="outline" size="sm" onClick={() => moderateReview(review._id, 'approve')} className="text-green-500" title="Approve & Restore">
-                              <Check className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => moderateReview(review._id, 'hide')} className="text-orange-500" title="Hide">
-                              <MessageSquareWarning className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => moderateReview(review._id, 'delete')} className="text-destructive" title="Delete">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                      {flaggedReviews.length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="text-center py-8 text-muted-foreground">No flagged reviews.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+            <AdminReviewFlags />
           </TabsContent>
         </Tabs>
       </div>

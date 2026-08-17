@@ -23,19 +23,21 @@ export const ReviewFormDialog = ({ collegeId, onSuccess, review, trigger }: Revi
   const [formData, setFormData] = useState({
     title: review?.title || "",
     reviewText: review?.reviewText || "",
-    pros: review?.pros || "",
-    cons: review?.cons || "",
+    pros: review?.pros ? (Array.isArray(review.pros) ? review.pros.join(", ") : review.pros) : "",
+    cons: review?.cons ? (Array.isArray(review.cons) ? review.cons.join(", ") : review.cons) : "",
     courseStudied: review?.courseStudied || "",
-    yearOfStudy: review?.yearOfStudy || ""
+    yearOfStudy: review?.yearOfStudy || "",
+    yearAttended: review?.yearAttended || new Date().getFullYear(),
+    wouldRecommend: review?.wouldRecommend !== undefined ? review.wouldRecommend : true
   });
   const [categoryRatings, setCategoryRatings] = useState({
-    hostel: review?.categoryRatings?.hostel || 0,
-    labs: review?.categoryRatings?.labs || 0,
-    faculty: review?.categoryRatings?.faculty || 0,
-    campusLife: review?.categoryRatings?.campusLife || 0,
-    placements: review?.categoryRatings?.placements || 0,
     academics: review?.categoryRatings?.academics || 0,
-    infrastructure: review?.categoryRatings?.infrastructure || 0
+    placements: review?.categoryRatings?.placements || 0,
+    faculty: review?.categoryRatings?.faculty || 0,
+    infrastructure: review?.categoryRatings?.infrastructure || 0,
+    hostel: review?.categoryRatings?.hostel || 0,
+    campusLife: review?.categoryRatings?.campusLife || 0,
+    valueForMoney: review?.categoryRatings?.valueForMoney || 0
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,13 +62,21 @@ export const ReviewFormDialog = ({ collegeId, onSuccess, review, trigger }: Revi
         
       const method = review ? "PUT" : "POST";
 
+      const payload = { 
+        ...formData, 
+        rating, 
+        categoryRatings,
+        pros: formData.pros ? formData.pros.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
+        cons: formData.cons ? formData.cons.split(',').map((s: string) => s.trim()).filter(Boolean) : []
+      };
+
       const res = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ ...formData, rating, categoryRatings })
+        body: JSON.stringify(payload)
       });
       
       const data = await res.json();
@@ -128,12 +138,12 @@ export const ReviewFormDialog = ({ collegeId, onSuccess, review, trigger }: Revi
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {[
                   { key: 'academics', label: 'Academics' },
+                  { key: 'placements', label: 'Placements' },
                   { key: 'faculty', label: 'Faculty' },
                   { key: 'infrastructure', label: 'Infrastructure' },
-                  { key: 'placements', label: 'Placements' },
-                  { key: 'campusLife', label: 'Campus Life' },
                   { key: 'hostel', label: 'Hostel' },
-                  { key: 'labs', label: 'Labs' }
+                  { key: 'campusLife', label: 'Campus Life' },
+                  { key: 'valueForMoney', label: 'Value for Money' }
                 ].map((cat) => (
                   <div key={cat.key} className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">{cat.label}</span>
@@ -249,6 +259,43 @@ export const ReviewFormDialog = ({ collegeId, onSuccess, review, trigger }: Revi
                   value={formData.yearOfStudy}
                   onChange={(e) => setFormData({...formData, yearOfStudy: e.target.value})}
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Year Attended</label>
+                <Input 
+                  type="number"
+                  placeholder="e.g. 2023" 
+                  value={formData.yearAttended}
+                  onChange={(e) => setFormData({...formData, yearAttended: parseInt(e.target.value) || new Date().getFullYear()})}
+                />
+              </div>
+              <div className="space-y-2 flex flex-col justify-center">
+                <label className="text-sm font-medium mb-2">Would you recommend?</label>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="recommend" 
+                      checked={formData.wouldRecommend === true}
+                      onChange={() => setFormData({...formData, wouldRecommend: true})}
+                      className="accent-primary"
+                    />
+                    Yes
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="recommend" 
+                      checked={formData.wouldRecommend === false}
+                      onChange={() => setFormData({...formData, wouldRecommend: false})}
+                      className="accent-primary"
+                    />
+                    No
+                  </label>
+                </div>
               </div>
             </div>
 

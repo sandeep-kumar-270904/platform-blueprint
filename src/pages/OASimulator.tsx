@@ -91,7 +91,7 @@ export const OASimulator = () => {
     if (!attempt) return;
     try {
       const section = attempt.sections[currentSectionIdx];
-      let payload: any = { sectionIndex: currentSectionIdx, tabSwitches: switches || tabSwitches };
+      const payload: any = { sectionIndex: currentSectionIdx, tabSwitches: switches || tabSwitches };
       
       if (section.type === 'Coding' || section.type === 'Debugging') {
         const r = section.codingResponses[currentQuestionIdx];

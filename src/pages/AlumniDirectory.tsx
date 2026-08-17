@@ -12,19 +12,21 @@ export default function AlumniDirectory() {
   const [alumni, setAlumni] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [companyFilter, setCompanyFilter] = useState("");
+  const [pastCompanyFilter, setPastCompanyFilter] = useState("");
   const [yearFilter, setYearFilter] = useState("");
 
   useEffect(() => {
     fetchAlumni();
-  }, [companyFilter, yearFilter]);
+  }, [companyFilter, pastCompanyFilter, yearFilter]);
 
   const fetchAlumni = async () => {
     try {
       const params = new URLSearchParams();
       if (companyFilter) params.append('company', companyFilter);
+      if (pastCompanyFilter) params.append('pastCompany', pastCompanyFilter);
       if (yearFilter) params.append('year', yearFilter);
       
-      const res = await api.get(`/mentor-community/alumni?${params.toString()}`);
+      const res = await api.get(`/alumni/directory?${params.toString()}`);
       setAlumni(res.data.alumni);
     } catch (e) {
       console.error(e);
@@ -32,7 +34,7 @@ export default function AlumniDirectory() {
   };
 
   const filteredAlumni = alumni.filter(a => 
-    a.user_id?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    a.userId?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     a.currentRole?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -62,8 +64,14 @@ export default function AlumniDirectory() {
           onChange={e => setCompanyFilter(e.target.value)}
         />
         <Input 
-          placeholder="Graduation Year..." 
-          className="w-full md:w-48"
+          placeholder="Past Company (Career Path)..." 
+          className="w-full md:w-64"
+          value={pastCompanyFilter}
+          onChange={e => setPastCompanyFilter(e.target.value)}
+        />
+        <Input 
+          placeholder="Grad Year..." 
+          className="w-full md:w-32"
           type="number"
           value={yearFilter}
           onChange={e => setYearFilter(e.target.value)}
@@ -75,17 +83,17 @@ export default function AlumniDirectory() {
           <Card key={alum._id} className="hover:shadow-md transition-shadow">
             <CardHeader className="flex flex-row gap-4 items-start">
               <Avatar className="w-16 h-16 border-2 border-primary/20">
-                <AvatarImage src={alum.user_id?.avatar_url} />
-                <AvatarFallback>{alum.user_id?.full_name?.[0]}</AvatarFallback>
+                <AvatarImage src={alum.userId?.avatar_url} />
+                <AvatarFallback>{alum.userId?.full_name?.[0]}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col">
-                <CardTitle className="text-lg">{alum.user_id?.full_name}</CardTitle>
+                <CardTitle className="text-lg">{alum.userId?.full_name}</CardTitle>
                 <div className="text-sm text-muted-foreground font-medium">{alum.currentRole}</div>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                   <Briefcase className="w-3 h-3" /> {alum.currentCompany || alum.company}
                 </div>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                  <GraduationCap className="w-3 h-3" /> Class of {alum.graduationYear}
+                  <GraduationCap className="w-3 h-3" /> {alum.collegeId?.name} - Class of {alum.graduationYear}
                 </div>
               </div>
             </CardHeader>

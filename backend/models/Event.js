@@ -11,15 +11,17 @@ const eventSchema = new mongoose.Schema({
   description: { type: String, required: true },
   eventType: { 
     type: String, 
-    enum: ['hackathon', 'competition', 'workshop', 'seminar'],
+    enum: ['hackathon', 'competition', 'workshop', 'seminar', 'conference', 'tech_event', 'webinar', 'career_event', 'coding_contest', 'other', 'community_content'],
     required: true
   },
   bannerImage: { type: String, default: null },
   
-  startDate: { type: Date, required: true },
-  endDate: { type: Date, required: true },
-  startTime: { type: String, required: true }, // e.g. "09:00"
-  endTime: { type: String, required: true },   // e.g. "17:00"
+  isExternalContent: { type: Boolean, default: false },
+  
+  startDate: { type: Date, required: function() { return !this.isExternalContent; } },
+  endDate: { type: Date, required: function() { return !this.isExternalContent; } },
+  startTime: { type: String, required: function() { return !this.isExternalContent; } }, // e.g. "09:00"
+  endTime: { type: String, required: function() { return !this.isExternalContent; } },   // e.g. "17:00"
   
   isVirtual: { type: Boolean, default: false },
   venue: { type: String, required: false }, // empty if virtual
@@ -36,8 +38,14 @@ const eventSchema = new mongoose.Schema({
   
   status: { 
     type: String, 
-    enum: ['pending_approval', 'approved', 'rejected', 'completed', 'cancelled'],
+    enum: ['pending_approval', 'approved', 'rejected', 'cancelled'],
     default: 'pending_approval'
+  },
+  
+  lifecycleStatus: {
+    type: String,
+    enum: ['upcoming', 'live', 'completed', 'archived'],
+    default: 'upcoming'
   },
   
   registrationRequired: { type: Boolean, default: true },
@@ -56,16 +64,37 @@ const eventSchema = new mongoose.Schema({
   
   tags: [{ type: String }],
   
-  rejectionReason: { type: String, default: null }, // Added previously possibly but we should make sure it exists, wait, it didn't exist in the file but let's add it if missing. Oh wait, it wasn't in the schema above? Wait, in the previous conversation I did add rejectionReason. I'll add reminded24h and rejectionReason if missing. 
+  rejectionReason: { type: String, default: null },
   
   reminded24h: { type: Boolean, default: false },
   
   avgRating: { type: Number, default: 0 },
   totalFeedbackCount: { type: Number, default: 0 },
   
+  timezone: { type: String, default: 'UTC' }, // New field for robust date handling
+  draft: { type: Boolean, default: false }, // New field for creation wizard
+  
+  registrationCount: { type: Number, default: 0 }, // Tracks registered attendees atomically
+  
+  source: {
+    provider: { 
+      type: String, 
+      enum: ['INTERNAL', 'EXTERNAL_API', 'COLLEGE_FEED', 'ORGANIZER_FEED', 'PARTNER', 'DEV_COMMUNITY'],
+      default: 'INTERNAL'
+    },
+    externalEventId: { type: String, default: null },
+    externalUrl: { type: String, default: null },
+    importedAt: { type: Date, default: null },
+    lastSyncedAt: { type: Date, default: null },
+    syncStatus: { type: String, default: 'HEALTHY' }
+  }
+  
 }, { timestamps: true });
 
 eventSchema.index({ startDate: 1, status: 1 });
 eventSchema.index({ hostedBy: 1 });
+eventSchema.index({ status: 1, lifecycleStatus: 1, startDate: 1, endDate: 1 }); // For cron job optimization
+eventSchema.index({ 'source.provider': 1, 'source.externalEventId': 1 }); // For external event deduplication
+eventSchema.index({ title: 'text', tags: 'text' }); // For text search optimization
 
 module.exports = mongoose.model('Event', eventSchema);

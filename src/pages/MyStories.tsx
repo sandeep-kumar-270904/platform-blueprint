@@ -19,8 +19,9 @@ const MyStories = () => {
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
-        const res = await fetch(${API_URL}/api/essay-templates/my-templates, {
-          headers: { 'Authorization': Bearer  }
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_URL}/api/essay-templates/my-templates`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
           setTemplates(await res.json());
@@ -161,7 +162,8 @@ const MyStories = () => {
                       <div className="mt-4 flex gap-2">
                         <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10" onClick={async () => {
                           if(confirm('Delete template?')) {
-                            await fetch(${API_URL}/api/essay-templates/, { method: 'DELETE', headers: { 'Authorization': Bearer  } });
+                            const token = localStorage.getItem('token');
+                            await fetch(`${API_URL}/api/essay-templates/${template._id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
                             setTemplates(templates.filter(t => t._id !== template._id));
                           }
                         }}>

@@ -46,6 +46,40 @@ router.post('/:collegeId/questions', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/college-qa/questions/:questionId/answers
+router.get('/questions/:questionId/answers', async (req, res) => {
+  try {
+    const question = await CollegeQuestion.findById(req.params.questionId);
+    if (!question) return res.status(404).json({ message: 'Question not found' });
+
+    const answers = await CollegeAnswer.find({ questionId: req.params.questionId, status: 'public' })
+      .populate('userId', 'username full_name avatar_url')
+      .sort({ upvotes: -1, createdAt: -1 })
+      .lean();
+
+    const CollegeOfficialAccount = require('../models/CollegeOfficialAccount');
+
+    const answersWithOfficialStatus = await Promise.all(answers.map(async (a) => {
+      // We know a.userId is populated, so a.userId._id is the user ID.
+      const officialStatus = await CollegeOfficialAccount.findOne({
+        userId: a.userId?._id || a.userId,
+        collegeId: question.collegeId,
+        verificationStatus: 'approved'
+      });
+
+      return {
+        ...a,
+        answeredBy: a.userId, // Map userId to answeredBy to match frontend expectations
+        isOfficial: !!officialStatus
+      };
+    }));
+
+    res.json(answersWithOfficialStatus);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching answers', error: error.message });
+  }
+});
+
 // POST /api/college-qa/questions/:questionId/answers
 router.post('/questions/:questionId/answers', authMiddleware, async (req, res) => {
   try {
@@ -74,7 +108,18 @@ router.post('/questions/:questionId/answers', authMiddleware, async (req, res) =
       });
     }
 
-    res.status(201).json(answer);
+    const CollegeOfficialAccount = require('../models/CollegeOfficialAccount');
+    const officialStatus = await CollegeOfficialAccount.findOne({
+      userId: req.user.id,
+      collegeId: question.collegeId,
+      verificationStatus: 'approved'
+    });
+
+    res.status(201).json({
+      ...answer.toObject(),
+      answeredBy: answer.userId,
+      isOfficial: !!officialStatus
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error posting answer', error: error.message });
   }

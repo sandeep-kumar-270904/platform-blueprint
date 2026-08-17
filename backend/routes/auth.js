@@ -28,13 +28,13 @@ const setCookies = (res, accessToken, refreshToken) => {
   res.cookie('accessToken', accessToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 60 * 60 * 1000 // 1 hour
   });
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
   });
 };
@@ -357,7 +357,7 @@ const handleOAuthCallback = (req, res, next) => {
     await AuthEvent.create({ userId: user._id, eventType: 'login_success', ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress, userAgent: req.headers['user-agent'] });
 
     setCookies(res, accessToken, refreshToken);
-    res.redirect(process.env.FRONTEND_URL || 'http://localhost:8080');
+    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:8080'}?token=${accessToken}`);
   })(req, res, next);
 };
 

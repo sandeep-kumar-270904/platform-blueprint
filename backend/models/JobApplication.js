@@ -14,9 +14,10 @@ const jobApplicationSchema = new mongoose.Schema({
     question: { type: String }, 
     answer: { type: String } 
   }],
+  studentManaged: { type: Boolean, default: false },
   status: { 
     type: String, 
-    enum: ['applied', 'under_review', 'shortlisted', 'interview', 'offered', 'rejected', 'hired', 'withdrawn'], 
+    enum: ['interested', 'applied', 'under_review', 'assessment', 'shortlisted', 'interview', 'offered', 'rejected', 'hired', 'withdrawn', 'accepted'], 
     default: 'applied' 
   },
   statusHistory: [{ 

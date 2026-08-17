@@ -99,7 +99,9 @@ const Auth = () => {
   }, []);
 
   useEffect(() => {
-    if (user) navigate(from, { replace: true });
+    if (user) {
+      navigate(from, { replace: true });
+    }
   }, [user, navigate, from]);
 
   useEffect(() => {
@@ -186,7 +188,8 @@ const Auth = () => {
   };
 
   const handleSocialLogin = (provider: string) => {
-    window.location.href = `http://localhost:5000/api/auth/${provider}`;
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    window.location.href = `${API_URL}/api/auth/${provider}`;
   };
 
   if (loading) {

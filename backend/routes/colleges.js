@@ -7,6 +7,15 @@ const notificationService = require('../services/notificationService');
 const CollegeQuestion = require('../models/CollegeQuestion');
 const auth = require('../middleware/auth');
 const { qaPostLimiter, reviewLimiter } = require('../middleware/rateLimiter');
+const mongoose = require('mongoose');
+
+// Validate ObjectId for all routes using :id
+router.param('id', (req, res, next, id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: 'Invalid ID format' });
+  }
+  next();
+});
 
 // Middleware to check if user is admin
 const isAdmin = async (req, res, next) => {
@@ -42,6 +51,96 @@ router.get('/saved/me', auth, async (req, res) => {
     const user = await User.findById(req.user.id).populate('savedColleges');
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json(user.savedColleges);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET /api/colleges/comparisons - Get user's saved comparison sets
+router.get('/comparisons', auth, async (req, res) => {
+  try {
+    const ComparisonSet = require('../models/ComparisonSet');
+    const sets = await ComparisonSet.find({ userId: req.user.id })
+      .populate('colleges', 'name logoOrIcon location type rating')
+      .sort({ createdAt: -1 });
+    res.json(sets);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// POST /api/colleges/comparisons - Save a comparison set
+router.post('/comparisons', auth, async (req, res) => {
+  try {
+    const { name, collegeIds } = req.body;
+    const ComparisonSet = require('../models/ComparisonSet');
+    
+    if (!collegeIds || collegeIds.length < 2) {
+      return res.status(400).json({ message: 'At least 2 colleges required' });
+    }
+    
+    const newSet = new ComparisonSet({
+      userId: req.user.id,
+      name: name || 'Saved Comparison',
+      colleges: collegeIds
+    });
+    
+    await newSet.save();
+    res.status(201).json(newSet);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// DELETE /api/colleges/comparisons/:id
+router.delete('/comparisons/:id', auth, async (req, res) => {
+  try {
+    const ComparisonSet = require('../models/ComparisonSet');
+    const deleted = await ComparisonSet.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
+    if (!deleted) return res.status(404).json({ message: 'Comparison set not found' });
+    res.json({ message: 'Deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+
+
+// POST /api/colleges/:id/claim - Request official account status
+router.post('/:id/claim', auth, async (req, res) => {
+  try {
+    const { officialEmail, proofDocumentUrl, role } = req.body;
+    const CollegeOfficialAccount = require('../models/CollegeOfficialAccount');
+
+    const existingClaim = await CollegeOfficialAccount.findOne({ userId: req.user.id, collegeId: req.params.id });
+    if (existingClaim) {
+      return res.status(400).json({ message: 'You have already submitted a claim for this college.' });
+    }
+
+    const claim = await CollegeOfficialAccount.create({
+      userId: req.user.id,
+      collegeId: req.params.id,
+      officialEmail,
+      proofDocumentUrl,
+      role: role || 'representative'
+    });
+
+    res.status(201).json({ message: 'Claim submitted successfully', claim });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET /api/colleges/:id/official-status - Check if user is an official
+router.get('/:id/official-status', auth, async (req, res) => {
+  try {
+    const CollegeOfficialAccount = require('../models/CollegeOfficialAccount');
+    const claim = await CollegeOfficialAccount.findOne({ userId: req.user.id, collegeId: req.params.id });
+    
+    if (!claim) {
+      return res.json({ status: 'none' });
+    }
+    res.json({ status: claim.verificationStatus, role: claim.role });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -276,13 +375,9 @@ router.post('/', auth, async (req, res) => {
       if (existing) return res.status(400).json({ message: 'This college already exists in our database.' });
     }
     
-    const user = await User.findById(req.user.id);
-    const isAdmin = user && user.role === 'admin';
-    
     const collegeData = req.body;
-    if (!isAdmin) {
-      collegeData.draft = true;
-    }
+    // Allow anyone to publish immediately (no admin approval required)
+    collegeData.draft = false;
 
     const college = new College(collegeData);
     await college.save();
@@ -395,11 +490,45 @@ router.get('/:id/rating-breakdown', async (req, res) => {
   }
 });
 
+// GET /api/colleges/:id/reality-check
+router.get('/:id/reality-check', async (req, res) => {
+  try {
+    const college = await College.findById(req.params.id);
+    if (!college) return res.status(404).json({ message: 'College not found' });
+
+    let feesTotal = null;
+    if (college.fees) {
+      feesTotal = (college.fees.tuition || 0) + (college.fees.hostel || 0) + (college.fees.other || 0);
+    }
+
+    const official = {
+      placementRate: college.placementPercentage || null,
+      avgPackage: college.avgPackage ? parseFloat(college.avgPackage) : null,
+      fees: feesTotal || null
+    };
+
+    const { aggregateCollegeReviews } = require('../services/collegeReviewAggregator');
+    const studentExperience = await aggregateCollegeReviews(req.params.id);
+
+    res.json({ official, studentExperience });
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching reality check', error: error.message });
+  }
+});
+
 // POST /api/colleges/:id/reviews - Submit review
 router.post('/:id/reviews', auth, reviewLimiter, async (req, res) => {
   try {
     const college = await College.findById(req.params.id);
     if (!college) return res.status(404).json({ message: 'College not found' });
+
+    // Check if official account (cannot review any college - conflict of interest)
+    const CollegeOfficialAccount = require('../models/CollegeOfficialAccount');
+    const isOfficial = await CollegeOfficialAccount.findOne({ 
+      userId: req.user.id, 
+      verificationStatus: 'verified' 
+    });
+    if (isOfficial) return res.status(403).json({ message: 'Official college accounts cannot submit student reviews' });
 
     // Check if user already reviewed
     const existing = await Review.findOne({ collegeId: req.params.id, userId: req.user.id });
@@ -414,16 +543,11 @@ router.post('/:id/reviews', auth, reviewLimiter, async (req, res) => {
       }
     }
 
-    const { categoryRatings } = req.body;
-    let overallRating = Number(req.body.rating);
-    
-    // Enforce 1-5 boundary for overall rating
-    if (isNaN(overallRating) || overallRating < 1 || overallRating > 5) {
-      return res.status(400).json({ message: 'Rating must be a number between 1 and 5' });
-    }
+    const { categoryRatings, title, reviewText, pros, cons, wouldRecommend, yearAttended, courseStudied, yearOfStudy } = req.body;
+    let overallRating = Number(req.body.rating) || 0;
     
     if (categoryRatings) {
-      const cats = ['hostel', 'labs', 'faculty', 'campusLife', 'placements', 'academics', 'infrastructure'];
+      const cats = ['academics', 'placements', 'faculty', 'infrastructure', 'hostel', 'campusLife', 'valueForMoney'];
       let sum = 0;
       let count = 0;
       cats.forEach(c => {
@@ -435,14 +559,27 @@ router.post('/:id/reviews', auth, reviewLimiter, async (req, res) => {
           }
         }
       });
-      if (count > 0) overallRating = Math.round((sum / count) * 10) / 10;
+      if (count === 7) {
+        overallRating = Math.round((sum / 7) * 10) / 10;
+      } else if (count > 0) {
+        overallRating = Math.round((sum / count) * 10) / 10;
+      }
+    }
+    
+    if (overallRating < 1 || overallRating > 5) {
+      overallRating = 1; // Fallback
     }
 
+    const ipAddress = req.ip || req.connection.remoteAddress;
+
     const review = new Review({
-      ...req.body,
+      title, reviewText, pros, cons, wouldRecommend, yearAttended, courseStudied, yearOfStudy,
+      categoryRatings,
       rating: overallRating,
+      overallRating: overallRating,
       collegeId: req.params.id,
       userId: req.user.id,
+      ipAddress,
       verificationStatus,
       verificationMethod: verificationStatus === 'verified' ? 'domain_match' : undefined
     });
@@ -454,7 +591,7 @@ router.post('/:id/reviews', auth, reviewLimiter, async (req, res) => {
     
     if (college.totalReviews > 0) {
       college.rating = Math.round((allReviews.reduce((sum, r) => sum + r.rating, 0) / college.totalReviews) * 10) / 10;
-      const cats = ['hostel', 'labs', 'faculty', 'campusLife', 'placements', 'academics', 'infrastructure'];
+      const cats = ['hostel', 'valueForMoney', 'faculty', 'campusLife', 'placements', 'academics', 'infrastructure'];
       cats.forEach(cat => {
         let catSum = 0;
         let catCount = 0;
@@ -639,6 +776,107 @@ router.post('/recommend', async (req, res) => {
   } catch (error) {
     console.error('Error generating recommendations:', error);
     res.status(500).json({ message: 'Error generating recommendations', error: error.message });
+  }
+});
+
+// GET /api/colleges/:id/fees - Get fee structure
+router.get('/:id/fees', async (req, res) => {
+  try {
+    const college = await College.findById(req.params.id);
+    if (!college) return res.status(404).json({ message: 'College not found' });
+    res.json(college.feeStructure || []);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PUT /api/colleges/:id/fees - Admin update fee structure
+router.put('/:id/fees', auth, isAdmin, async (req, res) => {
+  try {
+    const { feeStructure } = req.body;
+    if (!feeStructure || !Array.isArray(feeStructure)) {
+      return res.status(400).json({ message: 'Invalid feeStructure array' });
+    }
+    const college = await College.findByIdAndUpdate(
+      req.params.id,
+      { feeStructure },
+      { new: true }
+    );
+    if (!college) return res.status(404).json({ message: 'College not found' });
+    res.json(college.feeStructure);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// GET /api/colleges/:id/fee-reminder - Get personal fee reminder
+router.get('/:id/fee-reminder', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    const reminder = user.feeReminders?.find(r => r.collegeId.toString() === req.params.id);
+    res.json({ note: reminder ? reminder.note : '' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/colleges/:id/fee-reminder - Create/Update fee reminder
+router.post('/:id/fee-reminder', auth, async (req, res) => {
+  try {
+    const { note } = req.body;
+    const user = await User.findById(req.user.id);
+    
+    // Check if college is saved
+    const isSaved = user.savedColleges.some(c => c.toString() === req.params.id);
+    if (!isSaved) {
+      return res.status(403).json({ message: 'You must save the college before setting a reminder' });
+    }
+
+    if (!user.feeReminders) user.feeReminders = [];
+    
+    const existingIndex = user.feeReminders.findIndex(r => r.collegeId.toString() === req.params.id);
+    if (existingIndex > -1) {
+      user.feeReminders[existingIndex].note = note;
+    } else {
+      user.feeReminders.push({ collegeId: req.params.id, note });
+    }
+    
+    await user.save();
+    res.json({ note: user.feeReminders.find(r => r.collegeId.toString() === req.params.id).note });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/colleges/:id/claims
+router.post('/:id/claims', auth, async (req, res) => {
+  try {
+    const CollegeOfficialAccount = require('../models/CollegeOfficialAccount');
+    const college = await College.findById(req.params.id);
+    if (!college) return res.status(404).json({ message: 'College not found' });
+
+    const existingClaim = await CollegeOfficialAccount.findOne({ 
+      userId: req.user.id, 
+      collegeId: req.params.id 
+    });
+    
+    if (existingClaim) {
+      return res.status(400).json({ message: 'You have already submitted a claim for this college' });
+    }
+    
+    const user = await User.findById(req.user.id);
+
+    const claim = new CollegeOfficialAccount({
+      userId: req.user.id,
+      collegeId: req.params.id,
+      officialEmail: user.email,
+      verificationStatus: 'pending'
+    });
+    
+    await claim.save();
+    res.status(201).json(claim);
+  } catch (error) {
+    res.status(500).json({ message: 'Error submitting claim', error: error.message });
   }
 });
 

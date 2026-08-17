@@ -176,7 +176,7 @@ const Search = () => {
                       key={event._id} 
                       event={{...event, id: event._id}} 
                       registered={false} // Would need a hook to check, but search view can just hide it or say "See details"
-                      fmtDate={fmtDate} 
+ 
                       typeColorClass={typeColorClass}
                       onClick={() => navigate(`/events/${event._id}`)}
                     />

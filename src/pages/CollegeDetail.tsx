@@ -16,14 +16,26 @@ import {
 import { useColleges } from "@/hooks/useColleges";
 import { ReviewFormDialog } from "@/components/colleges/ReviewFormDialog";
 import { CollegeQA } from "@/components/colleges/CollegeQA";
+import { CollegeAlumniDirectory } from "@/components/colleges/CollegeAlumniDirectory";
+import { RealityCheck } from "@/components/colleges/RealityCheck";
+import { CollegeSalaryInsights } from "@/components/colleges/CollegeSalaryInsights";
+import { CollegeClaimButton } from "@/components/colleges/CollegeClaimButton";
+import { AddToTrackerButton } from "@/components/colleges/AddToTrackerButton";
+import { FeedLayout } from "@/components/community-feed/FeedLayout";
 import { useAuth } from "@/hooks/useAuth";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+const getImageUrl = (url?: string) => {
+  if (!url) return undefined;
+  if (url.startsWith("http") || url.startsWith("data:")) return url;
+  return `${API_URL}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
 const CollegeDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const { getCollege, getReviews, getRatingBreakdown, getSavedColleges, toggleSaveCollege } = useColleges();
+  const { getCollege, getReviews, getRatingBreakdown, getSavedColleges, toggleSaveCollege, getFeeReminder, saveFeeReminder } = useColleges();
   
   const [college, setCollege] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +56,10 @@ const CollegeDetail = () => {
   const [collegeEvents, setCollegeEvents] = useState<any>({ upcoming: [], past: [] });
   const [loadingEvents, setLoadingEvents] = useState(false);
 
+  const [feeReminderOpen, setFeeReminderOpen] = useState(false);
+  const [feeReminderNote, setFeeReminderNote] = useState("");
+  const [savingReminder, setSavingReminder] = useState(false);
+
   useEffect(() => {
     if (!id) return;
     
@@ -57,8 +73,13 @@ const CollegeDetail = () => {
         
         if (user) {
           const saved = await getSavedColleges();
-          setIsSaved(saved.some((c: any) => (c._id || c) === id));
+          const savedStatus = saved.some((c: any) => (c._id || c) === id);
+          setIsSaved(savedStatus);
           
+          if (savedStatus) {
+            getFeeReminder(id).then(note => setFeeReminderNote(note || "")).catch(() => {});
+          }
+
           // Track view for personalization
           const token = localStorage.getItem("token");
           if (token) {
@@ -164,6 +185,20 @@ const CollegeDetail = () => {
     }
   };
 
+  const handleSaveFeeReminder = async () => {
+    if (!id) return;
+    setSavingReminder(true);
+    try {
+      await saveFeeReminder(id, feeReminderNote);
+      import("sonner").then(({ toast }) => toast.success("Fee reminder saved successfully"));
+      setFeeReminderOpen(false);
+    } catch (e) {
+      // Error handled in hook
+    } finally {
+      setSavingReminder(false);
+    }
+  };
+
   const handleAddToCompare = () => {
     if (!college) return;
     const stored = sessionStorage.getItem("compareList");
@@ -212,7 +247,7 @@ const CollegeDetail = () => {
     );
   }
 
-  const bannerImg = college.images?.[0] || "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&q=80&w=2000";
+  const bannerImg = getImageUrl(college.images?.[0]) || "https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&q=80&w=2000";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -248,7 +283,9 @@ const CollegeDetail = () => {
             </div>
           </div>
 
-          <div className="flex shrink-0 gap-3 w-full md:w-auto mt-4 md:mt-0">
+          <div className="flex shrink-0 gap-3 w-full md:w-auto mt-4 md:mt-0 flex-wrap justify-end">
+            <CollegeClaimButton collegeId={id!} />
+            <AddToTrackerButton collegeId={id!} />
             <Button variant="outline" onClick={handleAddToCompare} className="flex-1 md:flex-none">
               <Scale className="mr-2 h-4 w-4" /> Compare
             </Button>
@@ -286,7 +323,7 @@ const CollegeDetail = () => {
         {/* Content Tabs */}
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="w-full justify-start overflow-x-auto bg-transparent border-b border-border rounded-none h-auto p-0 mb-6 flex-nowrap hide-scrollbar">
-            {["Overview", "Courses & Fees", "Placements", "Facilities", "Events", "Reviews", "Q&A"].map((tab) => (
+            {["Overview", "Courses & Fees", "Placements & Salary", "Facilities", "Events", "Reviews", "Q&A", "Alumni", "Community"].map((tab) => (
               <TabsTrigger 
                 key={tab} 
                 value={tab.toLowerCase().replace(' & ', '-')}
@@ -298,6 +335,8 @@ const CollegeDetail = () => {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-8 animate-in fade-in duration-500">
+            <RealityCheck collegeId={id!} />
+            
             <Card className="border-border">
               <CardHeader><CardTitle>About {college.name}</CardTitle></CardHeader>
               <CardContent>
@@ -341,32 +380,84 @@ const CollegeDetail = () => {
               </Card>
 
               <Card className="border-border h-fit">
-                <CardHeader><CardTitle>Fee Structure</CardTitle></CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Fee Structure</CardTitle>
+                  {isSaved && (
+                    <Button variant="outline" size="sm" onClick={() => setFeeReminderOpen(true)}>
+                      Set Reminder
+                    </Button>
+                  )}
+                </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Tuition Fee</span>
-                    <span className="font-medium">₹{(college.fees.tuition).toLocaleString()}/yr</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Hostel Fee</span>
-                    <span className="font-medium">₹{(college.fees.hostel).toLocaleString()}/yr</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Other Fees</span>
-                    <span className="font-medium">₹{(college.fees.other).toLocaleString()}/yr</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 text-lg font-bold">
-                    <span>Total</span>
-                    <span className="text-primary">
-                      ₹{(college.fees.tuition + college.fees.hostel + college.fees.other).toLocaleString()}/yr
-                    </span>
-                  </div>
+                  {college.feeStructure && college.feeStructure.length > 0 ? (
+                    college.feeStructure.map((fs: any, i: number) => (
+                      <div key={i} className="mb-6 last:mb-0">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-semibold text-primary">{fs.year}</h4>
+                          <Badge variant="secondary" className="text-[10px]">
+                            {fs.source === 'official' ? 'Official' : fs.source === 'crowd-reported' ? 'Crowdsourced' : 'Admin Verified'}
+                          </Badge>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between border-b border-border py-1">
+                            <span className="text-muted-foreground">Tuition</span>
+                            <span className="font-medium">₹{(fs.tuition || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between border-b border-border py-1">
+                            <span className="text-muted-foreground">Hostel</span>
+                            <span className="font-medium">₹{(fs.hostel || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between border-b border-border py-1">
+                            <span className="text-muted-foreground">Mess</span>
+                            <span className="font-medium">₹{(fs.mess || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between border-b border-border py-1">
+                            <span className="text-muted-foreground">Other Charges</span>
+                            <span className="font-medium">₹{(fs.otherCharges || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between py-1 font-bold pt-2">
+                            <span>Total</span>
+                            <span className="text-primary">₹{(fs.total || 0).toLocaleString()}</span>
+                          </div>
+                          {fs.lastVerified && (
+                            <div className="text-right text-[10px] text-muted-foreground mt-1">
+                              Last verified: {new Date(fs.lastVerified).toLocaleDateString()}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center py-2 border-b border-border">
+                        <span className="text-muted-foreground">Tuition Fee</span>
+                        <span className="font-medium">₹{(college.fees?.tuition || 0).toLocaleString()}/yr</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-border">
+                        <span className="text-muted-foreground">Hostel Fee</span>
+                        <span className="font-medium">₹{(college.fees?.hostel || 0).toLocaleString()}/yr</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-border">
+                        <span className="text-muted-foreground">Other Fees</span>
+                        <span className="font-medium">₹{(college.fees?.other || 0).toLocaleString()}/yr</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 text-lg font-bold">
+                        <span>Total</span>
+                        <span className="text-primary">
+                          ₹{((college.fees?.tuition || 0) + (college.fees?.hostel || 0) + (college.fees?.other || 0)).toLocaleString()}/yr
+                        </span>
+                      </div>
+                      <div className="text-xs text-center text-muted-foreground mt-4">
+                        * Detailed year-wise breakdown is not available for this college yet.
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          <TabsContent value="placements" className="space-y-6 animate-in fade-in duration-500">
+          <TabsContent value="placements-salary" className="space-y-6 animate-in fade-in duration-500">
              <Card className="border-border">
               <CardHeader><CardTitle>Placement Highlights</CardTitle></CardHeader>
               <CardContent className="grid md:grid-cols-3 gap-6 text-center">
@@ -384,6 +475,8 @@ const CollegeDetail = () => {
                 </div>
               </CardContent>
             </Card>
+            
+            <CollegeSalaryInsights collegeId={id!} />
           </TabsContent>
 
           <TabsContent value="facilities" className="animate-in fade-in duration-500">
@@ -425,7 +518,7 @@ const CollegeDetail = () => {
                         <div className="flex border border-border rounded-xl overflow-hidden hover:border-primary transition-colors h-32 group cursor-pointer">
                           <div className="w-1/3 relative bg-muted shrink-0">
                             {event.bannerImage ? (
-                              <img src={event.bannerImage} alt={event.title} className="w-full h-full object-cover" />
+                              <img src={getImageUrl(event.bannerImage)} alt={event.title} className="w-full h-full object-cover" />
                             ) : (
                               <div className="absolute inset-0 flex items-center justify-center text-muted-foreground/30"><Calendar className="h-8 w-8" /></div>
                             )}
@@ -462,7 +555,7 @@ const CollegeDetail = () => {
                       <Link to={`/events/${event._id}`} key={event._id}>
                         <div className="flex items-center gap-4 p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors">
                           <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center overflow-hidden shrink-0">
-                            {event.bannerImage ? <img src={event.bannerImage} alt={event.title} className="w-full h-full object-cover" /> : <Calendar className="h-4 w-4 text-muted-foreground" />}
+                            {event.bannerImage ? <img src={getImageUrl(event.bannerImage)} alt={event.title} className="w-full h-full object-cover" /> : <Calendar className="h-4 w-4 text-muted-foreground" />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <h5 className="font-medium text-sm truncate">{event.title}</h5>
@@ -599,6 +692,7 @@ const CollegeDetail = () => {
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   {review.courseStudied && `${review.courseStudied} • `}
+                                  {review.yearAttended && `Class of ${review.yearAttended} • `}
                                   {new Date(review.createdAt).toLocaleDateString()}
                                 </div>
                               </div>
@@ -631,20 +725,36 @@ const CollegeDetail = () => {
                             </div>
                           )}
                           
-                          {(review.pros || review.cons) && (
+                          {(review.pros?.length > 0 || review.cons?.length > 0) && (
                             <div className="grid sm:grid-cols-2 gap-4 mb-4 text-sm bg-muted/20 p-3 rounded-lg border border-border">
-                              {review.pros && (
+                              {review.pros?.length > 0 && (
                                 <div>
                                   <span className="font-semibold text-green-500 block mb-1">Pros</span>
-                                  <span className="text-muted-foreground">{review.pros}</span>
+                                  <ul className="list-disc pl-4 text-muted-foreground">
+                                    {review.pros.map((pro: string, idx: number) => (
+                                      <li key={idx}>{pro}</li>
+                                    ))}
+                                  </ul>
                                 </div>
                               )}
-                              {review.cons && (
+                              {review.cons?.length > 0 && (
                                 <div>
                                   <span className="font-semibold text-red-500 block mb-1">Cons</span>
-                                  <span className="text-muted-foreground">{review.cons}</span>
+                                  <ul className="list-disc pl-4 text-muted-foreground">
+                                    {review.cons.map((con: string, idx: number) => (
+                                      <li key={idx}>{con}</li>
+                                    ))}
+                                  </ul>
                                 </div>
                               )}
+                            </div>
+                          )}
+
+                          {review.wouldRecommend !== undefined && review.wouldRecommend !== null && (
+                            <div className="mb-4">
+                              <Badge variant={review.wouldRecommend ? "default" : "destructive"} className="text-xs font-medium">
+                                {review.wouldRecommend ? "✓ Would Recommend" : "✕ Would Not Recommend"}
+                              </Badge>
                             </div>
                           )}
                           
@@ -693,8 +803,28 @@ const CollegeDetail = () => {
 
           <TabsContent value="q&a" className="animate-in fade-in duration-500">
             <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
-              <h3 className="text-xl font-bold mb-6">Questions & Answers</h3>
               <CollegeQA collegeId={college._id} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="alumni" className="m-0 mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-card rounded-xl border border-border shadow-sm p-6 mb-8">
+              <div className="mb-6">
+                <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5 text-primary" />
+                  Alumni Network
+                </h3>
+                <p className="text-muted-foreground">
+                  Connect with {college.name} alumni for mentorship, career advice, and Q&A.
+                </p>
+              </div>
+              <CollegeAlumniDirectory collegeId={college._id} />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="community" className="animate-in fade-in duration-500">
+            <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+              <FeedLayout collegeId={college._id} />
             </div>
           </TabsContent>
         </Tabs>
@@ -725,6 +855,31 @@ const CollegeDetail = () => {
             <Button variant="outline" onClick={() => setReportModalOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleReport} disabled={!reportReason || reportSubmitting}>
               {reportSubmitting ? "Reporting..." : "Submit Report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={feeReminderOpen} onOpenChange={setFeeReminderOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Fee Reminder</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Add a personal note or reminder regarding fee deadlines, scholarship targets, or financial aid to-dos for {college?.name}. (Only visible to you)
+            </p>
+            <Textarea
+              placeholder="e.g. Apply for merit scholarship before Aug 15th. Check if hostel fees are refundable."
+              className="min-h-[100px]"
+              value={feeReminderNote}
+              onChange={(e) => setFeeReminderNote(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFeeReminderOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveFeeReminder} disabled={savingReminder}>
+              {savingReminder ? "Saving..." : "Save Reminder"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -304,6 +304,11 @@ router.get('/me/export', authMiddleware, async (req, res) => {
       myBookingsAsMentor = await MentorBooking.find({ mentorId: mentorProfile._id }).lean();
     }
 
+    const Review = require('../models/Review');
+    const CommunityPost = require('../models/CommunityPost');
+    const SalaryEntry = require('../models/SalaryEntry');
+    const ApplicationStatus = require('../models/ApplicationStatus');
+
     const exportData = {
       userData: user,
       mentorProfile,
@@ -315,7 +320,11 @@ router.get('/me/export', authMiddleware, async (req, res) => {
         bookingsSent: await RoomBooking.find({ renter: userId }).lean(),
         bookingsReceived: await RoomBooking.find({ owner: userId }).lean(),
         agreements: await RoomRentalAgreement.find({ $or: [{ owner: userId }, { renter: userId }] }).lean()
-      }
+      },
+      reviews: await Review.find({ userId }).lean(),
+      posts: await CommunityPost.find({ user_id: userId }).lean(),
+      salaryEntries: await SalaryEntry.find({ userId }).lean(),
+      applicationStatuses: await ApplicationStatus.find({ userId }).lean()
     };
 
     res.setHeader('Content-disposition', 'attachment; filename=my-data-export.json');
@@ -323,6 +332,42 @@ router.get('/me/export', authMiddleware, async (req, res) => {
     res.send(JSON.stringify(exportData, null, 2));
   } catch (err) {
     res.status(500).json({ message: 'Server error exporting data', error: err.message });
+  }
+});
+
+// GET /api/users/me/applications - Get user's application statuses
+router.get('/me/applications', authMiddleware, async (req, res) => {
+  try {
+    const ApplicationStatus = require('../models/ApplicationStatus');
+    const statuses = await ApplicationStatus.find({ userId: req.user.id })
+      .populate('collegeId', 'name logoOrIcon location type')
+      .sort({ updatedAt: -1 });
+    res.json(statuses);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// PUT /api/users/me/applications/:collegeId - Upsert application status
+router.put('/me/applications/:collegeId', authMiddleware, async (req, res) => {
+  try {
+    const { status, notes } = req.body;
+    const ApplicationStatus = require('../models/ApplicationStatus');
+    
+    const validStatuses = ["interested", "applied", "interviewing", "accepted", "rejected", "enrolled"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    const applicationStatus = await ApplicationStatus.findOneAndUpdate(
+      { userId: req.user.id, collegeId: req.params.collegeId },
+      { $set: { status, notes, updatedAt: Date.now() } },
+      { new: true, upsert: true }
+    );
+    
+    res.json(applicationStatus);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
@@ -482,6 +527,36 @@ router.get('/me/events/registered', authMiddleware, async (req, res) => {
     res.json({ upcoming, past });
   } catch (error) {
     res.status(500).json({ message: 'Server error fetching registered events', error: error.message });
+  }
+});
+
+// GET /api/users/:id/events/public
+router.get('/:id/events/public', async (req, res) => {
+  try {
+    const EventRegistration = require('../models/EventRegistration');
+    const Event = require('../models/Event');
+    
+    const registrations = await EventRegistration.find({ userId: req.params.id, status: 'registered' });
+    const eventIds = registrations.map(r => r.eventId);
+    
+    // Only return public events
+    const events = await Event.find({ _id: { $in: eventIds }, visibility: 'public' });
+    
+    const now = new Date();
+    const upcoming = [];
+    const past = [];
+    
+    events.forEach(event => {
+      if (new Date(event.endDate) >= now) {
+        upcoming.push(event);
+      } else {
+        past.push(event);
+      }
+    });
+    
+    res.json({ upcoming, past });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
 

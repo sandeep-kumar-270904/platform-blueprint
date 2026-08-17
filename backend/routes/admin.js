@@ -103,6 +103,133 @@ router.get('/stats/global', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/admin/community/anonymous-posts
+// Audit endpoint for viewing real authors of anonymous posts
+router.get('/community/anonymous-posts', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const CommunityPost = require('../models/CommunityPost');
+    
+    const posts = await CommunityPost.find({ isAnonymous: true })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .populate('user_id', 'full_name username email') // Get real user details for audit
+      .lean();
+
+    const total = await CommunityPost.countDocuments({ isAnonymous: true });
+    
+    res.json({
+      posts,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page)
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET /api/admin/reviews/flags
+router.get('/reviews/flags', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status = 'pending' } = req.query;
+    const ReviewFlag = require('../models/ReviewFlag');
+    
+    const flags = await ReviewFlag.find({ status })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .populate('reviewId')
+      .populate('collegeId', 'name')
+      .lean();
+
+    const total = await ReviewFlag.countDocuments({ status });
+    
+    res.json({
+      flags,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page)
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// PUT /api/admin/reviews/flags/:id
+router.put('/reviews/flags/:id', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { status, notes } = req.body;
+    const ReviewFlag = require('../models/ReviewFlag');
+    const Review = require('../models/Review');
+    
+    const flag = await ReviewFlag.findById(req.params.id);
+    if (!flag) return res.status(404).json({ message: 'Flag not found' });
+    
+    flag.status = status;
+    flag.notes = notes || flag.notes;
+    flag.reviewedBy = req.user.id;
+    flag.reviewedAt = new Date();
+    await flag.save();
+    
+    // Only if admin decides to delete the review
+    if (status === 'reviewed_deleted') {
+      await Review.findByIdAndDelete(flag.reviewId);
+    }
+    
+    res.json(flag);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// GET /api/admin/colleges/claims
+router.get('/colleges/claims', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status = 'pending' } = req.query;
+    const CollegeOfficialAccount = require('../models/CollegeOfficialAccount');
+    
+    const claims = await CollegeOfficialAccount.find({ verificationStatus: status })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .populate('userId', 'full_name username email')
+      .populate('collegeId', 'name')
+      .lean();
+
+    const total = await CollegeOfficialAccount.countDocuments({ verificationStatus: status });
+    
+    res.json({
+      claims,
+      totalPages: Math.ceil(total / limit),
+      currentPage: parseInt(page)
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+// PUT /api/admin/colleges/claims/:id
+router.put('/colleges/claims/:id', authMiddleware, isAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const CollegeOfficialAccount = require('../models/CollegeOfficialAccount');
+    
+    const claim = await CollegeOfficialAccount.findById(req.params.id);
+    if (!claim) return res.status(404).json({ message: 'Claim not found' });
+    
+    claim.verificationStatus = status;
+    if (status === 'verified') {
+      claim.verifiedAt = new Date();
+      claim.verifiedBy = req.user.id;
+    }
+    await claim.save();
+    
+    res.json(claim);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
 // GET /api/admin/stats/feed
 router.get('/stats/feed', authMiddleware, isAdmin, async (req, res) => {
   try {
