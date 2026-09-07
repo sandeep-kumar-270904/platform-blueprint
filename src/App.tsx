@@ -178,6 +178,8 @@ import { AlumniOpportunitiesPage } from './pages/AlumniOpportunitiesPage';
 import { AlumniEventsPage } from './pages/AlumniEventsPage';
 import { ClaimAlumniProfile } from './pages/ClaimAlumniProfile';
 const OnboardingFlow = lazy(() => import("./pages/OnboardingFlow"));
+const LearningResources = lazy(() => import("./pages/LearningResources").then(m => ({ default: m.LearningResources })));
+const LearningResourceDetail = lazy(() => import("./pages/LearningResourceDetail").then(m => ({ default: m.LearningResourceDetail })));
 
 const queryClient = new QueryClient();
 
@@ -309,6 +311,8 @@ const App = () => (
           
           <Route path="/study-groups" element={<ProtectedRoute><StudyGroups /></ProtectedRoute>} />
           <Route path="/study-groups/:id" element={<ProtectedRoute><StudyGroupDetail /></ProtectedRoute>} />
+          <Route path="/learning-resources" element={<LearningResources />} />
+          <Route path="/learning-resources/:id" element={<LearningResourceDetail />} />
           <Route path="/placement/study-groups/:id" element={<ProtectedRoute><StudyGroupDetail /></ProtectedRoute>} />
 
           <Route path="/team-hunt" element={<ProtectedRoute><TeamHunt /></ProtectedRoute>} />

@@ -13,6 +13,7 @@ const { startRoommateDigestCron } = require('./jobs/roommateDigestCron');
 const { startJob: startFraudDetectionCron } = require('./jobs/fraudDetectionJob');
 const { startSlotExpirationWorker } = require('./workers/slotExpirationWorker');
 const { startQuoteExpirationWorker } = require('./workers/quoteExpirationWorker');
+const { startLearningResourceCron } = require('./jobs/learningResourceCron');
 const mongoose = require('mongoose');
 const StudyGroup = require('./models/StudyGroup');
 
@@ -27,6 +28,7 @@ startStudyGroupCron();
 startFraudDetectionCron();
 startSlotExpirationWorker();
 startQuoteExpirationWorker();
+startLearningResourceCron();
 
 const http = require('http');
 const salaryRoutes = require('./routes/salary');
@@ -766,6 +768,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/learning-paths', require('./routes/learningPaths'));
+app.use('/api/learning-resources', require('./routes/learningResources'));
 app.use('/api/mentors', require('./routes/mentors'));
 app.use('/api/companies', require('./routes/companies'));
 app.use('/api/assessments', require('./routes/assessments'));
