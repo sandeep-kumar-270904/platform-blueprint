@@ -45,6 +45,7 @@ const defaultNavigationGroups = [
   {
     title: "Learning & Skills",
     items: [
+      { title: "Learning Resources", href: "/learning-resources", desc: "Curated YouTube tutorials" },
       { title: "Quiz & Tests", href: "/quizzes", desc: "Mock exams and practice" },
       { title: "Tech News", href: "/news", desc: "Latest AI and tech updates" },
       { title: "Virtual Classroom", href: "/classrooms", desc: "Live learning sessions" },
