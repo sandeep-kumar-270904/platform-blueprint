@@ -123,7 +123,7 @@ export const NotificationsPanel = ({ userId }: { userId: string }) => {
                     <p className="text-sm font-medium">{n.title}</p>
                     <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
                     <p className="text-[10px] text-muted-foreground mt-1">
-                      {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                      {n.created_at ? formatDistanceToNow(new Date(n.created_at), { addSuffix: true }) : "Just now"}
                     </p>
                   </div>
                   {!n.is_read && <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-2" />}

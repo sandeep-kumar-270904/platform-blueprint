@@ -37,7 +37,14 @@ const NoteSchema = new mongoose.Schema({
   },
   content_url: {
     type: String,
-    required: true
+    required: false
+  },
+  markdown_content: {
+    type: String
+  },
+  learning_resource: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LearningResource'
   },
   file_type: {
     type: String,

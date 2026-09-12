@@ -7,6 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
+import { SubmitReviewModal } from "@/components/learning-resources/SubmitReviewModal";
+import { StudyMode } from "@/components/learning-resources/StudyMode";
+import { ResourceQuestionModal } from "@/components/learning-resources/ResourceQuestionModal";
+import { OpportunityMappingCard } from "@/components/learning-resources/OpportunityMappingCard";
+import { MicroRoadmaps } from "@/components/learning-resources/MicroRoadmaps";
+import { toast } from "sonner";
 
 export const LearningResourceDetail = () => {
   const { id } = useParams();
@@ -16,6 +22,8 @@ export const LearningResourceDetail = () => {
   const [resource, setResource] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isStudyMode, setIsStudyMode] = useState(false);
 
   useEffect(() => {
     const fetchResource = async () => {
@@ -54,6 +62,14 @@ export const LearningResourceDetail = () => {
     if (resource.type === 'channel') return `https://youtube.com/channel/${resource.youtubeId}`;
     return `https://youtube.com`;
   };
+
+  if (isStudyMode) {
+    return (
+      <div className="container mx-auto py-6 px-4 max-w-6xl">
+        <StudyMode resource={resource} onExit={() => setIsStudyMode(false)} />
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-5xl">
@@ -104,11 +120,17 @@ export const LearningResourceDetail = () => {
               <span className="flex items-center gap-1"><Eye className="w-4 h-4" /> {resource.views.toLocaleString()} views</span>
             </div>
 
-            <Button className="w-full md:w-auto mb-8" size="lg" asChild>
-              <a href={getYouTubeUrl()} target="_blank" rel="noopener noreferrer">
-                Open on YouTube <ExternalLink className="w-4 h-4 ml-2" />
-              </a>
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3 mb-8">
+              <Button className="w-full sm:w-auto" size="lg" onClick={() => setIsStudyMode(true)}>
+                Enter Deep Work Mode
+              </Button>
+              <Button variant="secondary" className="w-full sm:w-auto" size="lg" asChild>
+                <a href={getYouTubeUrl()} target="_blank" rel="noopener noreferrer">
+                  Open on YouTube <ExternalLink className="w-4 h-4 ml-2" />
+                </a>
+              </Button>
+              <ResourceQuestionModal resource={resource} />
+            </div>
 
             <div className="bg-card border rounded-xl p-5 mb-8">
               <h3 className="font-semibold mb-2">Community Context</h3>
@@ -129,6 +151,16 @@ export const LearningResourceDetail = () => {
                 </div>
               </div>
             </div>
+
+            <MicroRoadmaps 
+              currentResourceId={resource._id}
+              prerequisites={resource.prerequisites || []}
+              nextSteps={resource.next_steps || []}
+              onLinked={() => {
+                // simple reload to fetch populated references
+                window.location.reload();
+              }}
+            />
           </div>
         </div>
 
@@ -139,8 +171,17 @@ export const LearningResourceDetail = () => {
               <CardTitle className="text-lg">Community Signals</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between py-2 border-b">
-                <span className="text-sm text-muted-foreground">Rating</span>
+              <div 
+                className="flex items-center justify-between py-2 border-b cursor-pointer hover:bg-muted/50 p-2 rounded-md transition-colors -mx-2"
+                onClick={() => {
+                  if (user) {
+                    setIsReviewModalOpen(true);
+                  } else {
+                    toast.error("Please log in to add a review");
+                  }
+                }}
+              >
+                <span className="text-sm text-muted-foreground font-medium">Rating (Click to Rate)</span>
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                   <span className="font-bold">{resource.averageRating > 0 ? resource.averageRating : 'N/A'}</span>
@@ -169,10 +210,12 @@ export const LearningResourceDetail = () => {
             </CardContent>
           </Card>
 
+          <OpportunityMappingCard technology={resource.technology} />
+
           <div className="flex items-center justify-between mb-4 mt-8">
             <h3 className="font-semibold text-lg">Student Reviews ({reviews.length})</h3>
             {user && (
-              <Button variant="outline" size="sm">Add Review</Button>
+              <Button variant="outline" size="sm" onClick={() => setIsReviewModalOpen(true)}>Add Review</Button>
             )}
           </div>
 
@@ -220,9 +263,20 @@ export const LearningResourceDetail = () => {
               ))
             )}
           </div>
-
         </div>
       </div>
+      
+      {isReviewModalOpen && (
+        <SubmitReviewModal 
+          open={isReviewModalOpen} 
+          onOpenChange={setIsReviewModalOpen} 
+          resourceId={resource._id} 
+          onSuccess={() => {
+            // Force a reload of the page to fetch the new reviews
+            window.location.reload();
+          }} 
+        />
+      )}
     </div>
   );
 };
