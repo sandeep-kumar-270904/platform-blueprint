@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Briefcase, ArrowRight, Loader2 } from "lucide-react";
@@ -63,7 +63,7 @@ export const OpportunityMappingCard = ({ technology }: { technology: string }) =
               <Badge variant="secondary">{stats.internships} Internships</Badge>
             </div>
             <Link 
-              to={`/placement/opportunities?search=${encodeURIComponent(technology)}`}
+              to={`/placement/search?q=${encodeURIComponent(technology)}`}
               className="text-sm text-primary font-medium flex items-center hover:underline pt-2"
             >
               View Opportunities <ArrowRight className="w-4 h-4 ml-1" />
