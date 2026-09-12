@@ -45,6 +45,9 @@ const learningResourceSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  subject: {
+    type: String // V1 compatibility
+  },
   technology: {
     type: String, // E.g., 'Java', 'Git'
     required: true,
