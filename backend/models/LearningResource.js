@@ -45,20 +45,28 @@ const learningResourceSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  subject: {
-    type: String,
+  technology: {
+    type: String, // E.g., 'Java', 'Git'
     required: true,
     index: true
   },
   topic: {
-    type: String,
+    type: String, // E.g., 'Collections', 'Branching'
     required: true,
+    index: true
+  },
+  subtopic: {
+    type: String, // E.g., 'HashMap', 'Cherry-pick'
     index: true
   },
   difficulty: {
     type: String,
     enum: ['Beginner', 'Intermediate', 'Advanced'],
     required: true
+  },
+  purpose: {
+    type: String, // E.g., 'Placement', 'Project', 'Learn from scratch'
+    index: true
   },
   language: {
     type: String,
@@ -70,6 +78,14 @@ const learningResourceSchema = new mongoose.Schema({
   recommendationReason: {
     type: String
   },
+  prerequisites: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LearningResource'
+  }],
+  next_steps: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LearningResource'
+  }],
   averageRating: {
     type: Number,
     default: 0
@@ -98,6 +114,15 @@ const learningResourceSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-learningResourceSchema.index({ title: 'text', description: 'text', tags: 'text' });
+learningResourceSchema.index({ 
+  title: 'text', 
+  description: 'text', 
+  tags: 'text',
+  technology: 'text',
+  topic: 'text',
+  subtopic: 'text',
+  difficulty: 'text',
+  purpose: 'text'
+});
 
 module.exports = mongoose.model('LearningResource', learningResourceSchema);

@@ -769,6 +769,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/learning-paths', require('./routes/learningPaths'));
 app.use('/api/learning-resources', require('./routes/learningResources'));
+app.use('/api/taxonomy', require('./routes/taxonomy'));
 app.use('/api/mentors', require('./routes/mentors'));
 app.use('/api/companies', require('./routes/companies'));
 app.use('/api/assessments', require('./routes/assessments'));

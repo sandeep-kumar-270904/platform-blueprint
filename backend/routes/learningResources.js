@@ -5,7 +5,10 @@ const {
   getResources, 
   getResourceById, 
   addReview, 
-  reportResource 
+  reportResource,
+  getResourceNote,
+  saveResourceNote,
+  linkResource
 } = require('../controllers/learningResourceController');
 const auth = require('../middleware/auth'); // Uses existing auth middleware
 
@@ -17,5 +20,8 @@ router.get('/:id', getResourceById);
 router.post('/', auth, submitResource);
 router.post('/:id/reviews', auth, addReview);
 router.post('/:id/report', auth, reportResource);
+router.get('/:id/notes', auth, getResourceNote);
+router.post('/:id/notes', auth, saveResourceNote);
+router.post('/:id/links', auth, linkResource);
 
 module.exports = router;
