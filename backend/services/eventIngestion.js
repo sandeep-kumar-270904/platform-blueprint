@@ -25,9 +25,10 @@ async function ingestEvents(providerName) {
     const rawEvents = await providerInstance.fetchEvents();
     
     // We need an admin or system user to be the 'hostedBy' for external events
-    // For safety, let's grab the first admin we can find, or a hardcoded system user ID if one existed.
-    // In production, there would be a dedicated System user ID.
-    const systemUser = await User.findOne({ role: 'admin' });
+    let systemUser = await User.findOne({ role: 'admin' });
+    if (!systemUser) {
+      systemUser = await User.findOne({}); // Pick any user if no admin exists
+    }
     const fallbackHostId = systemUser ? systemUser._id : null;
 
     let imported = 0;

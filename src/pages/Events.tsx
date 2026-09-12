@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { 
-  Clock, Search, Plus, LayoutList, CalendarDays, Filter, ChevronDown, Check
+  Clock, Search, Plus, LayoutList, CalendarDays, Filter, ChevronDown, Check, RefreshCw
 } from "lucide-react";
 import { useEvents } from "@/hooks/useEvents";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CalendarView } from "@/components/events/CalendarView";
 import { format } from "date-fns";
@@ -58,7 +59,31 @@ export default function Events() {
 
   const [localSearch, setLocalSearch] = useState(searchQuery);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [isSyncing, setIsSyncing] = useState(false);
   
+  const handleSyncOuterSpace = async () => {
+    try {
+      setIsSyncing(true);
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/events/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: 'Success', description: 'Fetched live events from outer space!' });
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        toast({ title: 'Error', description: data.message || 'Failed to sync', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (localSearch !== searchQuery) {
@@ -207,6 +232,15 @@ export default function Events() {
               {user && (
                 <>
                   <div className="h-6 w-px bg-border/60 mx-1 hidden md:block" />
+                  <Button 
+                    variant="outline" 
+                    onClick={handleSyncOuterSpace} 
+                    disabled={isSyncing}
+                    className="shrink-0 rounded-lg h-10 px-4 border-dashed bg-muted/50 hover:bg-muted"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} /> 
+                    Outer Space Sync
+                  </Button>
                   <Button onClick={() => navigate('/events/create')} className="shrink-0 rounded-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm h-10 px-5">
                     <Plus className="h-4 w-4 mr-2" /> Host Event
                   </Button>
