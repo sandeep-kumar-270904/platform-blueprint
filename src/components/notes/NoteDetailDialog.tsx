@@ -96,7 +96,15 @@ export const NoteDetailDialog = ({ open, onOpenChange, note, onRefresh }: NoteDe
 
         {/* Actions */}
         <div className="flex gap-2">
-          <Button onClick={handleDownload} className="flex-1">
+          <Button 
+            disabled 
+            title="Downloads are currently disabled to encourage online reading"
+            className="flex-1 cursor-not-allowed opacity-60"
+            onClick={(e) => {
+              e.preventDefault();
+              // handleDownload();
+            }}
+          >
             <Download className="mr-2 h-4 w-4" />Download PDF
           </Button>
           <Button variant="outline" onClick={() => window.open(note.content_url, "_blank")}>

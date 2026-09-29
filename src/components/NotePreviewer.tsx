@@ -158,7 +158,7 @@ export const NotePreviewer = ({ open, onOpenChange, note, onView, onDownload, on
         </DialogHeader>
 
         <div className="flex gap-2 mb-4 px-2">
-          <Button onClick={handleDownload} variant="secondary" size="sm" className="h-8">
+          <Button disabled title="Downloads disabled" className="h-8 cursor-not-allowed opacity-60" onClick={(e) => e.preventDefault()} variant="secondary" size="sm">
             <Download className="mr-2 h-4 w-4" />
             Download
           </Button>
@@ -187,7 +187,7 @@ export const NotePreviewer = ({ open, onOpenChange, note, onView, onDownload, on
                 <AlertCircle className="h-12 w-12 text-destructive mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-1">This file couldn't be loaded</h3>
                 <p className="text-sm max-w-md mb-6">The file reference might be broken, or the file was deleted from storage.</p>
-                <Button onClick={handleDownload} variant="secondary">Try Downloading Instead</Button>
+                <Button disabled className="cursor-not-allowed opacity-60" variant="secondary">Downloads Disabled</Button>
               </div>
             ) : isPdf ? (
               <iframe
@@ -210,7 +210,7 @@ export const NotePreviewer = ({ open, onOpenChange, note, onView, onDownload, on
                 <FileText className="h-16 w-16 text-muted-foreground/50 mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-1">Preview not available</h3>
                 <p className="text-sm max-w-md mb-6">This file type cannot be previewed inline. Please download it to view the contents.</p>
-                <Button onClick={handleDownload}>
+                <Button disabled className="cursor-not-allowed opacity-60" onClick={(e) => e.preventDefault()}>
                   <Download className="mr-2 h-4 w-4" /> Download File
                 </Button>
               </div>
