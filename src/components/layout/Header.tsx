@@ -278,33 +278,32 @@ export const Header = () => {
                           {group.title}
                         </NavigationMenuTrigger>
                         <NavigationMenuContent>
-                          <ul className="grid w-[600px] gap-3 p-6 md:grid-cols-2">
-                            {group.items.map((item: any) => (
-                              <li key={item.href}>
-                                <NavigationMenuLink asChild>
-                                  <Link
-                                    to={item.href}
-                                    className={cn(
-                                      "flex items-start gap-3 select-none rounded-lg p-3 no-underline outline-none transition-all hover:bg-muted hover:text-primary active:scale-[0.98] group relative hover-underline",
-                                      location.pathname === item.href && "bg-muted text-primary"
-                                    )}
-                                  >
-                                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background shadow-sm border border-border">
-                                      <div className="h-2 w-2 rounded-full bg-primary" />
-                                    </div>
-                                    <div className="flex-1 space-y-1">
-                                      <p className="text-sm font-semibold leading-none display-font">
+                          <div className="w-[600px] md:w-[750px] lg:w-[850px] p-8">
+                            <ul className="grid grid-cols-2 md:grid-cols-3 gap-x-10 gap-y-8">
+                              {group.items.map((item: any) => (
+                                <li key={item.href}>
+                                  <NavigationMenuLink asChild>
+                                    <Link
+                                      to={item.href}
+                                      className={cn(
+                                        "block select-none space-y-1 rounded-md p-3 -mx-3 leading-none no-underline outline-none transition-colors hover:bg-muted/50 hover:text-primary focus:bg-muted/50 focus:text-primary group",
+                                        location.pathname === item.href && "bg-muted/50 text-primary"
+                                      )}
+                                    >
+                                      <p className="text-[14px] font-semibold leading-none text-foreground group-hover:text-primary transition-colors">
                                         {item.title}
                                       </p>
-                                      <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
-                                        {item.desc}
-                                      </p>
-                                    </div>
-                                  </Link>
-                                </NavigationMenuLink>
-                              </li>
-                            ))}
-                          </ul>
+                                      {item.desc && (
+                                        <p className="line-clamp-2 text-[13px] leading-snug text-muted-foreground mt-1.5">
+                                          {item.desc}
+                                        </p>
+                                      )}
+                                    </Link>
+                                  </NavigationMenuLink>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
                         </NavigationMenuContent>
                       </NavigationMenuItem>
                     </NavigationMenuList>
