@@ -314,50 +314,58 @@ router.post('/verify-email', async (req, res) => {
 // OAuth Routes
 const handleOAuthCallback = (req, res, next) => {
   passport.authenticate(req.params.provider, { session: false }, async (err, user, info) => {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
-    if (err) return res.redirect(`${frontendUrl}/auth?error=oauth_failed`);
-    
-    if (!user && info && info.message === 'linking_required') {
-      const existingUser = await User.findOne({ email: info.email });
-      existingUser.pendingLinkProvider = {
-        provider: info.provider,
-        id: info.providerId,
-        expiresAt: new Date(Date.now() + 15 * 60000) // 15 mins to link
-      };
-      await existingUser.save();
-      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:8080'}/auth?error=linking_required&method=${info.existingMethod}`);
-    }
-    
-    if (!user) return res.redirect(`${frontendUrl}/auth?error=oauth_failed`);
-
-    if (user.deletedAt) {
-      return res.redirect(`${frontendUrl}/auth?error=account_deleted`);
-    }
-
-    // Check fingerprint for OAuth login
-    const fp = fingerprintService.getDeviceFingerprint(req);
-    const existingDevice = user.knownDevices.find(d => d.hash === fp.hash);
-    
-    if (!existingDevice) {
-      user.knownDevices.push({ ...fp, last_seen: new Date() });
-      if (user.knownDevices.length > 5) {
-        user.knownDevices.shift();
+    try {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:8080';
+      if (err) return res.redirect(`${frontendUrl}/auth?error=oauth_failed`);
+      
+      if (!user && info && info.message === 'linking_required') {
+        const existingUser = await User.findOne({ email: info.email });
+        existingUser.pendingLinkProvider = {
+          provider: info.provider,
+          id: info.providerId,
+          expiresAt: new Date(Date.now() + 15 * 60000) // 15 mins to link
+        };
+        await existingUser.save();
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:8080'}/auth?error=linking_required&method=${info.existingMethod}`);
       }
-      emailService.sendNewDeviceAlert(user.email, fp.os, fp.browser, fp.region).catch(console.error);
-      // We can't send a payload down a redirect easily. Could pass in a short-lived cookie.
-      res.cookie('new_device_alert', JSON.stringify({ browser: fp.browser, os: fp.os, region: fp.region }), { maxAge: 10000 });
-    } else {
-      existingDevice.last_seen = new Date();
+      
+      if (!user) return res.redirect(`${frontendUrl}/auth?error=oauth_failed`);
+
+      if (user.deletedAt) {
+        return res.redirect(`${frontendUrl}/auth?error=account_deleted`);
+      }
+
+      // Check fingerprint for OAuth login
+      const fp = fingerprintService.getDeviceFingerprint(req);
+      if (!user.knownDevices) {
+        user.knownDevices = [];
+      }
+      const existingDevice = user.knownDevices.find(d => d.hash === fp.hash);
+      
+      if (!existingDevice) {
+        user.knownDevices.push({ ...fp, last_seen: new Date() });
+        if (user.knownDevices.length > 5) {
+          user.knownDevices.shift();
+        }
+        emailService.sendNewDeviceAlert(user.email, fp.os, fp.browser, fp.region).catch(console.error);
+        // We can't send a payload down a redirect easily. Could pass in a short-lived cookie.
+        res.cookie('new_device_alert', JSON.stringify({ browser: fp.browser, os: fp.os, region: fp.region }), { maxAge: 10000 });
+      } else {
+        existingDevice.last_seen = new Date();
+      }
+
+      const { accessToken, refreshToken } = generateTokens(user);
+      user.refreshToken = refreshToken;
+      await user.save();
+      
+      await AuthEvent.create({ userId: user._id, eventType: 'login_success', ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress, userAgent: req.headers['user-agent'] });
+
+      setCookies(res, accessToken, refreshToken);
+      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:8080'}?token=${accessToken}`);
+    } catch (e) {
+      console.error("[OAuth TryCatch Error]", e);
+      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:8080'}/auth?error=oauth_failed`);
     }
-
-    const { accessToken, refreshToken } = generateTokens(user);
-    user.refreshToken = refreshToken;
-    await user.save();
-    
-    await AuthEvent.create({ userId: user._id, eventType: 'login_success', ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress, userAgent: req.headers['user-agent'] });
-
-    setCookies(res, accessToken, refreshToken);
-    res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:8080'}?token=${accessToken}`);
   })(req, res, next);
 };
 
