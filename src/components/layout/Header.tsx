@@ -251,20 +251,25 @@ export const Header = () => {
       <div className="container mx-auto px-4 flex h-16 items-center justify-between gap-4">
         {/* Left: Logo */}
         <div className="flex items-center shrink-0">
-          <Link to={user ? "/dashboard" : "/"} className="flex items-center group">
-            <img src="/logo.png" alt="StudentHub Logo" className="h-10 w-auto object-contain transition-transform group-hover:scale-105" />
+          <Link to={user ? "/dashboard" : "/"} className="flex items-center group gap-2">
+            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              <GraduationCap className="h-5 w-5" />
+            </div>
+            <span className="text-xl font-bold tracking-tight hidden sm:block">
+              Student<span className="text-primary">Hub</span>
+            </span>
           </Link>
         </div>
 
         {/* Center: Navigation */}
-        <div className="hidden lg:flex flex-1 justify-center px-4">
+        <div className="hidden lg:flex flex-1 justify-start px-8">
           <nav className="flex items-center">
             {user && (
-              <Link to="/dashboard" className="text-sm font-medium mr-10 xl:mr-14 hover-underline text-foreground/80 hover:text-foreground transition-colors">
+              <Link to="/dashboard" className="text-[14px] font-medium mr-8 hover-underline text-foreground/80 hover:text-foreground transition-colors">
                 Dashboard
               </Link>
             )}
-            <div className="flex gap-8 xl:gap-12">
+            <div className="flex gap-6 xl:gap-8">
               {navigationGroups.map((group) => {
                 const isActiveGroup = group.items.some((item: any) => location.pathname === item.href || location.pathname.startsWith(item.href + '/'));
                 return (
