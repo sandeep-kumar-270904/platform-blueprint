@@ -278,26 +278,29 @@ export const Header = () => {
                           {group.title}
                         </NavigationMenuTrigger>
                         <NavigationMenuContent>
-                          <div className="w-[600px] md:w-[750px] lg:w-[850px] p-8">
-                            <ul className="grid grid-cols-2 md:grid-cols-3 gap-x-10 gap-y-8">
+                          <div className={cn("p-4 md:p-5", 
+                            group.items.length <= 3 ? "w-[220px]" :
+                            group.items.length <= 8 ? "w-[400px]" :
+                            "w-[500px] md:w-[650px]"
+                          )}>
+                            <ul className={cn("grid gap-x-4 gap-y-1 md:gap-x-6",
+                              group.items.length <= 3 ? "grid-cols-1" :
+                              group.items.length <= 8 ? "grid-cols-2" :
+                              "grid-cols-2 md:grid-cols-3"
+                            )}>
                               {group.items.map((item: any) => (
                                 <li key={item.href}>
                                   <NavigationMenuLink asChild>
                                     <Link
                                       to={item.href}
                                       className={cn(
-                                        "block select-none space-y-1 rounded-md p-3 -mx-3 leading-none no-underline outline-none transition-colors hover:bg-muted/50 hover:text-primary focus:bg-muted/50 focus:text-primary group",
+                                        "block select-none rounded-md px-3 py-2.5 -mx-3 leading-none no-underline outline-none transition-colors hover:bg-muted/50 hover:text-primary focus:bg-muted/50 focus:text-primary group",
                                         location.pathname === item.href && "bg-muted/50 text-primary"
                                       )}
                                     >
-                                      <p className="text-[14px] font-semibold leading-none text-foreground group-hover:text-primary transition-colors">
+                                      <p className="text-[13px] font-medium leading-none text-foreground group-hover:text-primary transition-colors">
                                         {item.title}
                                       </p>
-                                      {item.desc && (
-                                        <p className="line-clamp-2 text-[13px] leading-snug text-muted-foreground mt-1.5">
-                                          {item.desc}
-                                        </p>
-                                      )}
                                     </Link>
                                   </NavigationMenuLink>
                                 </li>
