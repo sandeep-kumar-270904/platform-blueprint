@@ -127,6 +127,16 @@ exports.sendResetPasswordEmail = async (email, resetToken) => {
   await sendEmailBase(email, 'Reset your NotesHub password', html);
 };
 
+exports.sendPasswordChangedEmail = async (email) => {
+  const html = getBaseTemplate(
+    'Password successfully changed',
+    'Your password has been successfully updated. If you did not make this change, please contact support immediately.',
+    'Log into your account',
+    `${process.env.FRONTEND_URL || 'http://localhost:8080'}/auth`
+  );
+  await sendEmailBase(email, 'Your password has been changed', html);
+};
+
 exports.sendVerifyEmail = async (email, verifyToken) => {
   const verifyLink = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/verify-email?token=${verifyToken}`;
   const html = getBaseTemplate(
