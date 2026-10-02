@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import QRCode from "react-qr-code";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export const MyActivity = () => {
+  const { token } = useAuth();
   const [reviews, setReviews] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [answers, setAnswers] = useState<any[]>([]);
@@ -58,7 +60,7 @@ export const MyActivity = () => {
   const fetchActivity = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
+      // using token from useAuth
       const headers = { Authorization: `Bearer ${token}` };
 
       const [revRes, qRes, aRes, eHostRes, eRegRes, classRes, profRes] = await Promise.all([
@@ -114,7 +116,7 @@ export const MyActivity = () => {
     if (!editItem || !editText.trim()) return;
 
     try {
-      const token = localStorage.getItem("token");
+      // using token from useAuth
       const url = editItem.type === 'question' 
         ? `${API_URL}/api/college-qa/questions/${editItem.data._id}`
         : `${API_URL}/api/college-qa/answers/${editItem.data._id}`;
@@ -147,7 +149,7 @@ export const MyActivity = () => {
     if (!deleteItem) return;
 
     try {
-      const token = localStorage.getItem("token");
+      // using token from useAuth
       let url = "";
       if (deleteItem.type === 'review') url = `${API_URL}/api/reviews/${deleteItem.id}`;
       else if (deleteItem.type === 'question') url = `${API_URL}/api/college-qa/questions/${deleteItem.id}`;
@@ -173,7 +175,7 @@ export const MyActivity = () => {
   const handleCancelRegistration = async () => {
     if (!cancelRegItem) return;
     try {
-      const token = localStorage.getItem("token");
+      // using token from useAuth
       const res = await fetch(`${API_URL}/api/events/${cancelRegItem.id}/register`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
@@ -663,7 +665,7 @@ export const MyActivity = () => {
                 onScan={async (decodedText) => {
                   try {
                     toast.loading("Checking in...", { id: "checkin" });
-                    const token = localStorage.getItem("token");
+                    // using token from useAuth
                     const res = await fetch(`${API_URL}/api/events/${scanEventId}/checkin`, {
                       method: "POST",
                       headers: {

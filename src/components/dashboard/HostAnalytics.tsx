@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BarChart2, Users, Star, Clock, TrendingUp } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 export const HostAnalytics = ({ userId }: { userId: string }) => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { token } = useAuth();
 
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        const token = localStorage.getItem('token');
+        // use token from context
         const res = await fetch(`${API_URL}/api/classrooms/host/analytics`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
