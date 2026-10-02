@@ -23,6 +23,19 @@
 
 ---
 
+## 🚀 TL;DR Quickstart
+
+Want to jump right in?
+```bash
+git clone https://github.com/sandeep-kumar-270904/platform-blueprint.git
+npm install
+cd backend && npm install && cd ..
+npm run start:all
+```
+*Frontend runs on `http://localhost:8080`, Backend runs on `http://localhost:5000`.*
+
+---
+
 ## 📑 Complete Table of Contents
 
 1. [Project Overview](#1-project-overview)
@@ -185,22 +198,39 @@ mindmap
 
 ## 5. Functional Requirements (FR)
 
-- **FR-01 to FR-05 (Auth & Identity)**: JWT stateless authentication, bcrypt password hashing (10 salt rounds), multi-role RBAC, `.edu` email verification, granular notification preferences.
-- **FR-06 to FR-10 (Events & Teams)**: 4-step creation wizard with real-time preview, temporal date validation, Jaccard team matchmaking score, AI skill gap advice, team application workflow.
-- **FR-11 to FR-15 (Career & AI)**: Google Gemini 1.5 Pro ATS resume scanner (0-100 score), conversational mock interview simulator, time-bounded OA test engine, quiz difficulty auto-calibration.
-- **FR-16 to FR-20 (Housing & Aid)**: Roommate compatibility scoring, atomic repair slot holds with 15-minute TTL expiration workers, multi-criteria scholarship filters, 1-click batch applications, automated fraud review detectors.
-- **FR-21 to FR-25 (Classroom & Governance)**: Sub-50ms live buzzer quiz tournaments, collaborative whiteboard streaming, hourly news aggregator crons, admin moderation tables, immutable audit logging.
+- 🔐 **FR-01 to FR-05 (Auth & Identity)**
+  - JWT stateless authentication
+  - Bcrypt password hashing (10 salt rounds)
+  - Multi-role RBAC & `.edu` email verification
+  - Granular notification preferences
+- 🎯 **FR-06 to FR-10 (Events & Teams)**
+  - 4-step creation wizard with real-time preview
+  - Temporal date validation
+  - Jaccard team matchmaking score & AI skill gap advice
+  - Team application workflow
+- 💼 **FR-11 to FR-15 (Career & AI)**
+  - Google Gemini 1.5 Pro ATS resume scanner (0-100 score)
+  - Conversational mock interview simulator
+  - Time-bounded OA test engine & quiz difficulty auto-calibration
+- 🏠 **FR-16 to FR-20 (Housing & Aid)**
+  - Roommate compatibility scoring
+  - Atomic repair slot holds with 15-minute TTL expiration workers
+  - Multi-criteria scholarship filters & 1-click batch applications
+  - Automated fraud review detectors
+- 🎓 **FR-21 to FR-25 (Classroom & Governance)**
+  - Sub-50ms live buzzer quiz tournaments
+  - Collaborative whiteboard streaming
+  - Hourly news aggregator crons
+  - Admin moderation tables & immutable audit logging
 
 ---
 
 ## 6. Non-Functional Requirements (NFR)
 
-- **NFR-01 (API Latency)**: 95th percentile REST API latency $< 120\text{ms}$ under 1,000 active concurrent connections.
-- **NFR-02 (WebSocket Latency)**: Real-time event propagation $< 50\text{ms}$.
-- **NFR-03 (AI Turnaround)**: Resume ATS scoring and feedback generation completed in $< 3.5\text{s}$.
-- **NFR-04 (Database Execution)**: Core collection queries execute in $< 15\text{ms}$ using compound and geospatial indexes.
-- **NFR-05 (Security Compliance)**: OWASP Top 10 compliance, NoSQL sanitization (`express-mongo-sanitize`), rate limiting, Helmet HTTP security headers.
-- **NFR-06 (Mobile Optimization)**: Fully responsive UI (320px+), bottom-docked sticky action bars on mobile.
+- ⚡ **NFR-01 (API Latency)**: 95th percentile REST API latency **< 120ms** under **1,000 active concurrent connections**.
+- 📡 **NFR-02 (WebSocket Latency)**: Real-time event propagation **< 50ms**.
+- 🧠 **NFR-03 (AI Turnaround)**: Resume ATS scoring and feedback generation completed in **< 3.5s**.
+- 🗄️ **NFR-04 (Database Execution)**: Core collection queries execute in **< 15ms** using compound and geospatial indexes.
 
 ---
 
