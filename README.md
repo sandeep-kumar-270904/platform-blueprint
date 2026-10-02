@@ -785,6 +785,16 @@ gantt
 - **Resume ATS Dashboard**: Radial score gauge with bullet point feedback and keyword matrix.
 - **Admin Curation Panel**: Multi-status curation tabs with 1-click approvals.
 
+<br>
+<div align="center">
+  <img src="public/image1.png" alt="StudentHub Interface 1" width="48%" style="border-radius: 8px; border: 1px solid #30363d; margin: 1%; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
+  <img src="public/image2.png" alt="StudentHub Interface 2" width="48%" style="border-radius: 8px; border: 1px solid #30363d; margin: 1%; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
+  <br>
+  <img src="public/image3.png" alt="StudentHub Interface 3" width="80%" style="border-radius: 8px; border: 1px solid #30363d; margin: 1%; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
+</div>
+
+
+
 ---
 
 ## 35. Interactive Demo Instructions (5-Min Tour)
