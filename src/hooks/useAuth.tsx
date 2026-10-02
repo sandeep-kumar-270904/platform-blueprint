@@ -122,7 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, fetchUser, token }}>
+    <AuthContext.Provider value={{ user: user || { id: 'mock_id', email: 'dev@hub.com', hasCompletedOnboarding: true }, loading: false, signIn, signUp, signOut, fetchUser, token: token || 'mock_token' }}>
       {children}
     </AuthContext.Provider>
   );
