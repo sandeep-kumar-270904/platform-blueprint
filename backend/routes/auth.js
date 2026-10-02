@@ -70,7 +70,25 @@ router.post('/register', async (req, res) => {
     }
 
     let user = await User.findOne({ email });
-    if (user) return res.status(400).json({ message: 'User already exists' });
+    if (user) {
+      if (!user.password) {
+        // It's a social account without a password. Allow them to set a password to link it!
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(password, salt);
+        // Optionally update other details if provided
+        if (!user.full_name && full_name) user.full_name = full_name;
+        if (!user.username && username) user.username = username;
+        await user.save();
+        
+        const { accessToken, refreshToken } = generateTokens(user);
+        setCookies(res, accessToken, refreshToken);
+        return res.status(201).json({
+          message: 'Password created for social account successfully',
+          user: { id: user._id, email: user.email, username: user.username, full_name: user.full_name, role: user.role }
+        });
+      }
+      return res.status(400).json({ message: 'User already exists' });
+    }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -244,7 +262,7 @@ router.post('/forgot-password', async (req, res) => {
     const user = await User.findOne({ email });
 
     // We don't reveal if the email exists for security
-    if (user && user.authProvider === 'local') {
+    if (user) {
       const resetToken = crypto.randomBytes(32).toString('hex');
       user.resetPasswordToken = resetToken;
       user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
