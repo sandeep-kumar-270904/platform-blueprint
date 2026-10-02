@@ -43,7 +43,7 @@ export const MyMentorBookings = () => {
 
   const fetchBookings = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/mentors/my-bookings`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/mentors/bookings/me`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) setBookings(await res.json());
