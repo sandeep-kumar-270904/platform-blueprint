@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Header } from "@/components/layout/Header";
 import { Link, useNavigate } from "react-router-dom";
 import { Search, Plus, Filter, PlayCircle, Star, ThumbsUp, Youtube, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,63 +64,67 @@ export const LearningResources = () => {
   }, [search]);
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-7xl">
-      <div className="text-center mb-12 mt-4">
-        <h1 className="text-4xl font-extrabold tracking-tight mb-4">What do you want to learn?</h1>
-        <p className="text-muted-foreground text-lg mb-8 max-w-2xl mx-auto">
-          A community-powered technology library. Discover the best tutorials, interview prep, and project guides rated by other students.
-        </p>
-
-        <div className="max-w-3xl mx-auto relative mb-10">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input 
-            placeholder="Search technology, topic, or skill... (e.g., 'Java Beginner', 'Docker DevOps')" 
-            className="pl-12 py-6 text-lg rounded-full bg-card shadow-sm border-2 border-primary/20 focus-visible:ring-primary"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <div className="max-w-4xl mx-auto">
-          <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">Popular Technologies</p>
-          <div className="flex flex-wrap justify-center gap-3">
-            {taxonomies.map(tech => (
-              <Button 
-                key={tech.slug} 
-                variant="secondary" 
-                className="rounded-full hover:bg-primary hover:text-primary-foreground transition-colors"
-                onClick={() => navigate(`/learning-resources/tech/${tech.slug}`)}
-              >
-                {tech.name}
-              </Button>
-            ))}
+    <div className="min-h-screen bg-background flex flex-col">
+      <Header />
+      <div className="container mx-auto py-8 px-4 max-w-7xl flex-1">
+        
+        {/* Top Controls Row */}
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between mb-6 border-b pb-4 mt-4">
+          <h2 className="text-2xl font-bold flex items-center gap-2 min-w-max">
+            <LayoutGrid className="w-6 h-6 text-primary" />
+            {search ? "Search Results" : "🔥 Community Picks"}
+          </h2>
+          
+          <div className="flex flex-1 items-center justify-end gap-3 w-full">
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search topic or skill..." 
+                className="pl-9 bg-card shadow-sm h-9 text-sm"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Button variant="outline" size="sm" className="hidden sm:flex h-9">
+              <Filter className="w-4 h-4 mr-2" /> Filters
+            </Button>
             {user && (
-              <Button variant="outline" className="rounded-full border-dashed" onClick={() => setShowSubmitModal(true)}>
-                <Plus className="w-4 h-4 mr-1" /> Add New
+              <Button size="sm" className="h-9" onClick={() => setShowSubmitModal(true)}>
+                <Plus className="w-4 h-4 mr-1 sm:mr-2" /> <span className="hidden sm:inline">Submit Resource</span>
               </Button>
             )}
           </div>
         </div>
-      </div>
 
-      <div className="flex items-center justify-between mb-6 border-b pb-4 mt-8">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <LayoutGrid className="w-6 h-6 text-primary" />
-          {search ? "Search Results" : "🏆 Community Picks"}
-        </h2>
-        <div className="flex gap-3">
-          <Button variant="outline" size="sm">
-            <Filter className="w-4 h-4 mr-2" /> Filters
-          </Button>
-          {user && (
-            <Button size="sm" onClick={() => setShowSubmitModal(true)}>
-              <Plus className="w-4 h-4 mr-2" /> Submit Resource
-            </Button>
-          )}
-        </div>
-      </div>
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Left Sidebar for Popular Technologies */}
+          <div className="w-full lg:w-64 flex-shrink-0">
+            <div className="sticky top-24 bg-card border rounded-xl p-5 shadow-sm">
+              <p className="text-sm font-semibold text-foreground tracking-wider mb-4">Popular Technologies</p>
+              <div className="flex flex-wrap gap-2">
+                {taxonomies.map(tech => (
+                  <Button 
+                    key={tech.slug} 
+                    variant="secondary" 
+                    size="sm"
+                    className="rounded-full hover:bg-primary hover:text-primary-foreground transition-colors text-xs"
+                    onClick={() => navigate(`/learning-resources/tech/${tech.slug}`)}
+                  >
+                    {tech.name}
+                  </Button>
+                ))}
+                {user && (
+                  <Button variant="outline" size="sm" className="rounded-full border-dashed text-xs" onClick={() => setShowSubmitModal(true)}>
+                    <Plus className="w-3 h-3 mr-1" /> Add New
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
 
-      {loading ? (
+          {/* Main Content Area */}
+          <div className="flex-1 min-w-0">
+            {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[1,2,3,4,5,6,7,8].map(i => (
             <div key={i} className="h-[320px] rounded-xl bg-muted/50 animate-pulse" />
@@ -201,6 +206,9 @@ export const LearningResources = () => {
           ))}
         </div>
       )}
+        </div>
+      </div>
+    </div>
 
       {showSubmitModal && (
         <SubmitResourceModal 
