@@ -302,6 +302,9 @@ router.post('/reset-password', async (req, res) => {
     user.refreshToken = null;
     await user.save();
 
+    // Send confirmation email
+    emailService.sendPasswordChangedEmail(user.email).catch(console.error);
+
     res.json({ message: 'Password has been updated. Please log in.' });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
