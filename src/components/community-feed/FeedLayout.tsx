@@ -62,7 +62,7 @@ export const FeedLayout: React.FC<FeedLayoutProps> = ({ collegeId, title, descri
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : posts.length === 0 ? (
-          <div className="text-center p-12 bg-gray-50 rounded-lg border border-dashed">
+          <div className="text-center p-12 bg-muted/50 rounded-lg border border-dashed">
             <p className="text-muted-foreground">No posts yet. Be the first to start the conversation!</p>
           </div>
         ) : (
