@@ -94,6 +94,7 @@ const SkillSwap = lazy(() => import("./pages/SkillSwap"));
 const CreatorsZone = lazy(() => import("./pages/CreatorsZone"));
 const CreatorProfilePage = lazy(() => import("./pages/CreatorProfilePage"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+const JobsPortal = lazy(() => import("./pages/JobsPortal"));
 const AdminCollegePanel = lazy(() => import("./pages/AdminCollegePanel"));
 const MentorsAdminDashboard = lazy(() => import("./pages/admin/MentorsAdminDashboard"));
 const AdminResumeDashboard = lazy(() => import("./pages/admin/AdminResumeDashboard"));
@@ -286,6 +287,7 @@ const App = () => (
           <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
           <Route path="/news" element={<ProtectedRoute><TechNews /></ProtectedRoute>} />
           <Route path="/placement" element={<ProtectedRoute><PlacementCell /></ProtectedRoute>} />
+          <Route path="/jobs" element={<JobsPortal />} />
           <Route path="/placement/dashboard" element={<ProtectedRoute><PlacementDashboard /></ProtectedRoute>} />
           <Route path="/placement/search" element={<ProtectedRoute><PlacementSearch /></ProtectedRoute>} />
           <Route path="/placement/dsa" element={<ProtectedRoute><DSAPractice /></ProtectedRoute>} />
