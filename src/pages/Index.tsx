@@ -34,7 +34,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const premiumTransition = { duration: 0.85, ease: [0.16, 1, 0.3, 1] };
+const premiumTransition = { duration: 1.2, ease: 'easeInOut' };
 const masterEasing = [0.16, 1, 0.3, 1];
 
 const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }: any) => {
@@ -47,7 +47,7 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
       initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
-      transition={shouldReduceMotion ? { duration: 0 } : { delay: isHovered ? 0 : index * 0.2 + 0.1, ...premiumTransition, layout: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }}
+      transition={shouldReduceMotion ? { duration: 0 } : { delay: isHovered ? 0 : index * 0.2 + 0.1, ...premiumTransition, layout: { duration: 1.2, ease: 'easeInOut' } }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onFocus={() => setIsHovered(true)}
@@ -71,7 +71,7 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
           y: isHovered ? -8 : 0,
           opacity: isHovered ? 0 : 1
         }}
-        transition={shouldReduceMotion ? { duration: 0 } : { ...premiumTransition, layout: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }}
+        transition={shouldReduceMotion ? { duration: 0 } : { ...premiumTransition, layout: { duration: 1.2, ease: 'easeInOut' } }}
         className="w-full flex flex-col items-center relative z-20"
       >
         <motion.div 
@@ -99,7 +99,7 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.8, ease: "easeInOut" }}
+            transition={{ duration: shouldReduceMotion ? 0 : 1.2, ease: "easeInOut" }}
             className="absolute inset-0 z-0 overflow-hidden"
           >
             <motion.img
@@ -112,7 +112,7 @@ const HowItWorksCard = ({ step, title, desc, image, index, shouldReduceMotion }:
               initial={{ scale: 1.05 }}
               animate={{ scale: 1 }}
               exit={{ scale: 1.05 }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.8, ease: "easeOut" }}
+              transition={{ duration: shouldReduceMotion ? 0 : 1.2, ease: "easeOut" }}
             />
           </motion.div>
         )}
@@ -890,7 +890,7 @@ const Index = () => {
               </Link>
               <motion.div variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }} className="flex items-center gap-3 text-sm text-zinc-400 mt-2">
                 <span className="flex items-center gap-1"><Lock className="w-3.5 h-3.5" /> Secure</span>
-                <span>•</span>
+                <span>Ã¢â‚¬Â¢</span>
                 <span className="flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Trusted by 10K+ Students</span>
               </motion.div>
               <div className="flex flex-col gap-2 text-sm font-medium text-zinc-400 text-center lg:text-right">
@@ -967,7 +967,7 @@ const Index = () => {
             </div>
           </div>
           <div className="mt-16 border-t border-border pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground font-medium">
-            <div>© 2026 StudentHub. All rights reserved.</div>
+            <div>Ã‚Â© 2026 StudentHub. All rights reserved.</div>
             <div className="flex gap-4">
               <Link to="/privacy" className="hover-underline hover:text-primary transition-colors w-fit">Privacy Policy</Link>
               <Link to="/terms" className="hover-underline hover:text-primary transition-colors w-fit">Terms of Service</Link>
