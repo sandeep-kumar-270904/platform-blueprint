@@ -252,12 +252,12 @@ const VirtualClassroom = () => {
             {user && (
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-1" />Schedule Class</Button></DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader><DialogTitle>Schedule a Classroom</DialogTitle></DialogHeader>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 py-2">
                     <div><Label htmlFor="title">Title</Label><Input id="title" value={form.title || ""} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
                     <div><Label htmlFor="subject">Subject</Label><Input id="subject" value={form.subject || ""} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
-                    <div><Label htmlFor="description">Description</Label><Textarea id="description" value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
+                    <div className="md:col-span-2"><Label htmlFor="description">Description</Label><Textarea id="description" value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} /></div>
                     <div><Label htmlFor="scheduled-at">Scheduled At</Label><Input id="scheduled-at" type="datetime-local" onChange={e => setForm({ ...form, scheduled_at: new Date(e.target.value).toISOString() })} /></div>
                     <div className="grid grid-cols-2 gap-3">
                       <div><Label htmlFor="duration-min">Duration (min)</Label><Input id="duration-min" type="number" value={form.duration_minutes} onChange={e => setForm({ ...form, duration_minutes: +e.target.value })} /></div>
@@ -286,11 +286,9 @@ const VirtualClassroom = () => {
                         </Select>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 pt-2 border-t mt-2">
+                    <div className="md:col-span-2 grid grid-cols-2 gap-3 pt-2 border-t mt-2">
                       <div className="flex items-center gap-2 pt-6">
-                        <input 
-                          type="checkbox" 
-                          id="is_paid" 
+                        <input id="is_paid" 
                           checked={form.is_paid || false} 
                           onChange={(e) => setForm({ ...form, is_paid: e.target.checked, price: e.target.checked ? form.price || 5 : 0 })}
                           className="h-4 w-4"
@@ -308,14 +306,14 @@ const VirtualClassroom = () => {
                       </div>
                     </div>
                     {form.is_paid && (
-                      <div className="pt-2 border-t mt-2">
+                      <div className="md:col-span-2 pt-2 border-t mt-2">
                         <Label htmlFor="discount-codes">Discount Codes (Optional)</Label>
                         <Input id="discount-codes" placeholder="SUMMER:20:100 (Code:Percent:MaxUses), ..." value={form.discount_codes_str || ''} onChange={e => setForm({ ...form, discount_codes_str: e.target.value })} />
                         <p className="text-[10px] text-muted-foreground mt-1">Format: CODE:PERCENT_OFF:MAX_USES, separated by commas.</p>
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-3 pt-2 border-t mt-2">
+                    <div className="md:col-span-2 grid grid-cols-2 gap-3 pt-2 border-t mt-2">
                       <div className="flex items-center gap-2 pt-6">
                         <input type="checkbox" id="is_series" checked={form.is_series} onChange={(e) => setForm({ ...form, is_series: e.target.checked })} className="h-4 w-4" />
                         <Label htmlFor="is_series">Recurring Series</Label>
@@ -340,7 +338,7 @@ const VirtualClassroom = () => {
                       )}
                     </div>
 
-                    <div className="pt-2 border-t mt-2 space-y-3">
+                    <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t mt-2">
                       <div><Label>Co-Hosts (Emails, comma separated)</Label><Input placeholder="host2@example.com, host3@example.com" value={typeof form.co_host_emails === 'string' ? form.co_host_emails : form.co_host_emails.join(', ')} onChange={e => setForm({ ...form, co_host_emails: e.target.value })} /></div>
                       <div><Label>Tags (comma separated)</Label><Input placeholder="react, typescript, beginners" value={typeof form.tags === 'string' ? form.tags : form.tags.join(', ')} onChange={e => setForm({ ...form, tags: e.target.value })} /></div>
                       <div><Label>Prerequisite Class IDs (comma separated)</Label><Input placeholder="ObjectId1, ObjectId2" value={form.prerequisite_classes_str || ''} onChange={e => setForm({ ...form, prerequisite_classes_str: e.target.value })} /></div>
@@ -477,7 +475,7 @@ const VirtualClassroom = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Badge variant={c.status === 'draft' ? "outline" : (live ? "destructive" : "secondary")} role="status" aria-live="polite">
-                          {live && <span className="mr-1 inline-block h-2 w-2 rounded-full bg-current animate-pulse" aria-hidden="true" />}
+                          {live && <span className="mr-1 inline-block h-2 w-2 rounded-full bg-current" aria-hidden="true" />}
                           {live ? "LIVE" : c.status.toUpperCase()}
                         </Badge>
                         {c.language && <Badge variant="outline" className="text-xs bg-muted/50">{c.language}</Badge>}

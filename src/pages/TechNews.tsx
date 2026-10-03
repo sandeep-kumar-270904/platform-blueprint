@@ -219,7 +219,7 @@ const TechNews = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F9F7F1' }}>
+    <div className="min-h-screen flex flex-col bg-background">
       <Header />
 
       <section className="relative pt-24 pb-12 overflow-hidden border-b border-border/10">
