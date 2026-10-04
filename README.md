@@ -53,13 +53,11 @@ graph TD;
 
 ## Screenshots
 <div align="center">
-  <img src="https://via.placeholder.com/400x225.png?text=Dashboard+UI" width="48%" />
-  <img src="https://via.placeholder.com/400x225.png?text=Virtual+Classroom" width="48%" />
-  <img src="https://via.placeholder.com/400x225.png?text=AI+Placement+Prep" width="48%" />
-  <img src="https://via.placeholder.com/400x225.png?text=Team+Hunt" width="48%" />
+  <img src="./docs/screenshots/landing.png" width="48%" alt="StudentHub Landing Page" />
+  <img src="./docs/screenshots/dashboard.png" width="48%" alt="Main Student Dashboard" />
+  <img src="./docs/screenshots/community.png" width="48%" alt="Global Community Feed" />
+  <img src="./docs/screenshots/team-hunt.png" width="48%" alt="Team Matchmaking" />
 </div>
-
-*Note: Replace placeholder image URLs with actual screenshot paths from your repository.*
 
 ## Run Locally
 `ash
