@@ -15,7 +15,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)
 
-[Live Demo](#) | [GitHub](https://github.com/sandeep-kumar-270904/platform-blueprint) | [Architecture](#architecture) | [Screenshots](#screenshots)
+[Live Demo](https://platform-blueprint.vercel.app/) | [GitHub](https://github.com/sandeep-kumar-270904/platform-blueprint) | [Architecture](#architecture) | [Screenshots](#screenshots)
 
 <p align="center">
   <b>An enterprise-grade, distributed web platform engineered to consolidate higher education lifecycles—unifying real-time hackathons, AI-powered placement preparation, peer team matching, verified campus housing, and interactive virtual classrooms.</b>
