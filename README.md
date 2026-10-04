@@ -1,9 +1,25 @@
-<div align='center'>
+<div align="center">
 
-# StudentHub
-**AI-Powered Campus & Career Platform**
+# 🚀 StudentHub
+### The Enterprise Campus Innovation, Career & Collaborative Ecosystem
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-4.x-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Socket.io](https://img.shields.io/badge/Socket.io-Realtime-010101?style=for-the-badge&logo=socket.io&logoColor=white)](https://socket.io/)
+[![Google Gemini AI](https://img.shields.io/badge/Google_Gemini-1.5_Pro-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)
 
 [Live Demo](#) | [GitHub](https://github.com/sandeep-kumar-270904/platform-blueprint) | [Architecture](#architecture) | [Screenshots](#screenshots)
+
+<p align="center">
+  <b>An enterprise-grade, distributed web platform engineered to consolidate higher education lifecycles—unifying real-time hackathons, AI-powered placement preparation, peer team matching, verified campus housing, and interactive virtual classrooms.</b>
+</p>
 
 </div>
 
@@ -36,11 +52,11 @@ graph TD;
 `
 
 ## Screenshots
-<div align='center'>
-  <img src='https://via.placeholder.com/400x225.png?text=Dashboard+UI' width='48%' />
-  <img src='https://via.placeholder.com/400x225.png?text=Virtual+Classroom' width='48%' />
-  <img src='https://via.placeholder.com/400x225.png?text=AI+Placement+Prep' width='48%' />
-  <img src='https://via.placeholder.com/400x225.png?text=Team+Hunt' width='48%' />
+<div align="center">
+  <img src="https://via.placeholder.com/400x225.png?text=Dashboard+UI" width="48%" />
+  <img src="https://via.placeholder.com/400x225.png?text=Virtual+Classroom" width="48%" />
+  <img src="https://via.placeholder.com/400x225.png?text=AI+Placement+Prep" width="48%" />
+  <img src="https://via.placeholder.com/400x225.png?text=Team+Hunt" width="48%" />
 </div>
 
 *Note: Replace placeholder image URLs with actual screenshot paths from your repository.*
@@ -62,33 +78,9 @@ npm run start:all
 - **Database & API Design**: Handled complete database schema design and built secure, scalable RESTful APIs for 10+ core modules.
 
 ---
-
 *(Detailed Technical Documentation Below)*
 
 <br />
-
-<div align="center">
-
-# 🎓 StudentHub | Platform Blueprint
-### The Enterprise Campus Innovation, Career & Collaborative Ecosystem
-
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Express-4.x-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![Socket.io](https://img.shields.io/badge/Socket.io-Realtime-010101?style=for-the-badge&logo=socket.io&logoColor=white)](https://socket.io/)
-[![Google Gemini AI](https://img.shields.io/badge/Google_Gemini-1.5_Pro-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
-[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-
-<p align="center">
-  <b>An enterprise-grade, distributed web platform engineered to consolidate higher education lifecycles—unifying real-time hackathons, AI-powered placement preparation, peer team matching, verified campus housing, and interactive virtual classrooms.</b>
-</p>
-
-</div>
 
 ---
 
@@ -926,3 +918,4 @@ Copyright (c) 2026 StudentHub Engineering Team
   <b>Built with passion for students, builders, and future innovators worldwide.</b><br>
   <sub>StudentHub Platform Blueprint © 2026. All rights reserved.</sub>
 </div>
+
