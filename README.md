@@ -97,14 +97,25 @@ npm run start:all
 
 ## 📑 Complete Table of Contents
 
+<details>
+<summary><b>1️⃣ Product & Vision</b></summary>
+
 1. [Project Overview](#1-project-overview)
 2. [Problem Statement](#2-problem-statement)
 3. [Objectives & Target Personas](#3-objectives-target-personas)
 4. [Features & Core Pillars](#4-features-core-pillars)
-5. [Functional Requirements (FR)](#5-functional-requirements-fr)
-6. [Non-Functional Requirements (NFR)](#6-non-functional-requirements-nfr)
 7. [User Stories](#7-user-stories)
 8. [Use Cases](#8-use-cases)
+30. [Limitations](#30-limitations)
+31. [Future Enhancements & Roadmap](#31-future-enhancements-roadmap)
+
+</details>
+
+<details>
+<summary><b>2️⃣ System & Database Architecture</b></summary>
+
+5. [Functional Requirements (FR)](#5-functional-requirements-fr)
+6. [Non-Functional Requirements (NFR)](#6-non-functional-requirements-nfr)
 9. [High-Level Design (HLD)](#9-high-level-design-hld)
 10. [Low-Level Design (LLD)](#10-low-level-design-lld)
 11. [System Architecture](#11-system-architecture)
@@ -112,10 +123,24 @@ npm run start:all
 13. [Database Design & ERDs](#13-database-design-erds)
 14. [API Documentation (REST & WebSockets)](#14-api-documentation-rest-websockets)
 15. [Authentication Flow & Authorization](#15-authentication-flow-authorization)
-16. [Machine Learning & AI Pipeline](#16-machine-learning-ai-pipeline)
-17. [Dataset Documentation](#17-dataset-documentation)
 18. [Folder Structure](#18-folder-structure)
 19. [Technology Stack & Architectural Justifications](#19-technology-stack-architectural-justifications)
+28. [Security Considerations (OWASP Top 10)](#28-security-considerations-owasp-top-10)
+29. [Scalability Considerations](#29-scalability-considerations)
+
+</details>
+
+<details>
+<summary><b>3️⃣ Machine Learning & Technology</b></summary>
+
+16. [Machine Learning & AI Pipeline](#16-machine-learning-ai-pipeline)
+17. [Dataset Documentation](#17-dataset-documentation)
+
+</details>
+
+<details>
+<summary><b>4️⃣ Deployment, Testing & Ops</b></summary>
+
 20. [Installation Guide](#20-installation-guide)
 21. [Configuration Guide](#21-configuration-guide)
 22. [Environment Variables](#22-environment-variables)
@@ -124,11 +149,13 @@ npm run start:all
 25. [Deployment Guide](#25-deployment-guide)
 26. [Testing Strategy](#26-testing-strategy)
 27. [Performance Metrics & Benchmarks](#27-performance-metrics-benchmarks)
-28. [Security Considerations (OWASP Top 10)](#28-security-considerations-owasp-top-10)
-29. [Scalability Considerations](#29-scalability-considerations)
-30. [Limitations](#30-limitations)
-31. [Future Enhancements & Roadmap](#31-future-enhancements-roadmap)
 32. [Troubleshooting Guide](#32-troubleshooting-guide)
+
+</details>
+
+<details>
+<summary><b>5️⃣ Community & Showcase</b></summary>
+
 33. [Frequently Asked Questions (FAQ)](#33-frequently-asked-questions-faq)
 34. [Screenshots & Visual Showcase](#34-screenshots-visual-showcase)
 35. [Interactive Demo Instructions (5-Min Tour)](#35-interactive-demo-instructions-5-min-tour)
@@ -137,6 +164,9 @@ npm run start:all
 38. [License Information](#38-license-information)
 39. [References & Citations](#39-references-citations)
 40. [Credits & Engineering Team](#40-credits-engineering-team)
+
+</details>
+
 
 ---
 
