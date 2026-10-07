@@ -25,3 +25,17 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Additional Safety Ignores
+backend/node_modules/
+backend/dist/
+backend/uploads/
+uploads/
+public/uploads/
+.user_uploaded/
+build/
+.vercel/
+.next/
+coverage/
+.nyc_output/
+
