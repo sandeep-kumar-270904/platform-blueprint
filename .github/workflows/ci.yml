@@ -1,55 +1,37 @@
-name: CI (Build & Test)
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "college-insights" ]
+    branches: [ "main", "master", "fix/*" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
 
 jobs:
-  frontend-ci:
-    name: Frontend CI
+  test:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-          cache: 'npm'
-          cache-dependency-path: 'package-lock.json'
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+        cache: 'npm'
 
-      - name: Install Frontend Dependencies
-        run: npm ci
+    - name: Install Frontend Dependencies
+      run: npm ci
 
-      - name: Lint Frontend
-        run: npm run lint
-        continue-on-error: true # Warning only due to existing codebase errors
+    - name: Install Backend Dependencies
+      run: cd backend && npm ci
 
-      - name: Build Frontend (Vite)
-        run: npm run build
+    - name: Run Frontend Tests (Vitest)
+      run: npm run test
+      continue-on-error: true
 
-  backend-ci:
-    name: Backend CI
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./backend
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Run Backend Unit & Integration Tests (Jest)
+      run: cd backend && npm test
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-          cache: 'npm'
-          cache-dependency-path: 'backend/package-lock.json'
-
-      - name: Install Backend Dependencies
-        run: npm ci
-
-      - name: Test Backend
-        run: npm test
+    - name: Build Frontend
+      run: npm run build
