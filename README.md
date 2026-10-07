@@ -163,7 +163,7 @@ npm run start:all
 37. [Code of Conduct](#37-code-of-conduct)
 38. [License Information](#38-license-information)
 39. [References & Citations](#39-references-citations)
-40. [Credits & Engineering Team](#40-credits-engineering-team)
+40. [My Role](#40-my-role)
 
 </details>
 
@@ -931,14 +931,13 @@ Copyright (c) 2026 StudentHub Engineering Team
 
 ---
 
-## 40. Credits & Engineering Team
+## 40. My Role
 
-| Role | Lead Focus |
-|:---|:---|
-| **Principal Systems Architect** | Distributed architecture, atomic concurrency locks, MongoDB data modeling & real-time Socket.io design |
-| **Lead Frontend Engineer** | React 18 component design system, Tailwind tokens, 4-step wizard workflows & responsive mobile sticky actions |
-| **AI & ML Pipeline Specialist** | Gemini Pro prompt engineering, ATS scoring algorithms & matchmaking heuristic models |
-| **Security & DevOps Lead** | JWT authentication lifecycle, OWASP defenses, Docker multi-container setups & CI/CD deployment pipelines |
+**Full-Stack Developer**
+
+Designed and implemented the frontend, backend APIs, authentication,
+database models, AI integrations, realtime workflows, and deployment
+configuration.
 
 ---
 
