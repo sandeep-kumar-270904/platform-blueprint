@@ -1,7 +1,7 @@
 <div align="center">
 
 # 🚀 StudentHub
-### The Enterprise Campus Innovation, Career & Collaborative Ecosystem
+### The Full-Stack Campus Innovation, Career & Collaborative Ecosystem
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
@@ -18,7 +18,7 @@
 [Live Demo](https://platform-blueprint.vercel.app/) | [GitHub](https://github.com/sandeep-kumar-270904/platform-blueprint) | [Architecture](#architecture) | [Screenshots](#screenshots)
 
 <p align="center">
-  <b>An enterprise-grade, distributed web platform engineered to consolidate higher education lifecycles—unifying real-time hackathons, AI-powered placement preparation, peer team matching, verified campus housing, and interactive virtual classrooms.</b>
+  <b>A modular full-stack web platform engineered to consolidate higher education lifecycles—unifying real-time hackathons, AI-powered placement preparation, peer team matching, verified campus housing, and interactive virtual classrooms.</b>
 </p>
 
 </div>
