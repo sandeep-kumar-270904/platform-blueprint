@@ -1,7 +1,7 @@
 <div align="center">
 
-# 🚀 StudentHub
-### The Full-Stack Campus Innovation, Career & Collaborative Ecosystem
+# StudentHub
+### Full-Stack Campus & Career Platform
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
@@ -17,30 +17,30 @@
 
 [Live Demo](https://platform-blueprint.vercel.app/) | [GitHub](https://github.com/sandeep-kumar-270904/platform-blueprint) | [Architecture](#architecture) | [Screenshots](#screenshots)
 
-<p align="center">
-  <b>A modular full-stack web platform engineered to consolidate higher education lifecycles—unifying real-time hackathons, AI-powered placement preparation, peer team matching, verified campus housing, and interactive virtual classrooms.</b>
-</p>
-
 </div>
 
-## What It Solves
-StudentHub centralizes the fragmented college experience by providing a single, unified ecosystem for academics, career growth, and campus life. Instead of juggling a dozen different apps, students can find hackathon teams, practice for interviews with AI, secure verified off-campus housing, and attend interactive virtual classrooms all in one place. It bridges the gap between campus resources and successful career placements.
+StudentHub is a full-stack web application designed to bring student events, hackathons, team discovery, career preparation, learning tools, and campus services into one platform.
 
-## Key Features
-- **🤖 AI-Powered Placement Prep**: Automated mock interviews, OA simulations, and resume scoring powered by Google Gemini AI.
-- **📹 Real-Time Virtual Classrooms**: Live video sessions with integrated polling, Q&A, and interactive whiteboards using Socket.io.
-- **🤝 Algorithmic Team Hunt**: Intelligent matchmaking for hackathons and study groups based on complementary skill sets.
-- **🏠 Verified Campus Housing**: A secure marketplace for off-campus hostels and roommate matching with map integration.
-- **💬 Interactive Community Feed**: A dynamic, Reddit-style forum for campus news, tech discussions, and event tracking.
+## Key Engineering Highlights
+
+- JWT authentication and role-based access control
+- RESTful APIs with Node.js and Express
+- MongoDB persistence with domain-specific models and indexes
+- Real-time workflows using Socket.io
+- Gemini-powered AI features for career preparation
+- Concurrency-safe reservation workflows
+- Responsive React + TypeScript frontend
+- Automated testing and deployment workflows
 
 ## Tech Stack
-- **Frontend**: React 18, Vite, TypeScript, Tailwind CSS, Shadcn UI
-- **Backend**: Node.js, Express.js
-- **Database**: MongoDB Atlas, Mongoose
-- **AI**: Google Gemini API
-- **Realtime**: Socket.io
-- **Testing**: Cypress, Vitest
-- **Deployment**: Vercel (Frontend), Render/Railway (Backend)
+
+**Frontend:** React, TypeScript, Vite, Tailwind CSS  
+**Backend:** Node.js, Express.js  
+**Database:** MongoDB, Mongoose  
+**Realtime:** Socket.io  
+**AI:** Google Gemini  
+**Testing:** Vitest, Cypress  
+**Deployment:** Vercel / Render
 
 ## Architecture
 `mermaid
