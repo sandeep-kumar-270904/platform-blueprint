@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🎓 StudentHub | Platform Blueprint
+# 🚀 StudentHub
 ### The Enterprise Campus Innovation, Career & Collaborative Ecosystem
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -13,7 +13,9 @@
 [![Google Gemini AI](https://img.shields.io/badge/Google_Gemini-1.5_Pro-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)
+
+[Live Demo](https://platform-blueprint.vercel.app/) | [GitHub](https://github.com/sandeep-kumar-270904/platform-blueprint) | [Architecture](#architecture) | [Screenshots](#screenshots)
 
 <p align="center">
   <b>An enterprise-grade, distributed web platform engineered to consolidate higher education lifecycles—unifying real-time hackathons, AI-powered placement preparation, peer team matching, verified campus housing, and interactive virtual classrooms.</b>
@@ -21,18 +23,99 @@
 
 </div>
 
+## What It Solves
+StudentHub centralizes the fragmented college experience by providing a single, unified ecosystem for academics, career growth, and campus life. Instead of juggling a dozen different apps, students can find hackathon teams, practice for interviews with AI, secure verified off-campus housing, and attend interactive virtual classrooms all in one place. It bridges the gap between campus resources and successful career placements.
+
+## Key Features
+- **🤖 AI-Powered Placement Prep**: Automated mock interviews, OA simulations, and resume scoring powered by Google Gemini AI.
+- **📹 Real-Time Virtual Classrooms**: Live video sessions with integrated polling, Q&A, and interactive whiteboards using Socket.io.
+- **🤝 Algorithmic Team Hunt**: Intelligent matchmaking for hackathons and study groups based on complementary skill sets.
+- **🏠 Verified Campus Housing**: A secure marketplace for off-campus hostels and roommate matching with map integration.
+- **💬 Interactive Community Feed**: A dynamic, Reddit-style forum for campus news, tech discussions, and event tracking.
+
+## Tech Stack
+- **Frontend**: React 18, Vite, TypeScript, Tailwind CSS, Shadcn UI
+- **Backend**: Node.js, Express.js
+- **Database**: MongoDB Atlas, Mongoose
+- **AI**: Google Gemini API
+- **Realtime**: Socket.io
+- **Testing**: Cypress, Vitest
+- **Deployment**: Vercel (Frontend), Render/Railway (Backend)
+
+## Architecture
+`mermaid
+graph TD;
+    Client[Frontend: React/Vite] -->|REST API| Server[Backend: Node.js/Express];
+    Client -->|WebSockets| Realtime[Socket.io Server];
+    Server -->|Mongoose| DB[(MongoDB Atlas)];
+    Server -->|API Calls| AI[Google Gemini AI];
+`
+
+## Screenshots
+<div align="center">
+  <img src="./docs/screenshots/landing.png" width="48%" alt="StudentHub Landing Page" />
+  <img src="./docs/screenshots/dashboard.png" width="48%" alt="Main Student Dashboard" />
+  <img src="./docs/screenshots/community.png" width="48%" alt="Global Community Feed" />
+  <img src="./docs/screenshots/team-hunt.png" width="48%" alt="Team Matchmaking" />
+</div>
+
+## Run Locally
+`ash
+git clone https://github.com/sandeep-kumar-270904/platform-blueprint.git
+cd platform-blueprint
+npm install
+cd backend && npm install && cd ..
+npm run start:all
+`
+
+## My Role
+- **Full-Stack Engineering**: Engineered the entire platform architecture from scratch using the MERN stack (MongoDB, Express, React, Node.js) and TypeScript.
+- **AI Integration**: Integrated the Google Gemini API to build an autonomous mock interview and resume review system.
+- **Real-Time Systems**: Developed live features including the Virtual Classroom, real-time chat, and live notifications using WebSockets (Socket.io).
+- **UI/UX Design**: Designed and implemented a highly responsive, accessible, and modern user interface using Tailwind CSS and Shadcn UI.
+- **Database & API Design**: Handled complete database schema design and built secure, scalable RESTful APIs for 10+ core modules.
+
+---
+*(Detailed Technical Documentation Below)*
+
+<br />
+
+---
+
+## 🚀 TL;DR Quickstart
+
+Want to jump right in?
+```bash
+git clone https://github.com/sandeep-kumar-270904/platform-blueprint.git
+npm install
+cd backend && npm install && cd ..
+npm run start:all
+```
+*Frontend runs on `http://localhost:8080`, Backend runs on `http://localhost:5000`.*
+
 ---
 
 ## 📑 Complete Table of Contents
+
+<details>
+<summary><b>1️⃣ Product & Vision</b></summary>
 
 1. [Project Overview](#1-project-overview)
 2. [Problem Statement](#2-problem-statement)
 3. [Objectives & Target Personas](#3-objectives-target-personas)
 4. [Features & Core Pillars](#4-features-core-pillars)
-5. [Functional Requirements (FR)](#5-functional-requirements-fr)
-6. [Non-Functional Requirements (NFR)](#6-non-functional-requirements-nfr)
 7. [User Stories](#7-user-stories)
 8. [Use Cases](#8-use-cases)
+30. [Limitations](#30-limitations)
+31. [Future Enhancements & Roadmap](#31-future-enhancements-roadmap)
+
+</details>
+
+<details>
+<summary><b>2️⃣ System & Database Architecture</b></summary>
+
+5. [Functional Requirements (FR)](#5-functional-requirements-fr)
+6. [Non-Functional Requirements (NFR)](#6-non-functional-requirements-nfr)
 9. [High-Level Design (HLD)](#9-high-level-design-hld)
 10. [Low-Level Design (LLD)](#10-low-level-design-lld)
 11. [System Architecture](#11-system-architecture)
@@ -40,10 +123,24 @@
 13. [Database Design & ERDs](#13-database-design-erds)
 14. [API Documentation (REST & WebSockets)](#14-api-documentation-rest-websockets)
 15. [Authentication Flow & Authorization](#15-authentication-flow-authorization)
-16. [Machine Learning & AI Pipeline](#16-machine-learning-ai-pipeline)
-17. [Dataset Documentation](#17-dataset-documentation)
 18. [Folder Structure](#18-folder-structure)
 19. [Technology Stack & Architectural Justifications](#19-technology-stack-architectural-justifications)
+28. [Security Considerations (OWASP Top 10)](#28-security-considerations-owasp-top-10)
+29. [Scalability Considerations](#29-scalability-considerations)
+
+</details>
+
+<details>
+<summary><b>3️⃣ Machine Learning & Technology</b></summary>
+
+16. [Machine Learning & AI Pipeline](#16-machine-learning-ai-pipeline)
+17. [Dataset Documentation](#17-dataset-documentation)
+
+</details>
+
+<details>
+<summary><b>4️⃣ Deployment, Testing & Ops</b></summary>
+
 20. [Installation Guide](#20-installation-guide)
 21. [Configuration Guide](#21-configuration-guide)
 22. [Environment Variables](#22-environment-variables)
@@ -52,11 +149,13 @@
 25. [Deployment Guide](#25-deployment-guide)
 26. [Testing Strategy](#26-testing-strategy)
 27. [Performance Metrics & Benchmarks](#27-performance-metrics-benchmarks)
-28. [Security Considerations (OWASP Top 10)](#28-security-considerations-owasp-top-10)
-29. [Scalability Considerations](#29-scalability-considerations)
-30. [Limitations](#30-limitations)
-31. [Future Enhancements & Roadmap](#31-future-enhancements-roadmap)
 32. [Troubleshooting Guide](#32-troubleshooting-guide)
+
+</details>
+
+<details>
+<summary><b>5️⃣ Community & Showcase</b></summary>
+
 33. [Frequently Asked Questions (FAQ)](#33-frequently-asked-questions-faq)
 34. [Screenshots & Visual Showcase](#34-screenshots-visual-showcase)
 35. [Interactive Demo Instructions (5-Min Tour)](#35-interactive-demo-instructions-5-min-tour)
@@ -65,6 +164,9 @@
 38. [License Information](#38-license-information)
 39. [References & Citations](#39-references-citations)
 40. [Credits & Engineering Team](#40-credits-engineering-team)
+
+</details>
+
 
 ---
 
@@ -185,22 +287,39 @@ mindmap
 
 ## 5. Functional Requirements (FR)
 
-- **FR-01 to FR-05 (Auth & Identity)**: JWT stateless authentication, bcrypt password hashing (10 salt rounds), multi-role RBAC, `.edu` email verification, granular notification preferences.
-- **FR-06 to FR-10 (Events & Teams)**: 4-step creation wizard with real-time preview, temporal date validation, Jaccard team matchmaking score, AI skill gap advice, team application workflow.
-- **FR-11 to FR-15 (Career & AI)**: Google Gemini 1.5 Pro ATS resume scanner (0-100 score), conversational mock interview simulator, time-bounded OA test engine, quiz difficulty auto-calibration.
-- **FR-16 to FR-20 (Housing & Aid)**: Roommate compatibility scoring, atomic repair slot holds with 15-minute TTL expiration workers, multi-criteria scholarship filters, 1-click batch applications, automated fraud review detectors.
-- **FR-21 to FR-25 (Classroom & Governance)**: Sub-50ms live buzzer quiz tournaments, collaborative whiteboard streaming, hourly news aggregator crons, admin moderation tables, immutable audit logging.
+- 🔐 **FR-01 to FR-05 (Auth & Identity)**
+  - JWT stateless authentication
+  - Bcrypt password hashing (10 salt rounds)
+  - Multi-role RBAC & `.edu` email verification
+  - Granular notification preferences
+- 🎯 **FR-06 to FR-10 (Events & Teams)**
+  - 4-step creation wizard with real-time preview
+  - Temporal date validation
+  - Jaccard team matchmaking score & AI skill gap advice
+  - Team application workflow
+- 💼 **FR-11 to FR-15 (Career & AI)**
+  - Google Gemini 1.5 Pro ATS resume scanner (0-100 score)
+  - Conversational mock interview simulator
+  - Time-bounded OA test engine & quiz difficulty auto-calibration
+- 🏠 **FR-16 to FR-20 (Housing & Aid)**
+  - Roommate compatibility scoring
+  - Atomic repair slot holds with 15-minute TTL expiration workers
+  - Multi-criteria scholarship filters & 1-click batch applications
+  - Automated fraud review detectors
+- 🎓 **FR-21 to FR-25 (Classroom & Governance)**
+  - Sub-50ms live buzzer quiz tournaments
+  - Collaborative whiteboard streaming
+  - Hourly news aggregator crons
+  - Admin moderation tables & immutable audit logging
 
 ---
 
 ## 6. Non-Functional Requirements (NFR)
 
-- **NFR-01 (API Latency)**: 95th percentile REST API latency $< 120\text{ms}$ under 1,000 active concurrent connections.
-- **NFR-02 (WebSocket Latency)**: Real-time event propagation $< 50\text{ms}$.
-- **NFR-03 (AI Turnaround)**: Resume ATS scoring and feedback generation completed in $< 3.5\text{s}$.
-- **NFR-04 (Database Execution)**: Core collection queries execute in $< 15\text{ms}$ using compound and geospatial indexes.
-- **NFR-05 (Security Compliance)**: OWASP Top 10 compliance, NoSQL sanitization (`express-mongo-sanitize`), rate limiting, Helmet HTTP security headers.
-- **NFR-06 (Mobile Optimization)**: Fully responsive UI (320px+), bottom-docked sticky action bars on mobile.
+- ⚡ **NFR-01 (API Latency)**: 95th percentile REST API latency **< 120ms** under **1,000 active concurrent connections**.
+- 📡 **NFR-02 (WebSocket Latency)**: Real-time event propagation **< 50ms**.
+- 🧠 **NFR-03 (AI Turnaround)**: Resume ATS scoring and feedback generation completed in **< 3.5s**.
+- 🗄️ **NFR-04 (Database Execution)**: Core collection queries execute in **< 15ms** using compound and geospatial indexes.
 
 ---
 
@@ -755,6 +874,16 @@ gantt
 - **Resume ATS Dashboard**: Radial score gauge with bullet point feedback and keyword matrix.
 - **Admin Curation Panel**: Multi-status curation tabs with 1-click approvals.
 
+<br>
+<div align="center">
+  <img src="public/image1.png" alt="StudentHub Interface 1" width="48%" style="border-radius: 8px; border: 1px solid #30363d; margin: 1%; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
+  <img src="public/image2.png" alt="StudentHub Interface 2" width="48%" style="border-radius: 8px; border: 1px solid #30363d; margin: 1%; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
+  <br>
+  <img src="public/image3.png" alt="StudentHub Interface 3" width="80%" style="border-radius: 8px; border: 1px solid #30363d; margin: 1%; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
+</div>
+
+
+
 ---
 
 ## 35. Interactive Demo Instructions (5-Min Tour)
@@ -817,3 +946,4 @@ Copyright (c) 2026 StudentHub Engineering Team
   <b>Built with passion for students, builders, and future innovators worldwide.</b><br>
   <sub>StudentHub Platform Blueprint © 2026. All rights reserved.</sub>
 </div>
+

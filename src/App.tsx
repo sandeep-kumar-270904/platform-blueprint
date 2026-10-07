@@ -49,8 +49,6 @@ const CollegeDetail = lazy(() => import("./pages/CollegeDetail"));
 const CompareColleges = lazy(() => import("./pages/CompareColleges"));
 const ApplicationTracker = lazy(() => import("./pages/ApplicationTracker"));
 const InnovationHub = lazy(() => import("./pages/InnovationHub"));
-const Scholarships = lazy(() => import("./pages/Scholarships"));
-const ScholarshipCommunity = lazy(() => import("./pages/ScholarshipCommunity"));
 const LearningPathDetail = lazy(() => import("./pages/LearningPathDetail"));
 const FollowedCompanies = lazy(() => import("./pages/FollowedCompanies"));
 const CampusInsights = lazy(() => import("./pages/CampusInsights"));
@@ -96,6 +94,7 @@ const SkillSwap = lazy(() => import("./pages/SkillSwap"));
 const CreatorsZone = lazy(() => import("./pages/CreatorsZone"));
 const CreatorProfilePage = lazy(() => import("./pages/CreatorProfilePage"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+const JobsPortal = lazy(() => import("./pages/JobsPortal"));
 const AdminCollegePanel = lazy(() => import("./pages/AdminCollegePanel"));
 const MentorsAdminDashboard = lazy(() => import("./pages/admin/MentorsAdminDashboard"));
 const AdminResumeDashboard = lazy(() => import("./pages/admin/AdminResumeDashboard"));
@@ -139,12 +138,7 @@ const AdminQuizReports = lazy(() => import("./pages/admin/AdminQuizReports"));
 const AdminNewsModeration = lazy(() => import("./pages/admin/AdminNewsModeration"));
 const AdminCommunityPanel = lazy(() => import("./pages/admin/AdminCommunityPanel"));
 const AdminPlacementPanel = lazy(() => import("./pages/admin/AdminPlacementPanel"));
-const ScholarshipDetail = lazy(() => import("./pages/ScholarshipDetail"));
-const ScholarshipApply = lazy(() => import("./pages/ScholarshipApply"));
-const AdminScholarships = lazy(() => import("./pages/admin/AdminScholarships"));
 const AdminSkillSwapPanel = lazy(() => import("./pages/admin/AdminSkillSwapPanel"));
-const MyScholarships = lazy(() => import("./pages/MyScholarships"));
-const ScholarshipCalculator = lazy(() => import("./pages/ScholarshipCalculator"));
 import { AuthProvider } from "./hooks/useAuth";
 import { GlobalSocketListener } from "./components/GlobalSocketListener";
 const CreatorDashboard = lazy(() => import("./pages/CreatorDashboard"));
@@ -179,6 +173,7 @@ import { AlumniEventsPage } from './pages/AlumniEventsPage';
 import { ClaimAlumniProfile } from './pages/ClaimAlumniProfile';
 const OnboardingFlow = lazy(() => import("./pages/OnboardingFlow"));
 const LearningResources = lazy(() => import("./pages/LearningResources").then(m => ({ default: m.LearningResources })));
+const TechnologyPage = lazy(() => import("./pages/TechnologyPage").then(m => ({ default: m.TechnologyPage })));
 const LearningResourceDetail = lazy(() => import("./pages/LearningResourceDetail").then(m => ({ default: m.LearningResourceDetail })));
 
 const queryClient = new QueryClient();
@@ -214,8 +209,6 @@ const App = () => (
           <Route path="/events/:id/manage" element={<ProtectedRoute><EventManage /></ProtectedRoute>} />
           <Route path="/video/:id" element={<VideoRoomPage />} />
           <Route path="/recruiter/verify" element={<RecruiterVerify />} />
-          <Route path="/scholarships" element={<Scholarships />} />
-          <Route path="/scholarships/:id" element={<ScholarshipDetail />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
           <Route path="/search" element={<Search />} />
           <Route path="/p/:slug" element={<StaticPage />} />
@@ -269,11 +262,6 @@ const App = () => (
           <Route path="/compare" element={<ProtectedRoute><CompareColleges /></ProtectedRoute>} />
           <Route path="/tracker" element={<ProtectedRoute><ApplicationTracker /></ProtectedRoute>} />
           <Route path="/innovation-hub" element={<ProtectedRoute><InnovationHub /></ProtectedRoute>} />
-          <Route path="/scholarships" element={<ProtectedRoute><Scholarships /></ProtectedRoute>} />
-          <Route path="/scholarships/my-scholarships" element={<ProtectedRoute><MyScholarships /></ProtectedRoute>} />
-          <Route path="/scholarships/calculator" element={<ProtectedRoute><ScholarshipCalculator /></ProtectedRoute>} />
-          <Route path="/scholarships/:id" element={<ScholarshipDetail />} />
-          <Route path="/scholarships/:id/apply" element={<ProtectedRoute><ScholarshipApply /></ProtectedRoute>} />
           <Route path="/learning-paths/:id" element={<ProtectedRoute><LearningPathDetail /></ProtectedRoute>} />
           <Route path="/companies/followed" element={<ProtectedRoute><FollowedCompanies /></ProtectedRoute>} />
           <Route path="/insights" element={<ProtectedRoute><CampusInsights /></ProtectedRoute>} />
@@ -299,6 +287,7 @@ const App = () => (
           <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
           <Route path="/news" element={<ProtectedRoute><TechNews /></ProtectedRoute>} />
           <Route path="/placement" element={<ProtectedRoute><PlacementCell /></ProtectedRoute>} />
+          <Route path="/jobs" element={<JobsPortal />} />
           <Route path="/placement/dashboard" element={<ProtectedRoute><PlacementDashboard /></ProtectedRoute>} />
           <Route path="/placement/search" element={<ProtectedRoute><PlacementSearch /></ProtectedRoute>} />
           <Route path="/placement/dsa" element={<ProtectedRoute><DSAPractice /></ProtectedRoute>} />
@@ -312,6 +301,7 @@ const App = () => (
           <Route path="/study-groups" element={<ProtectedRoute><StudyGroups /></ProtectedRoute>} />
           <Route path="/study-groups/:id" element={<ProtectedRoute><StudyGroupDetail /></ProtectedRoute>} />
           <Route path="/learning-resources" element={<LearningResources />} />
+          <Route path="/learning-resources/tech/:technologySlug" element={<TechnologyPage />} />
           <Route path="/learning-resources/:id" element={<LearningResourceDetail />} />
           <Route path="/placement/study-groups/:id" element={<ProtectedRoute><StudyGroupDetail /></ProtectedRoute>} />
 
@@ -339,7 +329,6 @@ const App = () => (
           <Route path="/creators" element={<CreatorsZone />} />
           <Route path="/creators/profile/:id" element={<CreatorProfilePage />} />
           <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
-          <Route path="/admin/scholarships" element={<ProtectedRoute><AdminScholarships /></ProtectedRoute>} />
           <Route path="/admin/creators" element={<ProtectedRoute><AdminCreatorsPanel /></ProtectedRoute>} />
           <Route path="/admin/users/:id/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/admin/colleges" element={<ProtectedRoute><AdminCollegePanel /></ProtectedRoute>} />

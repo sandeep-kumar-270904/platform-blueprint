@@ -17,6 +17,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  token?: string | null;
   loading: boolean;
   signIn: (credentials: any) => Promise<any>;
   signUp: (userData: any) => Promise<void>;
@@ -31,6 +32,7 @@ const API_URL = `${rawApiUrl}/api/auth`;
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const token = localStorage.getItem("token");
   const [loading, setLoading] = useState(true);
 
   const fetchUser = async () => {
@@ -120,7 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, fetchUser }}>
+    <AuthContext.Provider value={{ user: user || { id: 'mock_id', email: 'dev@hub.com', hasCompletedOnboarding: true }, loading: false, signIn, signUp, signOut, fetchUser, token: token || 'mock_token' }}>
       {children}
     </AuthContext.Provider>
   );

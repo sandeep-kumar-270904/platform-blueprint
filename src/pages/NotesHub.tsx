@@ -191,26 +191,10 @@ const NotesHub = () => {
       <Header />
       <div className="container mx-auto px-4 pt-6 pb-8 space-y-6">
         
-        {/* Page Header */}
-        <div className="pb-4">
-          <nav className="flex text-sm text-muted-foreground mb-4" aria-label="Breadcrumb">
-            <ol className="flex items-center space-x-2">
-              <li><span className="hover:text-foreground transition-colors cursor-pointer" onClick={() => navigate("/dashboard")}>Dashboard</span></li>
-              <li><span className="text-muted-foreground/40">/</span></li>
-              <li><span>Learning & Skills</span></li>
-              <li><span className="text-muted-foreground/40">/</span></li>
-              <li className="text-foreground font-medium" aria-current="page">Notes</li>
-            </ol>
-          </nav>
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">Notes</h1>
-              <p className="text-muted-foreground mt-1.5">
-                Browse, upload, and collaborate on study materials shared by the community.
-              </p>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row items-center gap-12 w-full sm:w-auto">
+        {/* Page Actions */}
+        <div className="pb-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4 w-full">
+            <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
               <div className="relative w-full sm:w-[260px] shrink-0">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <Input

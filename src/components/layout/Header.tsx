@@ -32,8 +32,6 @@ const defaultNavigationGroups = [
       { title: "Alumni Network", href: "/alumni/connections", desc: "Connect with graduates" },
       { title: "Innovation Hub", href: "/innovation-hub", desc: "Startup ideas and pitches" },
       { title: "Events & Hackathons", href: "/events", desc: "Competitions and workshops" },
-      { title: "Scholarships", href: "/scholarships", desc: "Find funding opportunities" },
-      { title: "Courses & Internships", href: "/courses", desc: "Learning resources" },
       { title: "Roadmaps", href: "/roadmaps", desc: "Career path guidance" },
       { title: "Mentors", href: "/mentors", desc: "Book guidance sessions" },
       { title: "Community Forum", href: "/community", desc: "Ask and discuss" },
@@ -58,7 +56,6 @@ const defaultNavigationGroups = [
       { title: "Study Groups", href: "/study-groups", desc: "Virtual study rooms" },
       { title: "Team Hunt", href: "/team-hunt", desc: "Find collaborators" },
       { title: "Skill Swap", href: "/skill-swap", desc: "Exchange knowledge" },
-      { title: "Scholarship Community", href: "/scholarships/community", desc: "Coach, Buddies & Circles" },
       { title: "Creators Zone", href: "/creators", desc: "Content platform" },
       { title: "Q&A Board", href: "/qa-board", desc: "Stack Overflow style" },
       { title: "Forum", href: "/forum", desc: "Discussion threads" },
@@ -251,20 +248,25 @@ export const Header = () => {
       <div className="container mx-auto px-4 flex h-16 items-center justify-between gap-4">
         {/* Left: Logo */}
         <div className="flex items-center shrink-0">
-          <Link to={user ? "/dashboard" : "/"} className="flex items-center group">
-            <img src="/logo.png" alt="StudentHub Logo" className="h-10 w-auto object-contain transition-transform group-hover:scale-105" />
+          <Link to={user ? "/dashboard" : "/"} className="flex items-center group gap-2">
+            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              <GraduationCap className="h-5 w-5" />
+            </div>
+            <span className="text-xl font-bold tracking-tight hidden sm:block">
+              Student<span className="text-primary">Hub</span>
+            </span>
           </Link>
         </div>
 
         {/* Center: Navigation */}
-        <div className="hidden lg:flex flex-1 justify-center px-4">
+        <div className="hidden lg:flex flex-1 justify-start px-8">
           <nav className="flex items-center">
             {user && (
-              <Link to="/dashboard" className="text-sm font-medium mr-10 xl:mr-14 hover-underline text-foreground/80 hover:text-foreground transition-colors">
+              <Link to="/dashboard" className="text-[14px] font-medium mr-8 hover-underline text-foreground/80 hover:text-foreground transition-colors">
                 Dashboard
               </Link>
             )}
-            <div className="flex gap-8 xl:gap-12">
+            <div className="flex gap-6 xl:gap-8">
               {navigationGroups.map((group) => {
                 const isActiveGroup = group.items.some((item: any) => location.pathname === item.href || location.pathname.startsWith(item.href + '/'));
                 return (
@@ -278,33 +280,35 @@ export const Header = () => {
                           {group.title}
                         </NavigationMenuTrigger>
                         <NavigationMenuContent>
-                          <ul className="grid w-[600px] gap-3 p-6 md:grid-cols-2">
-                            {group.items.map((item: any) => (
-                              <li key={item.href}>
-                                <NavigationMenuLink asChild>
-                                  <Link
-                                    to={item.href}
-                                    className={cn(
-                                      "flex items-start gap-3 select-none rounded-lg p-3 no-underline outline-none transition-all hover:bg-muted hover:text-primary active:scale-[0.98] group relative hover-underline",
-                                      location.pathname === item.href && "bg-muted text-primary"
-                                    )}
-                                  >
-                                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background shadow-sm border border-border">
-                                      <div className="h-2 w-2 rounded-full bg-primary" />
-                                    </div>
-                                    <div className="flex-1 space-y-1">
-                                      <p className="text-sm font-semibold leading-none display-font">
+                          <div className={cn("p-4 md:p-5", 
+                            group.items.length <= 3 ? "w-[220px]" :
+                            group.items.length <= 8 ? "w-[400px]" :
+                            "w-[500px] md:w-[650px]"
+                          )}>
+                            <ul className={cn("grid gap-x-4 gap-y-1 md:gap-x-6",
+                              group.items.length <= 3 ? "grid-cols-1" :
+                              group.items.length <= 8 ? "grid-cols-2" :
+                              "grid-cols-2 md:grid-cols-3"
+                            )}>
+                              {group.items.map((item: any) => (
+                                <li key={item.href}>
+                                  <NavigationMenuLink asChild>
+                                    <Link
+                                      to={item.href}
+                                      className={cn(
+                                        "block select-none rounded-md px-3 py-2.5 -mx-3 leading-none no-underline outline-none transition-colors hover:bg-muted/50 hover:text-primary focus:bg-muted/50 focus:text-primary group",
+                                        location.pathname === item.href && "bg-muted/50 text-primary"
+                                      )}
+                                    >
+                                      <p className="text-[13px] font-medium leading-none text-foreground group-hover:text-primary transition-colors">
                                         {item.title}
                                       </p>
-                                      <p className="line-clamp-2 text-xs leading-snug text-muted-foreground">
-                                        {item.desc}
-                                      </p>
-                                    </div>
-                                  </Link>
-                                </NavigationMenuLink>
-                              </li>
-                            ))}
-                          </ul>
+                                    </Link>
+                                  </NavigationMenuLink>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
                         </NavigationMenuContent>
                       </NavigationMenuItem>
                     </NavigationMenuList>

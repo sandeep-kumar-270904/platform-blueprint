@@ -1,14 +1,28 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
 User-agent: *
+
+# Block access to private and sensitive routes
+Disallow: /dashboard/
+Disallow: /auth/
+Disallow: /admin/
+Disallow: /placement/
+Disallow: /virtual-classroom/
+Disallow: /hostels/
+Disallow: /profile/
+Disallow: /settings/
+Disallow: /api/
+Disallow: /notes/
+Disallow: /resume-builder/
+Disallow: /onboarding/
+Disallow: /tracker/
+Disallow: /analytics/
+
+# Allow indexing for public-facing routes
 Allow: /
+Allow: /community/
+Allow: /events/
+Allow: /privacy
+Allow: /terms
+Allow: /news
+
+# Define sitemap location
+Sitemap: https://platform-blueprint.vercel.app/sitemap.xml

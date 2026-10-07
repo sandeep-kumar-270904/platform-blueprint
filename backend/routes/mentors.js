@@ -384,6 +384,26 @@ router.get('/:id/availability', async (req, res) => {
       });
     }
 
+        // Fetch explicitly added slots
+    const explicitSlots = await MentorAvailability.find({
+      mentor_id: mentor._id,
+      starts_at: { $gte: now }
+    }).lean();
+
+    explicitSlots.forEach(slot => {
+      // Avoid duplicates
+      if (!slots.some(s => s.starts_at === slot.starts_at.toISOString())) {
+        slots.push({
+          id: slot._id.toString(),
+          starts_at: slot.starts_at.toISOString(),
+          is_booked: slot.is_booked
+        });
+      }
+    });
+
+    // Sort slots chronologically
+    slots.sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+
     res.json(slots);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -768,7 +788,7 @@ router.get('/dashboard/sessions', authMiddleware, async (req, res) => {
       .sort({ scheduledAt: -1 })
       .lean();
 
-    res.json(bookings);
+    res.json({ profile: mentor, bookings });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -1020,6 +1040,28 @@ router.post('/:id/waitlist', authMiddleware, async (req, res) => {
 
     await waitlist.save();
     res.status(201).json({ message: 'Joined waitlist successfully', waitlist });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+
+// POST /api/mentors/me/availability - Add explicit availability slot
+router.post('/me/availability', authMiddleware, async (req, res) => {
+  try {
+    const mentor = await MentorProfile.findOne({ user_id: req.user.id });
+    if (!mentor) return res.status(404).json({ message: 'Mentor profile not found' });
+
+    const { starts_at, ends_at } = req.body;
+
+    const slot = new MentorAvailability({
+      mentor_id: mentor._id,
+      starts_at: new Date(starts_at),
+      ends_at: new Date(ends_at)
+    });
+
+    await slot.save();
+    res.status(201).json({ message: 'Availability slot added successfully', slot });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

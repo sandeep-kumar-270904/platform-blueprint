@@ -60,7 +60,7 @@ export const PostItem: React.FC<PostItemProps> = ({ post, onThreadClick }) => {
 
   return (
     <div 
-      className="bg-white border rounded-lg p-4 shadow-sm hover:bg-gray-50 transition-colors cursor-pointer"
+      className="bg-card text-card-foreground border rounded-lg p-4 shadow-sm hover:bg-muted/50 transition-colors cursor-pointer"
       onClick={() => onThreadClick && onThreadClick(post._id)}
     >
       <div className="flex gap-3">
@@ -172,7 +172,7 @@ export const PostItem: React.FC<PostItemProps> = ({ post, onThreadClick }) => {
                 if (onThreadClick) onThreadClick(post._id);
               }}
             >
-              <div className="p-1.5 rounded-full group-hover:bg-blue-50 transition-colors">
+              <div className="p-1.5 rounded-full group-hover:bg-blue-500/10 transition-colors">
                 <MessageCircle className="h-4 w-4" />
               </div>
               <span className="text-xs font-medium">{post.comment_count || 0}</span>
@@ -182,7 +182,7 @@ export const PostItem: React.FC<PostItemProps> = ({ post, onThreadClick }) => {
               className={`flex items-center gap-1.5 transition-colors group ${isLiked ? 'text-pink-500' : 'hover:text-pink-500'}`}
               onClick={handleLike}
             >
-              <div className="p-1.5 rounded-full group-hover:bg-pink-50 transition-colors">
+              <div className="p-1.5 rounded-full group-hover:bg-pink-500/10 transition-colors">
                 <Heart className={`h-4 w-4 ${isLiked ? 'fill-current' : ''}`} />
               </div>
               <span className="text-xs font-medium">{likeCount}</span>
@@ -192,7 +192,7 @@ export const PostItem: React.FC<PostItemProps> = ({ post, onThreadClick }) => {
               className="flex items-center gap-1.5 hover:text-green-500 transition-colors group ml-auto"
               onClick={handleShare}
             >
-              <div className="p-1.5 rounded-full group-hover:bg-green-50 transition-colors">
+              <div className="p-1.5 rounded-full group-hover:bg-green-500/10 transition-colors">
                 <Share2 className="h-4 w-4" />
               </div>
             </button>

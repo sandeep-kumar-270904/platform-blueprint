@@ -108,6 +108,9 @@ router.post('/change-password', auth, async (req, res) => {
 
     await AuthEvent.create({ userId: user._id, eventType: 'password_changed', ipAddress: req.headers['x-forwarded-for'] || req.socket.remoteAddress, userAgent: req.headers['user-agent'] });
 
+    // Send confirmation email
+    emailService.sendPasswordChangedEmail(user.email).catch(console.error);
+
     res.json({ message: 'Password successfully updated' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

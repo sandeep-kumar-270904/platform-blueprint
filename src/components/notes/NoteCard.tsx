@@ -124,10 +124,13 @@ export const NoteCard = ({
             <span>{formatStat(note.comment_count || 0, true)}</span>
           </div>
           <button 
-            className="flex items-center gap-1.5 hover:text-primary transition-colors ml-auto" 
-            title="Download note"
+            className="flex items-center gap-1.5 hover:text-primary transition-colors ml-auto cursor-not-allowed opacity-60" 
+            title="Downloads are currently disabled to encourage online reading"
+            disabled
             onClick={(e) => {
               e.stopPropagation();
+              // Download functionality disabled to keep users on the web viewer
+              /*
               if (note.content_url) {
                 const link = document.createElement('a');
                 const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -139,6 +142,7 @@ export const NoteCard = ({
                 document.body.removeChild(link);
               }
               if (onDownload) onDownload(note);
+              */
             }}
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />

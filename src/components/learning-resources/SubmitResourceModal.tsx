@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Youtube } from "lucide-react";
+import { Loader2, Youtube, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -17,27 +17,68 @@ interface SubmitResourceModalProps {
 
 export const SubmitResourceModal = ({ open, onOpenChange, onSuccess }: SubmitResourceModalProps) => {
   const [loading, setLoading] = useState(false);
-  const { token } = useAuth();
+  const { user } = useAuth();
   
   const [formData, setFormData] = useState({
     url: "",
-    subject: "",
+    technology: "",
     topic: "",
+    subtopic: "",
     difficulty: "Beginner",
+    purpose: "Learn from scratch",
     language: "English",
     tags: "",
     recommendationReason: ""
   });
 
-  const subjects = [
-    "Computer Science",
-    "Data Structures & Algorithms",
-    "Web Development",
-    "System Design",
-    "Mathematics",
-    "Physics",
-    "Engineering",
-    "Other"
+  const [taxonomies, setTaxonomies] = useState<any[]>([]);
+  const [availableTopics, setAvailableTopics] = useState<any[]>([]);
+  const [availableSubtopics, setAvailableSubtopics] = useState<string[]>([]);
+  
+  const [isCustomTech, setIsCustomTech] = useState(false);
+  const [isCustomTopic, setIsCustomTopic] = useState(false);
+  const [isCustomSubtopic, setIsCustomSubtopic] = useState(false);
+
+  React.useEffect(() => {
+    const fetchTaxonomy = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const res = await fetch(`${API_URL}/api/taxonomy`);
+        const data = await res.json();
+        if (data.success) setTaxonomies(data.flat);
+      } catch (err) {
+        console.error("Failed to load taxonomy", err);
+      }
+    };
+    if (open) fetchTaxonomy();
+  }, [open]);
+
+  // Update cascade when technology changes
+  React.useEffect(() => {
+    const tech = taxonomies.find(t => t.name === formData.technology);
+    if (tech) {
+      setAvailableTopics(tech.topics || []);
+      setFormData(prev => ({ ...prev, topic: "", subtopic: "" }));
+    } else {
+      setAvailableTopics([]);
+    }
+  }, [formData.technology, taxonomies]);
+
+  // Update cascade when topic changes
+  React.useEffect(() => {
+    const topic = availableTopics.find(t => t.name === formData.topic);
+    if (topic) {
+      setAvailableSubtopics(topic.subtopics || []);
+      setFormData(prev => ({ ...prev, subtopic: "" }));
+    } else {
+      setAvailableSubtopics([]);
+    }
+  }, [formData.topic, availableTopics]);
+
+  const purposes = [
+    "Learn from scratch", "Beginner Setup", "Interview Preparation", 
+    "Placement Preparation", "Project Development", "Deep dive", 
+    "Quick Concept", "Troubleshooting", "Certification"
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,8 +88,8 @@ export const SubmitResourceModal = ({ open, onOpenChange, onSuccess }: SubmitRes
       return;
     }
     
-    if (!formData.subject || !formData.topic) {
-      toast.error("Please fill in the subject and topic");
+    if (!formData.technology || !formData.topic) {
+      toast.error("Please select a Technology and Topic");
       return;
     }
 
@@ -60,12 +101,14 @@ export const SubmitResourceModal = ({ open, onOpenChange, onSuccess }: SubmitRes
         .map(t => t.trim())
         .filter(t => t !== '');
 
+      const token = localStorage.getItem('token');
+      const headers: HeadersInit = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch(`${API_URL}/api/learning-resources`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
+        credentials: 'include',
         body: JSON.stringify({
           ...formData,
           tags: tagsArray
@@ -80,9 +123,11 @@ export const SubmitResourceModal = ({ open, onOpenChange, onSuccess }: SubmitRes
       toast.success("Learning resource submitted successfully!");
       setFormData({
         url: "",
-        subject: "",
+        technology: "",
         topic: "",
+        subtopic: "",
         difficulty: "Beginner",
+        purpose: "Learn from scratch",
         language: "English",
         tags: "",
         recommendationReason: ""
@@ -122,31 +167,143 @@ export const SubmitResourceModal = ({ open, onOpenChange, onSuccess }: SubmitRes
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Subject</Label>
-              <Select value={formData.subject} onValueChange={(v) => setFormData({...formData, subject: v})}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjects.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>Technology</Label>
+              {isCustomTech ? (
+                <div className="flex gap-2">
+                  <Input 
+                    value={formData.technology} 
+                    onChange={(e) => setFormData({...formData, technology: e.target.value})} 
+                    placeholder="Type custom tech..." 
+                  />
+                  <Button type="button" variant="outline" size="icon" onClick={() => { setIsCustomTech(false); setFormData({...formData, technology: ""}); }}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Select 
+                  value={formData.technology || undefined} 
+                  onValueChange={(v) => {
+                    if (v === 'OTHER_CUSTOM_TECH') {
+                      setIsCustomTech(true);
+                      setIsCustomTopic(true);
+                      setIsCustomSubtopic(true);
+                      setFormData({...formData, technology: "", topic: "", subtopic: ""});
+                    } else {
+                      setFormData({...formData, technology: v});
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Tech" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {taxonomies.map(t => <SelectItem key={t._id || t.name} value={t.name}>{t.name}</SelectItem>)}
+                    <SelectItem value="OTHER_CUSTOM_TECH" className="font-semibold text-primary">+ Add Custom</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Topic</Label>
-              <Input 
-                placeholder="e.g. Java HashMaps" 
-                value={formData.topic}
-                onChange={(e) => setFormData({...formData, topic: e.target.value})}
-                required
-              />
+              {isCustomTopic ? (
+                <div className="flex gap-2">
+                  <Input 
+                    value={formData.topic} 
+                    onChange={(e) => setFormData({...formData, topic: e.target.value})} 
+                    placeholder="Type custom topic..." 
+                  />
+                  {!isCustomTech && (
+                    <Button type="button" variant="outline" size="icon" onClick={() => { setIsCustomTopic(false); setFormData({...formData, topic: ""}); }}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <Select 
+                  disabled={!formData.technology} 
+                  value={formData.topic || undefined} 
+                  onValueChange={(v) => {
+                    if (v === 'OTHER_CUSTOM_TOPIC') {
+                      setIsCustomTopic(true);
+                      setIsCustomSubtopic(true);
+                      setFormData({...formData, topic: "", subtopic: ""});
+                    } else {
+                      setFormData({...formData, topic: v});
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Topic" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableTopics.map(t => <SelectItem key={t.name} value={t.name}>{t.name}</SelectItem>)}
+                    {formData.technology && (
+                      <SelectItem value="OTHER_CUSTOM_TOPIC" className="font-semibold text-primary">+ Add Custom</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Subtopic (Optional)</Label>
+              {isCustomSubtopic ? (
+                <div className="flex gap-2">
+                  <Input 
+                    value={formData.subtopic} 
+                    onChange={(e) => setFormData({...formData, subtopic: e.target.value})} 
+                    placeholder="Type custom subtopic..." 
+                  />
+                  {!isCustomTopic && (
+                    <Button type="button" variant="outline" size="icon" onClick={() => { setIsCustomSubtopic(false); setFormData({...formData, subtopic: ""}); }}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <Select 
+                  disabled={!formData.topic || availableSubtopics.length === 0} 
+                  value={formData.subtopic || undefined} 
+                  onValueChange={(v) => {
+                    if (v === 'OTHER_CUSTOM_SUBTOPIC') {
+                      setIsCustomSubtopic(true);
+                      setFormData({...formData, subtopic: ""});
+                    } else {
+                      setFormData({...formData, subtopic: v});
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={availableSubtopics.length === 0 ? "N/A" : "Select Subtopic"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSubtopics.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {formData.topic && (
+                      <SelectItem value="OTHER_CUSTOM_SUBTOPIC" className="font-semibold text-primary">+ Add Custom</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Learning Intent / Purpose</Label>
+              <Select value={formData.purpose || undefined} onValueChange={(v) => setFormData({...formData, purpose: v})}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {purposes.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Difficulty</Label>
-              <Select value={formData.difficulty} onValueChange={(v) => setFormData({...formData, difficulty: v})}>
+              <Select value={formData.difficulty || undefined} onValueChange={(v) => setFormData({...formData, difficulty: v})}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -159,7 +316,7 @@ export const SubmitResourceModal = ({ open, onOpenChange, onSuccess }: SubmitRes
             </div>
             <div className="space-y-2">
               <Label>Language</Label>
-              <Select value={formData.language} onValueChange={(v) => setFormData({...formData, language: v})}>
+              <Select value={formData.language || undefined} onValueChange={(v) => setFormData({...formData, language: v})}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

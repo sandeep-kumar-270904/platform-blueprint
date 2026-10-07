@@ -8,9 +8,9 @@ const mongoose = require('mongoose');
 // @access  Private
 exports.submitResource = async (req, res) => {
   try {
-    const { url, subject, topic, difficulty, language, tags, recommendationReason } = req.body;
+    const { url, technology, topic, subtopic, difficulty, purpose, language, tags, recommendationReason } = req.body;
 
-    if (!url || !subject || !topic || !difficulty) {
+    if (!url || !technology || !topic || !difficulty) {
       return res.status(400).json({ success: false, error: 'Please provide all required fields' });
     }
 
@@ -44,9 +44,11 @@ exports.submitResource = async (req, res) => {
     const resource = await LearningResource.create({
       ...ytData,
       submitter: req.user.id, // Assumes standard auth middleware setting req.user
-      subject,
+      technology,
       topic,
+      subtopic,
       difficulty,
+      purpose,
       language: language || 'English',
       tags: tags || [],
       recommendationReason
@@ -64,7 +66,7 @@ exports.submitResource = async (req, res) => {
 // @access  Public (or Private depending on app rules)
 exports.getResources = async (req, res) => {
   try {
-    const { search, subject, topic, difficulty, type, sort = 'newest', page = 1, limit = 12 } = req.query;
+    const { search, technology, topic, subtopic, difficulty, purpose, type, sort = 'newest', page = 1, limit = 12 } = req.query;
     
     let query = { status: 'ACTIVE' };
 
@@ -74,9 +76,11 @@ exports.getResources = async (req, res) => {
     }
     
     // Filters
-    if (subject) query.subject = subject;
+    if (technology) query.technology = technology;
     if (topic) query.topic = topic;
+    if (subtopic) query.subtopic = subtopic;
     if (difficulty) query.difficulty = difficulty;
+    if (purpose) query.purpose = purpose;
     if (type) query.type = type;
 
     // Sorting
@@ -117,7 +121,9 @@ exports.getResources = async (req, res) => {
 exports.getResourceById = async (req, res) => {
   try {
     const resource = await LearningResource.findById(req.params.id)
-      .populate('submitter', 'username full_name avatar_url');
+      .populate('submitter', 'username full_name avatar_url')
+      .populate('prerequisites', 'title thumbnailUrl technology type')
+      .populate('next_steps', 'title thumbnailUrl technology type');
 
     if (!resource || resource.status === 'REMOVED' || resource.status === 'ARCHIVED') {
       return res.status(404).json({ success: false, error: 'Resource not found or unavailable' });
@@ -133,6 +139,34 @@ exports.getResourceById = async (req, res) => {
     res.status(500).json({ success: false, error: 'Server Error' });
   }
 };
+
+
+
+// @desc    Get single resource by ID with reviews
+// @route   GET /api/learning-resources/:id
+// @access  Public
+exports.getResourceById = async (req, res) => {
+  try {
+    const resource = await LearningResource.findById(req.params.id)
+      .populate('submitter', 'username full_name avatar_url')
+      .populate('prerequisites', 'title thumbnailUrl technology type')
+      .populate('next_steps', 'title thumbnailUrl technology type');
+
+    if (!resource || resource.status === 'REMOVED' || resource.status === 'ARCHIVED') {
+      return res.status(404).json({ success: false, error: 'Resource not found or unavailable' });
+    }
+
+    const reviews = await ResourceReview.find({ resource: req.params.id })
+      .sort({ createdAt: -1 })
+      .populate('user', 'username full_name avatar_url');
+
+    res.status(200).json({ success: true, data: resource, reviews });
+  } catch (error) {
+    console.error('Get Resource By ID Error:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
 
 // @desc    Add or update a review for a resource
 // @route   POST /api/learning-resources/:id/reviews
@@ -216,19 +250,25 @@ exports.reportResource = async (req, res) => {
 
 // Helper: Recalculate Aggregates
 exports.recalculateResourceAggregates = async (resourceId) => {
-  const reviews = await ResourceReview.find({ resource: resourceId });
+  const reviews = await ResourceReview.find({ resource: resourceId }).populate('user', 'role');
   
   if (reviews.length === 0) return;
 
-  let totalOverall = 0;
+  let weightedTotal = 0;
+  let weightCount = 0;
   let recommendCount = 0;
 
   reviews.forEach(r => {
-    totalOverall += r.overall;
+    // Role-based weighting (Alumni reviews carry 2x weight)
+    const weight = (r.user && r.user.role === 'alumni') ? 2 : 1;
+    
+    weightedTotal += (r.overall * weight);
+    weightCount += weight;
+    
     if (r.wouldRecommend) recommendCount++;
   });
 
-  const averageRating = (totalOverall / reviews.length).toFixed(1);
+  const averageRating = (weightedTotal / weightCount).toFixed(1);
   const recommendationRate = Math.round((recommendCount / reviews.length) * 100);
 
   await LearningResource.findByIdAndUpdate(resourceId, {
@@ -236,4 +276,98 @@ exports.recalculateResourceAggregates = async (resourceId) => {
     reviewCount: reviews.length,
     recommendationRate
   });
+};
+const Note = require('../models/Note');
+
+
+// @desc    Link another resource as prerequisite or next_step
+// @route   POST /api/learning-resources/:id/links
+// @access  Private
+exports.linkResource = async (req, res) => {
+  try {
+    const { linkType, linkedResourceId } = req.body;
+    
+    if (linkType !== 'prerequisite' && linkType !== 'next_step') {
+      return res.status(400).json({ success: false, error: 'Invalid link type' });
+    }
+
+    const resource = await LearningResource.findById(req.params.id);
+    const linkedResource = await LearningResource.findById(linkedResourceId);
+
+    if (!resource || !linkedResource) {
+      return res.status(404).json({ success: false, error: 'Resource not found' });
+    }
+
+    if (linkType === 'prerequisite') {
+      if (!resource.prerequisites.includes(linkedResourceId)) {
+        resource.prerequisites.push(linkedResourceId);
+      }
+    } else {
+      if (!resource.next_steps.includes(linkedResourceId)) {
+        resource.next_steps.push(linkedResourceId);
+      }
+    }
+
+    await resource.save();
+    res.status(200).json({ success: true, data: resource });
+  } catch (error) {
+    console.error('Link Resource Error:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+
+// @desc    Get personal note for a resource
+// @route   GET /api/learning-resources/:id/notes
+// @access  Private
+exports.getResourceNote = async (req, res) => {
+  try {
+    const note = await Note.findOne({ 
+      user_id: req.user.id, 
+      learning_resource: req.params.id 
+    });
+    res.status(200).json({ success: true, data: note });
+  } catch (error) {
+    console.error('Get Resource Note Error:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
+};
+
+// @desc    Save personal note for a resource
+// @route   POST /api/learning-resources/:id/notes
+// @access  Private
+exports.saveResourceNote = async (req, res) => {
+  try {
+    const { markdown_content } = req.body;
+    const resource = await LearningResource.findById(req.params.id);
+    
+    if (!resource) return res.status(404).json({ success: false, error: 'Resource not found' });
+
+    let note = await Note.findOne({ 
+      user_id: req.user.id, 
+      learning_resource: req.params.id 
+    });
+
+    if (note) {
+      note.markdown_content = markdown_content;
+      note.title = `${resource.title} - Notes`; // Always keep title updated
+      await note.save();
+    } else {
+      note = await Note.create({
+        user_id: req.user.id,
+        title: `${resource.title} - Notes`,
+        subject: resource.subject || resource.technology || 'Technology',
+        description: `Personal notes taken while watching ${resource.title}`,
+        category: 'Personal',
+        file_type: 'markdown',
+        learning_resource: req.params.id,
+        markdown_content
+      });
+    }
+
+    res.status(200).json({ success: true, data: note });
+  } catch (error) {
+    console.error('Save Resource Note Error:', error);
+    res.status(500).json({ success: false, error: 'Server Error' });
+  }
 };
