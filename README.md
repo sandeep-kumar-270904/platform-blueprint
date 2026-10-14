@@ -1,7 +1,8 @@
 <div align="center">
 
 # StudentHub
-### Full-Stack Campus & Career Platform
+
+### Modular Full-Stack Campus & Career Acceleration Platform
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
@@ -9,19 +10,29 @@
 [![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Express](https://img.shields.io/badge/Express-4.x-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Mongoose](https://img.shields.io/badge/Mongoose-9.x-880000?style=for-the-badge&logo=mongoose&logoColor=white)](https://mongoosejs.com/)
 [![Socket.io](https://img.shields.io/badge/Socket.io-Realtime-010101?style=for-the-badge&logo=socket.io&logoColor=white)](https://socket.io/)
 [![Google Gemini AI](https://img.shields.io/badge/Google_Gemini-1.5_Pro-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Docker](https://img.shields.io/badge/Docker-Enabled-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-[Live Demo](https://platform-blueprint.vercel.app/) | [GitHub](https://github.com/sandeep-kumar-270904/platform-blueprint)
-
 </div>
 
-StudentHub is a full-stack web application designed to bring student events, hackathons, team discovery, career preparation, learning tools, and campus services into one platform.
+---
 
-## Screenshots
+## 1. Project Title
+**StudentHub (Platform Blueprint)**
+
+## 2. One-Sentence Description
+StudentHub is a modular full-stack web application engineered to unify fragmented university lifecycles?bringing event discovery, hackathon team formation, AI-powered placement preparation, verified campus housing, and real-time virtual classrooms into one cohesive ecosystem.
+
+## 3. Live Demo
+- ?? **Production Web Application**: [https://platform-blueprint.vercel.app/](https://platform-blueprint.vercel.app/)
+- ?? **Source Code Repository**: [https://github.com/sandeep-kumar-270904/platform-blueprint](https://github.com/sandeep-kumar-270904/platform-blueprint)
+- ?? **Explore Access**: Browse public event hubs, community discussions, and housing without authentication, or sign in to test real-time collaboration rooms and AI mock interviews.
+
+## 4. Screenshots
 
 <div align="center">
   <img src="./docs/screenshots/landing.png" width="48%" alt="StudentHub Landing Page" style="border-radius: 8px; margin: 1%; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
@@ -30,138 +41,115 @@ StudentHub is a full-stack web application designed to bring student events, hac
   <img src="./docs/screenshots/team-hunt.png" width="48%" alt="Team Matchmaking" style="border-radius: 8px; margin: 1%; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" />
 </div>
 
-## Problem
+## 5. Problem
+Modern university students face severe fragmentation across their academic, professional, and residential milestones:
+- **Platform Fatigue**: Students must juggle disconnected platforms for hackathons, career prep, hostel searches, and course discussions.
+- **Team Discovery Bottlenecks**: Finding peer collaborators with complementary technical stacks (e.g., frontend + ML + UI/UX) relies on word-of-mouth or unorganized chat groups.
+- **Career Preparation Blindspots**: Students often submit non-ATS-compliant resumes and enter placement drives without realistic technical mock interview feedback.
+- **Housing Opacity & Booking Conflicts**: Off-campus rentals suffer from unverified listings, fake brokers, and concurrency race conditions during peak booking periods.
 
-Modern university students face extreme fragmentation across their academic, professional, and residential milestones. 
-- **Platform Fatigue**: Juggling separate systems for hackathons, housing, academics, and career prep.
-- **Missed Opportunities**: Students lack visibility into verified campus events, study groups, and cross-disciplinary project teams.
-- **Career Blindspots**: Students often submit poorly formatted resumes and lack realistic technical interview practice before actual placement drives.
+## 6. Solution
+StudentHub centralizes these isolated workflows into a unified, high-performance platform:
+- **Algorithmic Team Hunt**: Matches students for hackathons and projects based on required skills, availability, and verified experience.
+- **AI-Powered Career Accelerator**: Integrates Google Gemini 1.5 Pro to deliver real-time ATS resume scoring, keyword gap analysis, and interactive mock interview practice.
+- **Real-Time Collaboration**: Powers interactive virtual classrooms, live whiteboard streaming, and low-latency buzzer quiz tournaments via Socket.io.
+- **Verified Housing & Services**: Provides verified hostel listings, roommate compatibility scoring, and atomic slot holds to eliminate booking race conditions.
 
-## Solution
+## 7. Key Features
+- **JWT Authentication & Granular RBAC**: 5 distinct roles (`student`, `mentor`, `club_lead`, `recruiter`, `admin`) with permissioned route guards.
+- **AI Placement Engine**: Automated ATS resume evaluation, industry readiness scoring, and domain-tailored technical mock interviews.
+- **Team Matchmaking (Team Hunt)**: Skill-gap compatibility algorithms to assemble balanced hackathon and research teams.
+- **Live Virtual Classrooms**: WebSockets-driven interactive sessions with real-time synchronized whiteboards, buzzer tournaments, and live Q&A.
+- **Concurrency-Safe Slot Reservations**: Atomic MongoDB reservation holds with TTL indexes preventing double-booking during peak traffic.
+- **Community & Knowledge Hub**: Peer discussion forums, upvoting, syllabus tracking, notes sharing, and verified campus reviews.
 
-StudentHub centralizes the fragmented college experience by providing a single, unified ecosystem for academics, career growth, and campus life. Instead of juggling a dozen different apps, students can find hackathon teams, practice for interviews with AI, secure verified off-campus housing, and attend interactive virtual classrooms all in one place.
+## 8. Architecture
 
-## Key Features
-
-- JWT authentication and role-based access control
-- RESTful APIs with Node.js and Express
-- MongoDB persistence with domain-specific models and indexes
-- Real-time workflows using Socket.io
-- Gemini-powered AI features for career preparation
-- Concurrency-safe reservation workflows
-- Responsive React + TypeScript frontend
-- Automated testing and deployment workflows
-
-## Architecture Overview
+### 8.1 High-Level Design (HLD)
 
 ```mermaid
-graph TD;
-    Client[Frontend: React/Vite] -->|REST API| Server[Backend: Node.js/Express];
-    Client -->|WebSockets| Realtime[Socket.io Server];
-    Server -->|Mongoose| DB[(MongoDB Atlas)];
+graph TB
+    subgraph Client_Tier [Client Presentation Layer]
+        SPA[React 18 SPA / Vite]
+        Mobile[Responsive Mobile Layouts]
+        State[React Query + Context API]
+    end
+
+    subgraph Ingress_Tier [Edge & Ingress]
+        CDN[Vercel Edge CDN]
+        WAF[Helmet & Express Rate Limiters]
+    end
+
+    subgraph Service_Tier [Application & Real-Time Engine]
+        API[Express REST API Gateway]
+        AuthSvc[JWT Auth & RBAC Guards]
+        SocketServer[Socket.io Realtime Engine]
+        CronEngine[Node-Cron Scheduled Workers]
+    end
+
+    subgraph AI_Tier [Generative Intelligence]
+        Gemini[Google Gemini 1.5 Pro AI]
+        SchemaValidator[JSON Output Validator]
+    end
+
+    subgraph Data_Tier [Persistence Layer]
+        MongoDB[(MongoDB Atlas)]
+        MongooseODM[Mongoose ODM Layer - 60+ Schemas]
+    end
+
+    Client_Tier -->|HTTPS / REST| Ingress_Tier
+    Ingress_Tier --> API
+    Client_Tier <-->|WSS / WebSockets| SocketServer
+    API --> AuthSvc
+    API --> AI_Tier
+    API --> MongooseODM
+    SocketServer <--> MongooseODM
+    MongooseODM --> MongoDB
+    CronEngine --> MongooseODM
 ```
 
-## Tech Stack
+### 8.2 Low-Level Design (LLD): Controller-Service-Repository Pattern
 
-**Frontend:** React, TypeScript, Vite, Tailwind CSS, Shadcn UI  
-**Backend:** Node.js, Express.js  
-**Database:** MongoDB Atlas, Mongoose  
-**Realtime:** Socket.io  
-**AI Engine:** Google Gemini  
-**Testing:** Vitest, Cypress, Jest  
-**Deployment:** Vercel / Render
-
-## Quick Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/sandeep-kumar-270904/platform-blueprint.git
-cd platform-blueprint
-
-# Install dependencies
-npm install
-cd backend && npm install && cd ..
-
-# Start application (Frontend on :8080, Backend on :5000)
-npm run start:all
+```mermaid
+graph LR
+    R[Express Router] --> M[Middleware: JWT, Roles & Mongo-Sanitize]
+    M --> C[Controllers: e.g., eventController.js]
+    C --> S[Services: Business Logic & Gemini AI]
+    S --> D[Mongoose Models & Schema Validators]
+    D --> DB[(MongoDB Atlas)]
 ```
 
-## Functional Requirements
+- **Routes**: Define clean REST endpoints, HTTP verbs, and validation middleware chains.
+- **Middleware**: Intercepts requests for JWT verification, role-based access checks, payload sanitization, and rate limits.
+- **Controllers**: Orchestrates request validation, extracts parameters, and structures JSON responses.
+- **Services**: Encapsulates core business logic, AI prompt orchestration, and mathematical score calculations.
+- **Mongoose Models**: Enforces strict schema validation, lifecycle pre/post hooks, and compound indexes across 60+ collections.
 
-- 🔐 **FR-01 to FR-05 (Auth & Identity)**
-  - JWT stateless authentication
-  - Bcrypt password hashing (10 salt rounds)
-  - Multi-role RBAC & `.edu` email verification
-  - Granular notification preferences
-- 🎯 **FR-06 to FR-10 (Events & Teams)**
-  - 4-step creation wizard with real-time preview
-  - Temporal date validation
-  - Jaccard team matchmaking score & AI skill gap advice
-  - Team application workflow
-- 💼 **FR-11 to FR-15 (Career & AI)**
-  - Google Gemini 1.5 Pro ATS resume scanner (0-100 score)
-  - Conversational mock interview simulator
-  - Time-bounded OA test engine & quiz difficulty auto-calibration
-- 🏠 **FR-16 to FR-20 (Housing & Aid)**
-  - Roommate compatibility scoring
-  - Atomic repair slot holds with 15-minute TTL expiration workers
-  - Multi-criteria scholarship filters & 1-click batch applications
-  - Automated fraud review detectors
-- 🎓 **FR-21 to FR-25 (Classroom & Governance)**
-  - Sub-50ms live buzzer quiz tournaments
-  - Collaborative whiteboard streaming
-  - Hourly news aggregator crons
-  - Admin moderation tables & immutable audit logging
-
----
-
-## Non-Functional Requirements
-
-- ⚡ **NFR-01 (API Latency)**: 95th percentile REST API latency **< 120ms** under **1,000 active concurrent connections**.
-- 📡 **NFR-02 (WebSocket Latency)**: Real-time event propagation **< 50ms**.
-- 🧠 **NFR-03 (AI Turnaround)**: Resume ATS scoring and feedback generation completed in **< 3.5s**.
-- 🗄️ **NFR-04 (Database Execution)**: Core collection queries execute in **< 15ms** using compound and geospatial indexes.
-
----
-
-## System Architecture
+### 8.3 Machine Learning & AI Pipeline
 
 ```mermaid
 graph TD
-    subgraph Presentation [1. Presentation Layer]
-        UI[Shadcn UI + Tailwind CSS]
-        StateManagement[TanStack React Query + Context API]
-    end
-
-    subgraph Routing [2. Routing & Middleware Layer]
-        ExpressRouter[Express Router Pipeline]
-        SecurityMiddleware[Helmet, Mongo-Sanitize, CORS]
-        AuthGuards[authMiddleware, requireAdmin]
-    end
-
-    subgraph Domain_Engines [3. Core Domain Engines]
-        EventEngine[Event Lifecycle & Wizard Engine]
-        MatchEngine[Team Matchmaking & Skill Gap Advisor]
-        CareerEngine[Gemini ATS & Mock Interview Agent]
-        HousingEngine[Roommate Compatibility & Slot Holds]
-        QuizEngine[Socket.io Buzzer & Tournament Arena]
-    end
-
-    subgraph Storage_Layer [4. Data & Workers Layer]
-        Mongo[(MongoDB Atlas 260+ Collections)]
-        Crons[Review Fraud, News Ingest, Slot Workers]
-    end
-
-    Presentation --> Routing
-    Routing --> Domain_Engines
-    Domain_Engines --> Storage_Layer
+    ResumeJSON[Resume Data / PDF Extraction] --> PromptEngine[Structured Prompt Generator]
+    JobSpec[Target Job Description] --> PromptEngine
+    
+    PromptEngine --> BackoffLayer[Exponential Backoff Retry Wrapper]
+    BackoffLayer --> GeminiPro[Google Gemini 1.5 Pro Engine]
+    
+    GeminiPro --> SchemaValidator{JSON Schema Validator}
+    SchemaValidator -->|Valid Schema| PersistResult[Store in AtsAnalysisResult via Mongoose]
+    SchemaValidator -->|Parse Error| Fallback[Heuristic Fallback Engine]
+    
+    PersistResult --> OutputPayload[Deliver ATS Score & Detailed Action Plan]
 ```
 
----
+**ATS Mathematical Scoring Model:**
+$$S_{ATS} = 0.40 \cdot S_{keyword} + 0.30 \cdot S_{impact} + 0.15 \cdot S_{skills} + 0.15 \cdot S_{structure}$$
+- $S_{keyword} = \frac{|K_{resume} \cap K_{job}|}{|K_{job}|} \times 100$: Jaccard keyword overlap ratio.
+- $S_{impact}$: Ratio of experience bullet points containing quantified impact metrics (percentages, numbers, metrics).
+- $S_{skills}$: Canonical skill cluster coverage against the target domain.
+- $S_{structure}$: Layout, section taxonomy, and format compliance.
 
-## Data Flow Diagrams
-
-### Concurrency-Safe Repair Slot Reservation Flow
+### 8.4 Concurrency-Safe Data Flow (Slot Holds)
 
 ```mermaid
 flowchart TD
@@ -175,17 +163,15 @@ flowchart TD
     Condition -->|No / Held by other| Reject2[Return 400 Bad Request: Slot Unavailable]
     Condition -->|Yes| CreateHold[Create RepairSlotHold record with expiresAt = now + 15m]
     
-    CreateHold --> StartTTL[Worker monitors TTL index]
+    CreateHold --> StartTTL[MongoDB TTL Index automatically triggers expiry]
     CreateHold --> Success[Return 200 OK: Slot Held for 15 Minutes]
     
     Success --> UserAction{User Completes Booking?}
-    UserAction -->|Yes: within 15m| Confirm[POST /api/repair/confirm: Mark Slot isBooked=true & Delete Hold]
-    UserAction -->|No / Abandons| ExpirationWorker[Background Worker executes: Delete Expired Hold & Release Slot]
+    UserAction -->|Yes: within 15m| Confirm[POST /api/repair/confirm: Set isBooked=true & Delete Hold]
+    UserAction -->|No / Abandons| ExpirationWorker[TTL Index deletes hold & releases slot automatically]
 ```
 
----
-
-## Database Design
+### 8.5 Database Design & Core Relationships
 
 ```mermaid
 erDiagram
@@ -205,283 +191,139 @@ erDiagram
     REPAIR_PROVIDER ||--o{ REPAIR_SLOT_HOLD : "holds"
 ```
 
-### Specialized Indexing Architecture
-1. **Compound Index**: `events` $\rightarrow$ `{ status: 1, startDate: 1 }` (sub-10ms event discovery filtering).
-2. **Text Index**: `events`, `communityposts` $\rightarrow$ `{ title: "text", description: "text" }`.
+**Specialized Indexing Strategy:**
+1. **Compound Index**: `events` $\rightarrow$ `{ status: 1, startDate: 1 }` (sub-10ms event filtering).
+2. **Text Index**: `events`, `communityposts` $\rightarrow$ `{ title: "text", description: "text" }` (keyword search).
 3. **Geospatial `2dsphere` Index**: `repairproviders`, `hostels` $\rightarrow$ `{ location.coordinates: "2dsphere" }`.
-4. **TTL (Time-To-Live) Index**: `repairslotholds` $\rightarrow$ `{ createdAt: 1, expireAfterSeconds: 900 }` (auto-deletes abandoned holds after 15 minutes).
+4. **TTL (Time-To-Live) Index**: `repairslotholds` $\rightarrow$ `{ createdAt: 1, expireAfterSeconds: 900 }` (auto-deletes expired holds).
 
----
+## 9. Tech Stack
 
-## API Documentation
+| Layer | Technologies | Role & Justification |
+|:---|:---|:---|
+| **Frontend UI** | **React 18, TypeScript, Vite 5.4** | Modern component architecture, strict compile-time types, and native ESM build speed. |
+| **Styling & UI Kit** | **Tailwind CSS 3.4, Shadcn UI, Radix UI** | Accessible, responsive design system with zero runtime CSS-in-JS overhead. |
+| **Backend Runtime** | **Node.js 20+, Express.js 4.x** | Non-blocking event-driven I/O loop providing high throughput for concurrent REST and WebSocket traffic. |
+| **Database & ODM** | **MongoDB Atlas, Mongoose 9.x** | High-performance document database with Mongoose ODM enforcing schemas, hooks, and indexes across 60+ models. |
+| **Real-Time Engine** | **Socket.io 4.x** | Multiplexed WebSocket channels for live quiz buzzers, collaborative whiteboards, and real-time chat. |
+| **AI Engine** | **Google Gemini 1.5 Pro** | Context-aware resume evaluation, ATS analysis, and structured JSON output mode. |
+| **Testing Suite** | **Jest, Supertest, Vitest, Cypress** | Automated unit, integration, component, and end-to-end test suites. |
+| **DevOps & Cloud** | **Docker, GitHub Actions, Vercel, Render** | Automated CI/CD pipeline, containerized deployments, and edge CDN distribution. |
 
-### Core REST Endpoints
+## 10. Engineering Decisions
 
-| Resource Domain | Method | Path | Auth | Description |
-|:---|:---:|:---|:---:|:---|
-| **Auth** | `POST` | `/api/auth/register` | None | Register new student/mentor/recruiter account |
-| **Auth** | `POST` | `/api/auth/login` | None | Authenticate and return JWT token |
-| **Auth** | `GET` | `/api/auth/me` | JWT | Get current authenticated profile |
-| **Events** | `GET` | `/api/events` | Optional | List upcoming events with type/status filters |
-| **Events** | `POST` | `/api/events` | JWT | Create event via 4-step wizard (`pending_approval`) |
-| **Events** | `POST` | `/api/events/:id/register` | JWT | Register / waitlist for campus event |
-| **Events** | `PUT` | `/api/events/:id/status` | Admin | Moderate event (`approved`, `rejected`) |
-| **Teams** | `GET` | `/api/teams/:id/match` | JWT | Calculate user-team skill compatibility score |
-| **Teams** | `POST` | `/api/teams/:id/apply` | JWT | Apply to join a team with personal pitch |
-| **Resumes** | `POST` | `/api/resumes/score-job` | JWT | Scan resume against job description via Gemini |
-| **Resumes** | `GET` | `/api/resumes/insights` | JWT | Get career skill gap analytics and next steps |
-| **Repair** | `POST` | `/api/repair/hold-slot` | JWT | Reserve a 15-minute atomic slot hold |
+- **MongoDB with Mongoose ODM**: Selected for its natural alignment with polymorphic student profiles, multi-format event submissions, and dynamic team structures. Mongoose provides robust schema validation, middleware hooks, and compound/geospatial index management.
+- **Controller-Service-Repository Pattern**: Separates HTTP routing from core business logic and database models, ensuring codebase maintainability, reusability, and simple unit testing.
+- **Socket.io for Low-Latency Real-Time**: Chose WebSockets with fallback polling to power virtual classroom polling, live buzzer battle sync, and synchronized canvas whiteboards without the overhead of HTTP polling.
+- **Atomic Concurrency Locks with TTL**: Avoided heavy distributed lock managers by leveraging MongoDB atomic operators (`$set`, `$inc`) paired with native MongoDB TTL indexes for temporary 15-minute slot holds.
+- **Gemini Structured Output Mode**: Configured prompt templates to enforce strict JSON schemas directly from Gemini 1.5 Pro, eliminating brittle regex-based parsing of AI responses.
 
-### WebSocket Real-Time Events (Socket.io)
+## 11. Setup
 
-```mermaid
-graph LR
-    Client <-->|Socket.io Transport| Server
-    subgraph Events [Realtime Event Matrix]
-        E1[join_quiz_session / quiz_state_update]
-        E2[submit_buzzer / buzzer_result]
-        E3[wb_draw_stroke / wb_receive_stroke]
-        E4[team_message / new_message]
-    end
-    Server --- Events
+### Prerequisites
+- Node.js `v20.x` or higher
+- npm `v10.x` or higher
+- MongoDB instance (local or MongoDB Atlas connection string)
+
+### Quickstart
+```bash
+# 1. Clone the repository
+git clone https://github.com/sandeep-kumar-270904/platform-blueprint.git
+cd platform-blueprint
+
+# 2. Install root and frontend dependencies
+npm install
+
+# 3. Install backend dependencies
+cd backend && npm install && cd ..
+
+# 4. Run both frontend and backend concurrently
+npm run start:all
 ```
+*Frontend runs on `http://localhost:8080`, Backend runs on `http://localhost:5000`.*
 
----
+## 12. Environment Variables
 
-## Authentication Flow
+Create a `.env` file in the `backend/` directory:
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Client
-    participant API as Express Auth
-    participant DB as MongoDB
-    
-    Client->>API: POST /api/auth/login { email, password }
-    API->>DB: Find User by email
-    DB-->>API: Return User with bcrypt hash
-    API->>API: bcrypt.compare(password, hash)
-    API->>API: Sign JWT (Payload: { id, role, email }, Secret: JWT_SECRET)
-    API-->>Client: 200 OK { token, user }
-    
-    Note over Client,API: Authenticated Request
-    Client->>API: GET /api/admin/events (Header: Authorization: Bearer <token>)
-    API->>API: authMiddleware verifies signature & role
-    API->>DB: Execute query
-    API-->>Client: 200 OK
-```
-
-### RBAC Permission Matrix
-
-| Role | Browse Events | Create Events | Approve Events | AI Resume Scan | Conduct Interviews | Admin CMS |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Student** | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ |
-| **Mentor** | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ |
-| **Recruiter** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| **Institution Admin** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Super Admin** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-
----
-
-## Machine Learning Pipeline
-
-```mermaid
-graph TD
-    ResumeJSON[Resume Data JSON] --> PromptEngine[Structured Prompt Generator]
-    JobSpec[Target Job Description] --> PromptEngine
-    
-    PromptEngine --> BackoffLayer[Exponential Backoff Retry Wrapper]
-    BackoffLayer --> GeminiPro[Google Gemini 1.5 Pro AI]
-    
-    GeminiPro --> SchemaValidator{JSON Schema Validator}
-    SchemaValidator -->|Valid| PersistResult[Store in AtsAnalysisResult]
-    SchemaValidator -->|Error| Fallback[Heuristic Fallback Engine]
-    
-    PersistResult --> OutputPayload[Deliver ATS Score & Actionable Feedback]
-```
-
-### ATS Mathematical Scoring Formula
-$$S_{ATS} = 0.40 \cdot S_{keyword} + 0.30 \cdot S_{impact} + 0.15 \cdot S_{skills} + 0.15 \cdot S_{structure}$$
-- $S_{keyword} = \frac{|K_{resume} \cap K_{job}|}{|K_{job}|} \times 100$: Jaccard keyword overlap ratio.
-- $S_{impact}$: Proportion of experience bullet points containing quantified metrics (percentages, revenue, performance).
-- $S_{skills}$: Canonical skill cluster coverage.
-- $S_{structure}$: Layout and structural compliance.
-
----
-
-## Folder Structure
-
-```
-platform-blueprint/
-├── .github/                       # GitHub Actions CI/CD workflows
-├── docs/                          # 13 Modular specification documents
-│   ├── README.md                  # Master documentation matrix
-│   ├── 01-project-overview.md     # Vision & Objectives
-│   ├── 02-features-and-requirements.md # FRs & NFRs
-│   ├── 03-system-architecture.md  # HLD, LLD & WebSockets
-│   ├── 04-database-design.md      # Models & ERDs
-│   ├── 05-api-documentation.md    # REST & Socket API
-│   ├── 06-auth-and-security.md    # JWT & RBAC
-│   ├── 07-ai-ml-pipeline.md       # Gemini AI & Matchmaker
-│   ├── 08-tech-stack-and-structure.md # ADRs & File Tree
-│   ├── 09-setup-and-installation.md # Local & Docker Setup
-│   ├── 10-testing-and-performance.md # Vitest, Cypress & Benchmarks
-│   ├── 11-operations-and-troubleshooting.md # FAQ & Fixes
-│   ├── 12-demo-and-media.md       # Visual UI Showcase
-│   └── 13-governance-and-credits.md # Contributing & License
-├── backend/                       # Node.js + Express API & Socket.io
-│   ├── controllers/               # 50+ Domain controllers
-│   ├── jobs/                      # Standalone cron tasks
-│   ├── middleware/                # Auth guards & rate limiters
-│   ├── models/                    # 260+ Mongoose schemas
-│   ├── routes/                    # 160+ Route modules
-│   ├── services/                  # Business logic & AI engine
-│   ├── sockets/                   # Real-time room multiplexers
-│   ├── server.js                  # Main server entrypoint
-│   └── package.json
-├── src/                           # React 18 + TypeScript SPA
-│   ├── components/                # Modular UI primitives (Shadcn)
-│   ├── hooks/                     # Custom hooks (useAuth, useSocket)
-│   ├── pages/                     # 160+ Page views (Events, ATS, TeamHunt)
-│   ├── services/                  # API client wrappers
-│   ├── App.tsx                    # Routing & global providers
-│   └── tokens.css                 # Design tokens
-├── public/                        # Optimized assets & icons
-├── cypress/                       # E2E test suites
-├── docker-compose.yml             # Container orchestration
-├── vite.config.ts                 # Vite build settings
-├── package.json                   # Root workspace scripts
-└── README.md                      # Flagship repository readme
-```
-
----
-
-## Environment Variables
-
-```ini
-# backend/.env
+```env
+# Server Configuration
 PORT=5000
 NODE_ENV=development
-MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/studenthub?retryWrites=true&w=majority
-JWT_SECRET=your_super_secret_signing_key_at_least_32_characters_long_12345
-JWT_EXPIRES_IN=7d
-GEMINI_API_KEY=AIzaSyYourGoogleGeminiApiKeyHere
+
+# Database Configuration (Mongoose)
+MONGO_URI=mongodb+srv://<username>:<password>@cluster0.mongodb.net/studenthub?retryWrites=true&w=majority
+
+# Authentication
+JWT_SECRET=your_super_secret_jwt_key_here
+
+# AI Services
+GEMINI_API_KEY=your_google_gemini_api_key
+
+# Client URL (for CORS)
 CLIENT_URL=http://localhost:8080
 ```
 
----
+## 13. Testing
+Automated testing is integrated across both frontend and backend to ensure reliability:
 
-## Docker Setup
+```
+platform-blueprint/
+??? backend/tests/
+?   ??? auth.test.js           # Registration, password hashing, and JWT issuance
+?   ??? events.test.js         # Event filtering, creation, and registration
+?   ??? teams.test.js          # Team matchmaking and skill compatibility
+?   ??? reservations.test.js   # Concurrency-safe slot reservation logic
+?   ??? resume.test.js         # ATS response structure and score parsing
+?   ??? health.test.js         # API gateway ping and database readiness
+??? src/tests/
+?   ??? auth.test.tsx          # Login and register form validation
+?   ??? events.test.tsx        # Event list filtering and card rendering
+??? .github/workflows/ci.yml   # Automated CI pipeline on push
+```
 
+**Running Tests Locally:**
 ```bash
-# Start all containers (Frontend, Backend, MongoDB) in background
-docker-compose up --build -d
+# Run Frontend Component Tests (Vitest)
+npm run test
 
-# View live streaming logs
-docker-compose logs -f
-
-# Stop containers
-docker-compose down
+# Run Backend Unit & Integration Tests (Jest)
+cd backend && npm test
 ```
 
----
+## 14. Deployment
+- **Frontend**: Hosted on [Vercel](https://vercel.com/) with continuous deployment triggered on every push to `main`.
+- **Backend**: Containerized with Docker and hosted on [Render](https://render.com/) with automatic rebuilds.
+- **Database**: Managed on [MongoDB Atlas](https://www.mongodb.com/atlas) with automated backups, monitoring, and IP access restrictions.
+- **CI/CD Pipeline**: GitHub Actions automatically runs linter, frontend unit tests, backend integration tests, and production build checks before merging.
 
-## Testing Strategy
+## 15. Security
+Security measures include Helmet, rate limiting, input validation, authentication controls, and secure configuration practices:
+- **NoSQL Injection Defense**: `express-mongo-sanitize` strips `$` and `.` operators from request bodies, queries, and params.
+- **Cross-Site Scripting (XSS)**: Handled via React JSX automatic escaping, `xss-clean`, and DOMPurify for user-generated markdown.
+- **Rate Limiting**: `express-rate-limit` enforces strict request ceilings on authentication, password reset, and AI endpoints to mitigate brute-force and resource exhaustion attacks.
+- **HTTP Security Headers**: `helmet` enforces Content Security Policy (CSP), HTTP Strict Transport Security (HSTS), and `X-Frame-Options`.
+- **Stateless JWT & RBAC**: Cryptographically signed tokens with expiration; authorization guards enforce strict role permissions across endpoints.
 
-```mermaid
-graph TD
-    E2E[Cypress E2E Tests - Full User Journeys] --> Integration[Supertest Integration Tests - API & Auth]
-    Integration --> Concurrency[Custom Concurrency Harnesses - Slot Holds & Ticket Races]
-    Concurrency --> Unit[Vitest Unit Tests - Matchmaking & Jaccard Overlaps]
-```
+## 16. Limitations
+- **In-Memory Background Scheduler**: `node-cron` jobs currently execute in the application process. Moving to distributed multi-instance deployments requires offloading background jobs to BullMQ backed by Redis.
+- **Single-Node WebSockets**: Socket.io rooms currently rely on server instance memory. Horizontal scaling across multiple backend nodes requires attaching `@socket.io/redis-adapter`.
+- **Third-Party AI Dependency**: ATS scoring turnaround times depend on Google Gemini API availability and rate limits.
 
-- **Unit Tests**: Run via `npm run test` with Vitest (< 1.5s for 200+ assertions).
-- **Concurrency Tests**: Run via `node backend/scratch_concurrency_test.cjs` (asserts exactly 1 thread succeeds on atomic slot holds under 50 simultaneous workers).
-- **E2E Tests**: Run via `npx cypress run` in headless Chrome.
+## 17. Future Work
+- **Mobile Native Application**: Developing React Native mobile clients for iOS and Android.
+- **Redis Pub/Sub Layer**: Integrating Redis for distributed WebSocket synchronization across clustered backend instances.
+- **Smart Escrow Payments**: Integrating Stripe Connect for secure peer-to-peer housing deposits and verified event ticketing.
+- **Alumni Mentorship Network**: Expanded booking engine with calendar sync (Google Calendar / Outlook integration).
 
----
-
-## Deployment Guide
-
-- **Frontend (Vercel)**: Connect GitHub repo $\rightarrow$ Set build command `npm run build` $\rightarrow$ Set output `dist` $\rightarrow$ Configure `VITE_API_BASE_URL`.
-- **Backend (Render / AWS / Railway)**: Deploy `backend/` directory as Node Web Service $\rightarrow$ Configure environment variables $\rightarrow$ Enable TLS WebSocket support.
-- **Database (MongoDB Atlas)**: Deploy M10+ Dedicated Cluster $\rightarrow$ Whitelist backend IP addresses $\rightarrow$ Enable automated daily backups.
-
----
-
-## Performance Metrics
-
-```mermaid
-graph LR
-    P[Performance: 96/100] --- A[Accessibility: 98/100]
-    A --- B[Best Practices: 100/100]
-    B --- S[SEO: 100/100]
-```
-
-- **Code Splitting**: `React.lazy()` reduces initial bundle from 4.8MB to **320KB** gzipped.
-- **Image Optimization**: WebP formats with `sharp` reduce homepage payload by 85%.
-- **Database Query Latency**: Compound indexing drops average query latency from 140ms to **8ms**.
-
----
-
-## Scalability Considerations
-
-- **Stateless API**: JWT authentication enables horizontal scaling across multiple Node.js instances behind an AWS Application Load Balancer (ALB).
-- **Socket.io Redis Pub/Sub**: `@socket.io/redis-adapter` synchronizes real-time room broadcasts across clustered server processes.
-- **Database Sharding**: Key collections (`UserActivity`, `Notification`) sharded on `{ collegeId: 1, createdAt: 1 }`.
-
----
-
-## Security Considerations
-
-- **NoSQL Injection**: `express-mongo-sanitize` strips `$` and `.` operators.
-- **XSS Protection**: Automatic React JSX escaping + markdown sanitization.
-- **Rate Limiting**: `express-rate-limit` caps auth and AI generation endpoints (10 req/min).
-- **Security Headers**: Helmet.js enforces CSP, HSTS, and X-Frame-Options.
-- **Concurrency Locks**: MongoDB atomic operators (`$set`, `$inc`) prevent race conditions.
-
----
-
-## Limitations
-
-1. **In-Memory Node-Cron**: Background jobs run inside the main Node process; horizontal scaling requires migrating to BullMQ + Redis.
-2. **Local Media Uploads**: File uploads are currently saved to local disk (`/uploads`); production requires cloud object storage (S3 / R2).
-3. **WebRTC Mesh**: Peer video operates over mesh topology (max 4 users); live classrooms with 50+ students require an SFU (e.g., LiveKit).
-
----
-
-## Future Work
-
-```mermaid
-gantt
-    title StudentHub Product & Engineering Roadmap
-    dateFormat  YYYY-MM
-    section Phase 1 (Core Foundations)
-    Events 4-Step Wizard & Admin Curation :done, 2026-06, 2026-08
-    Gemini ATS Resume Intelligence         :done, 2026-07, 2026-08
-    Team Hunt Compatibility Engine         :done, 2026-07, 2026-08
-    section Phase 2 (Enterprise & Scale)
-    BullMQ + Redis Cron Migration          :active, 2026-09, 2026-10
-    AWS S3 / Cloudflare R2 Media Migration :active, 2026-09, 2026-10
-    Selective Forwarding Unit (SFU) Video  : 2026-10, 2026-11
-    section Phase 3 (Advanced AI)
-    AI Mock Voice-to-Voice Real-Time Agent: 2026-11, 2027-01
-    Decentralized Credential Verification  : 2027-01, 2027-03
-```
-
----
-
-## My Role
+## 18. My Role
 
 **Full-Stack Developer**
 
-Designed and implemented the frontend, backend APIs, authentication,
-database models, AI integrations, realtime workflows, and deployment
-configuration.
-
----
-
-<div align="center">
-  <b>Built with passion for students, builders, and future innovators worldwide.</b><br>
-  <sub>StudentHub Platform Blueprint © 2026. All rights reserved.</sub>
-</div>
+Designed and implemented the platform end-to-end:
+- **Frontend Architecture**: Built the responsive UI with React 18, TypeScript, Tailwind CSS, and Shadcn UI.
+- **Backend API Engineering**: Developed RESTful APIs, JWT authentication, and role-based access control with Node.js and Express.
+- **Database Design**: Modeled 60+ schemas and configured compound, geospatial, and TTL indexes using **MongoDB and Mongoose**.
+- **Real-Time Systems**: Implemented WebSocket channels for live quiz tournaments and interactive whiteboard streaming with Socket.io.
+- **AI Integrations**: Engineered Gemini 1.5 Pro prompt pipelines with structured JSON schema outputs for resume ATS scoring.
+- **DevOps & Testing**: Built Docker containers, wrote Jest and Vitest test suites, and configured GitHub Actions CI/CD workflows.
